@@ -19,268 +19,6 @@
     <link rel="stylesheet" href="../assets/css/xenon-skins.css">
     <link rel="stylesheet" href="../assets/css/nav.css">
     <style>
-        /* 
-        =====================================================
-        ⭐⭐⭐ 弹窗遮罩层 - 覆盖整个浏览器窗口 ⭐⭐⭐
-        =====================================================
-        */
-        .contact-modal-overlay {
-            /* 固定定位在浏览器窗口 */
-            position: fixed !important;  /* !important 确保优先级最高 */
-            top: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
-            bottom: 0 !important;
-            width: 100vw !important;     /* 使用视口宽度 */
-            height: 100vh !important;    /* 使用视口高度 */
-            
-            /* 半透明黑色背景 */
-            background: rgba(0, 0, 0, 0.75) !important;
-            
-            /* 默认隐藏 */
-            display: none !important;
-            
-            /* ⭐ 核心居中代码 */
-            justify-content: center !important;
-            align-items: center !important;
-            
-            /* 确保在最顶层 */
-            z-index: 999999 !important;
-            
-            /* 确保覆盖所有内容 */
-            margin: 0 !important;
-            padding: 0 !important;
-        }
-        
-        /* 显示弹窗 */
-        .contact-modal-overlay.show {
-            display: flex !important;
-            animation: fadeIn 0.3s ease;
-        }
-        
-        /* 
-        =====================================================
-        弹窗主体 - 白色简约正方形
-        =====================================================
-        */
-        .contact-modal {
-            /* 白色背景 */
-            background: #ffffff !important;
-            
-            /* 正方形尺寸 */
-            width: 500px !important;
-            height: 500px !important;
-            max-width: 90vw !important;
-            max-height: 90vh !important;
-            
-            /* 圆角和阴影 */
-            border-radius: 20px !important;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
-            
-            /* 弹出动画 */
-            animation: slideIn 0.4s ease;
-            
-            /* 内部布局 */
-            display: flex !important;
-            flex-direction: column !important;
-            position: relative !important;
-            overflow: hidden !important;
-            
-            /* 确保不继承父元素样式 */
-            margin: 0 !important;
-            padding: 0 !important;
-        }
-        
-        /* 
-        =====================================================
-        【修改开始】标题栏 - 改为简约白色风格
-        =====================================================
-        */
-        .contact-modal-header {
-            /* 【修改】改为纯白色背景，去掉蓝色渐变 */
-            background: #ffffff !important;
-            /* 【修改】文字颜色改为深色 */
-            color: #333333 !important;
-            padding: 30px !important;
-            text-align: center !important;
-            position: relative !important;
-            flex-shrink: 0 !important;
-            /* 【新增】添加底部边框分隔线 */
-            border-bottom: 1px solid #f0f0f0 !important;
-        }
-        
-        .contact-modal-header h3 {
-            margin: 0 !important;
-            font-size: 24px !important;
-            font-weight: 600 !important;
-            /* 【修改】文字颜色改为深色 */
-            color: #333333 !important;
-        }
-        
-        /* 关闭按钮 */
-        .contact-modal-close {
-            position: absolute !important;
-            right: 20px !important;
-            top: 50% !important;
-            transform: translateY(-50%) !important;
-            width: 36px !important;
-            height: 36px !important;
-            /* 【修改】背景改为浅灰色 */
-            background: #f8f9fa !important;
-            /* 【修改】边框改为浅灰色 */
-            border: 2px solid #e9ecef !important;
-            /* 【修改】图标颜色改为深色 */
-            color: #666666 !important;
-            font-size: 18px !important;
-            cursor: pointer !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            transition: all 0.3s !important;
-            z-index: 10 !important;
-            padding: 0 !important;
-        }
-        
-        .contact-modal-close:hover {
-            /* 【修改】悬停背景改为浅灰色 */
-            background: #e9ecef !important;
-            transform: translateY(-50%) rotate(90deg) !important;
-        }
-        
-        /* 
-        =====================================================
-        内容区域
-        =====================================================
-        */
-        .contact-modal-content {
-            flex: 1 !important;
-            padding: 35px !important;
-            overflow-y: auto !important;
-            background: white !important;
-        }
-        
-        /* 联系信息卡片 */
-        .contact-info-item {
-            margin-bottom: 16px !important;
-            padding: 18px !important;
-            background: #f8f9fc !important;
-            border-radius: 12px !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: space-between !important;
-            transition: all 0.3s !important;
-            border: 1px solid #e9ecef !important;
-        }
-        
-        .contact-info-item:hover {
-            background: #e8eaf6 !important;
-            transform: translateX(5px) !important;
-            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1) !important;
-        }
-        
-        .contact-label {
-            font-size: 13px !important;
-            color: #6c757d !important;
-            margin-bottom: 5px !important;
-            font-weight: 500 !important;
-            display: block !important;
-        }
-        
-        .contact-text {
-            font-size: 15px !important;
-            color: #212529 !important;
-            font-weight: 600 !important;
-            word-break: break-all !important;
-        }
-        
-        .contact-text a {
-            color: #667eea !important;
-            text-decoration: none !important;
-        }
-        
-        .contact-text a:hover {
-            text-decoration: underline !important;
-        }
-        
-        /* 复制按钮 */
-        .copy-btn {
-            background: #667eea !important;
-            border: none !important;
-            color: white !important;
-            padding: 8px 18px !important;
-            border-radius: 8px !important;
-            font-size: 13px !important;
-            cursor: pointer !important;
-            transition: all 0.3s !important;
-            white-space: nowrap !important;
-            flex-shrink: 0 !important;
-            margin-left: 15px !important;
-        }
-        
-        .copy-btn:hover {
-            background: #5568d3 !important;
-            transform: translateY(-2px) !important;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3) !important;
-        }
-        
-        /* 底部提示 */
-        .contact-footer {
-            text-align: center !important;
-            margin-top: 20px !important;
-            padding-top: 20px !important;
-            border-top: 2px solid #e9ecef !important;
-        }
-        
-        .contact-footer p {
-            margin: 0 !important;
-            font-size: 14px !important;
-            color: #6c757d !important;
-        }
-        
-        /* 
-        =====================================================
-        动画效果
-        =====================================================
-        */
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: scale(0.9) translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: scale(1) translateY(0);
-            }
-        }
-        
-        /* 复制成功提示 */
-        .copy-success {
-            position: fixed !important;
-            top: 50% !important;
-            left: 50% !important;
-            transform: translate(-50%, -50%) !important;
-            background: #667eea !important;
-            color: white !important;
-            padding: 16px 32px !important;
-            border-radius: 12px !important;
-            z-index: 9999999 !important;
-            font-size: 16px !important;
-            font-weight: 500 !important;
-            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4) !important;
-            animation: fadeInOut 2s ease !important;
-            pointer-events: none !important;
-        }
-        
-        @keyframes fadeInOut {
-            0%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
-            15%, 85% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-        }
-        
         /* 站长卡片悬停效果 */
         .xe-widget.xe-conversations {
             cursor: pointer;
@@ -294,80 +32,418 @@
         
         /* 
         =====================================================
+        ⭐⭐⭐ 卡片式弹窗遮罩层 ⭐⭐⭐
+        =====================================================
+        */
+        .card-modal-overlay {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            background: rgba(0, 0, 0, 0.7) !important;
+            display: none !important;
+            justify-content: center !important;
+            align-items: center !important;
+            z-index: 999999 !important;
+            margin: 0 !important;
+            padding: 20px !important;
+        }
+        
+        /* 显示弹窗 */
+        .card-modal-overlay.show {
+            display: flex !important;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        /* 
+        =====================================================
+        卡片式弹窗主体
+        =====================================================
+        */
+        .card-modal {
+            background: #ffffff !important;
+            width: 420px !important;
+            max-width: 95vw !important;
+            max-height: 90vh !important;
+            border-radius: 20px !important;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.25) !important;
+            animation: slideUp 0.4s ease;
+            display: flex !important;
+            flex-direction: column !important;
+            position: relative !important;
+            overflow: hidden !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        
+        /* 卡片头部 - 渐变背景 */
+        .card-modal-header {
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%) !important;
+            padding: 30px 30px 25px 30px !important;
+            position: relative !important;
+            text-align: center !important;
+            flex-shrink: 0 !important;
+        }
+        
+        /* 站长头像 */
+        .card-avatar {
+            width: 100px !important;
+            height: 100px !important;
+            border-radius: 50% !important;
+            border: 5px solid rgba(255, 255, 255, 0.3) !important;
+            margin: 0 auto 20px auto !important;
+            overflow: hidden !important;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2) !important;
+        }
+        
+        .card-avatar img {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover !important;
+        }
+        
+        /* 站长名称和简介 */
+        .card-name {
+            margin: 0 !important;
+            font-size: 24px !important;
+            font-weight: 700 !important;
+            color: white !important;
+            letter-spacing: 0.5px !important;
+        }
+        
+        .card-title {
+            margin: 8px 0 0 0 !important;
+            font-size: 14px !important;
+            color: rgba(255, 255, 255, 0.9) !important;
+            font-weight: 400 !important;
+            line-height: 1.5 !important;
+        }
+        
+        /* 关闭按钮 */
+        .card-modal-close {
+            position: absolute !important;
+            right: 20px !important;
+            top: 20px !important;
+            width: 40px !important;
+            height: 40px !important;
+            background: rgba(255, 255, 255, 0.15) !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            border-radius: 50% !important;
+            color: white !important;
+            font-size: 18px !important;
+            cursor: pointer !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            transition: all 0.3s !important;
+            z-index: 10 !important;
+            padding: 0 !important;
+        }
+        
+        .card-modal-close:hover {
+            background: rgba(255, 255, 255, 0.25) !important;
+            transform: rotate(90deg) !important;
+        }
+        
+        /* 
+        =====================================================
+        卡片内容区域
+        =====================================================
+        */
+        .card-modal-content {
+            flex: 1 !important;
+            padding: 30px !important;
+            overflow-y: auto !important;
+            background: white !important;
+        }
+        
+        /* 联系信息区域 */
+        .contact-section {
+            margin-bottom: 30px !important;
+        }
+        
+        .section-title {
+            font-size: 16px !important;
+            font-weight: 600 !important;
+            color: #333333 !important;
+            margin: 0 0 20px 0 !important;
+            padding-bottom: 10px !important;
+            border-bottom: 2px solid #f0f2f7 !important;
+            display: flex !important;
+            align-items: center !important;
+        }
+        
+        .section-title i {
+            margin-right: 10px !important;
+            color: #6a11cb !important;
+        }
+        
+        /* 联系卡片 */
+        .contact-card {
+            background: #f8fafc !important;
+            border-radius: 12px !important;
+            padding: 18px !important;
+            margin-bottom: 15px !important;
+            border: 1px solid #eef2f7 !important;
+            transition: all 0.3s !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+        }
+        
+        .contact-card:hover {
+            background: #f0f4ff !important;
+            transform: translateX(5px) !important;
+            box-shadow: 0 5px 15px rgba(106, 17, 203, 0.1) !important;
+        }
+        
+        .contact-info {
+            flex: 1 !important;
+        }
+        
+        .contact-label {
+            font-size: 12px !important;
+            color: #6c757d !important;
+            margin-bottom: 5px !important;
+            font-weight: 500 !important;
+            display: flex !important;
+            align-items: center !important;
+        }
+        
+        .contact-label i {
+            margin-right: 8px !important;
+            width: 16px !important;
+        }
+        
+        .contact-value {
+            font-size: 15px !important;
+            color: #212529 !important;
+            font-weight: 600 !important;
+            word-break: break-all !important;
+        }
+        
+        .contact-value a {
+            color: #6a11cb !important;
+            text-decoration: none !important;
+            transition: all 0.3s !important;
+        }
+        
+        .contact-value a:hover {
+            color: #2575fc !important;
+            text-decoration: underline !important;
+        }
+        
+        /* 复制按钮 */
+        .card-copy-btn {
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%) !important;
+            border: none !important;
+            color: white !important;
+            padding: 8px 16px !important;
+            border-radius: 8px !important;
+            font-size: 12px !important;
+            cursor: pointer !important;
+            transition: all 0.3s !important;
+            white-space: nowrap !important;
+            flex-shrink: 0 !important;
+            margin-left: 15px !important;
+            font-weight: 500 !important;
+        }
+        
+        .card-copy-btn:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: 0 5px 15px rgba(106, 17, 203, 0.3) !important;
+        }
+        
+        /* 简介区域 */
+        .intro-section {
+            background: #f8fafc !important;
+            border-radius: 12px !important;
+            padding: 20px !important;
+            margin-top: 25px !important;
+            border: 1px solid #eef2f7 !important;
+        }
+        
+        .intro-section p {
+            margin: 0 !important;
+            font-size: 14px !important;
+            color: #495057 !important;
+            line-height: 1.6 !important;
+            text-align: center !important;
+        }
+        
+        /* 底部操作按钮 */
+        .card-modal-footer {
+            padding: 20px 30px !important;
+            background: #f8fafc !important;
+            border-top: 1px solid #eef2f7 !important;
+            text-align: center !important;
+            flex-shrink: 0 !important;
+        }
+        
+        .action-btn {
+            background: white !important;
+            border: 1px solid #6a11cb !important;
+            color: #6a11cb !important;
+            padding: 10px 30px !important;
+            border-radius: 25px !important;
+            font-size: 14px !important;
+            cursor: pointer !important;
+            transition: all 0.3s !important;
+            font-weight: 600 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        
+        .action-btn:hover {
+            background: #6a11cb !important;
+            color: white !important;
+            transform: translateY(-3px) !important;
+            box-shadow: 0 8px 20px rgba(106, 17, 203, 0.3) !important;
+        }
+        
+        .action-btn i {
+            margin-right: 8px !important;
+        }
+        
+        /* 
+        =====================================================
+        动画效果
+        =====================================================
+        */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        
+        /* 复制成功提示 */
+        .copy-success {
+            position: fixed !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) !important;
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%) !important;
+            color: white !important;
+            padding: 14px 28px !important;
+            border-radius: 10px !important;
+            z-index: 9999999 !important;
+            font-size: 15px !important;
+            font-weight: 500 !important;
+            box-shadow: 0 10px 30px rgba(106, 17, 203, 0.4) !important;
+            animation: fadeInOut 2s ease !important;
+            pointer-events: none !important;
+        }
+        
+        @keyframes fadeInOut {
+            0%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+            15%, 85% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
+        
+        /* 
+        =====================================================
         响应式设计
         =====================================================
         */
         
         /* 平板 */
         @media (max-width: 768px) {
-            .contact-modal {
-                width: 450px !important;
-                height: 450px !important;
+            .card-modal {
+                width: 380px !important;
             }
             
-            .contact-modal-header h3 {
-                font-size: 22px !important;
+            .card-modal-header {
+                padding: 25px 25px 20px 25px !important;
             }
             
-            .contact-modal-content {
-                padding: 30px !important;
+            .card-avatar {
+                width: 90px !important;
+                height: 90px !important;
+            }
+            
+            .card-modal-content {
+                padding: 25px !important;
             }
         }
         
         /* 手机 */
         @media (max-width: 520px) {
-            .contact-modal {
-                width: 380px !important;
-                height: 380px !important;
+            .card-modal {
+                width: 340px !important;
             }
             
-            .contact-modal-header {
-                padding: 25px !important;
+            .card-modal-header {
+                padding: 20px 20px 15px 20px !important;
             }
             
-            .contact-modal-header h3 {
-                font-size: 20px !important;
+            .card-avatar {
+                width: 80px !important;
+                height: 80px !important;
             }
             
-            .contact-modal-content {
-                padding: 25px !important;
+            .card-name {
+                font-size: 22px !important;
             }
             
-            .contact-info-item {
+            .card-modal-content {
+                padding: 20px !important;
+            }
+            
+            .contact-card {
                 flex-direction: column !important;
                 align-items: flex-start !important;
                 padding: 15px !important;
             }
             
-            .copy-btn {
+            .card-copy-btn {
                 margin-left: 0 !important;
                 margin-top: 10px !important;
                 width: 100% !important;
+            }
+            
+            .card-modal-footer {
+                padding: 15px 20px !important;
             }
         }
         
         /* 小屏手机 */
         @media (max-width: 400px) {
-            .contact-modal {
-                width: 340px !important;
-                height: 340px !important;
+            .card-modal {
+                width: 300px !important;
             }
             
-            .contact-modal-content {
-                padding: 20px !important;
+            .card-modal-header {
+                padding: 15px 15px 10px 15px !important;
             }
             
-            .contact-info-item {
+            .card-avatar {
+                width: 70px !important;
+                height: 70px !important;
+            }
+            
+            .card-name {
+                font-size: 20px !important;
+            }
+            
+            .card-modal-content {
+                padding: 15px !important;
+            }
+            
+            .contact-card {
                 padding: 12px !important;
-                margin-bottom: 12px !important;
-            }
-            
-            .contact-label {
-                font-size: 12px !important;
-            }
-            
-            .contact-text {
-                font-size: 14px !important;
             }
         }
     </style>
@@ -493,64 +569,89 @@
         </div>
     </div>
     
-    <!-- ⭐⭐⭐ 弹窗放在 body 最后，不在 page-container 里面 ⭐⭐⭐ -->
-    <div class="contact-modal-overlay" id="contactModal">
-        <div class="contact-modal">
-            <!-- 【修改】标题栏现在变成白色背景，深色文字 -->
-            <div class="contact-modal-header">
-                <h3><i class="fa fa-user-circle"></i> 联系何哥</h3>
-                <button class="contact-modal-close" id="closeModal">
+    <!-- ⭐⭐⭐ 卡片式弹窗 ⭐⭐⭐ -->
+    <div class="card-modal-overlay" id="cardModal">
+        <div class="card-modal">
+            <!-- 卡片头部 -->
+            <div class="card-modal-header">
+                <div class="card-avatar">
+                    <img src="../assets/images/logos/viggoz.png" alt="何哥">
+                </div>
+                <h2 class="card-name">何哥</h2>
+                <p class="card-title">热爱技术，喜欢收集和分享优质资源</p>
+                <button class="card-modal-close" id="closeCardModal">
                     <i class="fa fa-times"></i>
                 </button>
             </div>
             
-            <!-- 内容区 -->
-            <div class="contact-modal-content">
-                <div class="contact-info-item">
-                    <div>
-                        <div class="contact-label">📧 电子邮箱</div>
-                        <div class="contact-text">34296407@qq.com</div>
-                    </div>
-                    <button class="copy-btn" onclick="copyToClipboard('34296407@qq.com')">
-                        <i class="fa fa-copy"></i> 复制
-                    </button>
-                </div>
-                
-                <div class="contact-info-item">
-                    <div>
-                        <div class="contact-label">🌐 个人网站</div>
-                        <div class="contact-text">
-                            <a href="https://hq168.dpdns.org" target="_blank">hq168.dpdns.org</a>
+            <!-- 卡片内容 -->
+            <div class="card-modal-content">
+                <!-- 联系方式区域 -->
+                <div class="contact-section">
+                    <h3 class="section-title"><i class="fa fa-address-card"></i> 联系方式</h3>
+                    
+                    <div class="contact-card">
+                        <div class="contact-info">
+                            <div class="contact-label">
+                                <i class="fa fa-envelope"></i> 电子邮箱
+                            </div>
+                            <div class="contact-value">34296407@qq.com</div>
                         </div>
+                        <button class="card-copy-btn" onclick="copyToClipboard('34296407@qq.com', this)">
+                            <i class="fa fa-copy"></i> 复制
+                        </button>
                     </div>
-                    <button class="copy-btn" onclick="copyToClipboard('https://hq168.dpdns.org')">
-                        <i class="fa fa-copy"></i> 复制
-                    </button>
+                    
+                    <div class="contact-card">
+                        <div class="contact-info">
+                            <div class="contact-label">
+                                <i class="fa fa-globe"></i> 个人网站
+                            </div>
+                            <div class="contact-value">
+                                <a href="https://hq168.dpdns.org" target="_blank">hq168.dpdns.org</a>
+                            </div>
+                        </div>
+                        <button class="card-copy-btn" onclick="copyToClipboard('https://hq168.dpdns.org', this)">
+                            <i class="fa fa-copy"></i> 复制
+                        </button>
+                    </div>
+                    
+                    <div class="contact-card">
+                        <div class="contact-info">
+                            <div class="contact-label">
+                                <i class="fa fa-weixin"></i> 微信号
+                            </div>
+                            <div class="contact-value">hege_nav123</div>
+                        </div>
+                        <button class="card-copy-btn" onclick="copyToClipboard('hege_nav123', this)">
+                            <i class="fa fa-copy"></i> 复制
+                        </button>
+                    </div>
+                    
+                    <div class="contact-card">
+                        <div class="contact-info">
+                            <div class="contact-label">
+                                <i class="fa fa-qq"></i> QQ号码
+                            </div>
+                            <div class="contact-value">34296407</div>
+                        </div>
+                        <button class="card-copy-btn" onclick="copyToClipboard('34296407', this)">
+                            <i class="fa fa-copy"></i> 复制
+                        </button>
+                    </div>
                 </div>
                 
-                <div class="contact-info-item">
-                    <div>
-                        <div class="contact-label">💬 微信号</div>
-                        <div class="contact-text">Os51888888</div>
-                    </div>
-                    <button class="copy-btn" onclick="copyToClipboard('hege_nav123')">
-                        <i class="fa fa-copy"></i> 复制
-                    </button>
+                <!-- 简介区域 -->
+                <div class="intro-section">
+                    <p>📢 欢迎推荐优质网站或提出宝贵建议！</p>
                 </div>
-                
-                <div class="contact-info-item">
-                    <div>
-                        <div class="contact-label">💎 QQ号码</div>
-                        <div class="contact-text">34296407</div>
-                    </div>
-                    <button class="copy-btn" onclick="copyToClipboard('34296407')">
-                        <i class="fa fa-copy"></i> 复制
-                    </button>
-                </div>
-                
-                <div class="contact-footer">
-                    <p>欢迎推荐优质网站或提出建议</p>
-                </div>
+            </div>
+            
+            <!-- 卡片底部 -->
+            <div class="card-modal-footer">
+                <button class="action-btn" onclick="closeCardModal()">
+                    <i class="fa fa-check"></i> 我知道了
+                </button>
             </div>
         </div>
     </div>
@@ -562,51 +663,54 @@
             $('#hegeCard').on('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                $('#contactModal').addClass('show');
+                $('#cardModal').addClass('show');
                 $('body').css('overflow', 'hidden');
             });
             
             // 点击关闭按钮
-            $('#closeModal').on('click', function(e) {
+            $('#closeCardModal').on('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                closeModal();
+                closeCardModal();
             });
             
             // 点击黑色背景关闭
-            $('#contactModal').on('click', function(e) {
+            $('#cardModal').on('click', function(e) {
                 if (e.target === this) {
-                    closeModal();
+                    closeCardModal();
                 }
             });
             
             // ESC键关闭
             $(document).on('keydown', function(e) {
-                if (e.key === 'Escape' && $('#contactModal').hasClass('show')) {
-                    closeModal();
+                if (e.key === 'Escape' && $('#cardModal').hasClass('show')) {
+                    closeCardModal();
                 }
             });
             
             // 关闭弹窗函数
-            function closeModal() {
-                $('#contactModal').removeClass('show');
+            function closeCardModal() {
+                $('#cardModal').removeClass('show');
                 $('body').css('overflow', '');
             }
+            
+            // 暴露给全局
+            window.closeCardModal = closeCardModal;
         });
         
         // 复制功能
-        function copyToClipboard(text) {
+        function copyToClipboard(text, button) {
             if (navigator.clipboard && window.isSecureContext) {
                 navigator.clipboard.writeText(text)
-                    .then(() => showCopySuccess())
-                    .catch(() => fallbackCopy(text));
+                    .then(() => showCopySuccess(button))
+                    .catch(() => fallbackCopy(text, button));
             } else {
-                fallbackCopy(text);
+                fallbackCopy(text, button);
             }
         }
         
         // 降级复制
-        function fallbackCopy(text) {
+        function fallbackCopy(text, button) {
             const textarea = document.createElement('textarea');
             textarea.value = text;
             textarea.style.position = 'fixed';
@@ -616,7 +720,7 @@
             
             try {
                 document.execCommand('copy');
-                showCopySuccess();
+                showCopySuccess(button);
             } catch (err) {
                 alert('复制失败，请手动复制');
             }
@@ -625,7 +729,24 @@
         }
         
         // 显示复制成功
-        function showCopySuccess() {
+        function showCopySuccess(button) {
+            // 恢复所有按钮状态
+            $('.card-copy-btn').each(function() {
+                $(this).html('<i class="fa fa-copy"></i> 复制');
+                $(this).prop('disabled', false);
+            });
+            
+            // 更新点击的按钮
+            if (button) {
+                $(button).html('<i class="fa fa-check"></i> 已复制');
+                $(button).prop('disabled', true);
+                setTimeout(() => {
+                    $(button).html('<i class="fa fa-copy"></i> 复制');
+                    $(button).prop('disabled', false);
+                }, 2000);
+            }
+            
+            // 显示全局提示
             $('.copy-success').remove();
             const tip = $('<div class="copy-success"><i class="fa fa-check-circle"></i> 复制成功！</div>');
             $('body').append(tip);

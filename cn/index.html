@@ -53,6 +53,96 @@
     <meta name="twitter:title" content="WebStack - 收集国内外优秀设计网站、UI设计资源网站、灵感创意网站、素材资源网站，定时更新分享优质产品设计书签。hq168.dpdns.org">
     <meta name="twitter:description" content="UI设计,UI设计素材,设计导航,网址导航,设计资源,创意导航,创意网站导航,技术员网址大全,设计素材大全,技术员导航,UI设计资源,优秀UI设计欣赏,技术员导航,技术员网址大全,技术员网址导航,产品经理网址导航,交互技术员网址导航,hq168.dpdns.org">
     <meta name="twitter:image" content="http://www.webstack.cc/assets/images/webstack_banner_cn.png">
+    <!-- 黑白主题样式 - 添加在这里 -->
+    <style>
+    /* 黑白主题样式 */
+    body.dark-theme {
+        background-color: #121212;
+        color: #e0e0e0;
+    }
+    
+    body.dark-theme .page-body {
+        background-color: #121212;
+    }
+    
+    body.dark-theme .main-content {
+        background-color: #121212;
+    }
+    
+    body.dark-theme .text-gray {
+        color: #b0b0b0 !important;
+    }
+    
+    body.dark-theme .xe-widget {
+        background-color: #1e1e1e !important;
+        border-color: #333 !important;
+        color: #e0e0e0;
+    }
+    
+    body.dark-theme .xe-widget:hover {
+        background-color: #2a2a2a !important;
+        border-color: #444 !important;
+    }
+    
+    body.dark-theme .xe-comment p {
+        color: #ccc !important;
+    }
+    
+    body.dark-theme .xe-comment a {
+        color: #e0e0e0 !important;
+    }
+    
+    body.dark-theme .main-footer {
+        background-color: #1e1e1e !important;
+        border-top: 1px solid #333 !important;
+        color: #ccc;
+    }
+    
+    /* 侧边栏暗色主题 */
+    body.dark-theme .sidebar-menu {
+        background-color: #1a1a1a;
+    }
+    
+    body.dark-theme .sidebar-menu a {
+        color: #ccc;
+    }
+    
+    body.dark-theme .sidebar-menu a:hover {
+        background-color: #2a2a2a;
+    }
+    
+    /* 切换按钮样式 */
+    .theme-toggle-btn {
+        background: transparent;
+        border: 1px solid #ddd;
+        border-radius: 20px;
+        padding: 5px 15px;
+        cursor: pointer;
+        font-size: 12px;
+        transition: all 0.3s;
+        margin-left: 10px;
+        color: #333;
+    }
+    
+    body.dark-theme .theme-toggle-btn {
+        border-color: #666;
+        color: #e0e0e0;
+        background: rgba(255,255,255,0.1);
+    }
+    
+    .theme-toggle-btn:hover {
+        background: #f5f5f5;
+    }
+    
+    body.dark-theme .theme-toggle-btn:hover {
+        background: #333;
+    }
+    
+    /* 确保图标颜色正确 */
+    body.dark-theme i {
+        color: #ccc;
+    }
+    </style>
 </head>
 
 <body class="page-body">
@@ -300,6 +390,11 @@
                         <a href="https://github.com/WebStackPage/WebStackPage.github.io" target="_blank">
                             <i class="fa-github"></i>  GitHub
                         </a>
+                    </li>
+                    <li class="hidden-sm hidden-xs">
+                        <button class="theme-toggle-btn" id="themeToggle">
+                            <i class="fa-moon"></i> 黑白切换
+                        </button>
                     </li>
                 </ul>
                 <!-- <a href="https://github.com/WebStackPage/WebStackPage.github.io" target="_blank"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"></a> -->
@@ -4307,6 +4402,53 @@
     <!-- JavaScripts initializations and stuff -->
     <script src="../assets/js/xenon-custom.js"></script>
     <script src="../assets/js/lozad.js"></script>
+    <!-- 黑白主题切换功能 -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 确保按钮存在
+        const themeToggle = document.getElementById('themeToggle');
+        if (!themeToggle) return;
+        
+        // 检查本地存储中的主题设置
+        const currentTheme = localStorage.getItem('theme') || 'light';
+        
+        // 应用保存的主题
+        if (currentTheme === 'dark') {
+            document.body.classList.add('dark-theme');
+            updateButtonText(true);
+        }
+        
+        // 切换主题函数
+        function toggleTheme() {
+            const isDark = document.body.classList.toggle('dark-theme');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            updateButtonText(isDark);
+        }
+        
+        // 更新按钮文本
+        function updateButtonText(isDark) {
+            const icon = themeToggle.querySelector('i');
+            if (isDark) {
+                icon.className = 'fa-sun';
+                themeToggle.innerHTML = '<i class="fa-sun"></i> 切换亮色';
+            } else {
+                icon.className = 'fa-moon';
+                themeToggle.innerHTML = '<i class="fa-moon"></i> 黑白切换';
+            }
+        }
+        
+        // 绑定点击事件
+        themeToggle.addEventListener('click', toggleTheme);
+        
+        // 添加快捷键支持 (Ctrl+Shift+T 切换主题)
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.shiftKey && e.key === 'T') {
+                e.preventDefault();
+                toggleTheme();
+            }
+        });
+    });
+    </script>
 </body>
 
 </html>

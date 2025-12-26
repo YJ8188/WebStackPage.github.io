@@ -93,23 +93,28 @@
         
         /* 
         =====================================================
-        标题栏
+        【修改开始】标题栏 - 改为简约白色风格
         =====================================================
         */
         .contact-modal-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-            color: white !important;
+            /* 【修改】改为纯白色背景，去掉蓝色渐变 */
+            background: #ffffff !important;
+            /* 【修改】文字颜色改为深色 */
+            color: #333333 !important;
             padding: 30px !important;
             text-align: center !important;
             position: relative !important;
             flex-shrink: 0 !important;
+            /* 【新增】添加底部边框分隔线 */
+            border-bottom: 1px solid #f0f0f0 !important;
         }
         
         .contact-modal-header h3 {
             margin: 0 !important;
             font-size: 24px !important;
             font-weight: 600 !important;
-            color: white !important;
+            /* 【修改】文字颜色改为深色 */
+            color: #333333 !important;
         }
         
         /* 关闭按钮 */
@@ -120,10 +125,12 @@
             transform: translateY(-50%) !important;
             width: 36px !important;
             height: 36px !important;
-            background: rgba(255, 255, 255, 0.2) !important;
-            border: 2px solid rgba(255, 255, 255, 0.3) !important;
-            border-radius: 50% !important;
-            color: white !important;
+            /* 【修改】背景改为浅灰色 */
+            background: #f8f9fa !important;
+            /* 【修改】边框改为浅灰色 */
+            border: 2px solid #e9ecef !important;
+            /* 【修改】图标颜色改为深色 */
+            color: #666666 !important;
             font-size: 18px !important;
             cursor: pointer !important;
             display: flex !important;
@@ -135,7 +142,8 @@
         }
         
         .contact-modal-close:hover {
-            background: rgba(255, 255, 255, 0.35) !important;
+            /* 【修改】悬停背景改为浅灰色 */
+            background: #e9ecef !important;
             transform: translateY(-50%) rotate(90deg) !important;
         }
         
@@ -488,7 +496,7 @@
     <!-- ⭐⭐⭐ 弹窗放在 body 最后，不在 page-container 里面 ⭐⭐⭐ -->
     <div class="contact-modal-overlay" id="contactModal">
         <div class="contact-modal">
-            <!-- 标题栏 -->
+            <!-- 【修改】标题栏现在变成白色背景，深色文字 -->
             <div class="contact-modal-header">
                 <h3><i class="fa fa-user-circle"></i> 联系何哥</h3>
                 <button class="contact-modal-close" id="closeModal">
@@ -523,7 +531,7 @@
                 <div class="contact-info-item">
                     <div>
                         <div class="contact-label">💬 微信号</div>
-                        <div class="contact-text">Os51888888</div>
+                        <div class="contact-text">hege_nav123</div>
                     </div>
                     <button class="copy-btn" onclick="copyToClipboard('hege_nav123')">
                         <i class="fa fa-copy"></i> 复制

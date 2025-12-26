@@ -54,152 +54,104 @@
     <meta name="twitter:description" content="UI设计,UI设计素材,设计导航,网址导航,设计资源,创意导航,创意网站导航,技术员网址大全,设计素材大全,技术员导航,UI设计资源,优秀UI设计欣赏,技术员导航,技术员网址大全,技术员网址导航,产品经理网址导航,交互技术员网址导航,hq168.dpdns.org">
     <meta name="twitter:image" content="http://www.webstack.cc/assets/images/webstack_banner_cn.png">
     <!-- 黑白主题样式 - 添加在这里 -->
-    <style>
-    /* 黑白主题样式 */
-    body.dark-theme {
-        background-color: #121212;
-        color: #e0e0e0;
-    }
-    
-    body.dark-theme .page-body {
-        background-color: #121212;
-    }
-    
-    body.dark-theme .main-content {
-        background-color: #121212;
-    }
-    
-    body.dark-theme .text-gray {
-        color: #b0b0b0 !important;
-    }
-    
-    body.dark-theme .xe-widget {
-        background-color: #1e1e1e !important;
-        border-color: #333 !important;
-        color: #e0e0e0;
-    }
-    
-    body.dark-theme .xe-widget:hover {
-        background-color: #2a2a2a !important;
-        border-color: #444 !important;
-    }
-    
-    body.dark-theme .xe-comment p {
-        color: #ccc !important;
-    }
-    
-    body.dark-theme .xe-comment a {
-        color: #e0e0e0 !important;
-    }
-    
-    body.dark-theme .main-footer {
-        background-color: #1e1e1e !important;
-        border-top: 1px solid #333 !important;
-        color: #ccc;
-    }
-    
-    /* 侧边栏暗色主题 */
-    body.dark-theme .sidebar-menu {
-        background-color: #1a1a1a;
-    }
-    
-    body.dark-theme .sidebar-menu a {
-        color: #ccc;
-    }
-    
-    body.dark-theme .sidebar-menu a:hover {
-        background-color: #2a2a2a;
-    }
-    
-    /* 漂亮的滑动开关样式 */
-    .theme-switch-wrapper {
-        display: flex;
-        align-items: center;
-        margin-left: 10px;
-    }
-    
-    .theme-switch {
-        position: relative;
-        display: inline-block;
-        width: 54px;
-        height: 28px;
-    }
-    
-    .theme-switch input {
-        opacity: 0;
-        width: 0;
-        height: 0;
-    }
-    
-    .slider {
-        position: absolute;
-        cursor: pointer;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: #ccc;
-        transition: .4s;
-        border-radius: 34px;
-    }
-    
-    .slider:before {
-        position: absolute;
-        content: "";
-        height: 20px;
-        width: 20px;
-        left: 4px;
-        bottom: 4px;
-        background-color: white;
-        transition: .4s;
-        border-radius: 50%;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    }
-    
-    input:checked + .slider {
-        background-color: #4CAF50;
-    }
-    
-    input:checked + .slider:before {
-        transform: translateX(26px);
-    }
-    
-    /* 添加滑动动画效果 */
-    .slider:after {
-        content: "☀️";
-        position: absolute;
-        left: 6px;
-        top: 50%;
-        transform: translateY(-50%);
-        font-size: 12px;
-        transition: opacity 0.3s;
-    }
-    
-    input:checked + .slider:after {
-        content: "🌙";
-        left: auto;
-        right: 6px;
-    }
-    
-    /* 确保图标颜色正确 */
-    body.dark-theme i {
-        color: #ccc;
-    }
-    
-    /* 添加标签文字 */
-    .theme-label {
-        margin-left: 8px;
-        font-size: 12px;
-        color: #666;
-    }
-    
-    body.dark-theme .theme-label {
-        color: #aaa;
-    }
-    </style>
+<style>
+body.dark-theme,
+body.dark-theme .page-body,
+body.dark-theme .main-content {
+    background-color: #121212 !important;
+    color: #e0e0e0;
+}
+
+/* 顶部白条根源 */
+body.dark-theme .user-info-navbar {
+    background-color: #1a1a1a !important;
+    border-bottom: 1px solid #333;
+}
+
+/* 左侧菜单 */
+body.dark-theme .sidebar-menu {
+    background-color: #1a1a1a !important;
+}
+
+body.dark-theme .sidebar-menu a {
+    color: #ccc !important;
+}
+
+/* 卡片 */
+body.dark-theme .xe-widget {
+    background-color: #1e1e1e !important;
+    border-color: #333 !important;
+    color: #e0e0e0;
+}
+
+body.dark-theme .xe-widget:hover {
+    background-color: #2a2a2a !important;
+}
+
+body.dark-theme .text-gray {
+    color: #aaa !important;
+}
+
+/* ========== 夜间模式开关 ========== */
+.theme-toggle {
+    position: fixed;
+    top: 14px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #666;
+}
+
+.theme-toggle input {
+    display: none;
+}
+
+.theme-toggle label {
+    width: 46px;
+    height: 24px;
+    background: #ccc;
+    border-radius: 24px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.theme-toggle label::after {
+    content: "";
+    width: 18px;
+    height: 18px;
+    background: #fff;
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    border-radius: 50%;
+    transition: transform 0.3s;
+}
+
+.theme-toggle input:checked + label {
+    background: #4CAF50;
+}
+
+.theme-toggle input:checked + label::after {
+    transform: translateX(22px);
+}
+
+body.dark-theme .theme-toggle {
+    color: #aaa;
+}
+</style>
 </head>
 
 <body class="page-body">
+   <!-- 夜间模式开关（新增） -->
+    <div class="theme-toggle">
+        <span>夜间</span>
+        <input type="checkbox" id="themeToggle">
+        <label for="themeToggle"></label>
+    </div>
     <!-- skin-white -->
     <div class="page-container">
         <div class="sidebar-menu toggle-others fixed">
@@ -4460,64 +4412,25 @@
     <script src="../assets/js/xenon-custom.js"></script>
     <script src="../assets/js/lozad.js"></script>
    <!-- 黑白主题切换功能 -->
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // 获取切换开关
-        const themeToggle = document.getElementById('themeToggle');
-        if (!themeToggle) return;
-        
-        // 检查本地存储中的主题设置
-        const currentTheme = localStorage.getItem('theme') || 'light';
-        
-        // 应用保存的主题
-        if (currentTheme === 'dark') {
+<script>
+(function () {
+    const toggle = document.getElementById('themeToggle');
+
+    if (localStorage.getItem('theme') === 'dark') {
+        document.body.classList.add('dark-theme');
+        toggle.checked = true;
+    }
+
+    toggle.addEventListener('change', function () {
+        if (this.checked) {
             document.body.classList.add('dark-theme');
-            themeToggle.checked = true;
-            updateLabel(true);
-        }
-        
-        // 切换主题函数
-        function toggleTheme() {
-            const isDark = themeToggle.checked;
-            if (isDark) {
-                document.body.classList.add('dark-theme');
-                localStorage.setItem('theme', 'dark');
-            } else {
-                document.body.classList.remove('dark-theme');
-                localStorage.setItem('theme', 'light');
-            }
-            updateLabel(isDark);
-        }
-        
-        // 更新标签文字
-        function updateLabel(isDark) {
-            const label = document.querySelector('.theme-label');
-            if (label) {
-                label.textContent = isDark ? '日间模式' : '夜间模式';
-            }
-        }
-        
-        // 绑定切换事件
-        themeToggle.addEventListener('change', toggleTheme);
-        
-        // 添加快捷键支持 (Ctrl+Shift+T 切换主题)
-        document.addEventListener('keydown', function(e) {
-            if (e.ctrlKey && e.shiftKey && e.key === 'T') {
-                e.preventDefault();
-                themeToggle.checked = !themeToggle.checked;
-                toggleTheme();
-            }
-        });
-        
-        // 添加点击标签也可以切换的功能
-        const themeLabel = document.querySelector('.theme-label');
-        if (themeLabel) {
-            themeLabel.addEventListener('click', function() {
-                themeToggle.checked = !themeToggle.checked;
-                toggleTheme();
-            });
+            localStorage.setItem('theme', 'dark');
+        } else {
+            document.body.classList.remove('dark-theme');
+            localStorage.setItem('theme', 'light');
         }
     });
-    </script>
+})();
+</script>
 
 </html>

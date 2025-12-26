@@ -94,9 +94,9 @@ body.dark-theme .text-gray {
 
 /* ========== 夜间模式开关 ========== */
 .theme-toggle {
-    position: fixed;
-    top: 14px;
-    right: 20px;
+    display: flex;
+    align-items: center;
+    margin-left: 12px;
     z-index: 9999;
     display: flex;
     align-items: center;
@@ -148,7 +148,6 @@ body.dark-theme .theme-toggle {
 <body class="page-body">
    <!-- 夜间模式开关（新增） -->
     <div class="theme-toggle">
-        <span>夜间</span>
         <input type="checkbox" id="themeToggle">
         <label for="themeToggle"></label>
     </div>
@@ -391,21 +390,21 @@ body.dark-theme .theme-toggle {
                         </a>
                     </li>
                 </ul>
-                <ul class="user-info-menu right-links list-inline list-unstyled">
-                    <li class="hidden-sm hidden-xs">
-                        <a href="https://github.com/WebStackPage/WebStackPage.github.io" target="_blank">
-                            <i class="fa-github"></i>  GitHub
-                        </a>
-                    </li>
-                    <li class="hidden-sm hidden-xs theme-switch-wrapper">
-                        <label class="theme-switch">
-                            <input type="checkbox" id="themeToggle">
-                            <span class="slider"></span>
-                        </label>
-                        <span class="theme-label">夜间模式</span>
-                        </button>
-                    </li>
-                </ul>
+<ul class="user-info-menu right-links list-inline list-unstyled">
+    <li class="hidden-sm hidden-xs">
+        <a href="https://github.com/WebStackPage/WebStackPage.github.io" target="_blank">
+            <i class="fa-github"></i> GitHub
+        </a>
+    </li>
+
+    <li class="hidden-sm hidden-xs">
+        <div class="theme-toggle">
+            <input type="checkbox" id="themeToggle">
+            <label for="themeToggle"></label>
+        </div>
+    </li>
+</ul>
+
                 <!-- <a href="https://github.com/WebStackPage/WebStackPage.github.io" target="_blank"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"></a> -->
 
             </nav>

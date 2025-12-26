@@ -18,6 +18,187 @@
     <link rel="stylesheet" href="../assets/css/xenon-components.css">
     <link rel="stylesheet" href="../assets/css/xenon-skins.css">
     <link rel="stylesheet" href="../assets/css/nav.css">
+    <style>
+        /* 联系弹窗样式 - 与主题保持一致 */
+        .contact-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        
+        .contact-modal-overlay.show {
+            display: flex;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .contact-modal {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            width: 90%;
+            max-width: 450px;
+            position: relative;
+            animation: slideUp 0.3s ease;
+        }
+        
+        .contact-modal-header {
+            background: linear-gradient(135deg, #4A90E2 0%, #63B8FF 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px 8px 0 0;
+            position: relative;
+        }
+        
+        .contact-modal-header h4 {
+            margin: 0;
+            font-weight: 600;
+            font-size: 18px;
+        }
+        
+        .contact-modal-close {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .contact-modal-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-50%) scale(1.1);
+        }
+        
+        .contact-modal-body {
+            padding: 25px;
+        }
+        
+        .contact-info-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            margin-bottom: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #4A90E2;
+            transition: all 0.3s;
+        }
+        
+        .contact-info-item:hover {
+            background: #eef5ff;
+            transform: translateX(5px);
+        }
+        
+        .contact-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4A90E2 0%, #63B8FF 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            font-size: 18px;
+        }
+        
+        .contact-details h5 {
+            margin: 0 0 5px 0;
+            font-size: 15px;
+            color: #333;
+        }
+        
+        .contact-details p {
+            margin: 0;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .contact-details a {
+            color: #4A90E2;
+            text-decoration: none;
+        }
+        
+        .contact-details a:hover {
+            color: #2c6bb3;
+            text-decoration: underline;
+        }
+        
+        .contact-copy-btn {
+            background: #4A90E2;
+            color: white;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-left: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .contact-copy-btn:hover {
+            background: #2c6bb3;
+        }
+        
+        /* 站长卡片添加点击效果 */
+        .xe-widget.xe-conversations {
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .xe-widget.xe-conversations:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .xe-widget.xe-conversations:active {
+            transform: translateY(-1px);
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes slideUp {
+            from { 
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to { 
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* 响应式调整 */
+        @media (max-width: 768px) {
+            .contact-modal {
+                width: 95%;
+                max-width: 95%;
+            }
+            
+            .contact-info-item {
+                padding: 12px;
+            }
+        }
+    </style>
     <script src="../assets/js/jquery-1.11.1.min.js"></script>
     <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
     <!--[if lt IE 9]>
@@ -39,6 +220,87 @@
 </head>
 
 <body class="page-body boxed-container">
+    <!-- 联系弹窗 -->
+    <div class="contact-modal-overlay" id="contactModal">
+        <div class="contact-modal">
+            <div class="contact-modal-header">
+                <h4><i class="fa fa-user-circle"></i> 联系何哥</h4>
+                <button class="contact-modal-close" id="closeModal">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <div class="contact-modal-body">
+                <p style="margin-bottom: 20px; color: #666; font-size: 14px;">有问题或建议？欢迎通过以下方式联系我！</p>
+                
+                <div class="contact-info-item">
+                    <div class="contact-icon">
+                        <i class="fa fa-envelope"></i>
+                    </div>
+                    <div class="contact-details">
+                        <h5>电子邮箱</h5>
+                        <p>
+                            34296407@qq.com
+                            <button class="contact-copy-btn" onclick="copyToClipboard('34296407@qq.com', '邮箱')">
+                                复制
+                            </button>
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="contact-info-item">
+                    <div class="contact-icon">
+                        <i class="fa fa-globe"></i>
+                    </div>
+                    <div class="contact-details">
+                        <h5>个人网站</h5>
+                        <p>
+                            <a href="https://hq168.dpdns.org" target="_blank">https://hq168.dpdns.org</a>
+                            <button class="contact-copy-btn" onclick="copyToClipboard('https://hq168.dpdns.org', '网址')">
+                                复制
+                            </button>
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="contact-info-item">
+                    <div class="contact-icon">
+                        <i class="fa fa-wechat"></i>
+                    </div>
+                    <div class="contact-details">
+                        <h5>微信联系</h5>
+                        <p>
+                            微信号：hege_nav123
+                            <button class="contact-copy-btn" onclick="copyToClipboard('hege_nav123', '微信号')">
+                                复制
+                            </button>
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="contact-info-item">
+                    <div class="contact-icon">
+                        <i class="fa fa-qq"></i>
+                    </div>
+                    <div class="contact-details">
+                        <h5>QQ联系</h5>
+                        <p>
+                            QQ号：34296407
+                            <button class="contact-copy-btn" onclick="copyToClipboard('34296407', 'QQ号')">
+                                复制
+                            </button>
+                        </p>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee; text-align: center;">
+                    <p style="color: #888; font-size: 13px; margin: 0;">
+                        如果有好的网站推荐或建议，欢迎随时联系我！
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <nav class="navbar horizontal-menu navbar-fixed-top">
         <div class="navbar-inner">
             <div class="navbar-brand">
@@ -75,13 +337,13 @@
                             <h4 class="text-gray">关于站长</h4>
                             <div class="row">
                                 <div class="col-sm-4">
-                                    <div class="xe-widget xe-conversations box2 label-info" data-toggle="tooltip" data-placement="bottom" title="" data-original-title="何哥的导航站">
+                                    <div class="xe-widget xe-conversations box2 label-info" data-toggle="tooltip" data-placement="bottom" title="" data-original-title="何哥的导航站" id="hegeCard">
                                         <div class="xe-comment-entry">
                                             <a class="xe-user-img">
                                                 <img src="../assets/images/logos/viggoz.png" class="img-circle" width="40">
                                             </a>
                                             <div class="xe-comment">
-                                                <a href="#" class="xe-user-name overflowClip_1">
+                                                <a href="javascript:void(0);" class="xe-user-name overflowClip_1">
                                                     <strong>何哥</strong>
                                                 </a>
                                                 <p class="overflowClip_2">热爱技术，喜欢收集和分享优质资源</p>
@@ -153,6 +415,103 @@
             </footer>
         </div>
     </div>
+    
+    <!-- 联系弹窗相关脚本 -->
+    <script>
+        $(document).ready(function() {
+            // 点击站长卡片打开弹窗
+            $('#hegeCard').on('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                $('#contactModal').addClass('show');
+                $('body').css('overflow', 'hidden');
+            });
+            
+            // 点击关闭按钮关闭弹窗
+            $('#closeModal').on('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                $('#contactModal').removeClass('show');
+                $('body').css('overflow', 'auto');
+            });
+            
+            // 点击弹窗外部关闭弹窗
+            $('#contactModal').on('click', function(e) {
+                if (e.target === this) {
+                    $(this).removeClass('show');
+                    $('body').css('overflow', 'auto');
+                }
+            });
+            
+            // ESC键关闭弹窗
+            $(document).on('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    $('#contactModal').removeClass('show');
+                    $('body').css('overflow', 'auto');
+                }
+            });
+            
+            // 为站长卡片添加悬停效果（如果已有工具提示则保留）
+            $('#hegeCard').hover(
+                function() {
+                    $(this).css({
+                        'transform': 'translateY(-3px)',
+                        'box-shadow': '0 5px 15px rgba(0,0,0,0.1)'
+                    });
+                },
+                function() {
+                    $(this).css({
+                        'transform': 'translateY(0)',
+                        'box-shadow': ''
+                    });
+                }
+            );
+        });
+        
+        // 复制到剪贴板函数
+        function copyToClipboard(text, type) {
+            const tempInput = document.createElement('input');
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            tempInput.setSelectionRange(0, 99999); // 移动设备兼容
+            
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    // 显示复制成功提示
+                    alert('已成功复制' + type + '：' + text);
+                } else {
+                    alert('复制失败，请手动选择并复制');
+                }
+            } catch (err) {
+                console.error('复制失败:', err);
+                alert('复制失败，请手动选择并复制');
+            }
+            
+            document.body.removeChild(tempInput);
+        }
+        
+        // 现代浏览器剪贴板API
+        function copyToClipboardModern(text, type) {
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text)
+                    .then(() => {
+                        alert('已成功复制' + type + '：' + text);
+                    })
+                    .catch(err => {
+                        console.error('复制失败:', err);
+                        copyToClipboard(text, type); // 降级使用旧方法
+                    });
+            } else {
+                copyToClipboard(text, type); // 降级使用旧方法
+            }
+        }
+        
+        // 更新复制函数使用现代API
+        window.copyToClipboard = copyToClipboardModern;
+    </script>
+    
     <!-- Bottom Scripts -->
     <script src="../assets/js/bootstrap.min.js"></script>
     <script src="../assets/js/TweenMax.min.js"></script>

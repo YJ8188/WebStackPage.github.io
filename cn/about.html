@@ -20,203 +20,219 @@
     <link rel="stylesheet" href="../assets/css/nav.css">
     <style>
         /* 
-        ===================================
-        弹窗遮罩层 - 负责让弹窗居中显示
-        ===================================
+        =====================================================
+        ⭐⭐⭐ 弹窗遮罩层 - 覆盖整个浏览器窗口 ⭐⭐⭐
+        =====================================================
         */
         .contact-modal-overlay {
-            /* 固定定位，覆盖整个屏幕 */
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            /* 固定定位在浏览器窗口 */
+            position: fixed !important;  /* !important 确保优先级最高 */
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            width: 100vw !important;     /* 使用视口宽度 */
+            height: 100vh !important;    /* 使用视口高度 */
             
             /* 半透明黑色背景 */
-            background: rgba(0, 0, 0, 0.6);
+            background: rgba(0, 0, 0, 0.75) !important;
             
             /* 默认隐藏 */
-            display: none;
+            display: none !important;
             
-            /* 
-            ⭐ 关键：使用 flex 布局实现居中 
-            justify-content: center; → 水平居中
-            align-items: center; → 垂直居中
-            */
-            justify-content: center;
-            align-items: center;
+            /* ⭐ 核心居中代码 */
+            justify-content: center !important;
+            align-items: center !important;
             
-            /* 确保在最上层 */
-            z-index: 9999;
+            /* 确保在最顶层 */
+            z-index: 999999 !important;
+            
+            /* 确保覆盖所有内容 */
+            margin: 0 !important;
+            padding: 0 !important;
         }
         
-        /* 显示弹窗时添加 show 类 */
+        /* 显示弹窗 */
         .contact-modal-overlay.show {
-            display: flex;  /* ⭐ 显示时使用 flex 布局 */
+            display: flex !important;
             animation: fadeIn 0.3s ease;
         }
         
         /* 
-        ===================================
-        弹窗主体 - 白色简约风格正方形
-        ===================================
+        =====================================================
+        弹窗主体 - 白色简约正方形
+        =====================================================
         */
         .contact-modal {
-            /* ⭐ 白色背景（简约风格） */
-            background: #ffffff;
+            /* 白色背景 */
+            background: #ffffff !important;
             
-            /* ⭐ PC端正方形尺寸 - 可在这里修改大小 */
-            width: 480px;
-            height: 480px;
+            /* 正方形尺寸 */
+            width: 500px !important;
+            height: 500px !important;
+            max-width: 90vw !important;
+            max-height: 90vh !important;
             
             /* 圆角和阴影 */
-            border-radius: 16px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            border-radius: 20px !important;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
             
             /* 弹出动画 */
             animation: slideIn 0.4s ease;
             
             /* 内部布局 */
-            display: flex;
-            flex-direction: column;
-            position: relative;
-            overflow: hidden;
+            display: flex !important;
+            flex-direction: column !important;
+            position: relative !important;
+            overflow: hidden !important;
+            
+            /* 确保不继承父元素样式 */
+            margin: 0 !important;
+            padding: 0 !important;
         }
         
         /* 
-        ===================================
-        弹窗标题栏 - 蓝色渐变
-        ===================================
+        =====================================================
+        标题栏
+        =====================================================
         */
         .contact-modal-header {
-            /* ⭐ 修改标题栏颜色 - 可在这里改颜色 */
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            
-            color: white;
-            padding: 25px;
-            text-align: center;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+            color: white !important;
+            padding: 30px !important;
+            text-align: center !important;
+            position: relative !important;
+            flex-shrink: 0 !important;
         }
         
         .contact-modal-header h3 {
-            margin: 0;
-            font-size: 22px;
-            font-weight: 600;
+            margin: 0 !important;
+            font-size: 24px !important;
+            font-weight: 600 !important;
+            color: white !important;
         }
         
         /* 关闭按钮 */
         .contact-modal-close {
-            position: absolute;
-            right: 20px;
-            top: 20px;
-            width: 32px;
-            height: 32px;
-            background: rgba(255, 255, 255, 0.2);
-            border: none;
-            color: white;
-            border-radius: 50%;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s;
-            font-size: 16px;
-            z-index: 10;
+            position: absolute !important;
+            right: 20px !important;
+            top: 50% !important;
+            transform: translateY(-50%) !important;
+            width: 36px !important;
+            height: 36px !important;
+            background: rgba(255, 255, 255, 0.2) !important;
+            border: 2px solid rgba(255, 255, 255, 0.3) !important;
+            border-radius: 50% !important;
+            color: white !important;
+            font-size: 18px !important;
+            cursor: pointer !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            transition: all 0.3s !important;
+            z-index: 10 !important;
+            padding: 0 !important;
         }
         
         .contact-modal-close:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: rotate(90deg) scale(1.1);
+            background: rgba(255, 255, 255, 0.35) !important;
+            transform: translateY(-50%) rotate(90deg) !important;
         }
         
         /* 
-        ===================================
-        弹窗内容区
-        ===================================
+        =====================================================
+        内容区域
+        =====================================================
         */
         .contact-modal-content {
-            padding: 30px;
-            flex: 1;
-            overflow-y: auto;
-            background: white;
+            flex: 1 !important;
+            padding: 35px !important;
+            overflow-y: auto !important;
+            background: white !important;
         }
         
-        /* 联系信息项 */
+        /* 联系信息卡片 */
         .contact-info-item {
-            margin-bottom: 18px;
-            padding: 16px;
-            background: #f8f9fa;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            transition: all 0.3s;
-            border: 1px solid #e9ecef;
+            margin-bottom: 16px !important;
+            padding: 18px !important;
+            background: #f8f9fc !important;
+            border-radius: 12px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            transition: all 0.3s !important;
+            border: 1px solid #e9ecef !important;
         }
         
         .contact-info-item:hover {
-            background: #e9ecef;
-            transform: translateX(5px);
+            background: #e8eaf6 !important;
+            transform: translateX(5px) !important;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1) !important;
         }
         
         .contact-label {
-            font-size: 13px;
-            color: #6c757d;
-            margin-bottom: 4px;
-            font-weight: 500;
+            font-size: 13px !important;
+            color: #6c757d !important;
+            margin-bottom: 5px !important;
+            font-weight: 500 !important;
+            display: block !important;
         }
         
         .contact-text {
-            font-size: 15px;
-            color: #212529;
-            font-weight: 500;
+            font-size: 15px !important;
+            color: #212529 !important;
+            font-weight: 600 !important;
+            word-break: break-all !important;
         }
         
         .contact-text a {
-            color: #667eea;
-            text-decoration: none;
+            color: #667eea !important;
+            text-decoration: none !important;
         }
         
         .contact-text a:hover {
-            text-decoration: underline;
+            text-decoration: underline !important;
         }
         
         /* 复制按钮 */
         .copy-btn {
-            background: #667eea;
-            border: none;
-            color: white;
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-size: 13px;
-            cursor: pointer;
-            transition: all 0.3s;
-            white-space: nowrap;
+            background: #667eea !important;
+            border: none !important;
+            color: white !important;
+            padding: 8px 18px !important;
+            border-radius: 8px !important;
+            font-size: 13px !important;
+            cursor: pointer !important;
+            transition: all 0.3s !important;
+            white-space: nowrap !important;
+            flex-shrink: 0 !important;
+            margin-left: 15px !important;
         }
         
         .copy-btn:hover {
-            background: #5568d3;
-            transform: scale(1.05);
+            background: #5568d3 !important;
+            transform: translateY(-2px) !important;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3) !important;
         }
         
         /* 底部提示 */
         .contact-footer {
-            text-align: center;
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid #e9ecef;
+            text-align: center !important;
+            margin-top: 20px !important;
+            padding-top: 20px !important;
+            border-top: 2px solid #e9ecef !important;
         }
         
         .contact-footer p {
-            margin: 0;
-            font-size: 13px;
-            color: #6c757d;
+            margin: 0 !important;
+            font-size: 14px !important;
+            color: #6c757d !important;
         }
         
         /* 
-        ===================================
+        =====================================================
         动画效果
-        ===================================
+        =====================================================
         */
         @keyframes fadeIn {
             from { opacity: 0; }
@@ -226,7 +242,7 @@
         @keyframes slideIn {
             from {
                 opacity: 0;
-                transform: scale(0.9) translateY(20px);
+                transform: scale(0.9) translateY(30px);
             }
             to {
                 opacity: 1;
@@ -236,18 +252,20 @@
         
         /* 复制成功提示 */
         .copy-success {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: #667eea;
-            color: white;
-            padding: 15px 30px;
-            border-radius: 10px;
-            z-index: 10001;
-            font-size: 15px;
-            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.3);
-            animation: fadeInOut 2s ease;
+            position: fixed !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) !important;
+            background: #667eea !important;
+            color: white !important;
+            padding: 16px 32px !important;
+            border-radius: 12px !important;
+            z-index: 9999999 !important;
+            font-size: 16px !important;
+            font-weight: 500 !important;
+            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4) !important;
+            animation: fadeInOut 2s ease !important;
+            pointer-events: none !important;
         }
         
         @keyframes fadeInOut {
@@ -267,59 +285,81 @@
         }
         
         /* 
-        ===================================
-        响应式设计 - 移动端适配
-        ===================================
+        =====================================================
+        响应式设计
+        =====================================================
         */
         
-        /* 平板设备 */
+        /* 平板 */
         @media (max-width: 768px) {
             .contact-modal {
-                width: 420px;
-                height: 420px;
+                width: 450px !important;
+                height: 450px !important;
             }
-        }
-        
-        /* 手机设备 */
-        @media (max-width: 480px) {
-            .contact-modal {
-                width: 360px;
-                height: 360px;
+            
+            .contact-modal-header h3 {
+                font-size: 22px !important;
             }
             
             .contact-modal-content {
-                padding: 25px;
+                padding: 30px !important;
+            }
+        }
+        
+        /* 手机 */
+        @media (max-width: 520px) {
+            .contact-modal {
+                width: 380px !important;
+                height: 380px !important;
+            }
+            
+            .contact-modal-header {
+                padding: 25px !important;
+            }
+            
+            .contact-modal-header h3 {
+                font-size: 20px !important;
+            }
+            
+            .contact-modal-content {
+                padding: 25px !important;
             }
             
             .contact-info-item {
-                flex-direction: column;
-                align-items: flex-start;
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                padding: 15px !important;
             }
             
             .copy-btn {
-                margin-top: 10px;
-                align-self: flex-end;
+                margin-left: 0 !important;
+                margin-top: 10px !important;
+                width: 100% !important;
             }
         }
         
         /* 小屏手机 */
-        @media (max-width: 380px) {
+        @media (max-width: 400px) {
             .contact-modal {
-                width: 320px;
-                height: 320px;
-            }
-            
-            .contact-modal-header h3 {
-                font-size: 18px;
+                width: 340px !important;
+                height: 340px !important;
             }
             
             .contact-modal-content {
-                padding: 20px;
+                padding: 20px !important;
             }
             
             .contact-info-item {
-                padding: 12px;
-                margin-bottom: 12px;
+                padding: 12px !important;
+                margin-bottom: 12px !important;
+            }
+            
+            .contact-label {
+                font-size: 12px !important;
+            }
+            
+            .contact-text {
+                font-size: 14px !important;
             }
         }
     </style>
@@ -327,68 +367,7 @@
 </head>
 
 <body class="page-body boxed-container">
-    <!-- 弹窗HTML结构 -->
-    <div class="contact-modal-overlay" id="contactModal">
-        <div class="contact-modal">
-            <!-- 标题栏 -->
-            <div class="contact-modal-header">
-                <h3><i class="fa fa-user-circle"></i> 联系何哥</h3>
-                <button class="contact-modal-close" id="closeModal">
-                    <i class="fa fa-times"></i>
-                </button>
-            </div>
-            
-            <!-- 内容区 -->
-            <div class="contact-modal-content">
-                <div class="contact-info-item">
-                    <div>
-                        <div class="contact-label">📧 电子邮箱</div>
-                        <div class="contact-text">34296407@qq.com</div>
-                    </div>
-                    <button class="copy-btn" onclick="copyToClipboard('34296407@qq.com')">
-                        <i class="fa fa-copy"></i> 复制
-                    </button>
-                </div>
-                
-                <div class="contact-info-item">
-                    <div>
-                        <div class="contact-label">🌐 个人网站</div>
-                        <div class="contact-text">
-                            <a href="https://hq168.dpdns.org" target="_blank">hq168.dpdns.org</a>
-                        </div>
-                    </div>
-                    <button class="copy-btn" onclick="copyToClipboard('https://hq168.dpdns.org')">
-                        <i class="fa fa-copy"></i> 复制
-                    </button>
-                </div>
-                
-                <div class="contact-info-item">
-                    <div>
-                        <div class="contact-label">💬 微信号</div>
-                        <div class="contact-text">hege_nav123</div>
-                    </div>
-                    <button class="copy-btn" onclick="copyToClipboard('hege_nav123')">
-                        <i class="fa fa-copy"></i> 复制
-                    </button>
-                </div>
-                
-                <div class="contact-info-item">
-                    <div>
-                        <div class="contact-label">💎 QQ号码</div>
-                        <div class="contact-text">34296407</div>
-                    </div>
-                    <button class="copy-btn" onclick="copyToClipboard('34296407')">
-                        <i class="fa fa-copy"></i> 复制
-                    </button>
-                </div>
-                
-                <div class="contact-footer">
-                    <p>欢迎推荐优质网站或提出建议</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
+    
     <nav class="navbar horizontal-menu navbar-fixed-top">
         <div class="navbar-inner">
             <div class="navbar-brand">
@@ -506,6 +485,68 @@
         </div>
     </div>
     
+    <!-- ⭐⭐⭐ 弹窗放在 body 最后，不在 page-container 里面 ⭐⭐⭐ -->
+    <div class="contact-modal-overlay" id="contactModal">
+        <div class="contact-modal">
+            <!-- 标题栏 -->
+            <div class="contact-modal-header">
+                <h3><i class="fa fa-user-circle"></i> 联系何哥</h3>
+                <button class="contact-modal-close" id="closeModal">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            
+            <!-- 内容区 -->
+            <div class="contact-modal-content">
+                <div class="contact-info-item">
+                    <div>
+                        <div class="contact-label">📧 电子邮箱</div>
+                        <div class="contact-text">34296407@qq.com</div>
+                    </div>
+                    <button class="copy-btn" onclick="copyToClipboard('34296407@qq.com')">
+                        <i class="fa fa-copy"></i> 复制
+                    </button>
+                </div>
+                
+                <div class="contact-info-item">
+                    <div>
+                        <div class="contact-label">🌐 个人网站</div>
+                        <div class="contact-text">
+                            <a href="https://hq168.dpdns.org" target="_blank">hq168.dpdns.org</a>
+                        </div>
+                    </div>
+                    <button class="copy-btn" onclick="copyToClipboard('https://hq168.dpdns.org')">
+                        <i class="fa fa-copy"></i> 复制
+                    </button>
+                </div>
+                
+                <div class="contact-info-item">
+                    <div>
+                        <div class="contact-label">💬 微信号</div>
+                        <div class="contact-text">hege_nav123</div>
+                    </div>
+                    <button class="copy-btn" onclick="copyToClipboard('hege_nav123')">
+                        <i class="fa fa-copy"></i> 复制
+                    </button>
+                </div>
+                
+                <div class="contact-info-item">
+                    <div>
+                        <div class="contact-label">💎 QQ号码</div>
+                        <div class="contact-text">34296407</div>
+                    </div>
+                    <button class="copy-btn" onclick="copyToClipboard('34296407')">
+                        <i class="fa fa-copy"></i> 复制
+                    </button>
+                </div>
+                
+                <div class="contact-footer">
+                    <p>欢迎推荐优质网站或提出建议</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <!-- JavaScript交互代码 -->
     <script>
         $(document).ready(function() {
@@ -514,7 +555,7 @@
                 e.preventDefault();
                 e.stopPropagation();
                 $('#contactModal').addClass('show');
-                $('body').css('overflow', 'hidden'); // 防止背景滚动
+                $('body').css('overflow', 'hidden');
             });
             
             // 点击关闭按钮
@@ -524,45 +565,39 @@
                 closeModal();
             });
             
-            // 点击弹窗外部（黑色背景）关闭
+            // 点击黑色背景关闭
             $('#contactModal').on('click', function(e) {
                 if (e.target === this) {
                     closeModal();
                 }
             });
             
-            // 按ESC键关闭弹窗
+            // ESC键关闭
             $(document).on('keydown', function(e) {
-                if (e.key === 'Escape') {
+                if (e.key === 'Escape' && $('#contactModal').hasClass('show')) {
                     closeModal();
                 }
             });
             
-            // 关闭弹窗的函数
+            // 关闭弹窗函数
             function closeModal() {
                 $('#contactModal').removeClass('show');
-                $('body').css('overflow', 'auto'); // 恢复背景滚动
+                $('body').css('overflow', '');
             }
         });
         
-        // 复制到剪贴板的函数
+        // 复制功能
         function copyToClipboard(text) {
-            // 现代浏览器方法
             if (navigator.clipboard && window.isSecureContext) {
                 navigator.clipboard.writeText(text)
-                    .then(() => {
-                        showCopySuccess();
-                    })
-                    .catch(() => {
-                        fallbackCopy(text);
-                    });
+                    .then(() => showCopySuccess())
+                    .catch(() => fallbackCopy(text));
             } else {
-                // 兼容旧浏览器
                 fallbackCopy(text);
             }
         }
         
-        // 降级复制方法
+        // 降级复制
         function fallbackCopy(text) {
             const textarea = document.createElement('textarea');
             textarea.value = text;
@@ -581,7 +616,7 @@
             document.body.removeChild(textarea);
         }
         
-        // 显示复制成功提示
+        // 显示复制成功
         function showCopySuccess() {
             $('.copy-success').remove();
             const tip = $('<div class="copy-success"><i class="fa fa-check-circle"></i> 复制成功！</div>');

@@ -53,7 +53,126 @@
     <meta name="twitter:title" content="WebStack - 收集国内外优秀设计网站、UI设计资源网站、灵感创意网站、素材资源网站，定时更新分享优质产品设计书签。hq168.dpdns.org">
     <meta name="twitter:description" content="UI设计,UI设计素材,设计导航,网址导航,设计资源,创意导航,创意网站导航,技术员网址大全,设计素材大全,技术员导航,UI设计资源,优秀UI设计欣赏,技术员导航,技术员网址大全,技术员网址导航,产品经理网址导航,交互技术员网址导航,hq168.dpdns.org">
     <meta name="twitter:image" content="http://www.webstack.cc/assets/images/webstack_banner_cn.png">
+    <!-- 黑白主题样式 - 添加在这里 -->
+<style>
+body.dark-theme,
+body.dark-theme .page-body,
+body.dark-theme .main-content {
+    background-color: #121212 !important;
+    color: #e0e0e0;
+}
+
+/* 顶部白条根源 */
+body.dark-theme .user-info-navbar {
+    background-color: #1a1a1a !important;
+    border-bottom: 1px solid #333;
+}
+
+/* 左侧菜单 */
+body.dark-theme .sidebar-menu {
+    background-color: #1a1a1a !important;
+}
+
+body.dark-theme .sidebar-menu a {
+    color: #ccc !important;
+}
+
+/* 卡片 */
+body.dark-theme .xe-widget {
+    background-color: #1e1e1e !important;
+    border-color: #333 !important;
+    color: #e0e0e0;
+}
+
+body.dark-theme .xe-widget:hover {
+    background-color: #2a2a2a !important;
+}
+
+body.dark-theme .text-gray {
+    color: #aaa !important;
+}
+
+/* ========== 夜间模式开关 ========== */
+.theme-toggle {
+    display: flex;
+    align-items: center;
+    margin-left: 12px;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #666;
+}
+
+.theme-toggle input {
+    display: none;
+}
+
+.theme-toggle label {
+    width: 46px;
+    height: 24px;
+    background: #ccc;
+    border-radius: 24px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.theme-toggle label::after {
+    content: "";
+    width: 18px;
+    height: 18px;
+    background: #fff;
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    border-radius: 50%;
+    transition: transform 0.3s;
+}
+
+.theme-toggle input:checked + label {
+    background: #4CAF50;
+}
+
+.theme-toggle input:checked + label::after {
+    transform: translateX(22px);
+}
+
+body.dark-theme .theme-toggle {
+    color: #aaa;
+}
+</style>
 </head>
+
+<body class="page-body">
+   <!-- 夜间模式开关（新增） -->
+    <div class="theme-toggle">
+        <input type="checkbox" id="themeToggle">
+        <label for="themeToggle"></label>
+    </div>
+    <!-- skin-white -->
+    <div class="page-container">
+        <div class="sidebar-menu toggle-others fixed">
+            <div class="sidebar-menu-inner">
+                <header class="logo-env">
+                    <!-- logo -->
+                    <div class="logo">
+                        <a href="index.html" class="logo-expanded">
+                            <img src="../assets/images/logo@2x.png" width="100%" alt="" />
+                        </a>
+                        <a href="index.html" class="logo-collapsed">
+                            <img src="../assets/images/logo-collapsed@2x.png" width="40" alt="" />
+                        </a>
+                    </div>
+                    <div class="mobile-menu-toggle visible-xs">
+                        <a href="#" data-toggle="user-info-menu">
+                            <i class="linecons-cog"></i>
+                        </a>
+                        <a href="#" data-toggle="mobile-menu">
+                            <i class="fa-bars"></i>
+                        </a>
+                    </div>
                 </header>
                 <ul id="main-menu" class="main-menu">
                     <li>
@@ -276,6 +395,13 @@
         <a href="https://github.com/WebStackPage/WebStackPage.github.io" target="_blank">
             <i class="fa-github"></i> GitHub
         </a>
+    </li>
+
+    <li class="hidden-sm hidden-xs">
+        <div class="theme-toggle">
+            <input type="checkbox" id="themeToggle">
+            <label for="themeToggle"></label>
+        </div>
     </li>
 </ul>
 
@@ -4284,4 +4410,26 @@
     <!-- JavaScripts initializations and stuff -->
     <script src="../assets/js/xenon-custom.js"></script>
     <script src="../assets/js/lozad.js"></script>
+   <!-- 黑白主题切换功能 -->
+<script>
+(function () {
+    const toggle = document.getElementById('themeToggle');
+
+    if (localStorage.getItem('theme') === 'dark') {
+        document.body.classList.add('dark-theme');
+        toggle.checked = true;
+    }
+
+    toggle.addEventListener('change', function () {
+        if (this.checked) {
+            document.body.classList.add('dark-theme');
+            localStorage.setItem('theme', 'dark');
+        } else {
+            document.body.classList.remove('dark-theme');
+            localStorage.setItem('theme', 'light');
+        }
+    });
+})();
+</script>
+
 </html>

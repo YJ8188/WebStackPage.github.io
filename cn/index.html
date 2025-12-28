@@ -486,6 +486,20 @@
                     </li>
                 </ul>
 <ul class="user-info-menu right-links list-inline list-unstyled">
+        <!-- 搜索 -->
+    <li class="hidden-sm hidden-xs">
+        <div class="site-search">
+            <span class="search-icon">
+                <i class="fa fa-search"></i>
+            </span>
+            <input
+                type="text"
+                class="search-input"
+                placeholder="搜索站内内容..."
+            />
+        </div>
+    </li>
+    
     <li class="hidden-sm hidden-xs">
         <a href="https://github.com/WebStackPage/WebStackPage.github.io" target="_blank">
             <i class="fa-github"></i> GitHub
@@ -4520,17 +4534,7 @@ window.addEventListener('scroll', function () {
     }
 });
 </script>
-<!-- 搜索入口 -->
-<div class="site-search">
-    <span class="search-icon">🔍</span>
-    <input
-        type="text"
-        class="search-input"
-        placeholder="搜索站内内容..."
-    />
-</div>
-
-    <script>
+<script>
 (function () {
     const searchBox = document.querySelector('.site-search');
     const icon = document.querySelector('.search-icon');

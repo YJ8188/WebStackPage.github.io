@@ -181,6 +181,150 @@
     font-size: 20px;
     line-height: 1;
 }
+/* ================= 站内搜索(PC端顶部 + 移动端底部) ================= */
+
+.site-search {
+    position: fixed;
+    top: 16px;
+    right: 80px;
+    display: flex;
+    align-items: center;
+    z-index: 999;
+    transition: all 0.3s ease;
+}
+
+/* 放大镜图标 - 简洁圆形 */
+.site-search .search-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.site-search .search-icon:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
+}
+
+/* 隐藏原有图标 */
+.site-search .search-icon i,
+.site-search .search-icon .fa {
+    display: none;
+}
+
+/* 添加白色搜索符号 */
+.site-search .search-icon::before {
+    content: "🔍";
+    font-size: 16px;
+    filter: grayscale(1) brightness(10);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 输入框(默认隐藏) */
+.site-search .search-input {
+    width: 0;
+    opacity: 0;
+    margin-left: 10px;
+    padding: 8px 16px;
+    border-radius: 18px;
+    border: 2px solid transparent;
+    outline: none;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    color: #333;
+    font-size: 14px;
+    transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.site-search .search-input::placeholder {
+    color: #999;
+}
+
+.site-search .search-input:focus {
+    border-color: #667eea;
+}
+
+/* 展开状态 */
+.site-search.active .search-input {
+    width: 200px;
+    opacity: 1;
+}
+
+/* 平板适配 */
+@media (max-width: 991px) {
+    .site-search {
+        right: 60px;
+    }
+    
+    .site-search.active .search-input {
+        width: 170px;
+    }
+}
+
+/* 移动端适配 - 移到右下角 */
+@media (max-width: 768px) {
+    .site-search {
+        top: auto !important;
+        bottom: 84px; /* 在回到顶部按钮上方 */
+        right: 24px;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    
+    .site-search .search-icon {
+        width: 48px;
+        height: 48px;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    .site-search .search-icon::before {
+        font-size: 18px;
+    }
+    
+    .site-search .search-input {
+        font-size: 14px;
+        padding: 10px 16px;
+        margin-left: 0;
+        margin-right: 10px;
+        order: -1; /* 输入框在左边 */
+    }
+    
+    .site-search.active .search-input {
+        width: 180px;
+    }
+}
+
+/* 超小屏幕 */
+@media (max-width: 480px) {
+    .site-search {
+        bottom: 84px;
+        right: 16px;
+    }
+    
+    .site-search .search-icon {
+        width: 44px;
+        height: 44px;
+    }
+    
+    .site-search .search-icon::before {
+        font-size: 16px;
+    }
+    
+    .site-search.active .search-input {
+        width: 150px;
+        font-size: 13px;
+    }
+}
+
 /* ================= 返回顶部按钮 ================= */
 
 .back-to-top {
@@ -240,90 +384,188 @@
         font-size: 18px;
     }
 }
-/* ================= 修复导航栏布局问题 ================= */
 
-/* 修复整个用户信息导航栏 */
-.navbar.user-info-navbar {
-    position: relative;
-    min-height: 50px;
-    margin-bottom: 0;
-    border: 0;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0 15px;
-    background: #2c303a;
+/* 搜索结果高亮效果 */
+.xe-widget {
+    transition: all 0.3s ease;
 }
 
-/* 左侧链接容器 */
-.user-info-menu.left-links {
-    float: left;
-    display: flex;
-    align-items: center;
+.xe-widget:not([style*="display: none"]) {
+    animation: fadeIn 0.3s ease;
 }
 
-/* 右侧链接容器 - 关键修复 */
-.user-info-menu.right-links {
-    float: right;
-    display: flex !important;
-    align-items: center;
-    margin: 0;
-    padding: 0;
-    position: static !important; /* 移除可能的绝对定位 */
-    top: auto !important;
-    right: auto !important;
-    list-style: none;
-}
-
-/* 右侧链接的每个项目 */
-.user-info-menu.right-links > li {
-    display: inline-block;
-    margin-left: 15px;
-    vertical-align: middle;
-}
-
-/* GitHub 链接样式 */
-.user-info-menu.right-links > li > a[href*="github"] {
-    padding: 8px 15px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
-    color: #fff;
-    text-decoration: none;
-    transition: background 0.3s;
-}
-
-.user-info-menu.right-links > li > a[href*="github"]:hover {
-    background: rgba(255, 255, 255, 0.2);
-}
-
-/* 清除浮动，防止布局混乱 */
-.navbar.user-info-navbar:after {
-    content: "";
-    display: table;
-    clear: both;
-}
-
-/* 移动端适配 */
-@media (max-width: 768px) {
-    .navbar.user-info-navbar {
-        flex-wrap: wrap;
-        padding: 10px;
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
     }
-    
-    .user-info-menu.right-links {
-        order: 3;
-        width: 100%;
-        justify-content: center;
-        margin-top: 10px;
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
-    
-    /* 搜索框在移动端保持右下角固定 */
+}/* ================= 站内搜索(优化版 - 修复移动端) ================= */
+
+.site-search {
+    position: fixed;
+    top: 16px;
+    right: 80px;
+    display: flex;
+    align-items: center;
+    z-index: 999;
+    transition: all 0.3s ease;
+}
+
+/* 放大镜图标 - 简洁圆形 */
+.site-search .search-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.site-search .search-icon:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
+}
+
+/* 隐藏原有图标,使用白色emoji */
+.site-search .search-icon i,
+.site-search .search-icon .fa {
+    display: none;
+}
+
+/* 添加白色搜索符号 */
+.site-search .search-icon::before {
+    content: "🔍";
+    font-size: 16px;
+    filter: grayscale(1) brightness(10);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 输入框(默认隐藏) */
+.site-search .search-input {
+    width: 0;
+    opacity: 0;
+    margin-left: 10px;
+    padding: 8px 16px;
+    border-radius: 18px;
+    border: 2px solid transparent;
+    outline: none;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    color: #333;
+    font-size: 14px;
+    transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.site-search .search-input::placeholder {
+    color: #999;
+}
+
+.site-search .search-input:focus {
+    border-color: #667eea;
+}
+
+/* 展开状态 */
+.site-search.active .search-input {
+    width: 200px;
+    opacity: 1;
+}
+
+/* 平板适配 */
+@media (max-width: 991px) {
     .site-search {
-        position: fixed !important;
-        bottom: 84px;
-        right: 24px;
+        right: 60px;
+    }
+    
+    .site-search.active .search-input {
+        width: 170px;
     }
 }
+
+/* 移动端适配 - 修复显示问题 */
+@media (max-width: 768px) {
+    /* 隐藏 GitHub 链接,为搜索腾出空间 */
+    .user-info-menu .hidden-sm {
+        display: none !important;
+    }
+    
+    .site-search {
+        top: 12px;
+        right: 12px; /* 调整到右边缘 */
+    }
+    
+    .site-search .search-icon {
+        width: 34px;
+        height: 34px;
+    }
+    
+    .site-search .search-icon::before {
+        font-size: 15px;
+    }
+    
+    .site-search .search-input {
+        font-size: 13px;
+        padding: 7px 14px;
+    }
+    
+    .site-search.active .search-input {
+        width: 150px;
+    }
+}
+
+/* 超小屏幕 */
+@media (max-width: 480px) {
+    .site-search {
+        right: 10px;
+    }
+    
+    .site-search .search-icon {
+        width: 32px;
+        height: 32px;
+    }
+    
+    .site-search .search-icon::before {
+        font-size: 14px;
+    }
+    
+    .site-search.active .search-input {
+        width: 120px;
+        font-size: 12px;
+    }
+}
+
+/* 搜索结果高亮效果 */
+.xe-widget {
+    transition: all 0.3s ease;
+}
+
+.xe-widget:not([style*="display: none"]) {
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+</style>
+
 </head>
     <!-- skin-white -->
     <div class="page-container">
@@ -564,11 +806,10 @@
                         </a>
                     </li>
                 </ul>
-<!-- 在 navbar 中的搜索和GitHub部分 -->
 <ul class="user-info-menu right-links list-inline list-unstyled">
-    <!-- 搜索 -->
-    <li class="hidden-sm hidden-xs" style="display: inline-block; vertical-align: middle;">
-        <div class="site-search" style="display: inline-flex; vertical-align: middle;">
+        <!-- 搜索 -->
+    <li class="hidden-sm hidden-xs">
+        <div class="site-search">
             <span class="search-icon">
                 <i class="fa fa-search"></i>
             </span>
@@ -580,8 +821,8 @@
         </div>
     </li>
     
-    <li class="hidden-sm hidden-xs" style="display: inline-block; vertical-align: middle;">
-        <a href="https://github.com/WebStackPage/WebStackPage.github.io" target="_blank" style="display: inline-block; padding: 8px 15px; margin-left: 10px;">
+    <li class="hidden-sm hidden-xs">
+        <a href="https://github.com/WebStackPage/WebStackPage.github.io" target="_blank">
             <i class="fa-github"></i> GitHub
         </a>
     </li>

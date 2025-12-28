@@ -146,66 +146,63 @@
 }
 /* ================= 返回顶部按钮（圆形蓝色箭头版） ================= */
 
-#backToTop {
+/* 回到顶部按钮 */
+.back-to-top {
     position: fixed;
-    right: 20px;
-    bottom: 24px;
-
-    width: 44px;
-    height: 44px;
-
+    bottom: 30px;
+    right: 30px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #3b82f6;
+    color: white;
     display: flex;
     align-items: center;
     justify-content: center;
-
-    background: linear-gradient(135deg, #3b82f6, #2563eb);
-    border-radius: 50%;
-
-    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.45);
-
     cursor: pointer;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    transition: all 0.3s;
     opacity: 0;
     visibility: hidden;
-    transition: all 0.25s ease;
-
     z-index: 999;
 }
 
-/* 显示状态 */
-#backToTop.show {
+.back-to-top.visible {
     opacity: 1;
     visibility: visible;
 }
 
-/* 箭头样式 */
-#backToTop .arrow {
-    width: 10px;
-    height: 10px;
-    border-left: 2px solid #fff;
-    border-top: 2px solid #fff;
-    transform: rotate(45deg);
-    margin-top: 2px;
+.back-to-top:hover {
+    background: #2563eb;
+    transform: translateY(-2px);
+}
+// 回到顶部功能
+function backToTop() {
+    window.scrollTo({
+        top: 0,
+        behavior: 'smooth' // 平滑滚动
+    });
 }
 
-/* hover 效果 */
-#backToTop:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 28px rgba(37, 99, 235, 0.65);
-}
-
-/* ===== 移动端适配 ===== */
-@media (max-width: 768px) {
-    #backToTop {
-        width: 38px;
-        height: 38px;
-        right: 16px;
-        bottom: 70px;
+// 监听滚动事件，显示/隐藏按钮
+window.addEventListener('scroll', () => {
+    const backToTopBtn = document.querySelector('.back-to-top');
+    if (window.scrollY > 300) {
+        backToTopBtn.classList.add('visible');
+    } else {
+        backToTopBtn.classList.remove('visible');
     }
+});
 
-    #backToTop .arrow {
-        font-size: 16px;
+// 页面加载时也需要检查一次（如果页面刷新时已经在底部）
+window.addEventListener('DOMContentLoaded', () => {
+    const backToTopBtn = document.querySelector('.back-to-top');
+    if (window.scrollY > 300) {
+        backToTopBtn.classList.add('visible');
+    } else {
+        backToTopBtn.classList.remove('visible');
     }
-}
+});
 </style>
 
 
@@ -4463,8 +4460,8 @@
     <script src="../assets/js/xenon-custom.js"></script>
     <script src="../assets/js/lozad.js"></script>
     <!-- 返回顶部按钮 -->
-<div id="backToTop">
-    <span class="arrow"></span>
+<div class="back-to-top" onclick="backToTop()">
+    <i class="fas fa-arrow-up"></i>
 </div>
 <script>
 (function () {

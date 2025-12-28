@@ -181,8 +181,69 @@
     font-size: 20px;
     line-height: 1;
 }
-</style>
+    /* ================= 站内搜索 ================= */
 
+.site-search {
+    position: fixed;
+    top: 16px;
+    right: 80px; /* 不挡 GitHub / 按钮 */
+    display: flex;
+    align-items: center;
+    z-index: 999;
+}
+
+/* 放大镜图标 */
+.site-search .search-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.25s ease;
+}
+
+.site-search .search-icon:hover {
+    background: rgba(255, 255, 255, 0.16);
+}
+
+/* 输入框（默认隐藏） */
+.site-search .search-input {
+    width: 0;
+    opacity: 0;
+    margin-left: 8px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: none;
+    outline: none;
+    background: rgba(30, 30, 30, 0.9);
+    color: #fff;
+    font-size: 14px;
+    transition: all 0.25s ease;
+}
+
+/* 展开状态 */
+.site-search.active .search-input {
+    width: 180px;
+    opacity: 1;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+    .site-search {
+        top: 12px;
+        right: 16px;
+    }
+
+    .site-search.active .search-input {
+        width: 140px;
+    }
+}
+
+</style>
 
 </head>
     <!-- skin-white -->
@@ -4459,5 +4520,43 @@ window.addEventListener('scroll', function () {
     }
 });
 </script>
+<!-- 搜索入口 -->
+<div class="site-search">
+    <span class="search-icon">🔍</span>
+    <input
+        type="text"
+        class="search-input"
+        placeholder="搜索站内内容..."
+    />
+</div>
+
+    <script>
+(function () {
+    const searchBox = document.querySelector('.site-search');
+    const icon = document.querySelector('.search-icon');
+    const input = document.querySelector('.search-input');
+
+    if (!searchBox || !input) return;
+
+    // 点击放大镜展开/收起
+    icon.addEventListener('click', function () {
+        searchBox.classList.toggle('active');
+        input.focus();
+    });
+
+    // 搜索卡片内容
+    input.addEventListener('input', function () {
+        const keyword = input.value.toLowerCase();
+
+        const cards = document.querySelectorAll('.xe-widget');
+
+        cards.forEach(card => {
+            const text = card.innerText.toLowerCase();
+            card.style.display = text.includes(keyword) ? '' : 'none';
+        });
+    });
+})();
+</script>
+
 </body>
 </html>

@@ -179,11 +179,12 @@
 
 /* 箭头样式 */
 #backToTop .arrow {
-    color: #fff;
-    font-size: 18px;
-    font-weight: bold;
-    line-height: 1;
-    transform: translateY(1px);
+    width: 10px;
+    height: 10px;
+    border-left: 2px solid #fff;
+    border-top: 2px solid #fff;
+    transform: rotate(45deg);
+    margin-top: 2px;
 }
 
 /* hover 效果 */
@@ -4463,7 +4464,7 @@
     <script src="../assets/js/lozad.js"></script>
     <!-- 返回顶部按钮 -->
 <div id="backToTop">
-    <span class="arrow">↑</span>
+    <span class="arrow"></span>
 </div>
 <script>
 (function () {

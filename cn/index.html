@@ -149,22 +149,22 @@
 /* 回到顶部按钮 */
 .back-to-top {
     position: fixed;
-    bottom: 30px;
-    right: 30px;
+    bottom: 24px;
+    right: 24px;
     width: 48px;
     height: 48px;
     border-radius: 50%;
     background: #3b82f6;
-    color: white;
+    color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-    transition: all 0.3s;
+    box-shadow: 0 6px 16px rgba(59,130,246,.35);
+    transition: all .3s ease;
     opacity: 0;
     visibility: hidden;
-    z-index: 999;
+    z-index: 9999;
 }
 
 .back-to-top.visible {
@@ -174,35 +174,13 @@
 
 .back-to-top:hover {
     background: #2563eb;
-    transform: translateY(-2px);
-}
-// 回到顶部功能
-function backToTop() {
-    window.scrollTo({
-        top: 0,
-        behavior: 'smooth' // 平滑滚动
-    });
+    transform: translateY(-4px);
 }
 
-// 监听滚动事件，显示/隐藏按钮
-window.addEventListener('scroll', () => {
-    const backToTopBtn = document.querySelector('.back-to-top');
-    if (window.scrollY > 300) {
-        backToTopBtn.classList.add('visible');
-    } else {
-        backToTopBtn.classList.remove('visible');
-    }
-});
-
-// 页面加载时也需要检查一次（如果页面刷新时已经在底部）
-window.addEventListener('DOMContentLoaded', () => {
-    const backToTopBtn = document.querySelector('.back-to-top');
-    if (window.scrollY > 300) {
-        backToTopBtn.classList.add('visible');
-    } else {
-        backToTopBtn.classList.remove('visible');
-    }
-});
+.back-to-top i {
+    font-size: 20px;
+    line-height: 1;
+}
 </style>
 
 
@@ -4459,30 +4437,27 @@ window.addEventListener('DOMContentLoaded', () => {
     <!-- JavaScripts initializations and stuff -->
     <script src="../assets/js/xenon-custom.js"></script>
     <script src="../assets/js/lozad.js"></script>
-    <!-- 返回顶部按钮 -->
-<div class="back-to-top" onclick="backToTop()">
-    <i class="fas fa-arrow-up"></i>
+    <div class="back-to-top" onclick="backToTop()">
+    <i class="fa fa-arrow-up"></i>
 </div>
-<script>
-(function () {
-    const btn = document.getElementById('backToTop');
+    <script>
+function backToTop() {
+    window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+    });
+}
+
+window.addEventListener('scroll', function () {
+    const btn = document.querySelector('.back-to-top');
     if (!btn) return;
 
-    window.addEventListener('scroll', function () {
-        if (window.scrollY > 300) {
-            btn.classList.add('show');
-        } else {
-            btn.classList.remove('show');
-        }
-    });
-
-    btn.addEventListener('click', function () {
-        window.scrollTo({
-            top: 0,
-            behavior: 'smooth'
-        });
-    });
-})();
+    if (window.scrollY > 300) {
+        btn.classList.add('visible');
+    } else {
+        btn.classList.remove('visible');
+    }
+});
 </script>
 </body>
 </html>

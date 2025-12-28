@@ -651,42 +651,64 @@
                 </ul>
             </div>
         </div>
-        <div class="main-content">
-            <nav class="navbar user-info-navbar" role="navigation">
-                <!-- User Info, Notifications and Menu Bar -->
-                <!-- Left links for user info navbar -->
-                <ul class="user-info-menu left-links list-inline list-unstyled">
-                    <li class="hidden-sm hidden-xs">
-                        <a href="#" data-toggle="sidebar">
-                            <i class="fa-bars"></i>
-                        </a>
-                    </li>
-                </ul>
-<ul class="user-info-menu right-links list-inline list-unstyled">
-        <!-- 搜索 -->
-    <li class="hidden-sm hidden-xs">
-        <div class="site-search">
-            <span class="search-icon">
-                <i class="fa fa-search"></i>
-            </span>
-            <input
-                type="text"
-                class="search-input"
-                placeholder="搜索站内内容..."
-            />
+<div class="main-content">
+    <nav class="navbar user-info-navbar" role="navigation">
+        
+        <!-- 
+           使用 Flexbox 布局容器 
+           justify-between: 两端对齐
+           items-center: 垂直居中
+        -->
+        <div class="w-full flex items-center justify-between px-4 py-2">
+            
+            <!-- 左侧：侧边栏切换按钮 -->
+            <ul class="user-info-menu left-links list-inline list-unstyled mb-0 flex-shrink-0">
+                <li class="hidden-sm hidden-xs">
+                    <a href="#" data-toggle="sidebar" class="text-gray-600 hover:text-blue-600 transition-colors p-2">
+                        <i class="fa fa-bars text-lg"></i>
+                    </a>
+                </li>
+            </ul>
+
+            <!-- 中间：搜索栏 (PC端显示) -->
+            <!-- flex-grow-1: 占据中间剩余空间 -->
+            <!-- mx-4: 左右留出间距 -->
+            <!-- d-none d-md-block: 移动端隐藏，PC端显示 -->
+            <div class="d-none d-md-block flex-grow-1 mx-4" style="max-width: 600px;">
+                <div class="relative group">
+                    <!-- 搜索图标 -->
+                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
+                        <i class="fa fa-search"></i>
+                    </span>
+                    
+                    <!-- 输入框：使用了内联样式实现圆角和阴影，不依赖外部 CSS 文件 -->
+                    <input
+                        type="text"
+                        class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-full leading-5 bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-300 shadow-sm"
+                        placeholder="搜索常用工具、资源或文档..."
+                    />
+                </div>
+            </div>
+
+            <!-- 右侧：GitHub 链接 -->
+            <ul class="user-info-menu right-links list-inline list-unstyled mb-0 flex-shrink-0">
+                <li class="hidden-sm hidden-xs">
+                    <a href="https://github.com/WebStackPage/WebStackPage.github.io" target="_blank" class="flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors px-3 py-2 rounded-lg hover:bg-gray-100">
+                        <i class="fa fa-github text-lg"></i> 
+                        <span class="font-medium hidden lg:inline">GitHub</span>
+                    </a>
+                </li>
+            </ul>
         </div>
-    </li>
-    
-    <li class="hidden-sm hidden-xs">
+
+        <!-- GitHub 角标 (绝对定位) -->
         <a href="https://github.com/WebStackPage/WebStackPage.github.io" target="_blank">
-            <i class="fa-github"></i> GitHub
+            <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub">
         </a>
-    </li>
-</ul>
 
-                <!-- <a href="https://github.com/WebStackPage/WebStackPage.github.io" target="_blank"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub"></a> -->
+    </nav>
+</div>
 
-            </nav>
 <!-- 工作常用 -->
 <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="工作常用"></i>工作常用</h4>
 

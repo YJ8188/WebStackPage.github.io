@@ -181,7 +181,7 @@
     font-size: 20px;
     line-height: 1;
 }
-/* ================= 站内搜索(优化版 - 简洁风格) ================= */
+/* ================= 站内搜索(优化版 - 修复移动端) ================= */
 
 .site-search {
     position: fixed;
@@ -270,11 +270,16 @@
     }
 }
 
-/* 移动端适配 */
+/* 移动端适配 - 修复显示问题 */
 @media (max-width: 768px) {
+    /* 隐藏 GitHub 链接,为搜索腾出空间 */
+    .user-info-menu .hidden-sm {
+        display: none !important;
+    }
+    
     .site-search {
         top: 12px;
-        right: 16px;
+        right: 12px; /* 调整到右边缘 */
     }
     
     .site-search .search-icon {
@@ -298,13 +303,21 @@
 
 /* 超小屏幕 */
 @media (max-width: 480px) {
+    .site-search {
+        right: 10px;
+    }
+    
     .site-search .search-icon {
         width: 32px;
         height: 32px;
     }
     
+    .site-search .search-icon::before {
+        font-size: 14px;
+    }
+    
     .site-search.active .search-input {
-        width: 130px;
+        width: 120px;
         font-size: 12px;
     }
 }

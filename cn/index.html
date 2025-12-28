@@ -490,7 +490,7 @@
     <li class="hidden-sm hidden-xs">
         <div class="site-search">
             <span class="search-icon">
-                <i class="fa fa-search"></i>
+                <i class="fa fa-search"></i> 搜索
             </span>
             <input
                 type="text"
@@ -4540,18 +4540,35 @@ window.addEventListener('scroll', function () {
     const icon = document.querySelector('.search-icon');
     const input = document.querySelector('.search-input');
 
-    if (!searchBox || !input) return;
+    if (!searchBox || !icon || !input) return;
 
-    // 点击放大镜展开/收起
-    icon.addEventListener('click', function () {
-        searchBox.classList.toggle('active');
+    // 点击放大镜：展开
+    icon.addEventListener('click', function (e) {
+        e.stopPropagation();
+        searchBox.classList.add('active');
         input.focus();
     });
 
-    // 搜索卡片内容
+    // 点击输入框本身，不收起
+    input.addEventListener('click', function (e) {
+        e.stopPropagation();
+    });
+
+    // 点击页面空白处：收起
+    document.addEventListener('click', function () {
+        searchBox.classList.remove('active');
+        input.value = '';
+        
+        // 恢复所有卡片
+        const cards = document.querySelectorAll('.xe-widget');
+        cards.forEach(card => {
+            card.style.display = '';
+        });
+    });
+
+    // 搜索逻辑
     input.addEventListener('input', function () {
         const keyword = input.value.toLowerCase();
-
         const cards = document.querySelectorAll('.xe-widget');
 
         cards.forEach(card => {
@@ -4561,6 +4578,5 @@ window.addEventListener('scroll', function () {
     });
 })();
 </script>
-
 </body>
 </html>

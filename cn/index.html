@@ -243,12 +243,18 @@
 /* ================= 站内搜索(优化版 - 固定位置) ================= */
 /* PC端：固定在GitHub旁边 */
 .site-search {
-    position: relative; /* 修改为relative，跟随GitHub链接 */
-    display: flex;
+    /* 关键修改：改为inline-flex，和GitHub同排 */
+    display: inline-flex; 
     align-items: center;
+    /* 去掉relative（不需要相对定位） */
     z-index: 999;
     transition: all 0.3s ease;
-    margin-right: 15px; /* 与GitHub保持间距 */
+    /* 调整和GitHub的间距（缩小） */
+    margin-right: 8px; 
+    /* 关键：对齐GitHub的垂直位置（根据实际情况调数值） */
+    vertical-align: middle; 
+    /* 若还是偏顶，加margin-top微调 */
+    margin-top: 2px; 
 }
 
 /* 放大镜图标 - 更美观的设计 */
@@ -263,11 +269,6 @@
     cursor: pointer;
     transition: all 0.3s ease;
     box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-}
-
-.site-search .search-icon:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
 }
 
 /* 隐藏原有图标,使用白色emoji */

@@ -240,80 +240,90 @@
         font-size: 18px;
     }
 }
-/* ================= 修复搜索框布局 ================= */
+/* ================= 修复导航栏布局问题 ================= */
 
-/* 让所有右侧链接的 li 都能在同一行 */
+/* 修复整个用户信息导航栏 */
+.navbar.user-info-navbar {
+    position: relative;
+    min-height: 50px;
+    margin-bottom: 0;
+    border: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 15px;
+    background: #2c303a;
+}
+
+/* 左侧链接容器 */
+.user-info-menu.left-links {
+    float: left;
+    display: flex;
+    align-items: center;
+}
+
+/* 右侧链接容器 - 关键修复 */
+.user-info-menu.right-links {
+    float: right;
+    display: flex !important;
+    align-items: center;
+    margin: 0;
+    padding: 0;
+    position: static !important; /* 移除可能的绝对定位 */
+    top: auto !important;
+    right: auto !important;
+    list-style: none;
+}
+
+/* 右侧链接的每个项目 */
 .user-info-menu.right-links > li {
     display: inline-block;
-    vertical-align: middle;
-    float: none !important;
-}
-
-/* 搜索框父容器特殊处理 */
-.user-info-menu.right-links > li:first-child {
-    /* 这是搜索框所在的 li */
-    display: inline-block;
+    margin-left: 15px;
     vertical-align: middle;
 }
 
-/* 搜索框本身 */
-.site-search {
-    display: inline-flex !important;
-    align-items: center;
-    vertical-align: middle;
-    margin-right: 10px; /* 与GitHub的间距 */
-    position: relative;
-}
-
-/* GitHub 链接 */
-.user-info-menu.right-links > li:nth-child(2) {
-    /* 这是 GitHub 链接所在的 li */
-    display: inline-block;
-    vertical-align: middle;
-}
-
-/* 确保 GitHub 链接的样式正确 */
-.user-info-menu.right-links > li:nth-child(2) > a {
+/* GitHub 链接样式 */
+.user-info-menu.right-links > li > a[href*="github"] {
     padding: 8px 15px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
     color: #fff;
     text-decoration: none;
-    border-radius: 4px;
-    background: rgba(255, 255, 255, 0.1);
     transition: background 0.3s;
 }
 
-.user-info-menu.right-links > li:nth-child(2) > a:hover {
+.user-info-menu.right-links > li > a[href*="github"]:hover {
     background: rgba(255, 255, 255, 0.2);
 }
 
-/* 导航栏右侧容器调整 */
-.user-info-menu.right-links {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: flex-end !important;
-    flex-wrap: nowrap !important;
-    white-space: nowrap !important;
+/* 清除浮动，防止布局混乱 */
+.navbar.user-info-navbar:after {
+    content: "";
+    display: table;
+    clear: both;
 }
 
-/* 确保所有内联元素在同一行 */
-.navbar .navbar-nav > li,
-.navbar .navbar-nav > li > a {
-    display: inline-block !important;
-    float: none !important;
-}
-
-/* 对于更小的屏幕，调整间距 */
-@media (min-width: 768px) and (max-width: 991px) {
-    .site-search {
-        margin-right: 6px;
+/* 移动端适配 */
+@media (max-width: 768px) {
+    .navbar.user-info-navbar {
+        flex-wrap: wrap;
+        padding: 10px;
     }
     
-    .site-search.active .search-input {
-        width: 150px;
+    .user-info-menu.right-links {
+        order: 3;
+        width: 100%;
+        justify-content: center;
+        margin-top: 10px;
+    }
+    
+    /* 搜索框在移动端保持右下角固定 */
+    .site-search {
+        position: fixed !important;
+        bottom: 84px;
+        right: 24px;
     }
 }
-</style>
-
 </head>
     <!-- skin-white -->
     <div class="page-container">

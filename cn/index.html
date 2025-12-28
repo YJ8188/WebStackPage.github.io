@@ -240,165 +240,76 @@
         font-size: 18px;
     }
 }
-/* ================= 站内搜索(优化版 - 固定位置) ================= */
-/* PC端：固定在GitHub旁边 */
+/* ================= 修复搜索框布局 ================= */
+
+/* 让所有右侧链接的 li 都能在同一行 */
+.user-info-menu.right-links > li {
+    display: inline-block;
+    vertical-align: middle;
+    float: none !important;
+}
+
+/* 搜索框父容器特殊处理 */
+.user-info-menu.right-links > li:first-child {
+    /* 这是搜索框所在的 li */
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* 搜索框本身 */
 .site-search {
-    /* 关键修改：改为inline-flex，和GitHub同排 */
-    display: inline-flex; 
+    display: inline-flex !important;
     align-items: center;
-    /* 去掉relative（不需要相对定位） */
-    z-index: 999;
-    transition: all 0.3s ease;
-    /* 调整和GitHub的间距（缩小） */
-    margin-right: 8px; 
-    /* 关键：对齐GitHub的垂直位置（根据实际情况调数值） */
-    vertical-align: middle; 
-    /* 若还是偏顶，加margin-top微调 */
-    margin-top: 2px; 
+    vertical-align: middle;
+    margin-right: 10px; /* 与GitHub的间距 */
+    position: relative;
 }
 
-/* 放大镜图标 - 更美观的设计 */
-.site-search .search-icon {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+/* GitHub 链接 */
+.user-info-menu.right-links > li:nth-child(2) {
+    /* 这是 GitHub 链接所在的 li */
+    display: inline-block;
+    vertical-align: middle;
 }
 
-/* 隐藏原有图标,使用白色emoji */
-.site-search .search-icon i,
-.site-search .search-icon .fa {
-    display: none;
+/* 确保 GitHub 链接的样式正确 */
+.user-info-menu.right-links > li:nth-child(2) > a {
+    padding: 8px 15px;
+    color: #fff;
+    text-decoration: none;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    transition: background 0.3s;
 }
 
-/* 添加白色搜索符号 */
-.site-search .search-icon::before {
-    content: "🔍";
-    font-size: 16px;
-    filter: grayscale(1) brightness(10);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.user-info-menu.right-links > li:nth-child(2) > a:hover {
+    background: rgba(255, 255, 255, 0.2);
 }
 
-/* 输入框(默认隐藏) */
-.site-search .search-input {
-    width: 0;
-    opacity: 0;
-    margin-left: 10px;
-    padding: 8px 16px;
-    border-radius: 18px;
-    border: 2px solid transparent;
-    outline: none;
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    color: #333;
-    font-size: 14px;
-    transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+/* 导航栏右侧容器调整 */
+.user-info-menu.right-links {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    flex-wrap: nowrap !important;
+    white-space: nowrap !important;
 }
 
-.site-search .search-input::placeholder {
-    color: #999;
+/* 确保所有内联元素在同一行 */
+.navbar .navbar-nav > li,
+.navbar .navbar-nav > li > a {
+    display: inline-block !important;
+    float: none !important;
 }
 
-.site-search .search-input:focus {
-    border-color: #667eea;
-}
-
-/* 展开状态 */
-.site-search.active .search-input {
-    width: 200px;
-    opacity: 1;
-}
-
-/* 平板适配 */
-@media (max-width: 991px) {
-    .site-search.active .search-input {
-        width: 170px;
-    }
-}
-
-/* 移动端适配 - 固定在右下角 */
-@media (max-width: 768px) {
-    /* 移动端：改为固定定位 */
+/* 对于更小的屏幕，调整间距 */
+@media (min-width: 768px) and (max-width: 991px) {
     .site-search {
-        position: fixed !important;
-        top: auto !important;
-        bottom: 84px; /* 在回到顶部按钮上方 */
-        right: 24px;
-        margin-right: 0;
-        z-index: 9998;
-    }
-    
-    .site-search .search-icon {
-        width: 48px;
-        height: 48px;
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-    }
-    
-    .site-search .search-icon::before {
-        font-size: 18px;
-    }
-    
-    .site-search .search-input {
-        font-size: 14px;
-        padding: 10px 16px;
-        margin-left: 0;
-        margin-right: 10px;
-        order: -1; /* 输入框在左边 */
-    }
-    
-    .site-search.active .search-input {
-        width: 180px;
-    }
-}
-
-/* 超小屏幕 */
-@media (max-width: 480px) {
-    .site-search {
-        bottom: 84px;
-        right: 16px;
-    }
-    
-    .site-search .search-icon {
-        width: 44px;
-        height: 44px;
-    }
-    
-    .site-search .search-icon::before {
-        font-size: 16px;
+        margin-right: 6px;
     }
     
     .site-search.active .search-input {
         width: 150px;
-        font-size: 13px;
-    }
-}
-
-/* 搜索结果高亮效果 */
-.xe-widget {
-    transition: all 0.3s ease;
-}
-
-.xe-widget:not([style*="display: none"]) {
-    animation: fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
     }
 }
 </style>
@@ -643,10 +554,11 @@
                         </a>
                     </li>
                 </ul>
+<!-- 在 navbar 中的搜索和GitHub部分 -->
 <ul class="user-info-menu right-links list-inline list-unstyled">
-        <!-- 搜索 -->
-    <li class="hidden-sm hidden-xs">
-        <div class="site-search">
+    <!-- 搜索 -->
+    <li class="hidden-sm hidden-xs" style="display: inline-block; vertical-align: middle;">
+        <div class="site-search" style="display: inline-flex; vertical-align: middle;">
             <span class="search-icon">
                 <i class="fa fa-search"></i>
             </span>
@@ -658,8 +570,8 @@
         </div>
     </li>
     
-    <li class="hidden-sm hidden-xs">
-        <a href="https://github.com/WebStackPage/WebStackPage.github.io" target="_blank">
+    <li class="hidden-sm hidden-xs" style="display: inline-block; vertical-align: middle;">
+        <a href="https://github.com/WebStackPage/WebStackPage.github.io" target="_blank" style="display: inline-block; padding: 8px 15px; margin-left: 10px;">
             <i class="fa-github"></i> GitHub
         </a>
     </li>

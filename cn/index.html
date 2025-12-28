@@ -181,7 +181,229 @@
     font-size: 20px;
     line-height: 1;
 }
-/* ================= 站内搜索(优化版 - 修复移动端) ================= */
+/* ================= 站内搜索(PC端顶部 + 移动端底部) ================= */
+
+.site-search {
+    position: fixed;
+    top: 16px;
+    right: 80px;
+    display: flex;
+    align-items: center;
+    z-index: 999;
+    transition: all 0.3s ease;
+}
+
+/* 放大镜图标 - 简洁圆形 */
+.site-search .search-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.site-search .search-icon:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
+}
+
+/* 隐藏原有图标 */
+.site-search .search-icon i,
+.site-search .search-icon .fa {
+    display: none;
+}
+
+/* 添加白色搜索符号 */
+.site-search .search-icon::before {
+    content: "🔍";
+    font-size: 16px;
+    filter: grayscale(1) brightness(10);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 输入框(默认隐藏) */
+.site-search .search-input {
+    width: 0;
+    opacity: 0;
+    margin-left: 10px;
+    padding: 8px 16px;
+    border-radius: 18px;
+    border: 2px solid transparent;
+    outline: none;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    color: #333;
+    font-size: 14px;
+    transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.site-search .search-input::placeholder {
+    color: #999;
+}
+
+.site-search .search-input:focus {
+    border-color: #667eea;
+}
+
+/* 展开状态 */
+.site-search.active .search-input {
+    width: 200px;
+    opacity: 1;
+}
+
+/* 平板适配 */
+@media (max-width: 991px) {
+    .site-search {
+        right: 60px;
+    }
+    
+    .site-search.active .search-input {
+        width: 170px;
+    }
+}
+
+/* 移动端适配 - 移到右下角 */
+@media (max-width: 768px) {
+    .site-search {
+        top: auto !important;
+        bottom: 84px; /* 在回到顶部按钮上方 */
+        right: 24px;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    
+    .site-search .search-icon {
+        width: 48px;
+        height: 48px;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    .site-search .search-icon::before {
+        font-size: 18px;
+    }
+    
+    .site-search .search-input {
+        font-size: 14px;
+        padding: 10px 16px;
+        margin-left: 0;
+        margin-right: 10px;
+        order: -1; /* 输入框在左边 */
+    }
+    
+    .site-search.active .search-input {
+        width: 180px;
+    }
+}
+
+/* 超小屏幕 */
+@media (max-width: 480px) {
+    .site-search {
+        bottom: 84px;
+        right: 16px;
+    }
+    
+    .site-search .search-icon {
+        width: 44px;
+        height: 44px;
+    }
+    
+    .site-search .search-icon::before {
+        font-size: 16px;
+    }
+    
+    .site-search.active .search-input {
+        width: 150px;
+        font-size: 13px;
+    }
+}
+
+/* ================= 返回顶部按钮 ================= */
+
+.back-to-top {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #3b82f6;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(59,130,246,.35);
+    transition: all .3s ease;
+    opacity: 0;
+    visibility: hidden;
+    z-index: 9999;
+}
+
+.back-to-top.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.back-to-top:hover {
+    background: #2563eb;
+    transform: translateY(-4px);
+}
+
+.back-to-top i {
+    font-size: 20px;
+    line-height: 1;
+}
+
+/* 移动端回到顶部按钮调整 */
+@media (max-width: 768px) {
+    .back-to-top {
+        width: 48px;
+        height: 48px;
+        bottom: 24px;
+        right: 24px;
+    }
+}
+
+@media (max-width: 480px) {
+    .back-to-top {
+        width: 44px;
+        height: 44px;
+        bottom: 20px;
+        right: 16px;
+    }
+    
+    .back-to-top i {
+        font-size: 18px;
+    }
+}
+
+/* 搜索结果高亮效果 */
+.xe-widget {
+    transition: all 0.3s ease;
+}
+
+.xe-widget:not([style*="display: none"]) {
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}/* ================= 站内搜索(优化版 - 修复移动端) ================= */
 
 .site-search {
     position: fixed;

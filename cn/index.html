@@ -54,33 +54,32 @@
     <meta name="twitter:description" content="UI设计,UI设计素材,设计导航,网址导航,设计资源,创意导航,创意网站导航,技术员网址大全,设计素材大全,技术员导航,UI设计资源,优秀UI设计欣赏,技术员导航,技术员网址大全,技术员网址导航,产品经理网址导航,交互技术员网址导航,hq168.dpdns.org">
     <meta name="twitter:image" content="http://www.webstack.cc/assets/images/webstack_banner_cn.png">
 <style>
-/* ================= 你的自定义优化（安全区） ================= */
+/* ================= 明显可感知的卡片 hover ================= */
 
-/* 卡片 hover 动效 */
 .xe-widget {
-    transition:
-        transform 0.25s ease,
-        box-shadow 0.25s ease,
-        background-color 0.25s ease;
+    transition: all 0.3s ease !important;
 }
 
 .xe-widget:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+    transform: translateY(-6px) !important;
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.55) !important;
+    z-index: 2;
 }
+/* ================= 左侧菜单层级（明显版） ================= */
 
-/* 左侧菜单层级 */
 .sidebar-menu li.active > a {
-    background-color: rgba(255, 255, 255, 0.06);
-    font-weight: 500;
+    background-color: rgba(255, 255, 255, 0.12) !important;
+    font-weight: 600;
 }
 
 .sidebar-menu li > a:hover {
-    background-color: rgba(255, 255, 255, 0.04);
+    background-color: rgba(255, 255, 255, 0.08) !important;
 }
+/* ================= 卡片标题更清晰 ================= */
 
-.sidebar-menu li > a i {
-    opacity: 0.85;
+.xe-widget .xe-title {
+    font-weight: 600;
+    letter-spacing: 0.3px;
 }
 </style>
 

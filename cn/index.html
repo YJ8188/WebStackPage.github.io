@@ -54,75 +54,6 @@
     <meta name="twitter:description" content="UI设计,UI设计素材,设计导航,网址导航,设计资源,创意导航,创意网站导航,技术员网址大全,设计素材大全,技术员导航,UI设计资源,优秀UI设计欣赏,技术员导航,技术员网址大全,技术员网址导航,产品经理网址导航,交互技术员网址导航,hq168.dpdns.org">
     <meta name="twitter:image" content="http://www.webstack.cc/assets/images/webstack_banner_cn.png">
 <style>
-/* ================= 明显可感知的卡片 hover ================= */
-
-.xe-widget {
-    transition: all 0.3s ease !important;
-}
-
-.xe-widget:hover {
-    transform: translateY(-6px) !important;
-    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.55) !important;
-    z-index: 2;
-}
-/* ================= 左侧菜单层级（明显版） ================= */
-
-.sidebar-menu li.active > a {
-    background-color: rgba(255, 255, 255, 0.12) !important;
-    font-weight: 600;
-}
-
-.sidebar-menu li > a:hover {
-    background-color: rgba(255, 255, 255, 0.08) !important;
-}
-/* ================= 卡片标题更清晰 ================= */
-
-.xe-widget .xe-title {
-    font-weight: 600;
-    letter-spacing: 0.3px;
-}
-/* ================= 全局圆角系统 ================= */
-
-.xe-widget,
-.sidebar-menu li > a {
-    border-radius: 10px;
-}
-/* ================= 阴影统一 ================= */
-
-.xe-widget {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-}
-
-.xe-widget:hover {
-    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.55) !important;
-}
-/* ================= 字体层级统一 ================= */
-
-/* 卡片标题 */
-.xe-widget .xe-title {
-    font-size: 15px;
-    font-weight: 600;
-}
-
-/* 卡片描述 */
-.xe-widget .xe-comment {
-    font-size: 12px;
-    opacity: 0.75;
-}
-/* ================= 页面呼吸感 ================= */
-
-.main-content {
-    padding-top: 24px;
-}
-
-.xe-widget {
-    margin-bottom: 20px;
-}
-/* ================= hover 行为统一 ================= */
-
-.xe-widget:hover {
-    transform: translateY(-6px) scale(1.01) !important;
-}
 /* ===================================================
    最终版视觉风格（封版）
    =================================================== */
@@ -213,9 +144,427 @@
     outline: none !important;
     box-shadow: none !important;
 }
+/* ================= 返回顶部按钮（圆形蓝色箭头版） ================= */
+
+/* 回到顶部按钮 */
+.back-to-top {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #3b82f6;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(59,130,246,.35);
+    transition: all .3s ease;
+    opacity: 0;
+    visibility: hidden;
+    z-index: 9999;
+}
+
+.back-to-top.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.back-to-top:hover {
+    background: #2563eb;
+    transform: translateY(-4px);
+}
+
+.back-to-top i {
+    font-size: 20px;
+    line-height: 1;
+}
+/* ================= 站内搜索(PC端顶部 + 移动端底部) ================= */
+
+.site-search {
+    position: fixed;
+    top: 16px;
+    right: 80px;
+    display: flex;
+    align-items: center;
+    z-index: 999;
+    transition: all 0.3s ease;
+}
+
+/* 放大镜图标 - 简洁圆形 */
+.site-search .search-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.site-search .search-icon:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
+}
+
+/* 隐藏原有图标 */
+.site-search .search-icon i,
+.site-search .search-icon .fa {
+    display: none;
+}
+
+/* 添加白色搜索符号 */
+.site-search .search-icon::before {
+    content: "🔍";
+    font-size: 16px;
+    filter: grayscale(1) brightness(10);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 输入框(默认隐藏) */
+.site-search .search-input {
+    width: 0;
+    opacity: 0;
+    margin-left: 10px;
+    padding: 8px 16px;
+    border-radius: 18px;
+    border: 2px solid transparent;
+    outline: none;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    color: #333;
+    font-size: 14px;
+    transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.site-search .search-input::placeholder {
+    color: #999;
+}
+
+.site-search .search-input:focus {
+    border-color: #667eea;
+}
+
+/* 展开状态 */
+.site-search.active .search-input {
+    width: 200px;
+    opacity: 1;
+}
+
+/* 平板适配 */
+@media (max-width: 991px) {
+    .site-search {
+        right: 60px;
+    }
+    
+    .site-search.active .search-input {
+        width: 170px;
+    }
+}
+
+/* 移动端适配 - 移到右下角 */
+@media (max-width: 768px) {
+    .site-search {
+        top: auto !important;
+        bottom: 84px; /* 在回到顶部按钮上方 */
+        right: 24px;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    
+    .site-search .search-icon {
+        width: 48px;
+        height: 48px;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    .site-search .search-icon::before {
+        font-size: 18px;
+    }
+    
+    .site-search .search-input {
+        font-size: 14px;
+        padding: 10px 16px;
+        margin-left: 0;
+        margin-right: 10px;
+        order: -1; /* 输入框在左边 */
+    }
+    
+    .site-search.active .search-input {
+        width: 180px;
+    }
+}
+
+/* 超小屏幕 */
+@media (max-width: 480px) {
+    .site-search {
+        bottom: 84px;
+        right: 16px;
+    }
+    
+    .site-search .search-icon {
+        width: 44px;
+        height: 44px;
+    }
+    
+    .site-search .search-icon::before {
+        font-size: 16px;
+    }
+    
+    .site-search.active .search-input {
+        width: 150px;
+        font-size: 13px;
+    }
+}
+
+/* ================= 返回顶部按钮 ================= */
+
+.back-to-top {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #3b82f6;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(59,130,246,.35);
+    transition: all .3s ease;
+    opacity: 0;
+    visibility: hidden;
+    z-index: 9999;
+}
+
+.back-to-top.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.back-to-top:hover {
+    background: #2563eb;
+    transform: translateY(-4px);
+}
+
+.back-to-top i {
+    font-size: 20px;
+    line-height: 1;
+}
+
+/* 移动端回到顶部按钮调整 */
+@media (max-width: 768px) {
+    .back-to-top {
+        width: 48px;
+        height: 48px;
+        bottom: 24px;
+        right: 24px;
+    }
+}
+
+@media (max-width: 480px) {
+    .back-to-top {
+        width: 44px;
+        height: 44px;
+        bottom: 20px;
+        right: 16px;
+    }
+    
+    .back-to-top i {
+        font-size: 18px;
+    }
+}
+
+/* 搜索结果高亮效果 */
+.xe-widget {
+    transition: all 0.3s ease;
+}
+
+.xe-widget:not([style*="display: none"]) {
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}/* ================= 站内搜索(优化版 - 修复移动端) ================= */
+
+.site-search {
+    position: fixed;
+    top: 16px;
+    right: 80px;
+    display: flex;
+    align-items: center;
+    z-index: 999;
+    transition: all 0.3s ease;
+}
+
+/* 放大镜图标 - 简洁圆形 */
+.site-search .search-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.site-search .search-icon:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
+}
+
+/* 隐藏原有图标,使用白色emoji */
+.site-search .search-icon i,
+.site-search .search-icon .fa {
+    display: none;
+}
+
+/* 添加白色搜索符号 */
+.site-search .search-icon::before {
+    content: "🔍";
+    font-size: 16px;
+    filter: grayscale(1) brightness(10);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 输入框(默认隐藏) */
+.site-search .search-input {
+    width: 0;
+    opacity: 0;
+    margin-left: 10px;
+    padding: 8px 16px;
+    border-radius: 18px;
+    border: 2px solid transparent;
+    outline: none;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    color: #333;
+    font-size: 14px;
+    transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.site-search .search-input::placeholder {
+    color: #999;
+}
+
+.site-search .search-input:focus {
+    border-color: #667eea;
+}
+
+/* 展开状态 */
+.site-search.active .search-input {
+    width: 200px;
+    opacity: 1;
+}
+
+/* 平板适配 */
+@media (max-width: 991px) {
+    .site-search {
+        right: 60px;
+    }
+    
+    .site-search.active .search-input {
+        width: 170px;
+    }
+}
+
+/* 移动端适配 - 修复显示问题 */
+@media (max-width: 768px) {
+    /* 隐藏 GitHub 链接,为搜索腾出空间 */
+    .user-info-menu .hidden-sm {
+        display: none !important;
+    }
+    
+    .site-search {
+        top: 12px;
+        right: 12px; /* 调整到右边缘 */
+    }
+    
+    .site-search .search-icon {
+        width: 34px;
+        height: 34px;
+    }
+    
+    .site-search .search-icon::before {
+        font-size: 15px;
+    }
+    
+    .site-search .search-input {
+        font-size: 13px;
+        padding: 7px 14px;
+    }
+    
+    .site-search.active .search-input {
+        width: 150px;
+    }
+}
+
+/* 超小屏幕 */
+@media (max-width: 480px) {
+    .site-search {
+        right: 10px;
+    }
+    
+    .site-search .search-icon {
+        width: 32px;
+        height: 32px;
+    }
+    
+    .site-search .search-icon::before {
+        font-size: 14px;
+    }
+    
+    .site-search.active .search-input {
+        width: 120px;
+        font-size: 12px;
+    }
+}
+
+/* 搜索结果高亮效果 */
+.xe-widget {
+    transition: all 0.3s ease;
+}
+
+.xe-widget:not([style*="display: none"]) {
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
 
 </style>
-
 
 </head>
     <!-- skin-white -->
@@ -458,6 +807,20 @@
                     </li>
                 </ul>
 <ul class="user-info-menu right-links list-inline list-unstyled">
+        <!-- 搜索 -->
+    <li class="hidden-sm hidden-xs">
+        <div class="site-search">
+            <span class="search-icon">
+                <i class="fa fa-search"></i>
+            </span>
+            <input
+                type="text"
+                class="search-input"
+                placeholder="搜索站内内容..."
+            />
+        </div>
+    </li>
+    
     <li class="hidden-sm hidden-xs">
         <a href="https://github.com/WebStackPage/WebStackPage.github.io" target="_blank">
             <i class="fa-github"></i> GitHub
@@ -704,8 +1067,23 @@
                         </div>
                     </div>
                 </div>
+                <!-- div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info" onclick="window.open('https://www.xn--mes358aby2apfg.site/register?code=YkLcFh1t','_blank')" data-toggle="tooltip" data-placement="bottom" title="" data-original-title="https://www.赔钱机场.site/login">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/peiqian.png" class="lozad img-circle" width="40">
+                            </a> 
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>赔钱-科学上网</strong>
+                                </a>
+                                <p class="overflowClip_2">优秀的科学上网（贼便宜，长期稳定，点击注册领取优惠券）</p>
+                            </div>
+                        </div>
+                    </div>
+                </div> -->
                 <div class="col-sm-3">
-                    <div class="xe-widget xe-conversations box2 label-info" onclick="versations b'https://www.xn--mes358aby2apfg.site/register?code=YkLcFh1t'ab'_blank'i" data-toggle="tooltip" data-placement="bottom" title="" data-original-title="https://www.赔钱机场.site/login">
+                    <div class="xe-widget xe-conversations box2 label-info" onclick="window.open('https://www.xn--mes358aby2apfg.site/register?code=YkLcFh1t', '_blank')" data-toggle="tooltip" data-placement="bottom" title="" data-original-title="https://www.赔钱机场.site/login">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
                                 <img data-src="../assets/images/logos/peiqian.png" class="lozad img-circle" width="40">
@@ -719,21 +1097,6 @@
                         </div>
                     </div>
                 </div>
-                <!-- <div class="col-sm-3">
-                    <div class="xe-widget xe-conversations box2 label-info" onclick="window.open('https://www.link360.top/', '_blank')" data-toggle="tooltip" data-placement="bottom" title="" data-original-title="https://www.link360.top/">
-                        <div class="xe-comment-entry">
-                            <a class="xe-user-img">
-                                <img data-src="../assets/images/logos/ss-kexueshangwang.png" class="lozad img-circle" width="40">
-                            </a>
-                            <div class="xe-comment">
-                                <a href="#" class="xe-user-name overflowClip_1">
-                                    <strong>SS梯子</strong>
-                                </a>
-                                <p class="overflowClip_2">SS梯子-科学上网（实惠，但是不太稳）</p>
-                            </div>
-                        </div>
-                    </div>
-                </div> -->
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info" onclick="window.open('https://www.shejizhoukan.com/', '_blank')" data-toggle="tooltip" data-placement="bottom" title="" data-original-title="https://www.shejizhoukan.com/">
                         <div class="xe-comment-entry">
@@ -4470,5 +4833,71 @@
     <!-- JavaScripts initializations and stuff -->
     <script src="../assets/js/xenon-custom.js"></script>
     <script src="../assets/js/lozad.js"></script>
+    <div class="back-to-top" onclick="backToTop()">
+    <i class="fa fa-arrow-up"></i>
+</div>
+    <script>
+function backToTop() {
+    window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+    });
+}
+
+window.addEventListener('scroll', function () {
+    const btn = document.querySelector('.back-to-top');
+    if (!btn) return;
+
+    if (window.scrollY > 300) {
+        btn.classList.add('visible');
+    } else {
+        btn.classList.remove('visible');
+    }
+});
+</script>
+<script>
+(function () {
+    const searchBox = document.querySelector('.site-search');
+    const icon = document.querySelector('.search-icon');
+    const input = document.querySelector('.search-input');
+
+    if (!searchBox || !icon || !input) return;
+
+    // 点击放大镜：展开
+    icon.addEventListener('click', function (e) {
+        e.stopPropagation();
+        searchBox.classList.add('active');
+        input.focus();
+    });
+
+    // 点击输入框本身，不收起
+    input.addEventListener('click', function (e) {
+        e.stopPropagation();
+    });
+
+    // 点击页面空白处：收起
+    document.addEventListener('click', function () {
+        searchBox.classList.remove('active');
+        input.value = '';
+        
+        // 恢复所有卡片
+        const cards = document.querySelectorAll('.xe-widget');
+        cards.forEach(card => {
+            card.style.display = '';
+        });
+    });
+
+    // 搜索逻辑
+    input.addEventListener('input', function () {
+        const keyword = input.value.toLowerCase();
+        const cards = document.querySelectorAll('.xe-widget');
+
+        cards.forEach(card => {
+            const text = card.innerText.toLowerCase();
+            card.style.display = text.includes(keyword) ? '' : 'none';
+        });
+    });
+})();
+</script>
 </body>
 </html>

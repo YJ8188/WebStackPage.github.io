@@ -144,6 +144,47 @@
     outline: none !important;
     box-shadow: none !important;
 }
+/* ================= 返回顶部按钮 ================= */
+
+#backToTop {
+    position: fixed;
+    right: 20px;
+    bottom: 24px;
+    width: 42px;
+    height: 42px;
+    line-height: 42px;
+    text-align: center;
+    font-size: 18px;
+    color: #fff;
+    background-color: rgba(0, 0, 0, 0.6);
+    border-radius: 50%;
+    cursor: pointer;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    z-index: 999;
+}
+
+#backToTop.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+#backToTop:hover {
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
+/* ===== 移动端适配 ===== */
+@media (max-width: 768px) {
+    #backToTop {
+        width: 36px;
+        height: 36px;
+        line-height: 36px;
+        font-size: 16px;
+        right: 16px;
+        bottom: 70px; /* 避开手机底部手势区 */
+    }
+}
 
 </style>
 
@@ -4401,5 +4442,28 @@
     <!-- JavaScripts initializations and stuff -->
     <script src="../assets/js/xenon-custom.js"></script>
     <script src="../assets/js/lozad.js"></script>
+    <!-- 返回顶部按钮 -->
+<div id="backToTop">↑</div>
+<script>
+(function () {
+    const btn = document.getElementById('backToTop');
+    if (!btn) return;
+
+    window.addEventListener('scroll', function () {
+        if (window.scrollY > 300) {
+            btn.classList.add('show');
+        } else {
+            btn.classList.remove('show');
+        }
+    });
+
+    btn.addEventListener('click', function () {
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+    });
+})();
+</script>
 </body>
 </html>

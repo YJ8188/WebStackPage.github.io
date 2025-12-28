@@ -4307,26 +4307,5 @@
     <!-- JavaScripts initializations and stuff -->
     <script src="../assets/js/xenon-custom.js"></script>
     <script src="../assets/js/lozad.js"></script>
-   <!-- 黑白主题切换功能 -->
-<script>
-(function () {
-    const toggle = document.getElementById('themeToggle');
-
-    if (localStorage.getItem('theme') === 'dark') {
-        document.body.classList.add('dark-theme');
-        toggle.checked = true;
-    }
-
-    toggle.addEventListener('change', function () {
-        if (this.checked) {
-            document.body.classList.add('dark-theme');
-            localStorage.setItem('theme', 'dark');
-        } else {
-            document.body.classList.remove('dark-theme');
-            localStorage.setItem('theme', 'light');
-        }
-    });
-})();
-</script>
 </body>
 </html>

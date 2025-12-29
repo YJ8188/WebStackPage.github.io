@@ -135,45 +135,51 @@
 /* 卡片容器拖拽样式 */
 .col-sm-3[draggable="true"] {
     cursor: grab;
-    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
+    transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform;
 }
 
 .col-sm-3[draggable="true"]:active {
     cursor: grabbing;
 }
 
-.col-sm-3[draggable="true"]:hover {
+.col-sm-3[draggable="true"]:hover:not(.dragging) {
     transform: translateY(-2px);
 }
 
-/* 拖动中的卡片样式 */
+/* 拖动中的卡片样式 - 更自然的视觉效果 */
 .col-sm-3.dragging {
-    opacity: 0.4;
-    transform: scale(0.95) rotate(2deg);
+    opacity: 0.5;
+    transform: scale(0.92);
     transition: none;
-    z-index: 1000;
+    z-index: 10000;
+    pointer-events: none;
 }
 
-/* 拖动占位符效果 */
+.col-sm-3.dragging .xe-widget {
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    transform: scale(1.08);
+}
+
+/* 拖动占位符效果 - 更明显的视觉反馈 */
 .col-sm-3.drag-over {
-    border: 2px dashed #3b82f6;
+    background: rgba(59, 130, 246, 0.08);
     border-radius: 10px;
-    background: rgba(59, 130, 246, 0.1);
-    transform: scale(1.02);
 }
 
-/* 拖动时的占位符（插入位置指示） */
+/* 拖动时的占位符（插入位置指示）- 更精确的指示 */
 .col-sm-3.drag-insert-before::before,
 .col-sm-3.drag-insert-after::after {
     content: '';
     position: absolute;
-    left: -2px;
-    right: -2px;
-    height: 3px;
-    background: #3b82f6;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, transparent, #3b82f6, transparent);
     border-radius: 2px;
-    z-index: 1001;
-    animation: pulse 1s infinite;
+    z-index: 10001;
+    animation: pulse-line 1.5s ease-in-out infinite;
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.6);
 }
 
 .col-sm-3.drag-insert-before::before {
@@ -184,21 +190,30 @@
     bottom: -2px;
 }
 
-@keyframes pulse {
+@keyframes pulse-line {
     0%, 100% {
-        opacity: 0.6;
-        transform: scaleY(1);
+        opacity: 0.4;
+        transform: scaleX(0.8);
     }
     50% {
         opacity: 1;
-        transform: scaleY(1.2);
+        transform: scaleX(1);
     }
 }
 
-/* 拖动时的卡片阴影效果 */
-.col-sm-3.dragging .xe-widget {
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-    transform: scale(1.05);
+/* 拖动时的占位空间 */
+.col-sm-3.drag-placeholder {
+    height: 0;
+    margin: 0;
+    padding: 0;
+    border: none;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* 平滑移动动画 */
+.col-sm-3:not(.dragging) {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ---------- 卡片内容 ---------- */
@@ -4998,34 +5013,42 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }, 100);
 
-    // ========== 8. 拖拽排序功能 - 支持跨栏拖动（类似iPhone APP）==========
+    // ========== 8. 拖拽排序功能 - 完美流畅的iPhone APP风格拖动 ==========
     const allRows = document.querySelectorAll('.row');
-    let draggedCardId = null; // 全局拖拽卡片ID
-    let draggedCardElement = null; // 全局拖拽卡片元素
-    let lastDragTime = 0; // 用于节流
-    const DRAG_THROTTLE = 50; // 节流时间（毫秒）
+    let draggedCardId = null;
+    let draggedCardElement = null;
+    let dragOffset = { x: 0, y: 0 };
+    let lastUpdateTime = 0;
+    const DRAG_UPDATE_INTERVAL = 16; // 约60fps的更新频率
     
-    // 为所有卡片添加拖拽事件（支持跨栏）
+    // 为所有卡片添加拖拽事件
     document.querySelectorAll('.col-sm-3[draggable="true"]').forEach(card => {
         if (card.classList.contains('card-hidden')) return;
         
         card.addEventListener('dragstart', function(e) {
             draggedCardId = this.id;
             draggedCardElement = this;
+            
+            // 计算拖动偏移量
+            const rect = this.getBoundingClientRect();
+            dragOffset.x = e.clientX - rect.left;
+            dragOffset.y = e.clientY - rect.top;
+            
             e.dataTransfer.setData('text/plain', this.id);
             e.dataTransfer.effectAllowed = 'move';
             
             // 添加拖动样式
             this.classList.add('dragging');
             
-            // 创建拖动预览图像
+            // 创建自定义拖动预览
             const dragImage = this.cloneNode(true);
-            dragImage.style.transform = 'rotate(5deg)';
-            dragImage.style.opacity = '0.8';
+            dragImage.style.transform = 'rotate(3deg)';
+            dragImage.style.opacity = '0.9';
+            dragImage.style.width = rect.width + 'px';
             document.body.appendChild(dragImage);
             dragImage.style.position = 'absolute';
             dragImage.style.top = '-1000px';
-            e.dataTransfer.setDragImage(dragImage, e.offsetX, e.offsetY);
+            e.dataTransfer.setDragImage(dragImage, dragOffset.x, dragOffset.y);
             setTimeout(() => {
                 if (document.body.contains(dragImage)) {
                     document.body.removeChild(dragImage);
@@ -5034,20 +5057,116 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         card.addEventListener('dragend', function() {
-            // 清除所有拖动样式（所有容器）
+            // 清除所有拖动样式
             this.classList.remove('dragging');
             allRows.forEach(container => {
                 container.querySelectorAll('.col-sm-3').forEach(c => {
-                    c.classList.remove('drag-insert-before', 'drag-insert-after', 'drag-over');
+                    c.classList.remove('drag-insert-before', 'drag-insert-after', 'drag-over', 'drag-placeholder');
                 });
             });
             draggedCardId = null;
             draggedCardElement = null;
-            lastDragTime = 0;
+            dragOffset = { x: 0, y: 0 };
+            lastUpdateTime = 0;
         });
     });
     
-    // 为所有容器添加跨栏拖动支持
+    // 优化的拖动位置计算函数 - 使用精确的网格对齐算法（类似iPhone APP）
+    function getInsertPosition(container, clientX, clientY) {
+        const cards = Array.from(container.querySelectorAll('.col-sm-3[draggable="true"]:not(.dragging):not(.card-hidden)'));
+        if (cards.length === 0) return { position: 'end', element: null };
+        
+        // 计算每个卡片的位置信息
+        const cardPositions = cards.map(card => {
+            const rect = card.getBoundingClientRect();
+            return {
+                element: card,
+                left: rect.left,
+                right: rect.right,
+                top: rect.top,
+                bottom: rect.bottom,
+                centerX: rect.left + rect.width / 2,
+                centerY: rect.top + rect.height / 2,
+                width: rect.width,
+                height: rect.height,
+                midX: rect.left + rect.width / 2,
+                midY: rect.top + rect.height / 2
+            };
+        });
+        
+        // 首先检查鼠标是否在某个卡片内
+        let targetCard = null;
+        let insertPosition = 'after';
+        
+        for (let pos of cardPositions) {
+            if (clientX >= pos.left && clientX <= pos.right && 
+                clientY >= pos.top && clientY <= pos.bottom) {
+                targetCard = pos.element;
+                // 鼠标在卡片内，根据鼠标位置判断插入方向
+                const relativeY = (clientY - pos.top) / pos.height;
+                insertPosition = relativeY < 0.5 ? 'before' : 'after';
+                break;
+            }
+        }
+        
+        // 如果鼠标不在任何卡片内，找到最接近的卡片
+        if (!targetCard) {
+            let minDistance = Infinity;
+            let closestPos = null;
+            
+            cardPositions.forEach(pos => {
+                // 计算到卡片边缘的最小距离（不是中心点）
+                let distance = Infinity;
+                
+                // 检查鼠标在卡片的哪个方向
+                if (clientX >= pos.left && clientX <= pos.right) {
+                    // 鼠标在卡片的垂直范围内
+                    distance = Math.min(
+                        Math.abs(clientY - pos.top),
+                        Math.abs(clientY - pos.bottom)
+                    );
+                    insertPosition = clientY < pos.midY ? 'before' : 'after';
+                } else if (clientY >= pos.top && clientY <= pos.bottom) {
+                    // 鼠标在卡片的水平范围内
+                    distance = Math.min(
+                        Math.abs(clientX - pos.left),
+                        Math.abs(clientX - pos.right)
+                    );
+                    insertPosition = clientX < pos.midX ? 'before' : 'after';
+                } else {
+                    // 鼠标在卡片外，计算到最近角的距离
+                    const dx = Math.min(Math.abs(clientX - pos.left), Math.abs(clientX - pos.right));
+                    const dy = Math.min(Math.abs(clientY - pos.top), Math.abs(clientY - pos.bottom));
+                    distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // 根据相对位置判断
+                    if (clientY < pos.top) {
+                        insertPosition = 'before';
+                    } else if (clientY > pos.bottom) {
+                        insertPosition = 'after';
+                    } else {
+                        insertPosition = clientX < pos.midX ? 'before' : 'after';
+                    }
+                }
+                
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    closestPos = pos;
+                }
+            });
+            
+            if (closestPos) {
+                targetCard = closestPos.element;
+            }
+        }
+        
+        return {
+            position: insertPosition,
+            element: targetCard
+        };
+    }
+    
+    // 为所有容器添加优化的拖动支持
     allRows.forEach((container, rowIndex) => {
         const cards = container.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)');
         if (cards.length === 0) return;
@@ -5055,7 +5174,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const storageKey = `cardOrder_${rowIndex}`;
         const defaultKey = `defaultOrder_${rowIndex}`;
         
-        // 保存默认顺序（首次加载时记录，排除隐藏的卡片）
+        // 保存默认顺序
         if (!localStorage.getItem(defaultKey)) {
             const defaultIds = Array.from(cards)
                 .filter(card => !card.classList.contains('card-hidden'))
@@ -5069,67 +5188,110 @@ document.addEventListener('DOMContentLoaded', function() {
             applyOrder(container, JSON.parse(savedOrder));
         }
         
-        // 使用节流的dragover事件处理
+        // 优化的dragover事件处理 - 使用requestAnimationFrame实现流畅更新
+        let rafId = null;
+        let lastInsertPos = null; // 记录上次插入位置，避免重复操作
+        
         container.addEventListener('dragover', function(e) {
             e.preventDefault();
             
-            // 节流控制
-            const now = Date.now();
-            if (now - lastDragTime < DRAG_THROTTLE) {
-                return;
-            }
-            lastDragTime = now;
-            
             if (!draggedCardId || !draggedCardElement) return;
             
-            // 清除当前容器的所有插入指示器
-            container.querySelectorAll('.col-sm-3').forEach(card => {
-                card.classList.remove('drag-insert-before', 'drag-insert-after', 'drag-over');
-            });
-            
-            // 如果拖动的卡片不在当前容器，先移动到当前容器
-            if (!container.contains(draggedCardElement)) {
-                // 找到插入位置
-                const afterElement = getDragAfterElement(container, e.clientY);
-                if (afterElement) {
-                    container.insertBefore(draggedCardElement, afterElement);
-                } else {
-                    container.appendChild(draggedCardElement);
-                }
-            } else {
-                // 在同一容器内移动
-                const afterElement = getDragAfterElement(container, e.clientY);
-                
-                if (afterElement && afterElement !== draggedCardElement) {
-                    afterElement.classList.add('drag-insert-before');
-                    container.insertBefore(draggedCardElement, afterElement);
-                } else if (!afterElement) {
-                    // 最后一个元素
-                    const lastCard = container.querySelector('.col-sm-3:last-of-type:not(.dragging)');
-                    if (lastCard && lastCard !== draggedCardElement) {
-                        lastCard.classList.add('drag-insert-after');
-                    }
-                    container.appendChild(draggedCardElement);
-                }
+            // 使用requestAnimationFrame确保流畅更新（约60fps）
+            if (rafId) {
+                cancelAnimationFrame(rafId);
             }
+            
+            rafId = requestAnimationFrame(() => {
+                const now = Date.now();
+                if (now - lastUpdateTime < DRAG_UPDATE_INTERVAL) {
+                    return;
+                }
+                lastUpdateTime = now;
+                
+                // 清除当前容器的所有插入指示器
+                container.querySelectorAll('.col-sm-3').forEach(card => {
+                    card.classList.remove('drag-insert-before', 'drag-insert-after', 'drag-over');
+                });
+                
+                // 使用优化的位置计算
+                const insertPos = getInsertPosition(container, e.clientX, e.clientY);
+                
+                // 检查位置是否改变，避免不必要的DOM操作
+                const posKey = insertPos.element ? `${insertPos.element.id}_${insertPos.position}` : 'end';
+                if (lastInsertPos === posKey && container.contains(draggedCardElement)) {
+                    // 位置没变，只更新指示器
+                    if (insertPos.element) {
+                        insertPos.element.classList.add(insertPos.position === 'before' ? 'drag-insert-before' : 'drag-insert-after');
+                    }
+                    return;
+                }
+                lastInsertPos = posKey;
+                
+                // 如果拖动的卡片不在当前容器，先移动到当前容器
+                if (!container.contains(draggedCardElement)) {
+                    if (insertPos.element) {
+                        if (insertPos.position === 'before') {
+                            container.insertBefore(draggedCardElement, insertPos.element);
+                            insertPos.element.classList.add('drag-insert-before');
+                        } else {
+                            insertPos.element.classList.add('drag-insert-after');
+                            if (insertPos.element.nextSibling) {
+                                container.insertBefore(draggedCardElement, insertPos.element.nextSibling);
+                            } else {
+                                container.appendChild(draggedCardElement);
+                            }
+                        }
+                    } else {
+                        container.appendChild(draggedCardElement);
+                    }
+                } else {
+                    // 在同一容器内移动
+                    if (insertPos.element && insertPos.element !== draggedCardElement) {
+                        // 检查是否需要移动（避免移动到相同位置）
+                        const currentIndex = Array.from(container.children).indexOf(draggedCardElement);
+                        const targetIndex = Array.from(container.children).indexOf(insertPos.element);
+                        const newIndex = insertPos.position === 'before' ? targetIndex : targetIndex + 1;
+                        
+                        if (currentIndex !== newIndex && (newIndex !== currentIndex + 1 || insertPos.position === 'before')) {
+                            if (insertPos.position === 'before') {
+                                insertPos.element.classList.add('drag-insert-before');
+                                container.insertBefore(draggedCardElement, insertPos.element);
+                            } else {
+                                insertPos.element.classList.add('drag-insert-after');
+                                if (insertPos.element.nextSibling) {
+                                    container.insertBefore(draggedCardElement, insertPos.element.nextSibling);
+                                } else {
+                                    container.appendChild(draggedCardElement);
+                                }
+                            }
+                        } else {
+                            // 位置相同，只显示指示器
+                            insertPos.element.classList.add(insertPos.position === 'before' ? 'drag-insert-before' : 'drag-insert-after');
+                        }
+                    }
+                }
+            });
         });
 
         // 保存新顺序
         container.addEventListener('drop', function(e) {
             e.preventDefault();
             
+            if (rafId) {
+                cancelAnimationFrame(rafId);
+                rafId = null;
+            }
+            lastInsertPos = null;
+            
             // 清除所有拖动样式
             allRows.forEach(c => {
                 c.querySelectorAll('.col-sm-3').forEach(card => {
-                    card.classList.remove('drag-insert-before', 'drag-insert-after', 'drag-over');
+                    card.classList.remove('drag-insert-before', 'drag-insert-after', 'drag-over', 'drag-placeholder');
                 });
             });
             
-            // 保存当前容器的顺序
-            const newOrder = Array.from(container.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)')).map(card => card.id);
-            localStorage.setItem(storageKey, JSON.stringify(newOrder));
-            
-            // 更新所有容器的顺序（因为可能跨栏移动）
+            // 保存所有容器的顺序
             allRows.forEach((c, idx) => {
                 const order = Array.from(c.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)')).map(card => card.id);
                 localStorage.setItem(`cardOrder_${idx}`, JSON.stringify(order));
@@ -5143,7 +5305,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // 拖动离开容器时清除样式
         container.addEventListener('dragleave', function(e) {
-            // 只有当真正离开容器时才清除
             if (!container.contains(e.relatedTarget)) {
                 container.querySelectorAll('.col-sm-3').forEach(card => {
                     card.classList.remove('drag-insert-before', 'drag-insert-after', 'drag-over');
@@ -5221,23 +5382,27 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // 全局拖动处理：支持跨容器拖动（类似iPhone APP）
+    // 使用更精确的容器检测和事件传递
     document.addEventListener('dragover', function(e) {
         if (!draggedCardId || !draggedCardElement) return;
         
-        // 找到鼠标位置下的所有容器
+        // 找到鼠标位置下的所有元素
         const elementsBelow = document.elementsFromPoint(e.clientX, e.clientY);
-        const targetRow = elementsBelow.find(el => el.classList.contains('row'));
+        const targetRow = elementsBelow.find(el => el.classList && el.classList.contains('row'));
+        const currentRow = draggedCardElement.closest('.row');
         
-        if (targetRow && targetRow !== draggedCardElement.closest('.row')) {
-            // 鼠标在另一个容器上，触发该容器的dragover
+        if (targetRow && targetRow !== currentRow) {
+            // 鼠标在不同的容器上，确保触发该容器的dragover
             e.preventDefault();
-            const event = new DragEvent('dragover', {
+            // 直接调用目标容器的dragover处理逻辑
+            const dragEvent = new DragEvent('dragover', {
                 bubbles: true,
                 cancelable: true,
                 clientX: e.clientX,
-                clientY: e.clientY
+                clientY: e.clientY,
+                dataTransfer: e.dataTransfer
             });
-            targetRow.dispatchEvent(event);
+            targetRow.dispatchEvent(dragEvent);
         }
     }, false);
 
@@ -5246,4 +5411,5 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 </body>
+</html>
 </html>

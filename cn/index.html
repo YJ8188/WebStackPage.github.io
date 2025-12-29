@@ -70,9 +70,23 @@
     border-radius: 10px;
     background-color: rgba(255, 255, 255, 0.02);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-    transition: all 0.3s ease;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     margin-bottom: 20px;
     position: relative;
+}
+
+/* 确保tooltip显示在最上层 */
+.tooltip {
+    z-index: 10000 !important;
+    pointer-events: none;
+}
+
+.tooltip-inner {
+    max-width: 300px;
+    word-break: break-all;
+    font-size: 12px;
+    background-color: rgba(0, 0, 0, 0.9);
+    padding: 8px 12px;
 }
 
 /* ---------- 卡片 hover ---------- */
@@ -120,15 +134,71 @@
 
 /* 卡片容器拖拽样式 */
 .col-sm-3[draggable="true"] {
-    cursor: move;
+    cursor: grab;
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
+}
+
+.col-sm-3[draggable="true"]:active {
+    cursor: grabbing;
 }
 
 .col-sm-3[draggable="true"]:hover {
-    opacity: 0.9;
+    transform: translateY(-2px);
 }
 
+/* 拖动中的卡片样式 */
 .col-sm-3.dragging {
-    opacity: 0.5;
+    opacity: 0.4;
+    transform: scale(0.95) rotate(2deg);
+    transition: none;
+    z-index: 1000;
+}
+
+/* 拖动占位符效果 */
+.col-sm-3.drag-over {
+    border: 2px dashed #3b82f6;
+    border-radius: 10px;
+    background: rgba(59, 130, 246, 0.1);
+    transform: scale(1.02);
+}
+
+/* 拖动时的占位符（插入位置指示） */
+.col-sm-3.drag-insert-before::before,
+.col-sm-3.drag-insert-after::after {
+    content: '';
+    position: absolute;
+    left: -2px;
+    right: -2px;
+    height: 3px;
+    background: #3b82f6;
+    border-radius: 2px;
+    z-index: 1001;
+    animation: pulse 1s infinite;
+}
+
+.col-sm-3.drag-insert-before::before {
+    top: -2px;
+}
+
+.col-sm-3.drag-insert-after::after {
+    bottom: -2px;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 0.6;
+        transform: scaleY(1);
+    }
+    50% {
+        opacity: 1;
+        transform: scaleY(1.2);
+    }
+}
+
+/* 拖动时的卡片阴影效果 */
+.col-sm-3.dragging .xe-widget {
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    transform: scale(1.05);
 }
 
 /* ---------- 卡片内容 ---------- */
@@ -4512,6 +4582,14 @@
             $(this).siblings('li').removeClass('active'); // 删除其他兄弟元素的样式
             $(this).addClass('active'); // 添加当前元素的样式
         });
+        
+        // 初始化tooltip，确保显示在最上层
+        $('[data-toggle="tooltip"]').tooltip({
+            container: 'body',
+            placement: 'bottom',
+            trigger: 'hover'
+        });
+        
         $("a.smooth").click(function(ev) {
             ev.preventDefault();
 
@@ -4929,11 +5007,28 @@ document.addEventListener('DOMContentLoaded', function() {
             card.addEventListener('dragstart', function(e) {
                 draggedCardId = this.id; // 保存到变量
                 e.dataTransfer.setData('text/plain', this.id);
+                e.dataTransfer.effectAllowed = 'move';
+                
+                // 添加拖动样式
                 this.classList.add('dragging');
+                
+                // 创建拖动预览图像
+                const dragImage = this.cloneNode(true);
+                dragImage.style.transform = 'rotate(5deg)';
+                dragImage.style.opacity = '0.8';
+                document.body.appendChild(dragImage);
+                dragImage.style.position = 'absolute';
+                dragImage.style.top = '-1000px';
+                e.dataTransfer.setDragImage(dragImage, e.offsetX, e.offsetY);
+                setTimeout(() => document.body.removeChild(dragImage), 0);
             });
             
             card.addEventListener('dragend', function() {
+                // 清除所有拖动样式
                 this.classList.remove('dragging');
+                container.querySelectorAll('.col-sm-3').forEach(c => {
+                    c.classList.remove('drag-insert-before', 'drag-insert-after', 'drag-over');
+                });
                 draggedCardId = null; // 重置
             });
         });
@@ -4945,11 +5040,25 @@ document.addEventListener('DOMContentLoaded', function() {
             const draggedCard = document.getElementById(draggedCardId);
             if (!draggedCard || draggedCard.classList.contains('card-hidden')) return;
             
+            // 清除所有插入指示器
+            container.querySelectorAll('.col-sm-3').forEach(card => {
+                card.classList.remove('drag-insert-before', 'drag-insert-after', 'drag-over');
+            });
+            
             const afterElement = getDragAfterElement(container, e.clientY);
             
             if (afterElement) {
+                // 添加插入位置指示
+                if (afterElement !== draggedCard) {
+                    afterElement.classList.add('drag-insert-before');
+                }
                 container.insertBefore(draggedCard, afterElement);
             } else {
+                // 最后一个元素
+                const lastCard = container.querySelector('.col-sm-3:last-of-type:not(.dragging)');
+                if (lastCard && lastCard !== draggedCard) {
+                    lastCard.classList.add('drag-insert-after');
+                }
                 container.appendChild(draggedCard);
             }
         });
@@ -4957,9 +5066,24 @@ document.addEventListener('DOMContentLoaded', function() {
         // 保存新顺序
         container.addEventListener('drop', function(e) {
             e.preventDefault();
+            
+            // 清除所有拖动样式
+            container.querySelectorAll('.col-sm-3').forEach(card => {
+                card.classList.remove('drag-insert-before', 'drag-insert-after', 'drag-over');
+            });
+            
             const newOrder = Array.from(container.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)')).map(card => card.id);
             localStorage.setItem(storageKey, JSON.stringify(newOrder));
             draggedCardId = null; // 重置
+        });
+        
+        // 拖动离开容器时清除样式
+        container.addEventListener('dragleave', function(e) {
+            if (!container.contains(e.relatedTarget)) {
+                container.querySelectorAll('.col-sm-3').forEach(card => {
+                    card.classList.remove('drag-insert-before', 'drag-insert-after', 'drag-over');
+                });
+            }
         });
     });
 

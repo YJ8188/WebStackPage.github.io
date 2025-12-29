@@ -539,7 +539,8 @@
 
 <!-- 第一行：4个 -->
 <div class="row">
-    <div class="col-sm-3">
+    <div class="col-sm-3 card-item" data-id="liantuo">
+        <span class="card-hide-btn">✖</span>
         <div class="xe-widget xe-conversations box2 label-info" onclick="window.open('https://ms.liantuobank.com/', '_blank')" data-toggle="tooltip" data-placement="bottom" title="" data-original-title="https://ms.liantuobank.com/">
             <div class="xe-comment-entry">
                 <a class="xe-user-img">
@@ -554,7 +555,8 @@
             </div>
         </div>
     </div>
-    <div class="col-sm-3">
+    <div class="col-sm-3 card-item" data-id="xiaojingling">
+        <span class="card-hide-btn">✖</span>
         <div class="xe-widget xe-conversations box2 label-info" onclick="window.open('https://houtai.liantuofu.com/login', '_blank')" data-toggle="tooltip" data-placement="bottom" title="" data-original-title="https://houtai.liantuofu.com/login">
             <div class="xe-comment-entry">
                 <a class="xe-user-img">
@@ -569,7 +571,8 @@
             </div>
         </div>
     </div>
-    <div class="col-sm-3">
+    <div class="col-sm-3 card-item" data-id="taimi">
+        <span class="card-hide-btn">✖</span>
         <div class="xe-widget xe-conversations box2 label-info" onclick="window.open('https://gas.taimi100.com/agent/User/login', '_blank')" data-toggle="tooltip" data-placement="bottom" title="" data-original-title="https://gas.taimi100.com/">
             <div class="xe-comment-entry">
                 <a class="xe-user-img">
@@ -4614,5 +4617,85 @@ window.addEventListener('scroll', function () {
     });
 })();
 </script>
+
+<button onclick="resetAll()">恢复默认布局</button>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    document.querySelectorAll('.card-container').forEach(container => {
+        const category = container.dataset.category;
+
+        restoreOrder(container, category);
+        restoreHidden(container, category);
+
+        Sortable.create(container, {
+            animation: 150,
+            draggable: '.card-item',
+            onEnd() {
+                saveOrder(container, category);
+            }
+        });
+    });
+
+});
+
+function saveOrder(container, category) {
+    const order = [...container.querySelectorAll('.card-item')]
+        .map(item => item.dataset.id);
+    localStorage.setItem(`cardOrder_${category}`, JSON.stringify(order));
+}
+
+function restoreOrder(container, category) {
+    const order = JSON.parse(localStorage.getItem(`cardOrder_${category}`));
+    if (!order) return;
+
+    const map = {};
+    container.querySelectorAll('.card-item').forEach(item => {
+        map[item.dataset.id] = item;
+    });
+
+    order.forEach(id => {
+        if (map[id]) container.appendChild(map[id]);
+    });
+}
+
+document.addEventListener('click', function (e) {
+    if (!e.target.classList.contains('card-hide-btn')) return;
+
+    e.stopPropagation();
+
+    const card = e.target.closest('.card-item');
+    const container = card.closest('.card-container');
+    const category = container.dataset.category;
+    const id = card.dataset.id;
+
+    card.style.display = 'none';
+
+    const hidden = JSON.parse(localStorage.getItem(`cardHidden_${category}`) || '[]');
+    if (!hidden.includes(id)) {
+        hidden.push(id);
+        localStorage.setItem(`cardHidden_${category}`, JSON.stringify(hidden));
+    }
+});
+
+function restoreHidden(container, category) {
+    const hidden = JSON.parse(localStorage.getItem(`cardHidden_${category}`) || '[]');
+    hidden.forEach(id => {
+        const card = container.querySelector(`[data-id="${id}"]`);
+        if (card) card.style.display = 'none';
+    });
+}
+
+function resetAll() {
+    Object.keys(localStorage)
+        .filter(k => k.startsWith('cardOrder_') || k.startsWith('cardHidden_'))
+        .forEach(k => localStorage.removeItem(k));
+    location.reload();
+}
+</script>
+
 </body>
 </html>

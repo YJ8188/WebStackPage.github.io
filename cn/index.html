@@ -72,6 +72,7 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
     transition: all 0.3s ease;
     margin-bottom: 20px;
+    position: relative;
 }
 
 /* ---------- 卡片 hover ---------- */
@@ -80,6 +81,54 @@
     transform: translateY(-6px) scale(1.01);
     box-shadow: 0 14px 32px rgba(0, 0, 0, 0.55);
     z-index: 2;
+}
+
+/* ---------- 卡片隐藏按钮 ---------- */
+.card-hide-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    background: rgba(239, 68, 68, 0.9);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    z-index: 10;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.card-hide-btn:hover {
+    background: rgba(220, 38, 38, 1);
+    transform: scale(1.1);
+}
+
+.xe-widget:hover .card-hide-btn {
+    display: flex;
+}
+
+/* 隐藏的卡片 */
+.card-hidden {
+    display: none !important;
+}
+
+/* 卡片容器拖拽样式 */
+.col-sm-3[draggable="true"] {
+    cursor: move;
+}
+
+.col-sm-3[draggable="true"]:hover {
+    opacity: 0.9;
+}
+
+.col-sm-3.dragging {
+    opacity: 0.5;
 }
 
 /* ---------- 卡片内容 ---------- */
@@ -144,45 +193,9 @@
     outline: none !important;
     box-shadow: none !important;
 }
-/* ================= 返回顶部按钮（圆形蓝色箭头版） ================= */
-
-/* 回到顶部按钮 */
-.back-to-top {
-    position: fixed;
-    bottom: 24px;
-    right: 24px;
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: #3b82f6;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    box-shadow: 0 6px 16px rgba(59,130,246,.35);
-    transition: all .3s ease;
-    opacity: 0;
-    visibility: hidden;
-    z-index: 9999;
-}
-
-.back-to-top.visible {
-    opacity: 1;
-    visibility: visible;
-}
-
-.back-to-top:hover {
-    background: #2563eb;
-    transform: translateY(-4px);
-}
-
-.back-to-top i {
-    font-size: 20px;
-    line-height: 1;
-}
 /* ================= 返回顶部按钮 ================= */
 
+/* 回到顶部按钮 */
 .back-to-top {
     position: fixed;
     bottom: 24px;
@@ -539,7 +552,7 @@
 
 <!-- 第一行：4个 -->
 <div class="row">
-    <div class="col-sm-3">
+    <div class="col-sm-3" id="card-1" draggable="true">
         <div class="xe-widget xe-conversations box2 label-info" onclick="window.open('https://ms.liantuobank.com/', '_blank')" data-toggle="tooltip" data-placement="bottom" title="" data-original-title="https://ms.liantuobank.com/">
             <div class="xe-comment-entry">
                 <a class="xe-user-img">
@@ -554,7 +567,7 @@
             </div>
         </div>
     </div>
-    <div class="col-sm-3">
+    <div class="col-sm-3" id="card-2" draggable="true">
         <div class="xe-widget xe-conversations box2 label-info" onclick="window.open('https://houtai.liantuofu.com/login', '_blank')" data-toggle="tooltip" data-placement="bottom" title="" data-original-title="https://houtai.liantuofu.com/login">
             <div class="xe-comment-entry">
                 <a class="xe-user-img">
@@ -4558,39 +4571,6 @@ window.addEventListener('scroll', function () {
     }
 });
 </script>
-<script>
-(function () {
-    const searchBox = document.querySelector('.site-search');
-    const icon = document.querySelector('.search-icon');
-    const input = document.querySelector('.search-input');
-
-    if (!searchBox || !icon || !input) return;
-
-    // 点击放大镜：展开
-    icon.addEventListener('click', function (e) {
-        e.stopPropagation();
-        searchBox.classList.add('active');
-        input.focus();
-    });
-
-    // 点击输入框本身，不收起
-    input.addEventListener('click', function (e) {
-        e.stopPropagation();
-    });
-
-    // 点击页面空白处：收起
-    document.addEventListener('click', function () {
-        searchBox.classList.remove('active');
-        input.value = '';
-        
-        // 恢复所有卡片
-        const cards = document.querySelectorAll('.xe-widget');
-        cards.forEach(card => {
-            card.style.display = '';
-        });
-    });
-})();
-</script>
     <!-- 全局固定搜索 -->
 <div class="global-search">
     <div class="global-search-box">
@@ -4608,11 +4588,449 @@ window.addEventListener('scroll', function () {
         const cards = document.querySelectorAll('.xe-widget');
 
         cards.forEach(card => {
+            const cardContainer = card.closest('.col-sm-3');
+            // 跳过已隐藏的卡片
+            if (cardContainer && cardContainer.classList.contains('card-hidden')) {
+                return;
+            }
+            
             const text = card.innerText.toLowerCase();
-            card.style.display = text.includes(keyword) ? '' : 'none';
+            if (keyword === '') {
+                // 搜索为空时，显示所有未隐藏的卡片
+                card.style.display = '';
+            } else {
+                card.style.display = text.includes(keyword) ? '' : 'none';
+            }
         });
     });
 })();
+</script>
+<button id="resetOrder" class="btn-reset">恢复默认排序</button>
+<button id="showHiddenCards" class="btn-show-hidden">显示已隐藏</button>
+
+<!-- 隐藏卡片管理面板 -->
+<div class="panel-overlay" id="panelOverlay"></div>
+<div class="hidden-cards-panel" id="hiddenCardsPanel">
+    <button class="panel-close" id="panelClose">×</button>
+    <h3>已隐藏的卡片</h3>
+    <div class="hidden-cards-list" id="hiddenCardsList">
+        <p style="color: #999; text-align: center;">暂无隐藏的卡片</p>
+    </div>
+</div>
+
+<style>
+/* 恢复默认排序按钮样式 */
+.btn-reset {
+    position: fixed;
+    bottom: 90px;
+    right: 24px;
+    padding: 10px 20px;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    z-index: 9998;
+    font-size: 14px;
+    box-shadow: 0 4px 12px rgba(59,130,246,.35);
+    transition: all .3s ease;
+}
+.btn-reset:hover {
+    background: #2563eb;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(59,130,246,.45);
+}
+
+/* 显示已隐藏卡片按钮 */
+.btn-show-hidden {
+    position: fixed;
+    bottom: 150px;
+    right: 24px;
+    padding: 10px 20px;
+    background: #10b981;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    z-index: 9998;
+    font-size: 14px;
+    box-shadow: 0 4px 12px rgba(16,185,129,.35);
+    transition: all .3s ease;
+}
+.btn-show-hidden:hover {
+    background: #059669;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(16,185,129,.45);
+}
+
+/* 隐藏卡片管理面板 */
+.hidden-cards-panel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(20, 20, 20, 0.95);
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 600px;
+    max-height: 70vh;
+    overflow-y: auto;
+    z-index: 10000;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    display: none;
+    backdrop-filter: blur(10px);
+}
+
+.hidden-cards-panel.active {
+    display: block;
+}
+
+.hidden-cards-panel h3 {
+    color: #fff;
+    margin: 0 0 20px 0;
+    font-size: 20px;
+}
+
+.hidden-cards-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.hidden-card-item {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 12px;
+    border-radius: 8px;
+    text-align: center;
+    position: relative;
+}
+
+.hidden-card-item .card-title {
+    color: #fff;
+    font-size: 14px;
+    margin-bottom: 8px;
+    word-break: break-word;
+}
+
+.hidden-card-item .card-restore-btn {
+    background: #10b981;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+
+.hidden-card-item .card-restore-btn:hover {
+    background: #059669;
+}
+
+.panel-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.panel-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.panel-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 9999;
+    display: none;
+}
+
+.panel-overlay.active {
+    display: block;
+}
+</style>
+
+<script>
+// 卡片管理功能：拖拽排序 + 隐藏/显示
+document.addEventListener('DOMContentLoaded', function() {
+    // ========== 1. 为所有卡片添加ID和draggable属性 ==========
+    let cardCounter = 1;
+    document.querySelectorAll('.col-sm-3').forEach(card => {
+        if (!card.id) {
+            card.id = `card-${cardCounter++}`;
+        }
+        if (!card.hasAttribute('draggable')) {
+            card.setAttribute('draggable', 'true');
+        }
+    });
+
+    // ========== 2. 为所有卡片添加隐藏按钮 ==========
+    document.querySelectorAll('.xe-widget').forEach(widget => {
+        // 检查是否已有隐藏按钮
+        if (widget.querySelector('.card-hide-btn')) return;
+        
+        const hideBtn = document.createElement('button');
+        hideBtn.className = 'card-hide-btn';
+        hideBtn.innerHTML = '×';
+        hideBtn.title = '隐藏此卡片';
+        hideBtn.onclick = function(e) {
+            e.stopPropagation();
+            e.preventDefault();
+            hideCard(widget);
+        };
+        widget.appendChild(hideBtn);
+    });
+
+    // ========== 3. 隐藏卡片功能 ==========
+    function hideCard(widget) {
+        const cardContainer = widget.closest('.col-sm-3');
+        if (!cardContainer) return;
+        
+        const cardId = cardContainer.id;
+        const cardTitle = widget.querySelector('.xe-user-name strong')?.textContent || '未命名卡片';
+        
+        // 添加隐藏类
+        cardContainer.classList.add('card-hidden');
+        
+        // 保存到localStorage
+        let hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
+        // 检查是否已存在（数组存储的是对象，需要检查id属性）
+        const exists = hiddenCards.some(card => card.id === cardId);
+        if (!exists) {
+            hiddenCards.push({
+                id: cardId,
+                title: cardTitle,
+                widget: widget.outerHTML
+            });
+            localStorage.setItem('hiddenCards', JSON.stringify(hiddenCards));
+        }
+        
+        // 更新管理面板
+        updateHiddenPanel();
+    }
+
+    // ========== 4. 显示卡片功能 ==========
+    function showCard(cardId) {
+        const cardContainer = document.getElementById(cardId);
+        if (cardContainer) {
+            cardContainer.classList.remove('card-hidden');
+            
+            // 从localStorage移除
+            let hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
+            hiddenCards = hiddenCards.filter(card => card.id !== cardId);
+            localStorage.setItem('hiddenCards', JSON.stringify(hiddenCards));
+            
+            // 更新管理面板
+            updateHiddenPanel();
+        }
+    }
+
+    // ========== 5. 更新隐藏卡片管理面板 ==========
+    function updateHiddenPanel() {
+        const hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
+        const listContainer = document.getElementById('hiddenCardsList');
+        
+        if (!listContainer) return;
+        
+        if (hiddenCards.length === 0) {
+            listContainer.innerHTML = '<p style="color: #999; text-align: center;">暂无隐藏的卡片</p>';
+            return;
+        }
+        
+        // 清空容器
+        listContainer.innerHTML = '';
+        
+        // 使用安全的DOM操作，避免XSS
+        hiddenCards.forEach(card => {
+            const item = document.createElement('div');
+            item.className = 'hidden-card-item';
+            
+            const title = document.createElement('div');
+            title.className = 'card-title';
+            title.textContent = card.title || '未命名卡片';
+            
+            const restoreBtn = document.createElement('button');
+            restoreBtn.className = 'card-restore-btn';
+            restoreBtn.textContent = '恢复显示';
+            restoreBtn.onclick = function() {
+                restoreCard(card.id);
+            };
+            
+            item.appendChild(title);
+            item.appendChild(restoreBtn);
+            listContainer.appendChild(item);
+        });
+    }
+
+    // ========== 6. 恢复卡片（全局函数） ==========
+    window.restoreCard = function(cardId) {
+        showCard(cardId);
+    };
+
+    // ========== 7. 加载已隐藏的卡片 ==========
+    // 注意：需要在添加隐藏按钮之后执行，确保所有卡片都已初始化
+    setTimeout(function() {
+        const hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
+        hiddenCards.forEach(card => {
+            if (card && card.id) {
+                const cardContainer = document.getElementById(card.id);
+                if (cardContainer) {
+                    cardContainer.classList.add('card-hidden');
+                }
+            }
+        });
+    }, 100);
+
+    // ========== 8. 拖拽排序功能 ==========
+    const allRows = document.querySelectorAll('.row');
+    
+    allRows.forEach((container, rowIndex) => {
+        const cards = container.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)');
+        if (cards.length === 0) return;
+        
+        const storageKey = `cardOrder_${rowIndex}`;
+        const defaultKey = `defaultOrder_${rowIndex}`;
+        
+        // 保存默认顺序（首次加载时记录，排除隐藏的卡片）
+        if (!localStorage.getItem(defaultKey)) {
+            const defaultIds = Array.from(cards)
+                .filter(card => !card.classList.contains('card-hidden'))
+                .map(card => card.id);
+            localStorage.setItem(defaultKey, JSON.stringify(defaultIds));
+        }
+        
+        // 加载用户保存的顺序
+        const savedOrder = localStorage.getItem(storageKey);
+        if (savedOrder) {
+            applyOrder(container, JSON.parse(savedOrder));
+        }
+
+        // 存储当前拖拽的元素ID（在容器作用域内）
+        let draggedCardId = null;
+        
+        // 拖拽事件监听
+        cards.forEach(card => {
+            card.addEventListener('dragstart', function(e) {
+                draggedCardId = this.id; // 保存到变量
+                e.dataTransfer.setData('text/plain', this.id);
+                this.classList.add('dragging');
+            });
+            
+            card.addEventListener('dragend', function() {
+                this.classList.remove('dragging');
+                draggedCardId = null; // 重置
+            });
+        });
+        
+        container.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            if (!draggedCardId) return;
+            
+            const draggedCard = document.getElementById(draggedCardId);
+            if (!draggedCard || draggedCard.classList.contains('card-hidden')) return;
+            
+            const afterElement = getDragAfterElement(container, e.clientY);
+            
+            if (afterElement) {
+                container.insertBefore(draggedCard, afterElement);
+            } else {
+                container.appendChild(draggedCard);
+            }
+        });
+
+        // 保存新顺序
+        container.addEventListener('drop', function(e) {
+            e.preventDefault();
+            const newOrder = Array.from(container.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)')).map(card => card.id);
+            localStorage.setItem(storageKey, JSON.stringify(newOrder));
+            draggedCardId = null; // 重置
+        });
+    });
+
+    // ========== 9. 恢复默认排序按钮 ==========
+    const resetBtn = document.getElementById('resetOrder');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', function() {
+            if (confirm('确定要恢复默认排序吗？')) {
+                allRows.forEach((container, rowIndex) => {
+                    const defaultKey = `defaultOrder_${rowIndex}`;
+                    const defaultOrder = localStorage.getItem(defaultKey);
+                    if (defaultOrder) {
+                        applyOrder(container, JSON.parse(defaultOrder));
+                        localStorage.removeItem(`cardOrder_${rowIndex}`);
+                    }
+                });
+            }
+        });
+    }
+
+    // ========== 10. 显示已隐藏卡片按钮 ==========
+    const showHiddenBtn = document.getElementById('showHiddenCards');
+    const panel = document.getElementById('hiddenCardsPanel');
+    const overlay = document.getElementById('panelOverlay');
+    const panelClose = document.getElementById('panelClose');
+    
+    if (showHiddenBtn && panel && overlay) {
+        showHiddenBtn.addEventListener('click', function() {
+            updateHiddenPanel();
+            panel.classList.add('active');
+            overlay.classList.add('active');
+        });
+    }
+    
+    function closePanel() {
+        if (panel) panel.classList.remove('active');
+        if (overlay) overlay.classList.remove('active');
+    }
+    
+    if (panelClose) {
+        panelClose.addEventListener('click', closePanel);
+    }
+    
+    if (overlay) {
+        overlay.addEventListener('click', closePanel);
+    }
+
+    // ========== 辅助函数 ==========
+    function getDragAfterElement(container, y) {
+        const cards = [...container.querySelectorAll('.col-sm-3[draggable="true"]:not(.dragging):not(.card-hidden)')];
+        return cards.reduce((closest, card) => {
+            const box = card.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            return (offset < 0 && offset > closest.offset) 
+                ? { offset: offset, element: card } 
+                : closest;
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    function applyOrder(container, order) {
+        order.forEach(id => {
+            const card = document.getElementById(id);
+            if (card && container.contains(card) && !card.classList.contains('card-hidden')) {
+                container.appendChild(card);
+            }
+        });
+    }
+
+    // 初始化管理面板
+    updateHiddenPanel();
+});
 </script>
 </body>
 </html>

@@ -4619,7 +4619,18 @@ window.addEventListener('scroll', function () {
 </script>
 
 <button onclick="resetAll()">恢复默认布局</button>
-
+<script>
+    $(document).on('click', '.card-hide-btn', function (e) {
+        e.stopPropagation(); // 阻止冒泡（非常关键）
+        $(this).closest('.card-item').hide();
+    });
+    </script>
+<script>
+    function resetAll() {
+        localStorage.clear();
+        location.reload();
+    }
+</script>    
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 
 <script>

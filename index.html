@@ -173,51 +173,88 @@
     z-index: 1000;
 }
 
-/* 拖动占位符效果 */
-.col-sm-3.drag-over {
-    border: 2px dashed #3b82f6;
-    border-radius: 10px;
-    background: rgba(59, 130, 246, 0.1);
-    transform: scale(1.02);
-}
+/* ========== 跨区域拖拽增强样式 ========== */
 
-/* 拖动时的占位符（插入位置指示） */
-.col-sm-3.drag-insert-before::before,
-.col-sm-3.drag-insert-after::after {
-    content: '';
-    position: absolute;
-    left: -2px;
-    right: -2px;
-    height: 3px;
-    background: #3b82f6;
-    border-radius: 2px;
-    z-index: 1001;
-    animation: pulse 1s infinite;
-}
-
-.col-sm-3.drag-insert-before::before {
-    top: -2px;
-}
-
-.col-sm-3.drag-insert-after::after {
-    bottom: -2px;
-}
-
-@keyframes pulse {
+/* 占位符动画 */
+@keyframes placeholderPulse {
     0%, 100% {
-        opacity: 0.6;
-        transform: scaleY(1);
+        transform: scale(1);
+        opacity: 0.7;
     }
     50% {
+        transform: scale(1.03);
         opacity: 1;
-        transform: scaleY(1.2);
     }
 }
 
-/* 拖动时的卡片阴影效果 */
-.col-sm-3.dragging .xe-widget {
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-    transform: scale(1.05);
+/* 占位符基础样式 */
+.drag-placeholder {
+    pointer-events: none !important;
+    user-select: none;
+}
+
+/* 拖拽时的光标 */
+.col-sm-3[draggable="true"] {
+    cursor: grab;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.col-sm-3[draggable="true"]:active {
+    cursor: grabbing;
+}
+
+/* 拖拽中的卡片 */
+.col-sm-3.dragging {
+    opacity: 0.3 !important;
+    transform: scale(0.95) rotate(3deg);
+    z-index: 1000;
+    pointer-events: none;
+}
+
+/* 容器高亮效果 */
+.row {
+    transition: background 0.2s ease;
+    padding: 10px 0;
+    min-height: 100px; /* 确保空容器也能接收拖放 */
+}
+
+/* 成功提示动画 */
+@keyframes slideInRight {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOutRight {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+    .drag-placeholder {
+        margin: 10px 0;
+    }
+    
+    .drag-placeholder > div {
+        height: 150px !important;
+        font-size: 12px !important;
+    }
+    
+    .drag-placeholder > div > div:first-child {
+        font-size: 32px !important;
+    }
 }
 
 /* ---------- 卡片内容 ---------- */
@@ -5016,161 +5053,306 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }, 100);
+// ========== 8. 拖拽排序功能 - 上下左右跨区域自由拖动 ==========
+const allRows = document.querySelectorAll('.row');
+let draggedCardId = null;
+let draggedCardElement = null;
+let placeholder = null;
+let lastContainer = null; // 记录上一个容器
 
-    // ========== 8. 拖拽排序功能 - 支持跨栏拖动（类似iPhone APP）==========
-    const allRows = document.querySelectorAll('.row');
-    let draggedCardId = null; // 全局拖拽卡片ID
-    let draggedCardElement = null; // 全局拖拽卡片元素
-    let lastDragTime = 0; // 用于节流
-    const DRAG_THROTTLE = 50; // 节流时间（毫秒）
+console.log('🚀 初始化拖拽系统,找到', allRows.length, '个区域');
+
+// 创建占位符(显示插入位置)
+function createPlaceholder() {
+    const ph = document.createElement('div');
+    ph.className = 'col-sm-3 drag-placeholder';
+    ph.innerHTML = `
+        <div style="
+            height: 200px; 
+            border: 3px dashed #3b82f6; 
+            border-radius: 10px; 
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #3b82f6;
+            font-weight: bold;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+            animation: placeholderPulse 0.8s ease-in-out infinite;
+        ">
+            <div style="text-align: center;">
+                <div style="font-size: 40px; margin-bottom: 8px;">📍</div>
+                <div style="font-size: 14px; color: #667eea;">松开鼠标放置这里</div>
+            </div>
+        </div>
+    `;
+    return ph;
+}
+
+// 移除占位符
+function removePlaceholder() {
+    if (placeholder && placeholder.parentNode) {
+        placeholder.parentNode.removeChild(placeholder);
+        placeholder = null;
+    }
+}
+
+// 获取鼠标位置最近的卡片和插入位置
+function getClosestCardAndPosition(container, x, y) {
+    const cards = [...container.querySelectorAll('.col-sm-3[draggable="true"]:not(.dragging):not(.card-hidden):not(.drag-placeholder)')];
     
-    // 为所有卡片添加拖拽事件（支持跨栏）
-    document.querySelectorAll('.col-sm-3[draggable="true"]').forEach(card => {
-        if (card.classList.contains('card-hidden')) return;
-        
-        card.addEventListener('dragstart', function(e) {
-            draggedCardId = this.id;
-            draggedCardElement = this;
-            e.dataTransfer.setData('text/plain', this.id);
-            e.dataTransfer.effectAllowed = 'move';
-            
-            // 添加拖动样式
-            this.classList.add('dragging');
-            
-            // 创建拖动预览图像
-            const dragImage = this.cloneNode(true);
-            dragImage.style.transform = 'rotate(5deg)';
-            dragImage.style.opacity = '0.8';
-            document.body.appendChild(dragImage);
-            dragImage.style.position = 'absolute';
-            dragImage.style.top = '-1000px';
-            e.dataTransfer.setDragImage(dragImage, e.offsetX, e.offsetY);
-            setTimeout(() => {
-                if (document.body.contains(dragImage)) {
-                    document.body.removeChild(dragImage);
-                }
-            }, 0);
-        });
-        
-        card.addEventListener('dragend', function() {
-            // 清除所有拖动样式（所有容器）
-            this.classList.remove('dragging');
-            allRows.forEach(container => {
-                container.querySelectorAll('.col-sm-3').forEach(c => {
-                    c.classList.remove('drag-insert-before', 'drag-insert-after', 'drag-over');
-                });
-            });
-            draggedCardId = null;
-            draggedCardElement = null;
-            lastDragTime = 0;
-        });
-    });
+    if (cards.length === 0) {
+        return { card: null, position: 'append' };
+    }
     
-    // 为所有容器添加跨栏拖动支持
-    allRows.forEach((container, rowIndex) => {
-        const cards = container.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)');
-        if (cards.length === 0) return;
+    let closest = null;
+    let minDistance = Infinity;
+    let position = 'after';
+    
+    cards.forEach(card => {
+        const rect = card.getBoundingClientRect();
+        const cardCenterX = rect.left + rect.width / 2;
+        const cardCenterY = rect.top + rect.height / 2;
         
-        const storageKey = `cardOrder_${rowIndex}`;
-        const defaultKey = `defaultOrder_${rowIndex}`;
+        // 计算鼠标到卡片中心的距离
+        const distance = Math.sqrt(
+            Math.pow(x - cardCenterX, 2) + 
+            Math.pow(y - cardCenterY, 2)
+        );
         
-        // 保存默认顺序（首次加载时记录，排除隐藏的卡片）
-        if (!localStorage.getItem(defaultKey)) {
-            const defaultIds = Array.from(cards)
-                .filter(card => !card.classList.contains('card-hidden'))
-                .map(card => card.id);
-            localStorage.setItem(defaultKey, JSON.stringify(defaultIds));
-        }
-        
-        // 加载用户保存的顺序
-        const savedOrder = localStorage.getItem(storageKey);
-        if (savedOrder) {
-            applyOrder(container, JSON.parse(savedOrder));
-        }
-        
-        // 使用节流的dragover事件处理
-        container.addEventListener('dragover', function(e) {
-            e.preventDefault();
+        if (distance < minDistance) {
+            minDistance = distance;
+            closest = card;
             
-            // 节流控制
-            const now = Date.now();
-            if (now - lastDragTime < DRAG_THROTTLE) {
-                return;
-            }
-            lastDragTime = now;
+            // 判断插入位置(上下左右)
+            const rect = card.getBoundingClientRect();
+            const relativeX = x - rect.left;
+            const relativeY = y - rect.top;
             
-            if (!draggedCardId || !draggedCardElement) return;
-            
-            // 清除当前容器的所有插入指示器
-            container.querySelectorAll('.col-sm-3').forEach(card => {
-                card.classList.remove('drag-insert-before', 'drag-insert-after', 'drag-over');
-            });
-            
-            // 如果拖动的卡片不在当前容器，先移动到当前容器
-            if (!container.contains(draggedCardElement)) {
-                // 找到插入位置
-                const afterElement = getDragAfterElement(container, e.clientY);
-                if (afterElement) {
-                    container.insertBefore(draggedCardElement, afterElement);
-                } else {
-                    container.appendChild(draggedCardElement);
-                }
+            // 根据鼠标在卡片的哪个区域判断
+            if (relativeX < rect.width / 2) {
+                position = 'before'; // 左边
             } else {
-                // 在同一容器内移动
-                const afterElement = getDragAfterElement(container, e.clientY);
-                
-                if (afterElement && afterElement !== draggedCardElement) {
-                    afterElement.classList.add('drag-insert-before');
-                    container.insertBefore(draggedCardElement, afterElement);
-                } else if (!afterElement) {
-                    // 最后一个元素
-                    const lastCard = container.querySelector('.col-sm-3:last-of-type:not(.dragging)');
-                    if (lastCard && lastCard !== draggedCardElement) {
-                        lastCard.classList.add('drag-insert-after');
-                    }
-                    container.appendChild(draggedCardElement);
-                }
+                position = 'after';  // 右边
             }
-        });
-
-        // 保存新顺序
-        container.addEventListener('drop', function(e) {
-            e.preventDefault();
-            
-            // 清除所有拖动样式
-            allRows.forEach(c => {
-                c.querySelectorAll('.col-sm-3').forEach(card => {
-                    card.classList.remove('drag-insert-before', 'drag-insert-after', 'drag-over');
-                });
-            });
-            
-            // 保存当前容器的顺序
-            const newOrder = Array.from(container.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)')).map(card => card.id);
-            localStorage.setItem(storageKey, JSON.stringify(newOrder));
-            
-            // 更新所有容器的顺序（因为可能跨栏移动）
-            allRows.forEach((c, idx) => {
-                const order = Array.from(c.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)')).map(card => card.id);
-                localStorage.setItem(`cardOrder_${idx}`, JSON.stringify(order));
-            });
-        });
-        
-        // 拖动进入容器
-        container.addEventListener('dragenter', function(e) {
-            e.preventDefault();
-        });
-        
-        // 拖动离开容器时清除样式
-        container.addEventListener('dragleave', function(e) {
-            // 只有当真正离开容器时才清除
-            if (!container.contains(e.relatedTarget)) {
-                container.querySelectorAll('.col-sm-3').forEach(card => {
-                    card.classList.remove('drag-insert-before', 'drag-insert-after', 'drag-over');
-                });
-            }
-        });
+        }
     });
+    
+    return { card: closest, position };
+}
 
+// 为所有卡片添加拖拽事件
+document.querySelectorAll('.col-sm-3[draggable="true"]').forEach(card => {
+    if (card.classList.contains('card-hidden')) return;
+    
+    // 开始拖拽
+    card.addEventListener('dragstart', function(e) {
+        draggedCardId = this.id;
+        draggedCardElement = this;
+        lastContainer = this.parentNode;
+        
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/html', this.innerHTML);
+        
+        // 延迟添加样式,避免拖拽预览受影响
+        setTimeout(() => {
+            this.classList.add('dragging');
+            this.style.opacity = '0.3';
+        }, 0);
+        
+        console.log('🎯 开始拖拽:', draggedCardId);
+    });
+    
+    // 拖拽结束
+    card.addEventListener('dragend', function(e) {
+        console.log('✅ 拖拽结束');
+        
+        // 恢复样式
+        this.classList.remove('dragging');
+        this.style.opacity = '1';
+        
+        // 移除占位符
+        removePlaceholder();
+        
+        // 重置状态
+        draggedCardId = null;
+        draggedCardElement = null;
+        lastContainer = null;
+    });
+});
+
+// 全局dragover事件(实时跟踪鼠标)
+let dragOverThrottle = null;
+document.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    
+    // 节流优化(每100ms处理一次)
+    if (dragOverThrottle) return;
+    dragOverThrottle = setTimeout(() => {
+        dragOverThrottle = null;
+    }, 100);
+    
+    if (!draggedCardElement) return;
+    
+    // 找到鼠标下的容器
+    const x = e.clientX;
+    const y = e.clientY;
+    
+    let targetContainer = null;
+    allRows.forEach(row => {
+        const rect = row.getBoundingClientRect();
+        if (x >= rect.left && x <= rect.right && 
+            y >= rect.top && y <= rect.bottom) {
+            targetContainer = row;
+        }
+    });
+    
+    if (!targetContainer) return;
+    
+    // 获取最近的卡片和插入位置
+    const { card, position } = getClosestCardAndPosition(targetContainer, x, y);
+    
+    // 移除旧占位符
+    removePlaceholder();
+    
+    // 创建新占位符
+    placeholder = createPlaceholder();
+    
+    if (!card) {
+        // 容器为空或没有合适的卡片,直接追加
+        targetContainer.appendChild(placeholder);
+        console.log('📦 插入到空容器末尾');
+    } else {
+        if (position === 'before') {
+            targetContainer.insertBefore(placeholder, card);
+            console.log('⬅️ 插入到卡片左侧');
+        } else {
+            if (card.nextSibling) {
+                targetContainer.insertBefore(placeholder, card.nextSibling);
+            } else {
+                targetContainer.appendChild(placeholder);
+            }
+            console.log('➡️ 插入到卡片右侧');
+        }
+    }
+});
+
+// 为所有容器添加drop事件
+allRows.forEach((container, rowIndex) => {
+    const storageKey = `cardOrder_${rowIndex}`;
+    const defaultKey = `defaultOrder_${rowIndex}`;
+    
+    // 保存默认顺序
+    const cards = container.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)');
+    if (cards.length > 0 && !localStorage.getItem(defaultKey)) {
+        const defaultIds = Array.from(cards).map(card => card.id);
+        localStorage.setItem(defaultKey, JSON.stringify(defaultIds));
+        console.log('💾 保存默认顺序 (区域' + rowIndex + '):', defaultIds);
+    }
+    
+    // 加载保存的顺序
+    const savedOrder = localStorage.getItem(storageKey);
+    if (savedOrder) {
+        applyOrder(container, JSON.parse(savedOrder));
+        console.log('📂 加载保存顺序 (区域' + rowIndex + ')');
+    }
+    
+    // 允许放置
+    container.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    });
+    
+    // 处理放置
+    container.addEventListener('drop', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if (!draggedCardElement || !placeholder || !placeholder.parentNode) {
+            console.warn('⚠️ 放置失败:缺少必要元素');
+            return;
+        }
+        
+        // 将卡片移动到占位符位置
+        placeholder.parentNode.insertBefore(draggedCardElement, placeholder);
+        removePlaceholder();
+        
+        console.log('✅ 卡片已放置');
+        
+        // 保存所有容器的新顺序
+        allRows.forEach((row, idx) => {
+            const order = Array.from(row.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)'))
+                .map(card => card.id);
+            if (order.length > 0) {
+                localStorage.setItem(`cardOrder_${idx}`, JSON.stringify(order));
+                console.log('💾 保存顺序 (区域' + idx + '):', order);
+            }
+        });
+        
+        // 显示成功提示
+        showSuccessToast();
+    });
+    
+    // 拖拽进入容器
+    container.addEventListener('dragenter', function(e) {
+        e.preventDefault();
+        this.style.background = 'rgba(59, 130, 246, 0.05)';
+    });
+    
+    // 拖拽离开容器
+    container.addEventListener('dragleave', function(e) {
+        // 只有真正离开容器时才清除样式
+        if (!this.contains(e.relatedTarget)) {
+            this.style.background = '';
+        }
+    });
+});
+
+// 应用顺序
+function applyOrder(container, order) {
+    order.forEach(id => {
+        const card = document.getElementById(id);
+        if (card && !card.classList.contains('card-hidden')) {
+            container.appendChild(card);
+        }
+    });
+}
+
+// 成功提示(简单版,不依赖外部函数)
+function showSuccessToast() {
+    // 移除旧提示
+    const oldToast = document.querySelector('.drag-success-toast');
+    if (oldToast) oldToast.remove();
+    
+    // 创建新提示
+    const toast = document.createElement('div');
+    toast.className = 'drag-success-toast';
+    toast.innerHTML = '✅ 排序已保存';
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #10b981;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        z-index: 10000;
+        animation: slideInRight 0.3s ease;
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // 3秒后自动消失
+    setTimeout(() => {
+        toast.style.animation = 'slideOutRight 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+console.log('✅ 拖拽系统初始化完成!');
     // ========== 9. 恢复默认排序按钮 ==========
     const resetBtn = document.getElementById('resetOrder');
     if (resetBtn) {

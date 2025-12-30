@@ -5470,5 +5470,120 @@ window.addEventListener('hashchange', function() {
     }
 });
 </script>
+<script>
+// 完整修复：解决重复打开链接问题
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('开始修复卡片点击事件...');
+    
+    // 1. 收集所有卡片
+    const cards = document.querySelectorAll('.xe-widget');
+    console.log('找到卡片数量:', cards.length);
+    
+    // 2. 处理每个卡片
+    cards.forEach((card, index) => {
+        // 提取原始URL
+        let originalUrl = null;
+        
+        // 方法1：从onclick属性提取
+        const onclickAttr = card.getAttribute('onclick');
+        if (onclickAttr) {
+            const match = onclickAttr.match(/window\.open\('([^']+)'/);
+            if (match && match[1]) {
+                originalUrl = match[1];
+                console.log(`卡片 ${index} - 从onclick提取URL:`, originalUrl);
+                // 移除onclick属性
+                card.removeAttribute('onclick');
+            }
+        }
+        
+        // 方法2：从data-original-title属性提取
+        if (!originalUrl) {
+            const dataTitle = card.getAttribute('data-original-title') || 
+                             card.querySelector('[data-original-title]')?.getAttribute('data-original-title');
+            if (dataTitle && dataTitle.includes('://')) {
+                originalUrl = dataTitle;
+                console.log(`卡片 ${index} - 从data-original-title提取URL:`, originalUrl);
+            }
+        }
+        
+        // 保存URL到自定义属性
+        if (originalUrl) {
+            card.setAttribute('data-card-url', originalUrl);
+        }
+        
+        // 3. 清除所有现有的事件监听器（重要！）
+        const newCard = card.cloneNode(true);
+        card.parentNode.replaceChild(newCard, card);
+        
+        // 4. 添加单个事件监听器
+        newCard.addEventListener('click', function(e) {
+            // 检查是否是隐藏按钮
+            if (e.target.classList.contains('card-hide-btn') || 
+                e.target.closest('.card-hide-btn')) {
+                return;
+            }
+            
+            // 阻止默认行为和冒泡
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            
+            // 获取URL
+            const url = this.getAttribute('data-card-url');
+            console.log('卡片点击，URL:', url);
+            
+            if (url && url !== '#' && url.includes('://')) {
+                // 防止重复点击
+                if (this.classList.contains('click-processing')) {
+                    console.log('点击处理中，跳过');
+                    return false;
+                }
+                
+                // 添加处理中标记
+                this.classList.add('click-processing');
+                
+                // 打开链接
+                window.open(url, '_blank');
+                console.log('已打开链接:', url);
+                
+                // 1秒后移除标记
+                setTimeout(() => {
+                    this.classList.remove('click-processing');
+                }, 1000);
+            }
+            
+            return false;
+        }, true); // 使用捕获阶段，确保最先执行
+    });
+    
+    console.log('卡片点击事件修复完成');
+    
+    // 5. 添加CSS防止重复点击
+    const style = document.createElement('style');
+    style.textContent = `
+        .xe-widget.click-processing {
+            pointer-events: none;
+            opacity: 0.8;
+        }
+        .xe-widget.click-processing::after {
+            content: '✓';
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: #10b981;
+            color: white;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            z-index: 100;
+        }
+    `;
+    document.head.appendChild(style);
+});
+</script>
 </body>
 </html>

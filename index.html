@@ -1275,31 +1275,31 @@
                     </div>
                 </div>
                 <div class="col-sm-3">
-                    <div class="xe-widget xe-conversations box2 label-info" onclick="window.open('http://ui.uigreat.com/', '_blank')" data-toggle="tooltip" data-placement="bottom" title="" data-original-title="http://ui.uigreat.com/">
+                    <div class="xe-widget xe-conversations box2 label-info" onclick="window.open('https://www.gotohttp.com/', '_blank')" data-toggle="tooltip" data-placement="bottom" title="" data-original-title="https://www.gotohttp.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="../assets/images/logos/uiuigreat.png" class="lozad img-circle" width="40">
+                                <img data-src="../assets/images/logos/gotohttp.ico" class="lozad img-circle" width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
-                                    <strong>UI uigreat</strong>
+                                    <strong>GotoHTTP</strong>
                                 </a>
-                                <p class="overflowClip_2">APP界面截图参考</p>
+                                <p class="overflowClip_2">远程控屏工具</p>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="col-sm-3">
-                    <div class="xe-widget xe-conversations box2 label-info" onclick="window.open('http://androidniceties.tumblr.com/', '_blank')" data-toggle="tooltip" data-placement="bottom" title="" data-original-title="http://androidniceties.tumblr.com/">
+                    <div class="xe-widget xe-conversations box2 label-info" onclick="window.open('https://rustdesk.com/zh/', '_blank')" data-toggle="tooltip" data-placement="bottom" title="" data-original-title="https://rustdesk.com/zh/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="../assets/images/logos/AndroidNiceties.png" class="lozad img-circle" width="40">
+                                <img data-src="../assets/images/logos/RustDesk.ico" class="lozad img-circle" width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
-                                    <strong>Android Niceties</strong>
+                                    <strong>RustDesk</strong>
                                 </a>
-                                <p class="overflowClip_2">A collection of screenshots encompassing some of the most beautiful looking Android apps.</p>
+                                <p class="overflowClip_2">安全开源自托管远控</p>
                             </div>
                         </div>
                     </div>
@@ -5284,109 +5284,109 @@ document.addEventListener('keydown', function (e) {
 });
 </script>
 <script>
-// 修复页面状态重置问题的完整解决方案
-$(document).ready(function() {
-    // 1. 保存原始的页面状态
-    let pageState = {
-        scrollTop: $(window).scrollTop(),
-        menuState: $('.sidebar-menu').hasClass('collapsed'),
-        activeSection: window.location.hash || ''
-    };
-    
-    // 2. 拦截所有外部链接点击，确保不影响页面状态
-    $(document).on('click', '.xe-widget', function(e) {
-        // 排除隐藏按钮的点击
-        if ($(e.target).hasClass('card-hide-btn') || 
-            $(e.target).closest('.card-hide-btn').length > 0) {
-            return;
-        }
+    // 修复页面状态重置问题的完整解决方案
+    $(document).ready(function() {
+        // 1. 保存原始的页面状态
+        let pageState = {
+            scrollTop: $(window).scrollTop(),
+            menuState: $('.sidebar-menu').hasClass('collapsed'),
+            activeSection: window.location.hash || ''
+        };
         
-        // 保存当前状态
-        pageState.scrollTop = $(window).scrollTop();
-        pageState.menuState = $('.sidebar-menu').hasClass('collapsed');
-        pageState.activeSection = window.location.hash;
-        
-        // 使用 setTimeout 确保状态保存完成后再跳转
-        setTimeout(() => {
-            // 获取URL
-            const url = $(this).attr('data-original-title') || 
-                       $(this).find('[data-original-title]').attr('data-original-title');
-            
-            if (url && !url.startsWith('#')) {
-                window.open(url, '_blank');
+        // 2. 拦截所有外部链接点击，确保不影响页面状态
+        $(document).on('click', '.xe-widget', function(e) {
+            // 排除隐藏按钮的点击
+            if ($(e.target).hasClass('card-hide-btn') || 
+                $(e.target).closest('.card-hide-btn').length > 0) {
+                return;
             }
-        }, 10);
-        
-        e.stopPropagation();
-        return false;
-    });
-    
-    // 3. 页面获得焦点时恢复状态（当用户切回标签页时）
-    $(window).on('focus', function() {
-        // 如果页面没有刷新，恢复滚动位置
-        if (pageState.scrollTop > 0) {
-            $('html, body').scrollTop(pageState.scrollTop);
-        }
-        
-        // 恢复菜单状态
-        if (pageState.menuState) {
-            $('.sidebar-menu').addClass('collapsed');
-        } else {
-            $('.sidebar-menu').removeClass('collapsed');
-        }
-        
-        // 恢复活动部分高亮
-        if (pageState.activeSection) {
-            $('#main-menu li').removeClass('active');
-            $(`#main-menu a[href="${pageState.activeSection}"]`).parent().addClass('active');
-        }
-    });
-    
-    // 4. 页面失去焦点前保存状态
-    $(window).on('blur', function() {
-        pageState.scrollTop = $(window).scrollTop();
-        pageState.menuState = $('.sidebar-menu').hasClass('collapsed');
-        pageState.activeSection = window.location.hash;
-    });
-    
-    // 5. 修改左侧菜单的平滑滚动，避免干扰
-    $('a.smooth').on('click', function(e) {
-        e.preventDefault();
-        e.stopImmediatePropagation(); // 阻止其他事件处理程序
-        
-        const targetId = $(this).attr('href');
-        
-        if (targetId && targetId.startsWith('#')) {
-            // 更新活动状态
-            $('#main-menu li').removeClass('active');
-            $(this).parent().addClass('active');
             
-            // 只执行滚动，不执行其他操作
+            // 保存当前状态
+            pageState.scrollTop = $(window).scrollTop();
+            pageState.menuState = $('.sidebar-menu').hasClass('collapsed');
+            pageState.activeSection = window.location.hash;
+            
+            // 使用 setTimeout 确保状态保存完成后再跳转
+            setTimeout(() => {
+                // 获取URL
+                const url = $(this).attr('data-original-title') || 
+                           $(this).find('[data-original-title]').attr('data-original-title');
+                
+                if (url && !url.startsWith('#')) {
+                    window.open(url, '_blank');
+                }
+            }, 10);
+            
+            e.stopPropagation();
+            return false;
+        });
+        
+        // 3. 页面获得焦点时恢复状态（当用户切回标签页时）
+        $(window).on('focus', function() {
+            // 如果页面没有刷新，恢复滚动位置
+            if (pageState.scrollTop > 0) {
+                $('html, body').scrollTop(pageState.scrollTop);
+            }
+            
+            // 恢复菜单状态
+            if (pageState.menuState) {
+                $('.sidebar-menu').addClass('collapsed');
+            } else {
+                $('.sidebar-menu').removeClass('collapsed');
+            }
+            
+            // 恢复活动部分高亮
+            if (pageState.activeSection) {
+                $('#main-menu li').removeClass('active');
+                $(`#main-menu a[href="${pageState.activeSection}"]`).parent().addClass('active');
+            }
+        });
+        
+        // 4. 页面失去焦点前保存状态
+        $(window).on('blur', function() {
+            pageState.scrollTop = $(window).scrollTop();
+            pageState.menuState = $('.sidebar-menu').hasClass('collapsed');
+            pageState.activeSection = window.location.hash;
+        });
+        
+        // 5. 修改左侧菜单的平滑滚动，避免干扰
+        $('a.smooth').on('click', function(e) {
+            e.preventDefault();
+            e.stopImmediatePropagation(); // 阻止其他事件处理程序
+            
+            const targetId = $(this).attr('href');
+            
+            if (targetId && targetId.startsWith('#')) {
+                // 更新活动状态
+                $('#main-menu li').removeClass('active');
+                $(this).parent().addClass('active');
+                
+                // 只执行滚动，不执行其他操作
+                $('html, body').stop().animate({
+                    scrollTop: $(targetId).offset().top - 30
+                }, 500, 'swing');
+                
+                // 更新URL哈希（不刷新页面）
+                window.location.hash = targetId;
+                pageState.activeSection = targetId;
+            }
+            
+            return false;
+        });
+    });
+    
+    // 监听哈希变化，确保后退/前进按钮正常工作
+    window.addEventListener('hashchange', function() {
+        const hash = window.location.hash;
+        if (hash) {
+            $('#main-menu li').removeClass('active');
+            $(`#main-menu a[href="${hash}"]`).parent().addClass('active');
+            
             $('html, body').stop().animate({
-                scrollTop: $(targetId).offset().top - 30
-            }, 500, 'swing');
-            
-            // 更新URL哈希（不刷新页面）
-            window.location.hash = targetId;
-            pageState.activeSection = targetId;
+                scrollTop: $(hash).offset().top - 30
+            }, 300);
         }
-        
-        return false;
     });
-});
-
-// 监听哈希变化，确保后退/前进按钮正常工作
-window.addEventListener('hashchange', function() {
-    const hash = window.location.hash;
-    if (hash) {
-        $('#main-menu li').removeClass('active');
-        $(`#main-menu a[href="${hash}"]`).parent().addClass('active');
-        
-        $('html, body').stop().animate({
-            scrollTop: $(hash).offset().top - 30
-        }, 300);
-    }
-});
-</script>
+    </script>
 </body>
 </html>

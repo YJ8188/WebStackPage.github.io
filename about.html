@@ -107,6 +107,10 @@
             color: #718096;
             margin-bottom: 8px;
             line-height: 1.4;
+            white-space: nowrap; /* 防止文字换行 */
+            overflow: hidden; /* 隐藏溢出内容 */
+            text-overflow: ellipsis; /* 溢出显示省略号 */
+            max-width: 280px; /* 限制最大宽度 */
         }
         
         /* 分割线 */
@@ -128,12 +132,15 @@
             display: flex;
             align-items: center;
             justify-content: flex-start;
-            margin: 10px 0;
-            font-size: 15px;
+            margin: 8px 0;
+            font-size: 14px; /* 微调字体大小确保不溢出 */
             color: #2d3748;
-            padding: 6px 10px;
+            padding: 8px 10px;
             border-radius: 6px;
             background-color: #f8f9fa;
+            cursor: pointer; /* 添加鼠标指针样式 */
+            width: 100%; /* 确保宽度100% */
+            box-sizing: border-box; /* 包含内边距计算宽度 */
         }
         
         .contact-card .contact-item:hover {
@@ -142,7 +149,7 @@
         }
         
         .contact-card .contact-item i {
-            margin-right: 12px;
+            margin-right: 10px;
             color: #4299e1;
             width: 20px;
             height: 20px;
@@ -154,14 +161,31 @@
         .contact-card .contact-item .label {
             color: #4a5568;
             font-weight: 500;
-            min-width: 50px;
+            min-width: 45px;
             text-align: left;
+            flex-shrink: 0; /* 防止标签被压缩 */
         }
         
         .contact-card .contact-item .value {
             color: #2d3748;
             flex: 1;
             word-break: break-all;
+            max-width: 180px; /* 限制内容最大宽度 */
+            overflow: hidden; /* 隐藏溢出 */
+            text-overflow: ellipsis; /* 溢出显示省略号 */
+        }
+        
+        /* 复制提示样式 */
+        .copy-tooltip {
+            position: fixed;
+            background: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 10000;
+            display: none;
+            transition: opacity 0.2s;
         }
         
         .contact-card .close-btn {
@@ -291,38 +315,41 @@
                 <div class="contact-divider"></div>
             </div>
             
-            <!-- 联系方式列表 -->
+            <!-- 联系方式列表 - 添加复制功能 -->
             <div class="contact-list">
-                <div class="contact-item">
+                <div class="contact-item" onclick="copyToClipboard('Os51888888', event)">
                     <i class="fa fa-weixin"></i>
                     <span class="label">微信：</span>
-                    <span class="value">Os51888888</span>
+                    <span class="value" id="wechat">Os51888888</span>
                 </div>
-                <div class="contact-item">
+                <div class="contact-item" onclick="copyToClipboard('34296407', event)">
                     <i class="fa fa-qq"></i>
                     <span class="label">QQ：</span>
-                    <span class="value">34296407</span>
+                    <span class="value" id="qq">34296407</span>
                 </div>
-                <div class="contact-item">
+                <div class="contact-item" onclick="copyToClipboard('34296407@qq.com', event)">
                     <i class="fa fa-envelope"></i>
                     <span class="label">邮箱：</span>
-                    <span class="value">34296407@qq.com</span>
+                    <span class="value" id="email">34296407@qq.com</span>
                 </div>
             </div>
         </div>
     </div>
+    
+    <!-- 复制提示框 -->
+    <div class="copy-tooltip" id="copyTooltip">复制成功！</div>
 
     <!-- Bottom Scripts -->
-    <script src="assets/js/bootstrap.min.js"></script>
-    <script src="assets/js/TweenMax.min.js"></script>
-    <script src="assets/js/resizeable.js"></script>
-    <script src="assets/js/joinable.js"></script>
-    <script src="assets/js/xenon-api.js"></script>
-    <script src="assets/js/xenon-toggles.js"></script>
+    <script src="../assets/js/bootstrap.min.js"></script>
+    <script src="../assets/js/TweenMax.min.js"></script>
+    <script src="../assets/js/resizeable.js"></script>
+    <script src="../assets/js/joinable.js"></script>
+    <script src="../assets/js/xenon-api.js"></script>
+    <script src="../assets/js/xenon-toggles.js"></script>
     <!-- JavaScripts initializations and stuff -->
-    <script src="assets/js/xenon-custom.js"></script>
+    <script src="../assets/js/xenon-custom.js"></script>
     
-    <!-- 模态框控制脚本 -->
+    <!-- 模态框控制和复制功能脚本 -->
     <script>
         // 打开联系方式模态框
         function openContactModal() {
@@ -353,6 +380,31 @@
                 closeContactModal();
             }
         });
+        
+        // 复制到剪贴板功能
+        function copyToClipboard(text, event) {
+            // 创建临时文本框
+            const tempInput = document.createElement('input');
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+            
+            // 显示复制成功提示
+            const tooltip = document.getElementById('copyTooltip');
+            const rect = event.target.getBoundingClientRect();
+            
+            // 设置提示框位置
+            tooltip.style.display = 'block';
+            tooltip.style.left = rect.left + (rect.width / 2) - (tooltip.offsetWidth / 2) + 'px';
+            tooltip.style.top = rect.top - 30 + 'px';
+            
+            // 2秒后隐藏提示框
+            setTimeout(() => {
+                tooltip.style.display = 'none';
+            }, 2000);
+        }
     </script>
 
     <textarea tabindex="-1" style="position: absolute; top: -999px; left: 0px; right: auto; bottom: auto; border: 0px; padding: 0px; box-sizing: content-box; word-wrap: break-word; overflow: hidden; transition: none; height: 0px !important; min-height: 0px !important; font-family: Arimo, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 400; font-style: normal; letter-spacing: 0px; text-transform: none; word-spacing: 0px; text-indent: 0px; line-height: 18.5714px; width: 53px;" class="autosizejs" id="autosizejs"></textarea>

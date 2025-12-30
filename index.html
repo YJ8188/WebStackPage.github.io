@@ -5284,304 +5284,109 @@ document.addEventListener('keydown', function (e) {
 });
 </script>
 <script>
-// 修复页面状态重置问题的完整解决方案（支持刷新回到顶部）
-$(document).ready(function() {
-    // 1. 检测是否是页面刷新
-    let isPageRefresh = false;
-    
-    // 检查 PerformanceNavigation API
-    if (window.performance) {
-        const perfEntries = performance.getEntriesByType("navigation");
-        if (perfEntries.length > 0) {
-            const navEntry = perfEntries[0];
-            isPageRefresh = (navEntry.type === "reload");
-        }
-    }
-    
-    // 备用检测方法
-    const navigationEntries = window.performance.getEntriesByType &&
-                             window.performance.getEntriesByType("navigation");
-    if (navigationEntries && navigationEntries[0] && 
-        navigationEntries[0].type === "reload") {
-        isPageRefresh = true;
-    }
-    
-    // 旧版浏览器兼容
-    const perf = window.performance || window.webkitPerformance || window.msPerformance || window.mozPerformance;
-    if (perf && perf.navigation && perf.navigation.type === 1) {
-        isPageRefresh = true;
-    }
-    
-    // 2. 保存原始的页面状态（但刷新时清空）
-    let pageState = {
-        scrollTop: isPageRefresh ? 0 : $(window).scrollTop(),
-        menuState: $('.sidebar-menu').hasClass('collapsed'),
-        activeSection: window.location.hash || '',
-        lastFocusTime: Date.now()
-    };
-    
-    console.log('页面加载类型:', isPageRefresh ? '刷新' : '首次/导航', '初始滚动位置:', pageState.scrollTop);
-    
-    // 3. 如果是刷新，强制回到顶部
-    if (isPageRefresh) {
-        setTimeout(() => {
-            $('html, body').scrollTop(0);
-            // 同时清空哈希
-            if (window.location.hash) {
-                window.location.hash = '';
-            }
-        }, 100);
-    }
-    
-    // 4. 拦截所有外部链接点击，确保不影响页面状态
-    $(document).on('click', '.xe-widget', function(e) {
-        // 排除隐藏按钮的点击
-        if ($(e.target).hasClass('card-hide-btn') || 
-            $(e.target).closest('.card-hide-btn').length > 0) {
-            return;
-        }
+    // 修复页面状态重置问题的完整解决方案
+    $(document).ready(function() {
+        // 1. 保存原始的页面状态
+        let pageState = {
+            scrollTop: $(window).scrollTop(),
+            menuState: $('.sidebar-menu').hasClass('collapsed'),
+            activeSection: window.location.hash || ''
+        };
         
-        // 保存当前状态（仅当不是刷新时）
-        if (!isPageRefresh) {
-            pageState.scrollTop = $(window).scrollTop();
-            pageState.menuState = $('.sidebar-menu').hasClass('collapsed');
-            pageState.activeSection = window.location.hash;
-            pageState.lastFocusTime = Date.now();
-        }
-        
-        // 使用 setTimeout 确保状态保存完成后再跳转
-        setTimeout(() => {
-            // 获取URL
-            const url = $(this).attr('data-original-title') || 
-                       $(this).find('[data-original-title]').attr('data-original-title');
-            
-            if (url && !url.startsWith('#')) {
-                window.open(url, '_blank');
-            }
-        }, 10);
-        
-        e.stopPropagation();
-        return false;
-    });
-    
-    // 5. 页面获得焦点时恢复状态（当用户切回标签页时）
-    $(window).on('focus', function() {
-        // 检查是否是刷新后的首次焦点（防止刷新时也恢复）
-        const now = Date.now();
-        const timeSinceLastFocus = now - pageState.lastFocusTime;
-        
-        // 如果距离上次保存状态超过2秒，说明不是正常的标签页切换
-        // 可能是刷新后首次获得焦点，或者是长时间未操作
-        if (timeSinceLastFocus > 2000) {
-            console.log('长时间未操作或刷新后首次焦点，不恢复状态');
-            return;
-        }
-        
-        // 只恢复非刷新情况下的状态
-        if (!isPageRefresh && pageState.scrollTop > 0) {
-            console.log('恢复滚动位置:', pageState.scrollTop);
-            $('html, body').stop().scrollTop(pageState.scrollTop);
-        }
-        
-        // 恢复菜单状态
-        if (pageState.menuState) {
-            $('.sidebar-menu').addClass('collapsed');
-        } else {
-            $('.sidebar-menu').removeClass('collapsed');
-        }
-        
-        // 恢复活动部分高亮
-        if (pageState.activeSection) {
-            $('#main-menu li').removeClass('active');
-            $(`#main-menu a[href="${pageState.activeSection}"]`).parent().addClass('active');
-        }
-    });
-    
-    // 6. 页面失去焦点前保存状态
-    $(window).on('blur', function() {
-        // 只在非刷新情况下保存状态
-        if (!isPageRefresh) {
-            pageState.scrollTop = $(window).scrollTop();
-            pageState.menuState = $('.sidebar-menu').hasClass('collapsed');
-            pageState.activeSection = window.location.hash;
-            pageState.lastFocusTime = Date.now();
-            console.log('保存状态，滚动位置:', pageState.scrollTop);
-        }
-    });
-    
-    // 7. 修改左侧菜单的平滑滚动
-    $('a.smooth').on('click', function(e) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        
-        const targetId = $(this).attr('href');
-        
-        if (targetId && targetId.startsWith('#')) {
-            // 更新活动状态
-            $('#main-menu li').removeClass('active');
-            $(this).parent().addClass('active');
-            
-            // 更新状态
-            pageState.scrollTop = $(targetId).offset().top - 30;
-            pageState.activeSection = targetId;
-            
-            // 执行滚动
-            $('html, body').stop().animate({
-                scrollTop: pageState.scrollTop
-            }, 500, 'swing');
-            
-            // 更新URL哈希
-            window.location.hash = targetId;
-        }
-        
-        return false;
-    });
-    
-    // 8. 监听页面卸载（刷新）事件
-    window.addEventListener('beforeunload', function() {
-        // 标记页面即将刷新
-        sessionStorage.setItem('pageRefreshing', 'true');
-    });
-    
-    // 9. 检查是否是刷新
-    window.addEventListener('load', function() {
-        const wasRefreshing = sessionStorage.getItem('pageRefreshing');
-        if (wasRefreshing === 'true') {
-            console.log('检测到页面刷新，清空滚动状态');
-            sessionStorage.removeItem('pageRefreshing');
-            // 确保回到顶部
-            setTimeout(() => {
-                $('html, body').scrollTop(0);
-            }, 50);
-        }
-    });
-});
-
-// 监听哈希变化
-window.addEventListener('hashchange', function() {
-    const hash = window.location.hash;
-    if (hash) {
-        $('#main-menu li').removeClass('active');
-        $(`#main-menu a[href="${hash}"]`).parent().addClass('active');
-        
-        $('html, body').stop().animate({
-            scrollTop: $(hash).offset().top - 30
-        }, 300);
-    }
-});
-</script>
-<script>
-// 修复方案：解决重复打开链接问题，同时保留图片显示
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('开始修复卡片点击事件...');
-    
-    // 1. 收集所有卡片
-    const cards = document.querySelectorAll('.xe-widget');
-    console.log('找到卡片数量:', cards.length);
-    
-    // 2. 为每个卡片添加处理
-    cards.forEach((card, index) => {
-        // 存储原始URL
-        let originalUrl = null;
-        
-        // 提取URL（但不移除onclick属性，避免干扰其他功能）
-        const onclickAttr = card.getAttribute('onclick');
-        if (onclickAttr) {
-            const match = onclickAttr.match(/window\.open\('([^']+)'/);
-            if (match && match[1]) {
-                originalUrl = match[1];
-                console.log(`卡片 ${index} - 提取URL:`, originalUrl);
-            }
-        }
-        
-        // 如果没找到，尝试从data-original-title获取
-        if (!originalUrl) {
-            const dataTitle = card.getAttribute('data-original-title') || 
-                             card.querySelector('[data-original-title]')?.getAttribute('data-original-title');
-            if (dataTitle && dataTitle.includes('://')) {
-                originalUrl = dataTitle;
-            }
-        }
-        
-        // 保存URL到自定义属性
-        if (originalUrl) {
-            card.setAttribute('data-card-url', originalUrl);
-        }
-        
-        // 3. 添加新的事件监听器（使用一次性事件）
-        const handleCardClick = function(e) {
-            // 检查是否是隐藏按钮
-            if (e.target.classList.contains('card-hide-btn') || 
-                e.target.closest('.card-hide-btn')) {
+        // 2. 拦截所有外部链接点击，确保不影响页面状态
+        $(document).on('click', '.xe-widget', function(e) {
+            // 排除隐藏按钮的点击
+            if ($(e.target).hasClass('card-hide-btn') || 
+                $(e.target).closest('.card-hide-btn').length > 0) {
                 return;
             }
             
-            // 阻止所有可能的默认行为和冒泡
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
+            // 保存当前状态
+            pageState.scrollTop = $(window).scrollTop();
+            pageState.menuState = $('.sidebar-menu').hasClass('collapsed');
+            pageState.activeSection = window.location.hash;
             
-            // 获取URL
-            const url = this.getAttribute('data-card-url') || originalUrl;
-            
-            if (url && url !== '#' && url.includes('://')) {
-                // 防止重复点击
-                if (this.classList.contains('click-processing')) {
-                    return false;
+            // 使用 setTimeout 确保状态保存完成后再跳转
+            setTimeout(() => {
+                // 获取URL
+                const url = $(this).attr('data-original-title') || 
+                           $(this).find('[data-original-title]').attr('data-original-title');
+                
+                if (url && !url.startsWith('#')) {
+                    window.open(url, '_blank');
                 }
+            }, 10);
+            
+            e.stopPropagation();
+            return false;
+        });
+        
+        // 3. 页面获得焦点时恢复状态（当用户切回标签页时）
+        $(window).on('focus', function() {
+            // 如果页面没有刷新，恢复滚动位置
+            if (pageState.scrollTop > 0) {
+                $('html, body').scrollTop(pageState.scrollTop);
+            }
+            
+            // 恢复菜单状态
+            if (pageState.menuState) {
+                $('.sidebar-menu').addClass('collapsed');
+            } else {
+                $('.sidebar-menu').removeClass('collapsed');
+            }
+            
+            // 恢复活动部分高亮
+            if (pageState.activeSection) {
+                $('#main-menu li').removeClass('active');
+                $(`#main-menu a[href="${pageState.activeSection}"]`).parent().addClass('active');
+            }
+        });
+        
+        // 4. 页面失去焦点前保存状态
+        $(window).on('blur', function() {
+            pageState.scrollTop = $(window).scrollTop();
+            pageState.menuState = $('.sidebar-menu').hasClass('collapsed');
+            pageState.activeSection = window.location.hash;
+        });
+        
+        // 5. 修改左侧菜单的平滑滚动，避免干扰
+        $('a.smooth').on('click', function(e) {
+            e.preventDefault();
+            e.stopImmediatePropagation(); // 阻止其他事件处理程序
+            
+            const targetId = $(this).attr('href');
+            
+            if (targetId && targetId.startsWith('#')) {
+                // 更新活动状态
+                $('#main-menu li').removeClass('active');
+                $(this).parent().addClass('active');
                 
-                // 标记处理中
-                this.classList.add('click-processing');
+                // 只执行滚动，不执行其他操作
+                $('html, body').stop().animate({
+                    scrollTop: $(targetId).offset().top - 30
+                }, 500, 'swing');
                 
-                // 移除原始onclick事件（防止它再次执行）
-                this.removeAttribute('onclick');
-                
-                // 打开链接
-                window.open(url, '_blank');
-                
-                // 短暂禁用点击
-                setTimeout(() => {
-                    this.classList.remove('click-processing');
-                }, 1000);
+                // 更新URL哈希（不刷新页面）
+                window.location.hash = targetId;
+                pageState.activeSection = targetId;
             }
             
             return false;
-        };
-        
-        // 添加事件监听器（使用捕获阶段）
-        card.addEventListener('click', handleCardClick, true);
-        
-        // 4. 确保图片懒加载正常工作
-        const images = card.querySelectorAll('img[data-src]');
-        images.forEach(img => {
-            if (img.dataset.src && !img.src) {
-                img.src = img.dataset.src;
-            }
         });
     });
     
-    console.log('卡片点击事件修复完成');
-    
-    // 5. 添加样式防止重复点击
-    const style = document.createElement('style');
-    style.textContent = `
-        .xe-widget.click-processing {
-            pointer-events: none;
-            opacity: 0.7;
-            transition: opacity 0.3s;
+    // 监听哈希变化，确保后退/前进按钮正常工作
+    window.addEventListener('hashchange', function() {
+        const hash = window.location.hash;
+        if (hash) {
+            $('#main-menu li').removeClass('active');
+            $(`#main-menu a[href="${hash}"]`).parent().addClass('active');
+            
+            $('html, body').stop().animate({
+                scrollTop: $(hash).offset().top - 30
+            }, 300);
         }
-    `;
-    document.head.appendChild(style);
-    
-    // 6. 重新初始化lozad懒加载（如果存在）
-    if (typeof lozad !== 'undefined') {
-        setTimeout(() => {
-            const observer = lozad();
-            observer.observe();
-            console.log('重新初始化懒加载');
-        }, 500);
-    }
-});
-</script>
+    });
+    </script>
 </body>
 </html>

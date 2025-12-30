@@ -433,18 +433,5 @@ document.addEventListener('keydown', function (e) {
   }
 });
 </script>
-<script>
-setInterval(() => {
-  const threshold = 160;
-  if (
-    window.outerWidth - window.innerWidth > threshold ||
-    window.outerHeight - window.innerHeight > threshold
-  ) {
-    location.href = '/';
-  }
-}, 1000);
-</script>
-
 </body>
-
 </html>

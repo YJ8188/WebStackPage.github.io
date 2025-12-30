@@ -5264,23 +5264,71 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 <script>
-// 禁止右键
-document.addEventListener('contextmenu', function (e) {
-  e.preventDefault();
-  location.href = '/';
-});
-
-// 禁止 F12 / Ctrl+Shift+I / Ctrl+U
-document.addEventListener('keydown', function (e) {
-  if (
-    e.key === 'F12' ||
-    (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'i') ||
-    (e.ctrlKey && e.key.toLowerCase() === 'u')
-  ) {
-    e.preventDefault();
-    location.href = '/';
-  }
+document.querySelectorAll('.col-sm-3').forEach(card => {
+  card.addEventListener('contextmenu', function (e) {
+    e.preventDefault(); // 只禁卡片右键
+  });
 });
 </script>
+<div id="cardMenu" style="
+  position: fixed;
+  display: none;
+  background: #111827;
+  color: #fff;
+  border-radius: 8px;
+  font-size: 13px;
+  z-index: 9999;
+  box-shadow: 0 10px 30px rgba(0,0,0,.25);
+">
+  <div id="copyCardUrl" style="
+    padding: 8px 16px;
+    cursor: pointer;
+    white-space: nowrap;
+  ">
+    📋 复制链接地址
+  </div>
+</div>
+<script>
+const menu = document.getElementById('cardMenu');
+const copyBtn = document.getElementById('copyCardUrl');
+
+let currentLink = '';
+
+document.querySelectorAll('.col-sm-3').forEach(card => {
+  card.addEventListener('contextmenu', function (e) {
+    e.preventDefault();
+
+    // 找到卡片里的链接
+    const link = card.querySelector('a[href]');
+    if (!link) return;
+
+    currentLink = link.href;
+
+    // 显示菜单
+    menu.style.display = 'block';
+    menu.style.left = e.clientX + 'px';
+    menu.style.top = e.clientY + 'px';
+  });
+});
+
+// 点击复制
+copyBtn.addEventListener('click', function () {
+  if (!currentLink) return;
+
+  navigator.clipboard.writeText(currentLink).then(() => {
+    copyBtn.innerText = '✅ 已复制';
+    setTimeout(() => {
+      copyBtn.innerText = '📋 复制链接地址';
+      menu.style.display = 'none';
+    }, 800);
+  });
+});
+
+// 点击其它地方关闭
+document.addEventListener('click', function () {
+  menu.style.display = 'none';
+});
+</script>
+
 </body>
 </html>

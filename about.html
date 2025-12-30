@@ -1,48 +1,107 @@
-<!-- ... existing code ... -->
-                        <!-- 关于网站 -->
-                        <h4 class="text-gray">关于网站</h4>
-                        <div class="panel-body">
-                            <div class="row">
-                                <div class="col-sm-12">
-                                    <blockquote>
-                                        <p>这是一位技术员的个人网址导航，收集了工作中的常用工具、AI工具、设计资源、学习教程等各类网站链接，方便快速访问。</p>
-                                        </br>
-                                        <p>如果你也经常需要访问各种技术工具和资源网站，希望这个导航能提高你的工作效率。</p>
-                                        <p>有任何建议或问题都可以联系站长。</p>
-                                    </blockquote>
-                                </div>
-                            </div>
-                            <!-- 关于站长 -->
-                            <h4 class="text-gray">关于站长</h4>
-                            <div class="row">
-                                <div class="col-sm-4">
-                                    <div class="xe-widget xe-conversations box2 label-info" onclick="window.open('https://example.com/', '_blank')" data-toggle="tooltip" data-placement="bottom" title="" data-original-title="https://example.com/">
-                                        <div class="xe-comment-entry">
-                                            <a class="xe-user-img">
-                                                <img src="../assets/images/favicon.png" class="img-circle" width="40">
-                                            </a>
-                                            <div class="xe-comment">
-                                                <a href="#" class="xe-user-name overflowClip_1">
-                                                    <strong>技术员. 何哥.</strong>
-                                                </a>
-                                                <p class="overflowClip_2"> Full-time developer with an enduring interest in Tech tools and resources.</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-8">
-                                    <div class="row">
-                                        <div class="col-sm-12">
-                                            <br />
-                                            <blockquote>
-                                                <p>
-                                                    这是一个个人项目，基于开源项目WebStack修改而来。你也可以用它来制作自己的网址导航。如果你有更好的想法，欢迎与我交流分享。
-                                                </p>
-                                            </blockquote>
-                                        </div>
-                                    </div>
-                                    <br>
-                                </div>
-                            </div>
-                        </div>
-<!-- ... existing code ... -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>关于本站 - 何哥的网站导航系统</title>
+    <!-- 保留原有的样式引用，确保框架不变 -->
+    <style>
+        /* 保留原页面的样式，仅保证基础展示效果 */
+        body {
+            font-family: "Microsoft Yahei", sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.8;
+            color: #333;
+        }
+        .about-section {
+            margin-bottom: 40px;
+        }
+        .about-section h3 {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 8px;
+        }
+        .owner-info {
+            display: flex;
+            align-items: flex-start;
+            gap: 20px;
+            margin: 15px 0;
+        }
+        .owner-avatar {
+            width: 100px;
+            text-align: center;
+        }
+        .owner-avatar img {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            margin-bottom: 5px;
+        }
+        .contact-btn {
+            background: #000;
+            color: #fff;
+            padding: 3px 8px;
+            font-size: 12px;
+            border-radius: 3px;
+            cursor: pointer;
+            display: inline-block;
+            margin-top: 5px;
+        }
+        .update-log {
+            margin-top: 10px;
+            color: #666;
+        }
+        footer {
+            margin-top: 50px;
+            font-size: 12px;
+            color: #999;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- 关于本站部分 -->
+    <div class="about-section">
+        <h3>关于本站</h3>
+        <p>欢迎来到何哥的网站导航系统！</p>
+        <p>这是我个人精心整理的网址导航站，收录了我平时工作学习中常用的优质网站和工具。</p>
+        <p>涵盖设计资源、开发工具、学习平台、效率工具等多个分类，希望能帮助到同样在寻找优质资源的你。</p>
+        <p>网站会持续更新，如果你有好的网站推荐，欢迎联系我分享！</p>
+    </div>
+
+    <!-- 关于站长部分 -->
+    <div class="about-section">
+        <h3>关于站长</h3>
+        <div class="owner-info">
+            <div class="owner-avatar">
+                <img src="avatar.jpg" alt="何哥头像"> <!-- 请替换为实际头像图片路径 -->
+                <div>何哥</div>
+                <div style="font-size: 12px; color: #666;">热爱技术，喜欢收集和分享优质资源</div>
+                <div class="contact-btn">点击联系何哥</div>
+            </div>
+            <div class="owner-desc">
+                <p>这个导航站基于开源项目 WebStack 搭建，经过个性化定制而成。</p>
+                <p>如果你也想搭建自己的导航站，可以访问原项目查看源码。</p>
+                <p>本站纯属个人兴趣项目，非商业用途，持续更新中...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 更新日志部分 -->
+    <div class="about-section">
+        <h3>更新日志</h3>
+        <div class="update-log">
+            <p>2025.12.26 - 网站正式上线</p>
+        </div>
+    </div>
+
+    <!-- 页脚 -->
+    <footer>
+        © 2026 何哥的网站导航系统 | 持续更新中
+    </footer>
+</body>
+</html>

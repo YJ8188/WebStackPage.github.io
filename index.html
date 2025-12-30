@@ -5263,25 +5263,5 @@ document.addEventListener('DOMContentLoaded', function() {
     // 初始化管理面板
     updateHiddenPanel();
 });
-</script>
-<script>
-// 禁止右键
-document.addEventListener('contextmenu', function (e) {
-  e.preventDefault();
-  location.href = '/';
-});
-
-// 禁止 F12 / Ctrl+Shift+I / Ctrl+U
-document.addEventListener('keydown', function (e) {
-  if (
-    e.key === 'F12' ||
-    (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'i') ||
-    (e.ctrlKey && e.key.toLowerCase() === 'u')
-  ) {
-    e.preventDefault();
-    location.href = '/';
-  }
-});
-</script>
 </body>
 </html>

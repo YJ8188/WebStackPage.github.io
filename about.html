@@ -1,430 +1,48 @@
-<!DOCTYPE html>
-<html lang="zh">
-
-<head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="author" content="何哥" />
-    <title>关于本站 - WebStack.cc</title>
-    <meta name="keywords" content="网址导航,设计资源,开发工具,学习平台,效率工具">
-    <meta name="description" content="何哥的网站导航系统 - 个人精心整理的网址导航站，收录常用优质网站和工具">
-    <link rel="shortcut icon" href="../assets/images/favicon.png">
-    <link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Arimo:400,700,400italic">
-    <link rel="stylesheet" href="../assets/css/fonts/linecons/css/linecons.css">
-    <link rel="stylesheet" href="../assets/css/fonts/fontawesome/css/font-awesome.min.css">
-    <link rel="stylesheet" href="../assets/css/bootstrap.css">
-    <link rel="stylesheet" href="../assets/css/xenon-core.css">
-    <link rel="stylesheet" href="../assets/css/xenon-components.css">
-    <link rel="stylesheet" href="../assets/css/xenon-skins.css">
-    <link rel="stylesheet" href="../assets/css/nav.css">
-    <style>
-        /* 全屏弹窗样式 */
-        .fullscreen-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.85);
-            z-index: 9999;
-            overflow-y: auto;
-        }
-        
-        .modal-content {
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            margin: 50px auto;
-            width: 90%;
-            max-width: 800px;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            overflow: hidden;
-            animation: modalSlideIn 0.5s ease-out;
-        }
-        
-        @keyframes modalSlideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-50px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        .modal-header {
-            background: linear-gradient(90deg, #4776E6 0%, #8E54E9 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
-            position: relative;
-        }
-        
-        .modal-header h2 {
-            font-size: 32px;
-            margin: 0;
-            font-weight: 600;
-            letter-spacing: 2px;
-        }
-        
-        .close-modal {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            color: white;
-            font-size: 30px;
-            cursor: pointer;
-            background: rgba(255, 255, 255, 0.2);
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            text-align: center;
-            line-height: 40px;
-            transition: all 0.3s;
-        }
-        
-        .close-modal:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: rotate(90deg);
-        }
-        
-        .modal-body {
-            padding: 40px;
-        }
-        
-        .section {
-            margin-bottom: 40px;
-            padding: 25px;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
-            border-left: 5px solid #4776E6;
-            transition: transform 0.3s;
-        }
-        
-        .section:hover {
-            transform: translateY(-5px);
-        }
-        
-        .section h3 {
-            color: #4776E6;
-            margin-top: 0;
-            margin-bottom: 20px;
-            font-size: 24px;
-            display: flex;
-            align-items: center;
-        }
-        
-        .section h3 i {
-            margin-right: 10px;
-            background: linear-gradient(90deg, #4776E6, #8E54E9);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        
-        .section p {
-            line-height: 1.8;
-            color: #555;
-            font-size: 16px;
-        }
-        
-        .user-list {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
-        }
-        
-        .user-item {
-            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
-            color: white;
-            padding: 15px;
-            border-radius: 10px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        .user-item:hover {
-            transform: scale(1.05);
-            box-shadow: 0 10px 20px rgba(106, 17, 203, 0.3);
-        }
-        
-        .user-item i {
-            font-size: 24px;
-            margin-bottom: 10px;
-        }
-        
-        .update-log {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 10px;
-            margin-top: 20px;
-        }
-        
-        .update-log h4 {
-            color: #4776E6;
-            margin-bottom: 15px;
-        }
-        
-        .contact-buttons {
-            display: flex;
-            gap: 15px;
-            margin-top: 20px;
-            flex-wrap: wrap;
-        }
-        
-        .contact-btn {
-            flex: 1;
-            min-width: 150px;
-            padding: 15px;
-            background: linear-gradient(90deg, #4776E6, #8E54E9);
-            color: white;
-            border: none;
-            border-radius: 50px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            text-align: center;
-            text-decoration: none;
-            display: inline-block;
-        }
-        
-        .contact-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 10px 20px rgba(106, 17, 203, 0.3);
-        }
-        
-        .footer {
-            text-align: center;
-            padding: 25px;
-            background: linear-gradient(90deg, #4776E6 0%, #8E54E9 100%);
-            color: white;
-            margin-top: 30px;
-        }
-        
-        .footer p {
-            margin: 5px 0;
-            font-size: 14px;
-        }
-        
-        @media (max-width: 768px) {
-            .modal-content {
-                margin: 20px auto;
-                width: 95%;
-            }
-            
-            .modal-body {
-                padding: 20px;
-            }
-            
-            .section {
-                padding: 20px;
-            }
-            
-            .contact-buttons {
-                flex-direction: column;
-            }
-            
-            .contact-btn {
-                min-width: 100%;
-            }
-        }
-    </style>
-    <script src="../assets/js/jquery-1.11.1.min.js"></script>
-</head>
-
-<body class="page-body boxed-container">
-    <!-- 全屏弹窗 -->
-    <div id="aboutModal" class="fullscreen-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>关于本站</h2>
-                <div class="close-modal" onclick="closeModal()">&times;</div>
-            </div>
-            
-            <div class="modal-body">
-                <!-- 关于网站 -->
-                <div class="section">
-                    <h3><i class="fa fa-globe"></i> 关于本站</h3>
-                    <p>欢迎来到何哥的网站导航系统！</p>
-                    <p>这是我个人精心整理的网址导航站，收录了我平时工作学习中常用的优质网站和工具。</p>
-                    <p>涵盖设计资源、开发工具、学习平台、效率工具等多个分类，希望能够帮助到同样在寻找优质资源的你。</p>
-                    <p>网站会持续更新，如果你有好的网站推荐，欢迎联系我分享！</p>
-                </div>
-                
-                <!-- 关于站长 -->
-                <div class="section">
-                    <h3><i class="fa fa-user"></i> 关于站长</h3>
-                    <p><strong>何哥</strong></p>
-                    <p>热爱技术，喜欢收集和分享优质资源</p>
-                    <p>本站基于开源项目 WebStack 搭建，经过个性化定制而成。</p>
-                    <p>如果你也想搭建自己的导航站，可以访问原项目查看源码。</p>
-                    <p>本站纯属个人兴趣项目，非商业用途，持续更新中...</p>
-                    
-                    <div class="contact-buttons">
-                        <button class="contact-btn" onclick="contactVia('email')">
-                            <i class="fa fa-envelope"></i> 邮箱联系
-                        </button>
-                        <button class="contact-btn" onclick="contactVia('qq')">
-                            <i class="fa fa-qq"></i> QQ联系
-                        </button>
-                        <button class="contact-btn" onclick="contactVia('wechat')">
-                            <i class="fa fa-wechat"></i> 微信联系
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- 更多用户 -->
-                <div class="section">
-                    <h3><i class="fa fa-users"></i> 点击查看更多用户</h3>
-                    <p>发现更多使用此导航系统的用户：</p>
-                    <div class="user-list">
-                        <div class="user-item" onclick="viewUser('designer')">
-                            <i class="fa fa-paint-brush"></i>
-                            <p>设计师</p>
+<!-- ... existing code ... -->
+                        <!-- 关于网站 -->
+                        <h4 class="text-gray">关于网站</h4>
+                        <div class="panel-body">
+                            <div class="row">
+                                <div class="col-sm-12">
+                                    <blockquote>
+                                        <p>这是一位技术员的个人网址导航，收集了工作中的常用工具、AI工具、设计资源、学习教程等各类网站链接，方便快速访问。</p>
+                                        </br>
+                                        <p>如果你也经常需要访问各种技术工具和资源网站，希望这个导航能提高你的工作效率。</p>
+                                        <p>有任何建议或问题都可以联系站长。</p>
+                                    </blockquote>
+                                </div>
+                            </div>
+                            <!-- 关于站长 -->
+                            <h4 class="text-gray">关于站长</h4>
+                            <div class="row">
+                                <div class="col-sm-4">
+                                    <div class="xe-widget xe-conversations box2 label-info" onclick="window.open('https://example.com/', '_blank')" data-toggle="tooltip" data-placement="bottom" title="" data-original-title="https://example.com/">
+                                        <div class="xe-comment-entry">
+                                            <a class="xe-user-img">
+                                                <img src="../assets/images/favicon.png" class="img-circle" width="40">
+                                            </a>
+                                            <div class="xe-comment">
+                                                <a href="#" class="xe-user-name overflowClip_1">
+                                                    <strong>技术员. 何哥.</strong>
+                                                </a>
+                                                <p class="overflowClip_2"> Full-time developer with an enduring interest in Tech tools and resources.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-8">
+                                    <div class="row">
+                                        <div class="col-sm-12">
+                                            <br />
+                                            <blockquote>
+                                                <p>
+                                                    这是一个个人项目，基于开源项目WebStack修改而来。你也可以用它来制作自己的网址导航。如果你有更好的想法，欢迎与我交流分享。
+                                                </p>
+                                            </blockquote>
+                                        </div>
+                                    </div>
+                                    <br>
+                                </div>
+                            </div>
                         </div>
-                        <div class="user-item" onclick="viewUser('developer')">
-                            <i class="fa fa-code"></i>
-                            <p>开发者</p>
-                        </div>
-                        <div class="user-item" onclick="viewUser('student')">
-                            <i class="fa fa-graduation-cap"></i>
-                            <p>学生</p>
-                        </div>
-                        <div class="user-item" onclick="viewUser('product')">
-                            <i class="fa fa-briefcase"></i>
-                            <p>产品经理</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- 更新日志 -->
-                <div class="section">
-                    <h3><i class="fa fa-history"></i> 更新日志</h3>
-                    <div class="update-log">
-                        <h4>2025.12.26</h4>
-                        <p>✓ 网站正式上线</p>
-                        <p>✓ 完成基础导航功能</p>
-                        <p>✓ 添加关于本站弹窗</p>
-                        
-                        <h4>近期计划</h4>
-                        <p>• 添加更多实用网站分类</p>
-                        <p>• 优化移动端体验</p>
-                        <p>• 增加搜索功能</p>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="footer">
-                <p>© 2025 何哥的网站导航系统 | 持续更新中</p>
-                <p>基于 WebStack 开源项目搭建</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- 页面内容 - 简化版，因为主要是弹窗 -->
-    <nav class="navbar horizontal-menu navbar-fixed-top">
-        <div class="navbar-inner">
-            <div class="navbar-brand">
-                <a href="index.html" class="logo">
-                    <img src="../assets/images/logo_dark@2x.png" width="100%" alt="" class="hidden-xs">
-                    <img src="../assets/images/logo@2x.png" width="100%" alt="" class="visible-xs">
-                </a>
-            </div>
-            <div class="navbar-mobile-clear"></div>
-        </div>
-    </nav>
-    
-    <div class="page-container">
-        <div class="main-content" style="padding-top: 100px; text-align: center;">
-            <h1>关于本站</h1>
-            <p>点击下方按钮查看网站详情</p>
-            <button onclick="openModal()" style="
-                background: linear-gradient(90deg, #4776E6, #8E54E9);
-                color: white;
-                border: none;
-                padding: 15px 40px;
-                font-size: 18px;
-                border-radius: 50px;
-                cursor: pointer;
-                margin-top: 20px;
-                transition: all 0.3s;
-            " onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 10px 20px rgba(106, 17, 203, 0.3)'"
-            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-                打开关于本站
-            </button>
-        </div>
-    </div>
-
-    <script>
-        // 打开弹窗
-        function openModal() {
-            document.getElementById('aboutModal').style.display = 'block';
-            document.body.style.overflow = 'hidden'; // 禁止背景滚动
-        }
-        
-        // 关闭弹窗
-        function closeModal() {
-            document.getElementById('aboutModal').style.display = 'none';
-            document.body.style.overflow = 'auto'; // 恢复背景滚动
-        }
-        
-        // ESC键关闭弹窗
-        document.addEventListener('keydown', function(event) {
-            if (event.key === 'Escape') {
-                closeModal();
-            }
-        });
-        
-        // 点击弹窗背景关闭
-        document.getElementById('aboutModal').addEventListener('click', function(event) {
-            if (event.target === this) {
-                closeModal();
-            }
-        });
-        
-        // 联系方式函数
-        function contactVia(type) {
-            let message = '';
-            switch(type) {
-                case 'email':
-                    message = '邮箱：example@example.com\n已复制到剪贴板';
-                    navigator.clipboard.writeText('example@example.com');
-                    break;
-                case 'qq':
-                    message = 'QQ：12345678\n已复制到剪贴板';
-                    navigator.clipboard.writeText('12345678');
-                    break;
-                case 'wechat':
-                    message = '微信号：example_wechat\n已复制到剪贴板';
-                    navigator.clipboard.writeText('example_wechat');
-                    break;
-            }
-            alert(message);
-        }
-        
-        // 查看用户类型
-        function viewUser(type) {
-            const types = {
-                'designer': '设计师用户专区',
-                'developer': '开发者用户专区',
-                'student': '学生用户专区',
-                'product': '产品经理用户专区'
-            };
-            alert(`即将进入${types[type]}，该功能正在开发中...`);
-        }
-        
-        // 页面加载后自动打开弹窗
-        window.onload = function() {
-            // 从首页点击"关于本站"跳转过来时，自动打开弹窗
-            if (window.location.href.indexOf('auto-open=true') > -1) {
-                setTimeout(openModal, 300);
-            }
-        };
-    </script>
-</body>
-</html>
+<!-- ... existing code ... -->

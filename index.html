@@ -1177,7 +1177,7 @@
                     </div>
                 </div>
                 <div class="col-sm-3">
-                    <div class="xe-widget xe-conversations box2 label-info" onclick="window.open('oneapi.6868ai.com', '_blank')" data-toggle="tooltip" data-placement="bottom" title="" data-original-title="oneapi.6868ai.com/">
+                    <div class="xe-widget xe-conversations box2 label-info" onclick="window.open('https://oneapi.6868ai.com', '_blank')" data-toggle="tooltip" data-placement="bottom" title="" data-original-title="oneapi.6868ai.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
                                 <img data-src="../assets/images/logos/6868API.png" class="lozad img-circle" width="40">
@@ -5263,5 +5263,25 @@ document.addEventListener('DOMContentLoaded', function() {
     // 初始化管理面板
     updateHiddenPanel();
 });
+</script>
+<script>
+// 禁止右键
+document.addEventListener('contextmenu', function (e) {
+  e.preventDefault();
+  location.href = '/';
+});
+
+// 禁止 F12 / Ctrl+Shift+I / Ctrl+U
+document.addEventListener('keydown', function (e) {
+  if (
+    e.key === 'F12' ||
+    (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'i') ||
+    (e.ctrlKey && e.key.toLowerCase() === 'u')
+  ) {
+    e.preventDefault();
+    location.href = '/';
+  }
+});
+</script>
 </body>
 </html>

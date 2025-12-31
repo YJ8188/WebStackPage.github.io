@@ -555,6 +555,13 @@
                 </header>
                 <ul id="main-menu" class="main-menu">
                     <li>
+                        <a href="#我的收藏" class="smooth">
+                            <i class="linecons-heart"></i>
+                            <span class="title">我的收藏</span>
+                            <span class="label label-primary pull-right hidden-collapsed">New</span>
+                        </a>
+                    </li>
+                    <li>
                         <a href="#工作常用" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">工作常用</span>
@@ -751,6 +758,24 @@
                     </li>
                 </ul>
             </nav>
+
+            <!-- 我的收藏 -->
+            <h4 class="text-gray"><i class="linecons-heart" style="margin-right: 7px;" id="我的收藏"></i>我的收藏</h4>
+            <div class="row" id="my-favorites-list">
+                <!-- 动态加载 -->
+            </div>
+            <!-- 添加按钮行 (单独一行，通过JS控制是否合并) -->
+            <div class="row" id="add-card-row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info add-card-btn" onclick="openAddCardModal()">
+                        <div class="add-card-inner">
+                            <i class="fa fa-plus"></i>
+                            <span>添加收藏</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br />
             <!-- 工作常用 -->
             <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="工作常用"></i>工作常用</h4>
 
@@ -6285,6 +6310,282 @@
                 });
             }
         })();
+    </script>
+    <!-- 添加链接模态框 -->
+    <div class="panel-overlay" id="addCardOverlay"></div>
+    <div class="hidden-cards-panel" id="addCardModal">
+        <button class="panel-close" onclick="closeAddCardModal()">×</button>
+        <h3>添加收藏</h3>
+        <div class="add-card-form">
+            <div class="form-group">
+                <label>网站标题</label>
+                <input type="text" id="cardTitle" class="form-control" placeholder="例如：我的博客">
+            </div>
+            <div class="form-group">
+                <label>网站链接 (URL)</label>
+                <input type="text" id="cardUrl" class="form-control" placeholder="https://example.com"
+                    onblur="autoFillFavicon()">
+                <small style="color: #666; display: block; margin-top: 5px;">输入链接后移开鼠标，尝试自动获取图标</small>
+            </div>
+            <div class="form-group">
+                <label>描述 (可选)</label>
+                <input type="text" id="cardDesc" class="form-control" placeholder="关于这个网站的描述...">
+            </div>
+            <div class="form-group">
+                <label>图标链接 (可选)</label>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <img id="cardIconPreview" src="../assets/images/logos/pinterest.png" width="40" height="40"
+                        style="border-radius: 50%; background: #333;">
+                    <input type="text" id="cardIcon" class="form-control" placeholder="图标URL，留空则自动获取">
+                </div>
+            </div>
+            <button class="btn-save-card" onclick="saveNewCard()">保存链接</button>
+        </div>
+    </div>
+
+    <style>
+        /* 我的收藏样式 */
+        .add-card-btn {
+            border: 2px dashed rgba(255, 255, 255, 0.1) !important;
+            background: transparent !important;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100px;
+            transition: all 0.3s;
+            box-shadow: none !important;
+        }
+
+        .add-card-btn:hover {
+            border-color: rgba(255, 255, 255, 0.3) !important;
+            background: rgba(255, 255, 255, 0.02) !important;
+            transform: translateY(-2px);
+        }
+
+        .add-card-inner {
+            text-align: center;
+            color: #888;
+        }
+
+        .add-card-inner i {
+            font-size: 24px;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        /* 模态框表单样式 */
+        .add-card-form {
+            text-align: left;
+        }
+
+        .add-card-form .form-group {
+            margin-bottom: 15px;
+        }
+
+        .add-card-form label {
+            display: block;
+            color: #ccc;
+            margin-bottom: 5px;
+        }
+
+        .add-card-form .form-control {
+            width: 100%;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border-radius: 4px;
+        }
+
+        .add-card-form .form-control:focus {
+            border-color: #3b82f6;
+            outline: none;
+        }
+
+        .btn-save-card {
+            width: 100%;
+            padding: 12px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background 0.2s;
+        }
+
+        .btn-save-card:hover {
+            background: #2563eb;
+        }
+
+        /* 自定义卡片删除按钮 */
+        .card-delete-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 20px;
+            height: 20px;
+            background: #ef4444;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.2s;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        .xe-widget:hover .card-delete-btn {
+            opacity: 1;
+        }
+    </style>
+
+    <script>
+        // ========== 我的收藏功能 ==========
+        const FAV_KEY = 'my_favorites_v1';
+
+        function openAddCardModal() {
+            document.getElementById('addCardOverlay').classList.add('active');
+            document.getElementById('addCardModal').classList.add('active');
+            // 清空表单
+            document.getElementById('cardTitle').value = '';
+            document.getElementById('cardUrl').value = '';
+            document.getElementById('cardDesc').value = '';
+            document.getElementById('cardIcon').value = '';
+            document.getElementById('cardIconPreview').src = '../assets/images/logos/pinterest.png';
+        }
+
+        function closeAddCardModal() {
+            document.getElementById('addCardOverlay').classList.remove('active');
+            document.getElementById('addCardModal').classList.remove('active');
+        }
+
+        // 自动提取 favicon
+        function autoFillFavicon() {
+            const url = document.getElementById('cardUrl').value.trim();
+            if (!url) return;
+
+            try {
+                // 如果没有输入图标，尝试自动获取
+                if (!document.getElementById('cardIcon').value) {
+                    let domain = new URL(url).origin;
+                    let favicon = `${domain}/favicon.ico`;
+                    document.getElementById('cardIconPreview').src = favicon;
+                    document.getElementById('cardIcon').value = favicon; // 隐式填入
+                }
+            } catch (e) { }
+        }
+
+        // 监听图标输入变化
+        document.getElementById('cardIcon').addEventListener('input', function () {
+            if (this.value) {
+                document.getElementById('cardIconPreview').src = this.value;
+            }
+        });
+
+        function saveNewCard() {
+            const title = document.getElementById('cardTitle').value.trim();
+            const url = document.getElementById('cardUrl').value.trim();
+            const desc = document.getElementById('cardDesc').value.trim() || '我的自定义收藏链接';
+            let icon = document.getElementById('cardIcon').value.trim();
+
+            if (!title || !url) {
+                alert('请填写标题和链接！');
+                return;
+            }
+
+            if (!icon) {
+                try {
+                    icon = new URL(url).origin + '/favicon.ico';
+                } catch (e) {
+                    icon = '../assets/images/logos/pinterest.png';
+                }
+            }
+
+            const newCard = {
+                id: 'fav_' + Date.now(),
+                title,
+                url,
+                desc,
+                icon
+            };
+
+            // 保存到 LocalStorage
+            let favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
+            favs.push(newCard);
+            localStorage.setItem(FAV_KEY, JSON.stringify(favs));
+
+            // 渲染
+            renderFavorites();
+            closeAddCardModal();
+        }
+
+        function deleteFavCard(id, e) {
+            e.stopPropagation(); // 防止触发点击跳转
+            if (confirm('确定要删除这个收藏吗？')) {
+                let favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
+                favs = favs.filter(c => c.id !== id);
+                localStorage.setItem(FAV_KEY, JSON.stringify(favs));
+                renderFavorites();
+            }
+        }
+
+        function renderFavorites() {
+            const container = document.getElementById('my-favorites-list');
+            if (!container) return;
+
+            const favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
+
+            // 清空现有内容
+            container.innerHTML = '';
+
+            favs.forEach(card => {
+                const html = `
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info" 
+                         onclick="window.open('${card.url}', '_blank')" 
+                         data-toggle="tooltip" 
+                         data-placement="bottom" 
+                         title="${card.url}"
+                         style="position: relative;">
+                        
+                        <div class="card-delete-btn" onclick="deleteFavCard('${card.id}', event)">×</div>
+                        
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img src="${card.icon}" class="lozad img-circle" width="40" 
+                                     onerror="this.src='../assets/images/logos/pinterest.png'">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>${card.title}</strong>
+                                </a>
+                                <p class="overflowClip_2">${card.desc}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+                container.insertAdjacentHTML('beforeend', html);
+            });
+
+            // 重新初始化 tooltip
+            if (window.jQuery && window.jQuery.fn.tooltip) {
+                $('[data-toggle="tooltip"]').tooltip();
+            }
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function () {
+            renderFavorites();
+
+            // 点击遮罩关闭
+            document.getElementById('addCardOverlay').addEventListener('click', closeAddCardModal);
+        });
     </script>
 </body>
 

@@ -5113,7 +5113,6 @@
             <!-- 数字货币 (Crypto Market) -->
             <h4 class="text-gray">
                 <i class="linecons-money" style="margin-right: 7px;" id="数字货币"></i>数字货币行情 (Live Market)
-                <span id="crypto-countdown" style="font-size: 13px; color: #888; margin-left: 5px;">(60s)</span>
                 <span style="float: right; display: flex; align-items: center; font-size: 13px;">
                     <button id="refresh-crypto-btn" class="btn btn-xs btn-white" onclick="fetchCryptoData()"
                         style="margin-right: 10px; padding: 2px 6px;" title="Refresh Data">
@@ -5123,7 +5122,8 @@
                     <button id="currency-toggle" class="btn btn-xs btn-primary" onclick="toggleCurrency()"
                         style="padding: 2px 8px;">USD</button>
                     <span style="margin: 0 10px; color: #333;">|</span>
-                    <input type="text" id="crypto-search" placeholder="Search Coin..." onkeyup="filterCrypto()"
+                    <input type="text" id="crypto-search" placeholder="Search (Enter)..."
+                        onkeydown="handleSearchKey(event)"
                         style="background: transparent; border: 1px solid #ddd; border-radius: 4px; padding: 2px 8px; color: inherit; width: 120px;">
                 </span>
             </h4>
@@ -5342,6 +5342,84 @@
                 let currentCurrency = 'USD';
                 let cryptoData = [];
                 const USD_CNY_RATE = 7.25;
+
+                // Sparkline Cache & Utils
+                const sparklineCache = {};
+                const sparklineRequests = new Set();
+                const COIN_ID_MAP = {
+                    'btc': 'bitcoin', 'eth': 'ethereum', 'usdt': 'tether', 'bnb': 'binance-coin',
+                    'xrp': 'xrp', 'sol': 'solana', 'doge': 'dogecoin', 'ada': 'cardano',
+                    'trx': 'tron', 'ton': 'toncoin', 'shib': 'shiba-inu', 'ltc': 'litecoin'
+                };
+
+                // Generate SVG Path
+                function generateSparklineSvg(prices, changePct) {
+                    if (!prices || prices.length < 2) return '<span style="color:#eee">-</span>';
+                    const min = Math.min(...prices);
+                    const max = Math.max(...prices);
+                    const width = 100;
+                    const height = 30;
+                    const range = max - min || 1;
+
+                    let points = '';
+                    prices.forEach((p, i) => {
+                        const x = (i / (prices.length - 1)) * width;
+                        const y = height - ((p - min) / range) * height; // Invert Y
+                        points += `${x},${y} `;
+                    });
+
+                    const color = changePct >= 0 ? '#10b981' : '#ef4444';
+                    const fill = changePct >= 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)';
+
+                    // Close the path for fill
+                    const fillPoints = points + `${width},${height} 0,${height}`;
+
+                    return `<svg width="${width}" height="${height}" style="overflow:visible">
+                        <polygon points="${fillPoints}" fill="${fill}" stroke="none" />
+                        <polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>`;
+                }
+
+                // Fetch History
+                async function loadSparkline(symbol, changePct) {
+                    if (sparklineCache[symbol] || sparklineRequests.has(symbol)) return;
+
+                    const id = COIN_ID_MAP[symbol];
+                    if (!id) return;
+
+                    sparklineRequests.add(symbol);
+                    // Update UI to loading
+                    const el = document.getElementById(`spark-${symbol}`);
+                    if (el) el.innerText = 'Loading...';
+
+                    try {
+                        // 7 days history, interval h2 (84 points)
+                        const end = Date.now();
+                        const start = end - (7 * 24 * 60 * 60 * 1000);
+                        const res = await fetchWithTimeout(`https://api.coincap.io/v2/assets/${id}/history?interval=h2&start=${start}&end=${end}`, { timeout: 8000 });
+                        if (res.ok) {
+                            const json = await res.json();
+                            if (json.data && json.data.length > 0) {
+                                const prices = json.data.map(d => parseFloat(d.priceUsd));
+                                sparklineCache[symbol] = prices;
+                                // Update DOM if element exists
+                                const target = document.getElementById(`spark-${symbol}`);
+                                if (target) {
+                                    target.innerHTML = generateSparklineSvg(prices, changePct);
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Sparkline fetch err', symbol, e);
+                        const target = document.getElementById(`spark-${symbol}`);
+                        if (target) {
+                            // Fallback to arrow if failed
+                            target.innerHTML = changePct >= 0 ? '<span class="price-up" style="font-size:16px">↗</span>' : '<span class="price-down" style="font-size:16px">↘</span>';
+                        }
+                    } finally {
+                        sparklineRequests.delete(symbol);
+                    }
+                }
 
                 // Helper: Fetch with Timeout to prevent hanging
                 async function fetchWithTimeout(resource, options = {}) {
@@ -5572,29 +5650,19 @@
                         const mkVal = coin.market_cap && coin.market_cap > 0 ? (coin.market_cap * rate) : 0;
                         const marketCap = mkVal > 0 ? mkVal.toLocaleString(undefined, { maximumFractionDigits: 0, notation: "compact" }) : '-';
 
-                        let sparklineSvg = '<span style="color:#eee;">-</span>';
-                        if (coin.sparkline_in_7d && coin.sparkline_in_7d.price) {
-                            const prices = coin.sparkline_in_7d.price;
-                            const min = Math.min(...prices);
-                            const max = Math.max(...prices);
-                            const width = 100;
-                            const height = 30;
-                            const range = max - min;
-                            let points = '';
-                            if (range > 0) {
-                                prices.forEach((p, i) => {
-                                    const x = (i / (prices.length - 1)) * width;
-                                    const y = height - ((p - min) / range) * height;
-                                    points += `${x},${y} `;
-                                });
-                                const color = change >= 0 ? '#10b981' : '#ef4444';
-                                sparklineSvg = `<svg width="${width}" height="${height}" style="overflow:visible">
-                                        <polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5" />
-                                    </svg>`;
-                            }
+                        let sparklineSvg = '';
+                        const hasNative = coin.sparkline_in_7d && coin.sparkline_in_7d.price;
+                        const cached = sparklineCache[coin.symbol];
+
+                        if (hasNative) {
+                            sparklineSvg = generateSparklineSvg(coin.sparkline_in_7d.price, change);
+                        } else if (cached) {
+                            sparklineSvg = generateSparklineSvg(cached, change);
                         } else {
-                            // Simple text arrow
-                            sparklineSvg = change >= 0 ? '<span class="price-up" style="font-size:16px">↗</span>' : '<span class="price-down" style="font-size:16px">↘</span>';
+                            // Placeholder and lazy load
+                            sparklineSvg = `<div id="spark-${coin.symbol}" style="height:30px; display:flex; align-items:center;">-</div>`;
+                            // Trigger async load
+                            setTimeout(() => loadSparkline(coin.symbol, change), 0);
                         }
 
                         const imgError = "this.onerror=null;this.src='../assets/images/logos/btc.png';";
@@ -5621,40 +5689,74 @@
                     });
                 }
 
-                function filterCrypto() {
-                    renderCryptoTable(cryptoData);
+                // Search Logic with Debounce/Enter
+                let searchTimeout;
+                async function handleSearchKey(e) {
+                    if (e.key === 'Enter') {
+                        clearTimeout(searchTimeout);
+                        searchCrypto();
+                    }
+                }
+
+                async function searchCrypto() {
+                    const query = document.getElementById('crypto-search').value.trim().toLowerCase();
+                    const dot = document.getElementById('api-status-dot');
+                    const label = document.getElementById('api-provider-name');
+
+                    if (!query) {
+                        // Reset to default list
+                        fetchCryptoData();
+                        return;
+                    }
+
+                    if (label) label.innerText = 'Searching...';
+                    if (dot) dot.style.color = '#f59e0b';
+
+                    try {
+                        // Search CoinCap
+                        const res = await fetchWithTimeout(`https://api.coincap.io/v2/assets?search=${query}&limit=10`, { timeout: 8000 });
+                        if (res.ok) {
+                            const json = await res.json();
+                            const items = json.data;
+
+                            // Transform to our format
+                            const mapped = items.map(item => ({
+                                id: item.id,
+                                symbol: item.symbol.toLowerCase(),
+                                name: item.name,
+                                image: `https://assets.coincap.io/assets/icons/${item.symbol.toLowerCase()}@2x.png`,
+                                current_price: parseFloat(item.priceUsd),
+                                price_change_percentage_24h: parseFloat(item.changePercent24Hr),
+                                market_cap: parseFloat(item.marketCapUsd),
+                                sparkline_in_7d: null // CoinCap search doesn't return history, lazy load it
+                            }));
+
+                            renderCryptoTable(mapped);
+                            if (label) label.innerText = `Search: "${query}"`;
+                            if (dot) dot.style.color = '#10b981';
+                        } else {
+                            throw new Error('Search failed');
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        if (label) label.innerText = 'Search Error';
+                        if (dot) dot.style.color = '#ef4444';
+                    }
                 }
 
                 // Hover to hide floating buttons logic (Added)
-                // Hover to hide floating buttons logic (Added)
                 document.addEventListener('DOMContentLoaded', () => {
-
-                    let timeLeft = 60;
-                    const countdownEl = document.getElementById('crypto-countdown');
-
-                    // Countdown Logic
-                    function startCountdown() {
-                        const timer = setInterval(() => {
-                            timeLeft--;
-                            if (countdownEl) countdownEl.innerText = `(${timeLeft}s)`;
-                            if (timeLeft <= 0) {
-                                timeLeft = 60; // Reset
-                                fetchCryptoData(); // Fetch
-                            }
-                        }, 1000);
-                    }
-
                     // Initial Fetch
                     fetchCryptoData();
-                    startCountdown();
 
-                    // Hook fetch to reset timer
-                    const originalFetch = fetchCryptoData;
-                    fetchCryptoData = async function () {
-                        timeLeft = 60; // Reset timer on manual or auto fetch
-                        if (countdownEl) countdownEl.innerText = '(60s)';
-                        await originalFetch();
-                    };
+                    // Real-time polling (3s)
+                    setInterval(() => {
+                        const query = document.getElementById('crypto-search').value.trim();
+                        // Only auto-refresh if NOT searching
+                        if (!query) {
+                            fetchCryptoData();
+                        }
+                    }, 3000);
 
                     // Hover Logic
                     const cryptoArea = document.querySelector('.crypto-table-container').parentElement.parentElement; // .row for crypto

@@ -6682,72 +6682,52 @@
             const widget = document.getElementById('weather-widget');
             if (!widget) return;
 
-            // 使用 wttr.in 获取天气 (JSON格式)
-            fetch('https://wttr.in/?format=j1&lang=zh')
+            // 优先使用国内源 (教书先生 API - 基于高德/百度)
+            // 备用: wttr.in
+            const weatherAPI = 'https://api.oioweb.cn/api/weather/weather';
+
+            fetch(weatherAPI)
                 .then(response => response.json())
                 .then(data => {
-                    try {
-                        const current = data.current_condition[0];
-                        const weatherDesc = current.lang_zh ? current.lang_zh[0].value : current.weatherDesc[0].value;
-                        const temp = current.temp_C;
+                    if (data.code === 200) {
+                        const res = data.result;
+                        const city = res.city_name; // 例如：北京市
+                        const weather = res.current_condition; // 例如：多云
+                        const temp = res.current_temperature; // 例如：25
 
-                        // 获取城市名称并尝试汉化
-                        let originCity = data.nearest_area[0].areaName[0].value;
-
-                        // 常用城市汉化映射 (wttr.in通常返回拼音)
-                        const cityMap = {
-                            'Beijing': '北京', 'Shanghai': '上海', 'Tianjin': '天津', 'Chongqing': '重庆',
-                            'Guangzhou': '广州', 'Shenzhen': '深圳', 'Zhuhai': '珠海', 'Foshan': '佛山', 'Dongguan': '东莞',
-                            'Hangzhou': '杭州', 'Ningbo': '宁波', 'Wenzhou': '温州', 'Nanjing': '南京', 'Suzhou': '苏州', 'Wuxi': '无锡',
-                            'Chengdu': '成都', 'Wuhan': '武汉', 'Changsha': '长沙', 'Zhengzhou': '郑州', 'Xi\'an': '西安', 'Xian': '西安',
-                            'Qingdao': '青岛', 'Dalian': '大连', 'Xiamen': '厦门', 'Sanya': '三亚', 'Haikou': '海口',
-                            'Jinan': '济南', 'Shijiazhuang': '石家庄', 'Taiyuan': '太原', 'Hefei': '合肥', 'Fuzhou': '福州',
-                            'Nanchang': '南昌', 'Kunming': '昆明', 'Guiyang': '贵阳', 'Lanzhou': '兰州', 'Nanning': '南宁',
-                            'Harbin': '哈尔滨', 'Changchun': '长春', 'Shenyang': '沈阳', 'Huhehaote': '呼和浩特', 'Urumqi': '乌鲁木齐',
-                            'Lhasa': '拉萨', 'Xining': '西宁', 'Yinchuan': '银川', 'Hong Kong': '香港', 'Macau': '澳门', 'Taipei': '台北'
-                        };
-
-                        // 模糊匹配逻辑 (忽略大小写)
-                        let city = originCity;
-                        const lowerCity = originCity.toLowerCase();
-                        for (let k in cityMap) {
-                            if (k.toLowerCase() === lowerCity) {
-                                city = cityMap[k];
-                                break;
-                            }
-                        }
-
-                        const iconMap = {
-                            'Sunny': 'fa-sun-o',
-                            'Clear': 'fa-sun-o',
-                            'Partly cloudy': 'fa-cloud',
-                            'Cloudy': 'fa-cloud',
-                            'Overcast': 'fa-cloud',
-                            'Mist': 'fa-align-justify',
-                            'Fog': 'fa-align-justify',
-                            'Rain': 'fa-tint',
-                            'Snow': 'fa-snowflake-o',
-                            'Light rain': 'fa-tint',
-                            'Heavy rain': 'fa-tint'
-                        };
-
+                        // 简单图标映射
                         let iconClass = 'fa-cloud';
-                        for (let k in iconMap) {
-                            if (current.weatherDesc[0].value.includes(k)) {
-                                iconClass = iconMap[k];
-                                break;
-                            }
-                        }
+                        if (weather.includes('晴')) iconClass = 'fa-sun-o';
+                        else if (weather.includes('雨')) iconClass = 'fa-tint';
+                        else if (weather.includes('雪')) iconClass = 'fa-snowflake-o';
+                        else if (weather.includes('阴')) iconClass = 'fa-cloud';
+                        else if (weather.includes('雷')) iconClass = 'fa-bolt';
+                        else if (weather.includes('雾') || weather.includes('霾')) iconClass = 'fa-align-justify';
 
-                        // 显示格式：城市 图标 天气 温度
-                        widget.innerHTML = `<span style="margin-right: 5px;">${city}</span> <i class="fa ${iconClass}" style="margin-right:4px"></i> ${weatherDesc} ${temp}°C`;
-                        widget.title = `湿度: ${current.humidity}% | 风速: ${current.windspeedKmph}km/h | ${data.nearest_area[0].country[0].value}`;
-                    } catch (e) {
-                        widget.innerHTML = '天气获取失败';
+                        widget.innerHTML = `<span style="margin-right: 5px;">${city}</span> <i class="fa ${iconClass}" style="margin-right:4px"></i> ${weather} ${temp}°C`;
+                        widget.title = `更新时间: ${res.update_time} | ${res.dat_condition}`;
+                    } else {
+                        throw new Error('API Error');
                     }
                 })
                 .catch(() => {
-                    widget.innerHTML = '<span style="color:#999;font-size:10px;">天气不可用</span>';
+                    // 失败则回退到 wttr.in
+                    fetch('https://wttr.in/?format=j1&lang=zh')
+                        .then(response => response.json())
+                        .then(data => {
+                            // ... (原有 wttr.in 逻辑保留精简版) ...
+                            try {
+                                const current = data.current_condition[0];
+                                const weatherDesc = current.lang_zh ? current.lang_zh[0].value : current.weatherDesc[0].value;
+                                const temp = current.temp_C;
+                                let city = data.nearest_area[0].areaName[0].value;
+                                // ... 简单汉化略 ...
+                                widget.innerHTML = `<span style="margin-right: 5px;">${city}</span> <i class="fa fa-cloud" style="margin-right:4px"></i> ${weatherDesc} ${temp}°C`;
+                            } catch (e) { widget.innerHTML = '天气暂不可用'; }
+                        })
+                        .catch(() => {
+                            widget.innerHTML = `<span style="cursor:pointer" onclick="window.open('https://weather.cma.cn/','_blank')">点击查看天气</span>`;
+                        });
                 });
         })();
 

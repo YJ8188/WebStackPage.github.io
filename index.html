@@ -6140,6 +6140,8 @@
         (function () {
             document.addEventListener('DOMContentLoaded', function () {
                 const cards = document.querySelectorAll('.xe-widget');
+                const isHttps = location.protocol === 'https:';
+
                 cards.forEach((card, index) => {
                     const indicator = document.createElement('div');
                     indicator.className = 'card-status-indicator checking';
@@ -6152,40 +6154,96 @@
                     if (!urlMatch) return;
                     const url = urlMatch[1];
 
-                    // 错峰检测，间隔增加到200ms
+                    // 协议检查：HTTPS页面下无法检测HTTP链接
+                    if (isHttps && url.startsWith('http:')) {
+                        indicator.className = 'card-status-indicator unknown';
+                        indicator.title = 'HTTP站点 (HTTPS下无法检测)';
+                        indicator.style.background = '#f59e0b'; // 黄色
+                        return;
+                    }
+
+                    // 错峰检测
                     setTimeout(() => {
-                        checkUrl(url, indicator);
+                        checkUrlWithFallback(url, indicator);
                     }, index * 200);
                 });
             });
 
-            function checkUrl(url, indicator) {
-                const controller = new AbortController();
-                const signal = controller.signal;
-                const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
-
-                // 使用 no-cors 模式发起真实请求
-                // 这可以探测服务器是否响应（即使跨域）
-                // 如果网络通畅，会返回 opaque response (then)
-                // 如果网络不通/DNS错误，会抛出 error (catch)
-                fetch(url, {
-                    method: 'GET',
-                    mode: 'no-cors',
-                    cache: 'no-cache',
-                    referrerPolicy: 'no-referrer',
-                    signal: signal
-                })
+            // 双重检测机制：Fetch -> 失败 -> Favicon -> 失败 -> 离线
+            function checkUrlWithFallback(url, indicator) {
+                // 第一步：尝试 Fetch 检测
+                checkUrlFetch(url)
                     .then(() => {
-                        clearTimeout(timeoutId);
-                        indicator.className = 'card-status-indicator online';
-                        indicator.title = '连接正常';
+                        setOnline(indicator, '连接正常');
                     })
-                    .catch((err) => {
-                        clearTimeout(timeoutId);
-                        indicator.className = 'card-status-indicator offline';
-                        indicator.title = '无法连接 (网络错误或超时)';
-                        console.warn(`[Connect Fail] ${url}`, err);
+                    .catch(() => {
+                        // 第二步：Fetch 失败，尝试 Favicon 检测作为备选
+                        // 这可以解决部分防火墙拦截或 CORS 问题
+                        checkFavicon(url)
+                            .then(() => {
+                                setOnline(indicator, '连接正常 (图标验证)');
+                            })
+                            .catch(() => {
+                                // 都失败了，才判定为离线
+                                indicator.className = 'card-status-indicator offline';
+                                indicator.title = '无法连接';
+                            });
                     });
+            }
+
+            function setOnline(indicator, msg) {
+                indicator.className = 'card-status-indicator online';
+                indicator.title = msg;
+            }
+
+            function checkUrlFetch(url) {
+                return new Promise((resolve, reject) => {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 6000); // 6秒超时
+
+                    fetch(url, {
+                        method: 'GET',
+                        mode: 'no-cors',
+                        cache: 'no-cache',
+                        referrerPolicy: 'no-referrer',
+                        signal: controller.signal
+                    })
+                        .then(() => {
+                            clearTimeout(timeoutId);
+                            resolve();
+                        })
+                        .catch((err) => {
+                            clearTimeout(timeoutId);
+                            reject(err);
+                        });
+                });
+            }
+
+            function checkFavicon(url) {
+                return new Promise((resolve, reject) => {
+                    const img = new Image();
+                    const timeoutId = setTimeout(() => {
+                        img.src = ''; // 停止加载
+                        reject();
+                    }, 5000); // 5秒超时
+
+                    img.onload = () => {
+                        clearTimeout(timeoutId);
+                        resolve();
+                    };
+                    img.onerror = () => {
+                        clearTimeout(timeoutId);
+                        reject();
+                    };
+
+                    try {
+                        const urlObj = new URL(url);
+                        // 尝试根目录 favicon
+                        img.src = `${urlObj.protocol}//${urlObj.host}/favicon.ico?t=${Date.now()}`;
+                    } catch (e) {
+                        reject();
+                    }
+                });
             }
         })();
     </script>

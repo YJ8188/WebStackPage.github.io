@@ -6200,26 +6200,33 @@
                 });
             });
 
-            // 双重检测机制：Fetch -> 失败 -> Favicon -> 失败 -> 离线
-            function checkUrlWithFallback(url, indicator) {
-                // 第一步：尝试 Fetch 检测
-                checkUrlFetch(url)
-                    .then(() => {
+            // 双重检测机制：Fetch -> 失败 -> Favicon -> 失败 -> 重试 -> 离线
+            async function checkUrlWithFallback(url, indicator) {
+                // 尝试次数
+                const maxRetries = 2;
+
+                for (let i = 0; i <= maxRetries; i++) {
+                    try {
+                        // 尝试并行检测（Fetch 和 Favicon 哪个快用哪个）
+                        await Promise.any([
+                            checkUrlFetch(url),
+                            checkFavicon(url)
+                        ]);
+
+                        // 成功
                         setOnline(indicator, '连接正常');
-                    })
-                    .catch(() => {
-                        // 第二步：Fetch 失败，尝试 Favicon 检测作为备选
-                        // 这可以解决部分防火墙拦截或 CORS 问题
-                        checkFavicon(url)
-                            .then(() => {
-                                setOnline(indicator, '连接正常 (图标验证)');
-                            })
-                            .catch(() => {
-                                // 都失败了，才判定为离线
-                                indicator.className = 'card-status-indicator offline';
-                                indicator.title = '无法连接';
-                            });
-                    });
+                        return;
+                    } catch (e) {
+                        // 如果是最后一次尝试，且都失败了
+                        if (i === maxRetries) {
+                            indicator.className = 'card-status-indicator offline';
+                            indicator.title = '无法连接 (由于浏览器安全策略，可能存在误判)';
+                        } else {
+                            // 等待1秒后重试
+                            await new Promise(r => setTimeout(r, 1000));
+                        }
+                    }
+                }
             }
 
             function setOnline(indicator, msg) {
@@ -6230,7 +6237,8 @@
             function checkUrlFetch(url) {
                 return new Promise((resolve, reject) => {
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 6000); // 6秒超时
+                    // 延长超时到 8 秒
+                    const timeoutId = setTimeout(() => controller.abort(), 8000);
 
                     fetch(url, {
                         method: 'GET',
@@ -6253,10 +6261,11 @@
             function checkFavicon(url) {
                 return new Promise((resolve, reject) => {
                     const img = new Image();
+                    // 延长图片加载超时到 8 秒
                     const timeoutId = setTimeout(() => {
-                        img.src = ''; // 停止加载
+                        img.src = '';
                         reject();
-                    }, 5000); // 5秒超时
+                    }, 8000);
 
                     img.onload = () => {
                         clearTimeout(timeoutId);
@@ -6269,7 +6278,6 @@
 
                     try {
                         const urlObj = new URL(url);
-                        // 尝试根目录 favicon
                         img.src = `${urlObj.protocol}//${urlObj.host}/favicon.ico?t=${Date.now()}`;
                     } catch (e) {
                         reject();

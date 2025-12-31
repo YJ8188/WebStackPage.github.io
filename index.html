@@ -5122,9 +5122,13 @@
                     <button id="currency-toggle" class="btn btn-xs btn-primary" onclick="toggleCurrency()"
                         style="padding: 2px 8px;">USD</button>
                     <span style="margin: 0 10px; color: #333;">|</span>
-                    <input type="text" id="crypto-search" placeholder="Search (Enter)..."
-                        onkeydown="handleSearchKey(event)"
-                        style="background: transparent; border: 1px solid #ddd; border-radius: 4px; padding: 2px 8px; color: inherit; width: 120px;">
+                    <div style="position: relative; display: inline-block;">
+                        <input type="text" id="crypto-search" placeholder="Search Coin..." oninput="handleSearchInput()"
+                            onkeydown="handleSearchKey(event)"
+                            style="background: transparent; border: 1px solid #ddd; border-radius: 4px; padding: 2px 25px 2px 8px; color: inherit; width: 140px;">
+                        <i class="fa fa-search"
+                            style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: #999; font-size: 12px; pointer-events: none;"></i>
+                    </div>
                 </span>
             </h4>
 
@@ -5693,9 +5697,15 @@
                     });
                 }
 
-                // Search Logic with Debounce/Enter
+                // Search Logic with Debounce
                 let searchTimeout;
-                async function handleSearchKey(e) {
+
+                function handleSearchInput() {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(searchCrypto, 800); // 800ms debounce
+                }
+
+                function handleSearchKey(e) {
                     if (e.key === 'Enter') {
                         clearTimeout(searchTimeout);
                         searchCrypto();
@@ -5706,6 +5716,7 @@
                     const query = document.getElementById('crypto-search').value.trim().toLowerCase();
                     const dot = document.getElementById('api-status-dot');
                     const label = document.getElementById('api-provider-name');
+                    const tbody = document.getElementById('crypto-table-body');
 
                     if (!query) {
                         // Reset to default list
@@ -5717,11 +5728,18 @@
                     if (dot) dot.style.color = '#f59e0b';
 
                     try {
-                        // Search CoinCap
                         const res = await fetchWithTimeout(`https://api.coincap.io/v2/assets?search=${query}&limit=10`, { timeout: 8000 });
                         if (res.ok) {
                             const json = await res.json();
                             const items = json.data;
+
+                            if (items.length === 0) {
+                                if (label) label.innerText = `No results for "${query}"`;
+                                if (dot) dot.style.color = '#ef4444';
+                                // Optionally clear table or show message
+                                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px; color: #888;">No coins found matching "${query}"</td></tr>`;
+                                return;
+                            }
 
                             // Transform to our format
                             const mapped = items.map(item => ({
@@ -5729,14 +5747,14 @@
                                 symbol: item.symbol.toLowerCase(),
                                 name: item.name,
                                 image: `https://assets.coincap.io/assets/icons/${item.symbol.toLowerCase()}@2x.png`,
-                                current_price: parseFloat(item.priceUsd),
-                                price_change_percentage_24h: parseFloat(item.changePercent24Hr),
-                                market_cap: parseFloat(item.marketCapUsd),
-                                sparkline_in_7d: null // CoinCap search doesn't return history, lazy load it
+                                current_price: item.priceUsd ? parseFloat(item.priceUsd) : 0,
+                                price_change_percentage_24h: item.changePercent24Hr ? parseFloat(item.changePercent24Hr) : 0,
+                                market_cap: item.marketCapUsd ? parseFloat(item.marketCapUsd) : 0,
+                                sparkline_in_7d: null // Lazy load
                             }));
 
                             renderCryptoTable(mapped);
-                            if (label) label.innerText = `Search: "${query}"`;
+                            if (label) label.innerText = `Found ${items.length} for "${query}"`;
                             if (dot) dot.style.color = '#10b981';
                         } else {
                             throw new Error('Search failed');

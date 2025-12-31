@@ -4,6 +4,13 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- DNS预解析和预连接，加速资源加载 -->
+    <link rel="dns-prefetch" href="//cdn.jsdelivr.net">
+    <link rel="dns-prefetch" href="//pagead2.googlesyndication.com">
+    <link rel="dns-prefetch" href="//hm.baidu.com">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+
     <meta name="msvalidate.01" content="B5E4CFF733488FD189098A7AC19D4EAF" />
 
     <!-- 字体预加载，提升性能 -->
@@ -162,6 +169,61 @@
             box-shadow: 0 14px 32px rgba(0, 0, 0, 0.55);
             z-index: 2;
         }
+
+        /* ---------- 卡片状态指示器 ---------- */
+        .card-status-indicator {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #6b7280;
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+            z-index: 5;
+        }
+
+        .card-status-indicator.online {
+            background: #10b981;
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3), 0 0 8px rgba(16, 185, 129, 0.5);
+            animation: pulse-green 2s infinite;
+        }
+
+        .card-status-indicator.offline {
+            background: #ef4444;
+            box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3);
+        }
+
+        .card-status-indicator.checking {
+            background: #6b7280;
+            animation: pulse-gray 1.5s infinite;
+        }
+
+        @keyframes pulse-green {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.6;
+            }
+        }
+
+        @keyframes pulse-gray {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.2);
+            }
+        }
+
 
         /* ---------- 卡片隐藏按钮 ---------- */
         .card-hide-btn {

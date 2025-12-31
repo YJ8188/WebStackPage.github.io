@@ -6134,6 +6134,53 @@
             }
         });
     </script>
+
+    <!-- 卡片状态检测 -->
+    <script>
+        (function () {
+            document.addEventListener('DOMContentLoaded', function () {
+                const cards = document.querySelectorAll('.xe-widget');
+                cards.forEach((card, index) => {
+                    const indicator = document.createElement('div');
+                    indicator.className = 'card-status-indicator checking';
+                    indicator.title = '检测中...';
+                    card.appendChild(indicator);
+
+                    const link = card.getAttribute('onclick');
+                    if (!link) return;
+                    const urlMatch = link.match(/window\.open\(['"]([^'"]+)['"]/);
+                    if (!urlMatch) return;
+                    const url = urlMatch[1];
+
+                    setTimeout(() => {
+                        const img = new Image();
+                        const timeout = setTimeout(() => {
+                            indicator.className = 'card-status-indicator checking';
+                            indicator.title = '状态未知';
+                        }, 3000);
+
+                        img.onload = function () {
+                            clearTimeout(timeout);
+                            indicator.className = 'card-status-indicator online';
+                            indicator.title = '在线';
+                        };
+                        img.onerror = function () {
+                            clearTimeout(timeout);
+                            indicator.className = 'card-status-indicator offline';
+                            indicator.title = '离线';
+                        };
+
+                        try {
+                            const urlObj = new URL(url);
+                            img.src = `${urlObj.protocol}//${urlObj.host}/favicon.ico?t=` + Date.now();
+                        } catch (e) {
+                            img.src = url + '/favicon.ico?t=' + Date.now();
+                        }
+                    }, index * 100);
+                });
+            });
+        })();
+    </script>
 </body>
 
 </html>

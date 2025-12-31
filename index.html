@@ -5513,22 +5513,53 @@
             input.addEventListener('input', function () {
                 if (currentEngine !== 'local') return; // 只在站内模式才实时过滤
 
-                const keyword = this.value.toLowerCase();
+                const keyword = this.value.toLowerCase().trim();
                 const cards = document.querySelectorAll('.xe-widget');
 
+                // 1. 过滤所有卡片
                 cards.forEach(card => {
                     const cardContainer = card.closest('.col-sm-3');
-                    // 跳过已隐藏的卡片
+                    // 跳过被手动隐藏的卡片
                     if (cardContainer && cardContainer.classList.contains('card-hidden')) {
                         return;
                     }
 
                     const text = card.innerText.toLowerCase();
-                    if (keyword === '') {
-                        // 搜索为空时，显示所有未隐藏的卡片
-                        card.style.display = '';
-                    } else {
-                        card.style.display = text.includes(keyword) ? '' : 'none';
+                    const isMatch = keyword === '' || text.includes(keyword);
+
+                    // 隐藏/显示整个列容器，消除空白占位
+                    if (cardContainer) {
+                        cardContainer.style.display = isMatch ? '' : 'none';
+                    }
+                });
+
+                // 2. 自动隐藏没有结果的分类标题
+                // 页面结构：h4.text-gray -> div.row -> col-sm-3...
+                const categories = document.querySelectorAll('h4.text-gray');
+                categories.forEach(h4 => {
+                    // 获取标题紧跟的下一个元素（通常是 row）
+                    let nextElem = h4.nextElementSibling;
+                    // 跳过可能的空文本节点或注释（稍微向下查找）
+                    while (nextElem && nextElem.nodeType !== 1) {
+                        nextElem = nextElem.nextSibling;
+                    }
+
+                    if (nextElem && nextElem.classList.contains('row')) {
+                        const row = nextElem;
+                        // 检查该分类下是否有任何可见的卡片
+                        // 注意：style.display !== 'none' 检查内联样式
+                        const hasVisibleCards = Array.from(row.querySelectorAll('.col-sm-3')).some(col => {
+                            return col.style.display !== 'none' && !col.classList.contains('card-hidden');
+                        });
+
+                        // 如果有匹配结果，显示标题和行；否则隐藏
+                        if (hasVisibleCards) {
+                            h4.style.display = '';
+                            row.style.display = '';
+                        } else {
+                            h4.style.display = 'none';
+                            row.style.display = 'none';
+                        }
                     }
                 });
             });

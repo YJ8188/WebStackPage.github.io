@@ -751,6 +751,20 @@
                     </li>
                 </ul>
                 <ul class="user-info-menu right-links list-inline list-unstyled">
+                    <!-- 天气组件 -->
+                    <li class="hidden-xs">
+                        <div id="weather-widget"
+                            style="color: #666; font-size: 12px; margin-right: 15px; display: flex; align-items: center; cursor: pointer;"
+                            onclick="window.open('https://wttr.in', '_blank')" title="点击查看详情">
+                            <i class="fa fa-spinner fa-spin"></i> Loading...
+                        </div>
+                    </li>
+                    <!-- 暗黑模式开关 -->
+                    <li class="hidden-xs">
+                        <a href="javascript:void(0)" onclick="toggleDarkMode()" title="切换暗黑模式/日间模式">
+                            <i class="fa fa-moon-o" id="darkModeIcon" style="font-size: 16px;"></i>
+                        </a>
+                    </li>
                     <li class="hidden-sm hidden-xs">
                         <a href="https://github.com/WebStackPage/WebStackPage.github.io" target="_blank">
                             <i class="fa-github"></i> GitHub
@@ -6586,6 +6600,158 @@
             // 点击遮罩关闭
             document.getElementById('addCardOverlay').addEventListener('click', closeAddCardModal);
         });
+    </script>
+    <style>
+        /* ========== 暗黑模式样式 ========== */
+        body.dark-mode {
+            background-color: #1a1a1a;
+            color: #b0b0b0;
+        }
+
+        body.dark-mode .page-container .sidebar-menu {
+            background-color: #222;
+        }
+
+        body.dark-mode .page-container .main-content {
+            background-color: #1a1a1a;
+        }
+
+        body.dark-mode .navbar {
+            background-color: #222;
+            border-bottom: 1px solid #333;
+        }
+
+        body.dark-mode h1,
+        body.dark-mode h2,
+        body.dark-mode h3,
+        body.dark-mode h4,
+        body.dark-mode h5,
+        body.dark-mode h6 {
+            color: #e0e0e0 !important;
+        }
+
+        /* 卡片暗黑样式 */
+        body.dark-mode .xe-widget {
+            background: #252525;
+            border-color: #333;
+        }
+
+        body.dark-mode .xe-widget .xe-comment-entry .xe-user-name strong {
+            color: #ddd;
+        }
+
+        body.dark-mode .xe-widget .xe-comment-entry p {
+            color: #888;
+        }
+
+        /* 搜索框暗黑样式 */
+        body.dark-mode .global-search-box {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: #444;
+        }
+
+        body.dark-mode #globalSearchInput {
+            color: #fff;
+        }
+
+        /* 模态框暗黑样式 */
+        body.dark-mode .hidden-cards-panel {
+            background: #2a2a2a;
+            color: #eee;
+        }
+
+        body.dark-mode .add-card-form .form-control {
+            background: #333;
+            border-color: #444;
+            color: #fff;
+        }
+
+        /* 侧边栏激活状态 */
+        body.dark-mode .sidebar-menu li.active>a {
+            background-color: #333;
+        }
+
+        body.dark-mode .sidebar-menu li ul {
+            background-color: #222;
+        }
+    </style>
+
+    <script>
+        // ========== 天气组件 ==========
+        (function () {
+            const widget = document.getElementById('weather-widget');
+            if (!widget) return;
+
+            // 使用 wttr.in 获取天气 (JSON格式)
+            // 格式: j1 返回详细JSON
+            fetch('https://wttr.in/?format=j1')
+                .then(response => response.json())
+                .then(data => {
+                    try {
+                        const current = data.current_condition[0];
+                        const weatherDesc = current.lang_zh ? current.lang_zh[0].value : current.weatherDesc[0].value;
+                        const temp = current.temp_C;
+                        const iconMap = {
+                            'Sunny': 'fa-sun-o',
+                            'Clear': 'fa-sun-o',
+                            'Partly cloudy': 'fa-cloud',
+                            'Cloudy': 'fa-cloud',
+                            'Overcast': 'fa-cloud',
+                            'Mist': 'fa-align-justify',
+                            'Fog': 'fa-align-justify',
+                            'Rain': 'fa-tint',
+                            'Snow': 'fa-snowflake-o',
+                            'Light rain': 'fa-tint',
+                            'Heavy rain': 'fa-tint'
+                        };
+
+                        // 简单映射图标，默认为云
+                        let iconClass = 'fa-cloud';
+                        for (let k in iconMap) {
+                            if (current.weatherDesc[0].value.includes(k)) {
+                                iconClass = iconMap[k];
+                                break;
+                            }
+                        }
+
+                        widget.innerHTML = `<i class="fa ${iconClass}" style="margin-right:5px"></i> ${weatherDesc} ${temp}°C`;
+                        widget.title = `湿度: ${current.humidity}% | 风速: ${current.windspeedKmph}km/h | ${data.nearest_area[0].areaName[0].value}`;
+                    } catch (e) {
+                        widget.innerHTML = '天气获取失败';
+                    }
+                })
+                .catch(() => {
+                    widget.innerHTML = '<span style="color:#999;font-size:10px;">天气不可用</span>';
+                });
+        })();
+
+        // ========== 暗黑模式逻辑 ==========
+        function toggleDarkMode() {
+            const body = document.body;
+            body.classList.toggle('dark-mode');
+
+            const isDark = body.classList.contains('dark-mode');
+
+            // 切换图标
+            const icon = document.getElementById('darkModeIcon');
+            if (icon) {
+                icon.className = isDark ? 'fa fa-sun-o' : 'fa fa-moon-o';
+            }
+
+            // 保存设置
+            localStorage.setItem('theme_mode', isDark ? 'dark' : 'light');
+        }
+
+        // 初始化暗黑模式
+        (function () {
+            const savedMode = localStorage.getItem('theme_mode');
+            // 如果用户之前设置了 Dark，或者没设置但系统是 Dark
+            const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+            if (savedMode === 'dark' || (!savedMode && sysDark)) {
+                toggleDarkMode(); // 切换过去
+            }
+        })();
     </script>
 </body>
 

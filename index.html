@@ -5143,7 +5143,8 @@
                                 <tbody id="crypto-table-body">
                                     <tr>
                                         <td colspan="6" style="text-align:center; padding: 20px;">Loading Market Data...
-                                            <i class="fa fa-spinner fa-spin"></i></td>
+                                            <i class="fa fa-spinner fa-spin"></i>
+                                        </td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -5317,6 +5318,12 @@
                         #crypto-search {
                             width: 100px !important;
                         }
+                    }
+
+                    .fade-out {
+                        opacity: 0 !important;
+                        pointer-events: none !important;
+                        transition: opacity 0.3s ease;
                     }
                 </style>
 

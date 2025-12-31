@@ -5141,8 +5141,7 @@
                                     <th style="max-width: 120px;">币种 (Coin)</th>
                                     <th>最新价 (Price)</th>
                                     <th>涨跌(24h)</th>
-                                    <th class="mobile-hide">市值 (Market Cap)</th>
-                                    <th class="mobile-hide">走势 (7d)</th>
+                                    <th style="text-align:right;">详情 (Details)</th>
                                 </tr>
                             </thead>
                             <tbody id="crypto-table-body">
@@ -5361,12 +5360,35 @@
                 body.dark-mode .crypto-table tr.main-row:hover {
                     background: rgba(255, 255, 255, 0.01);
                 }
+
+                /* Real-time Pulse Animation */
+                .price-update {
+                    transition: background-color 0.8s ease;
+                    border-radius: 4px;
+                }
+
+                .pulse-green {
+                    background-color: rgba(16, 185, 129, 0.15) !important;
+                }
+
+                .pulse-red {
+                    background-color: rgba(239, 68, 68, 0.15) !important;
+                }
+
+                body.dark-mode .pulse-green {
+                    background-color: rgba(16, 185, 129, 0.1) !important;
+                }
+
+                body.dark-mode .pulse-red {
+                    background-color: rgba(239, 68, 68, 0.1) !important;
+                }
             </style>
 
             <!-- Crypto Logic -->
             <script>
                 let currentCurrency = 'USD';
                 let cryptoData = [];
+                let isSearching = false;
                 const USD_CNY_RATE = 7.25;
 
                 // Sparkline Cache & Utils
@@ -5407,28 +5429,26 @@
                 }
 
                 // Fetch History
-                async function loadSparkline(symbol, changePct) {
+                async function loadSparkline(id, symbol, changePct) {
                     if (sparklineCache[symbol] || sparklineRequests.has(symbol)) return;
 
-                    const id = COIN_ID_MAP[symbol];
-                    if (!id) return;
+                    // Try to guess ID if not provided correctly (for CC fallback)
+                    const finalId = id || COIN_ID_MAP[symbol] || symbol;
+                    if (!finalId) return;
 
                     sparklineRequests.add(symbol);
-                    // Update UI to loading
                     const el = document.getElementById(`graph-${symbol}`);
-                    if (el) el.innerText = 'Loading...';
+                    if (el) el.innerHTML = '<span style="color:#888; font-size:12px;">Loading Chart...</span>';
 
                     try {
-                        // 7 days history, interval h2 (84 points)
                         const end = Date.now();
                         const start = end - (7 * 24 * 60 * 60 * 1000);
-                        const res = await fetchWithTimeout(`https://api.coincap.io/v2/assets/${id}/history?interval=h2&start=${start}&end=${end}`, { timeout: 8000 });
+                        const res = await fetchWithTimeout(`https://api.coincap.io/v2/assets/${finalId}/history?interval=h2&start=${start}&end=${end}`, { timeout: 8000 });
                         if (res.ok) {
                             const json = await res.json();
                             if (json.data && json.data.length > 0) {
                                 const prices = json.data.map(d => parseFloat(d.priceUsd));
                                 sparklineCache[symbol] = prices;
-                                // Update DOM if element exists
                                 const target = document.getElementById(`graph-${symbol}`);
                                 if (target) {
                                     target.innerHTML = generateSparklineSvg(prices, changePct);
@@ -5439,7 +5459,6 @@
                         console.warn('Sparkline fetch err', symbol, e);
                         const target = document.getElementById(`graph-${symbol}`);
                         if (target) {
-                            // Fallback to arrow if failed
                             target.innerHTML = changePct >= 0 ? '<span class="price-up" style="font-size:16px">↗</span>' : '<span class="price-down" style="font-size:16px">↘</span>';
                         }
                     } finally {
@@ -5467,7 +5486,10 @@
                 function onSuccess(dot, providerName) {
                     const label = document.getElementById('api-provider-name');
                     if (dot) dot.style.color = '#10b981';
-                    if (label) label.innerText = providerName;
+                    if (label && !isSearching) label.innerText = providerName;
+
+                    // If searching, don't auto-update with default market data
+                    if (isSearching) return;
 
                     // If table is empty (first load), do full render
                     const tbody = document.getElementById('crypto-table-body');
@@ -5686,55 +5708,55 @@
                         const mkVal = coin.market_cap && coin.market_cap > 0 ? (coin.market_cap * rate) : 0;
                         const marketCap = mkVal > 0 ? mkVal.toLocaleString(undefined, { maximumFractionDigits: 0, notation: "compact" }) : '-';
 
-                        let sparklineSvg = '';
+                        let sparklineContent = '';
                         const hasNative = coin.sparkline_in_7d && coin.sparkline_in_7d.price;
                         const cached = sparklineCache[coin.symbol];
                         const isFetching = sparklineRequests.has(coin.symbol);
 
                         if (hasNative) {
-                            sparklineSvg = generateSparklineSvg(coin.sparkline_in_7d.price, change);
+                            sparklineContent = generateSparklineSvg(coin.sparkline_in_7d.price, change);
                         } else if (cached) {
-                            sparklineSvg = generateSparklineSvg(cached, change);
+                            sparklineContent = generateSparklineSvg(cached, change);
                         } else if (isFetching) {
                             // Keep loading state if currently fetching
-                            sparklineSvg = `<div id="graph-${coin.symbol}" style="height:30px; display:flex; align-items:center; color:#888; font-size:12px;">Loading...</div>`;
+                            sparklineContent = `<div id="graph-${coin.symbol}" style="height:30px; display:flex; align-items:center; color:#888; font-size:12px;">Loading...</div>`;
                         } else {
                             // Placeholder and lazy load
-                            sparklineSvg = `<div id="graph-${coin.symbol}" style="height:30px; display:flex; align-items:center;">-</div>`;
+                            sparklineContent = `<div id="graph-${coin.symbol}" style="height:30px; display:flex; align-items:center;">-</div>`;
                             // Trigger async load
-                            setTimeout(() => loadSparkline(coin.symbol, change), 0);
+                            setTimeout(() => loadSparkline(coin.id, coin.symbol, change), 0);
                         }
-
-                        const imgError = "this.onerror=null;this.src='../assets/images/logos/btc.png';";
-                        const tradeSymbol = coin.symbol.toUpperCase();
 
                         const tr = `
                             <tr class="main-row" onclick="toggleCoinDetail('${coin.symbol}')">
                                 <td>
                                     <div class="coin-info">
-                                        <img src="${coin.image}" class="coin-icon" alt="${coin.symbol}" onerror="${imgError}">
+                                        <img src="${coin.image}" class="coin-icon" alt="${coin.symbol}" onerror="this.src='../assets/images/logos/btc.png'">
                                         <div>
                                             <div class="coin-name">${coin.name}</div>
-                                            <div class="coin-symbol">${tradeSymbol}</div>
+                                            <div class="coin-symbol">${coin.symbol.toUpperCase()}</div>
                                         </div>
                                     </div>
                                 </td>
-                                <td style="font-family:monospace; font-size:13px; font-weight:bold;">
-                                    <span id="price-${coin.symbol}">${symbol}${price}</span>
+                                <td class="price-update">
+                                    <span id="price-${coin.symbol}" style="font-family:monospace; font-weight:bold; font-size:13px;">${symbol}${price}</span>
                                 </td>
-                                <td class="${changeClass}" style="font-weight:bold;">
+                                <td class="${changeClass} price-update" style="font-weight:bold;">
                                     <span id="change-${coin.symbol}">${changeSign}${change.toFixed(2)}%</span>
                                 </td>
-                                <td class="mobile-hide" style="color:#888;">${symbol}${marketCap}</td>
-                                <td class="mobile-hide" style="text-align:right; font-size:12px; color:#999;">
-                                    Trend Details <i class="fa fa-angle-down"></i>
+                                <td style="text-align:right;">
+                                    <span class="mobile-hide" style="font-size:12px; color:#999; margin-right:5px;">Details</span>
+                                    <i class="fa fa-angle-right" id="arrow-${coin.symbol}" style="color:#ccc; transition: transform 0.3s"></i>
                                 </td>
                             </tr>
                             <tr id="detail-${coin.symbol}" class="detail-row">
-                                <td colspan="5" style="padding: 15px 30px !important;">
-                                    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;">
-                                        <div style="font-size:12px; color:#888; margin-bottom:10px;">7-Day Price Trend (Area Chart):</div>
-                                        <div id="graph-${coin.symbol}" style="min-width:150px; text-align:right;">${sparklineSvg}</div>
+                                <td colspan="4" style="padding: 15px 25px !important; border-top:none;">
+                                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                                        <div style="font-size:12px; line-height:1.8;">
+                                            <div style="color:#888;">Market Cap: <strong style="color:inherit;">${symbol}${marketCap}</strong></div>
+                                            <div style="color:#888; margin-top:5px;">7D Price Trend:</div>
+                                        </div>
+                                        <div id="graph-${coin.symbol}" style="min-width:140px; text-align:right;">${sparklineContent}</div>
                                     </div>
                                 </td>
                             </tr>
@@ -5745,9 +5767,11 @@
 
                 function toggleCoinDetail(symbol) {
                     const row = document.getElementById(`detail-${symbol}`);
+                    const arrow = document.getElementById(`arrow-${symbol}`);
                     if (row) {
-                        const isNone = row.style.display !== 'table-row';
+                        const isNone = window.getComputedStyle(row).display === 'none';
                         row.style.display = isNone ? 'table-row' : 'none';
+                        if (arrow) arrow.style.transform = isNone ? 'rotate(90deg)' : 'rotate(0deg)';
                     }
                 }
 
@@ -5758,7 +5782,8 @@
                     const symbol = isCNY ? '¥' : '$';
 
                     data.forEach(coin => {
-                        const priceEl = document.getElementById(`price-${coin.symbol}`);
+                        const priceId = `price-${coin.symbol}`;
+                        const priceEl = document.getElementById(priceId);
                         const changeEl = document.getElementById(`change-${coin.symbol}`);
 
                         if (priceEl) {
@@ -5766,14 +5791,36 @@
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: (coin.current_price < 1 ? 6 : 2)
                             });
-                            priceEl.innerText = `${symbol}${formattedPrice}`;
+                            const oldText = priceEl.innerText;
+                            const newText = `${symbol}${formattedPrice}`;
+
+                            if (oldText !== newText) {
+                                // Save current value to dataset for precise comparison next time
+                                const oldVal = parseFloat(priceEl.dataset.val || 0);
+                                const newVal = coin.current_price * rate;
+
+                                priceEl.innerText = newText;
+                                priceEl.dataset.val = newVal;
+
+                                const parent = priceEl.parentElement;
+                                const pulseClass = newVal >= oldVal ? 'pulse-green' : 'pulse-red';
+
+                                parent.classList.remove('pulse-green', 'pulse-red');
+                                void parent.offsetWidth; // trigger reflow
+                                parent.classList.add(pulseClass);
+                                setTimeout(() => parent.classList.remove(pulseClass), 800);
+                            }
                         }
 
                         if (changeEl) {
                             const change = coin.price_change_percentage_24h;
                             const changeSign = change >= 0 ? '+' : '';
-                            changeEl.innerText = `${changeSign}${change.toFixed(2)}%`;
-                            changeEl.parentElement.className = (change >= 0 ? 'price-up' : 'price-down') + ' font-weight-bold';
+                            const newText = `${changeSign}${change.toFixed(2)}%`;
+
+                            if (changeEl.innerText !== newText) {
+                                changeEl.innerText = newText;
+                                changeEl.parentElement.className = (change >= 0 ? 'price-up' : 'price-down') + ' price-update font-weight-bold';
+                            }
                         }
                     });
                 }
@@ -5786,10 +5833,14 @@
                     searchTimeout = setTimeout(searchCrypto, 800); // 800ms debounce
                 }
 
-                function handleSearchKey(e) {
+                async function handleSearchKey(e) {
                     if (e.key === 'Enter') {
                         clearTimeout(searchTimeout);
                         searchCrypto();
+                    } else if (e.key === 'Escape') {
+                        document.getElementById('crypto-search').value = '';
+                        isSearching = false;
+                        fetchCryptoData();
                     }
                 }
 
@@ -5800,13 +5851,14 @@
                     const tbody = document.getElementById('crypto-table-body');
 
                     if (!query) {
-                        // Reset to default list
+                        isSearching = false;
                         fetchCryptoData();
                         return;
                     }
 
                     if (label) label.innerText = 'Searching...';
                     if (dot) dot.style.color = '#f59e0b';
+                    isSearching = true;
 
                     try {
                         const res = await fetchWithTimeout(`https://api.coincap.io/v2/assets?search=${query}&limit=10`, { timeout: 8000 });
@@ -5817,12 +5869,10 @@
                             if (items.length === 0) {
                                 if (label) label.innerText = `No results for "${query}"`;
                                 if (dot) dot.style.color = '#ef4444';
-                                // Optionally clear table or show message
-                                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px; color: #888;">No coins found matching "${query}"</td></tr>`;
+                                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding: 20px; color: #888;">No coins found matching "${query}"</td></tr>`;
                                 return;
                             }
 
-                            // Transform to our format
                             const mapped = items.map(item => ({
                                 id: item.id,
                                 symbol: item.symbol.toLowerCase(),
@@ -5831,7 +5881,7 @@
                                 current_price: item.priceUsd ? parseFloat(item.priceUsd) : 0,
                                 price_change_percentage_24h: item.changePercent24Hr ? parseFloat(item.changePercent24Hr) : 0,
                                 market_cap: item.marketCapUsd ? parseFloat(item.marketCapUsd) : 0,
-                                sparkline_in_7d: null // Lazy load
+                                sparkline_in_7d: null
                             }));
 
                             renderCryptoTable(mapped);
@@ -5855,8 +5905,8 @@
                     // Real-time polling (3s)
                     setInterval(() => {
                         const query = document.getElementById('crypto-search').value.trim();
-                        // Only auto-refresh if NOT searching
                         if (!query) {
+                            isSearching = false;
                             fetchCryptoData();
                         }
                     }, 3000);

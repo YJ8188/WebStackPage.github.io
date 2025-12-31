@@ -5653,11 +5653,15 @@
                         let sparklineSvg = '';
                         const hasNative = coin.sparkline_in_7d && coin.sparkline_in_7d.price;
                         const cached = sparklineCache[coin.symbol];
+                        const isFetching = sparklineRequests.has(coin.symbol);
 
                         if (hasNative) {
                             sparklineSvg = generateSparklineSvg(coin.sparkline_in_7d.price, change);
                         } else if (cached) {
                             sparklineSvg = generateSparklineSvg(cached, change);
+                        } else if (isFetching) {
+                            // Keep loading state if currently fetching
+                            sparklineSvg = `<div id="spark-${coin.symbol}" style="height:30px; display:flex; align-items:center; color:#888; font-size:12px;">Loading...</div>`;
                         } else {
                             // Placeholder and lazy load
                             sparklineSvg = `<div id="spark-${coin.symbol}" style="height:30px; display:flex; align-items:center;">-</div>`;

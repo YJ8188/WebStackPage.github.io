@@ -5,6 +5,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="msvalidate.01" content="B5E4CFF733488FD189098A7AC19D4EAF" />
+
+    <!-- 字体预加载，提升性能 -->
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/harmonyos-sans@1.0.6/css/harmonyos-sans.min.css" as="style">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/harmonyos-sans@1.0.6/css/harmonyos-sans.min.css">
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js">
     </script>
@@ -65,6 +68,7 @@
         content="UI设计,UI设计素材,设计导航,网址导航,设计资源,创意导航,创意网站导航,技术员网址大全,设计素材大全,技术员导航,UI设计资源,优秀UI设计欣赏,技术员导航,技术员网址大全,技术员网址导航,产品经理网址导航,交互技术员网址导航,hq168.dpdns.org">
     <meta name="twitter:image" content="http://www.webstack.cc/assets/images/webstack_banner_cn.png">
     <style>
+        /* ========== 全局字体优化 ========== */
         body {
             font-family:
                 "HarmonyOS Sans",
@@ -74,12 +78,46 @@
                 "PingFang SC",
                 "Hiragino Sans GB",
                 "Microsoft YaHei",
+                "Source Han Sans CN",
                 "Noto Sans CJK SC",
                 Arial,
                 sans-serif;
 
             font-weight: 400;
-            letter-spacing: 0.01em;
+            font-size: 14px;
+            line-height: 1.6;
+            letter-spacing: 0.02em;
+
+            /* 优化字体渲染 */
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
+            font-feature-settings: "kern" 1;
+        }
+
+        /* 中文字体优化 */
+        :lang(zh) {
+            font-weight: 400;
+        }
+
+        /* 标题字体优化 */
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6 {
+            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+        }
+
+        /* 按钮和小标签字体 */
+        button,
+        .btn,
+        .label {
+            font-family: "HarmonyOS Sans", -apple-system, sans-serif;
+            font-weight: 500;
         }
 
         /* ===================================================

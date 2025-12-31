@@ -5165,7 +5165,6 @@
                     margin-bottom: 0;
                     width: 100%;
                     white-space: nowrap;
-                    /* 防止换行 */
                 }
 
                 .crypto-table th {
@@ -5260,7 +5259,6 @@
                     color: #fff;
                 }
 
-                /* Fix Footer White Background in Dark Mode */
                 body.dark-mode .main-footer {
                     background: #2c2e2f;
                     border-top: 1px solid #333;
@@ -5271,14 +5269,37 @@
                     color: #ddd;
                 }
 
-                /* Mobile Responsiveness */
+                /* Mobile Optimization (Vertical Screen) */
                 @media screen and (max-width: 768px) {
-                    .crypto-table-container {
-                        overflow-x: auto;
-                        -webkit-overflow-scrolling: touch;
+
+                    /* 在移动端隐藏非核心列，避免横向滚动，提升竖屏体验 */
+                    .mobile-hide {
+                        display: none !important;
                     }
 
-                    /* 头部布局调整 */
+                    .crypto-table-container {
+                        overflow-x: hidden;
+                    }
+
+                    /* 禁止横向滚动 */
+                    .crypto-table {
+                        white-space: normal;
+                    }
+
+                    /*允许换行*/
+                    .crypto-table th,
+                    .crypto-table td {
+                        padding: 8px 5px !important;
+                        font-size: 12px;
+                    }
+
+                    .coin-icon {
+                        width: 20px;
+                        height: 20px;
+                        margin-right: 5px;
+                    }
+
+                    /* 头部布局 */
                     h4.text-gray {
                         display: flex;
                         flex-direction: column;
@@ -5292,10 +5313,8 @@
                     }
 
                     #crypto-search {
-                        width: 120px !important;
+                        width: 100px !important;
                     }
-
-                    /* 保持较小宽度以免挤压 */
                 }
             </style>
 
@@ -5305,14 +5324,54 @@
                 let cryptoData = [];
                 const USD_CNY_RATE = 7.25;
 
-                // API Source Configuration
-                // 1. CoinCap (Faster in CN, slightly different data format)
-                // 2. CoinGecko (Full data, slower/blocked in CN)
-                const COINCAP_URL = 'https://api.coincap.io/v2/assets?ids=bitcoin,ethereum,tether,binance-coin,solana,xrp,dogecoin,cardano,tron,toncoin,shiba-inu,litecoin';
-                const COINGECKO_URL = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,tether,binancecoin,solana,ripple,dogecoin,cardano,tron,toncoin,shiba-inu,litecoin&order=market_cap_desc&sparkline=true&price_change_percentage=24h';
-
-                // Map CoinCap IDs to CoinGecko style for unified rendering
-                const idMapping = { 'binance-coin': 'binancecoin', 'xrp': 'ripple' };
+                // API Strategies
+                // 1. CryptoCompare (Very reliable globally & CN)
+                // 2. CoinCap (Fast, usually ok)
+                // 3. CoinGecko (Comprehensive, but often rate-limited or blocked)
+                const APIS = {
+                    CRYPTOCOMPARE: {
+                        name: 'CryptoCompare',
+                        url: 'https://min-api.cryptocompare.com/data/pricemultifull?fsyms=BTC,ETH,USDT,BNB,SOL,XRP,DOGE,ADA,TRX,TON,SHIB,LTC&tsyms=USD',
+                        handler: (data) => {
+                            const raw = data.RAW;
+                            return Object.keys(raw).map(key => {
+                                const coin = raw[key].USD;
+                                return {
+                                    id: key.toLowerCase(),
+                                    symbol: coin.FROMSYMBOL.toLowerCase(),
+                                    name: key, // CryptoCompare keys are symbols mostly
+                                    image: 'https://www.cryptocompare.com' + coin.IMAGEURL,
+                                    current_price: coin.PRICE,
+                                    price_change_percentage_24h: coin.CHANGEPCT24HOUR,
+                                    market_cap: coin.MKTCAP,
+                                    sparkline_in_7d: null
+                                };
+                            });
+                        }
+                    },
+                    COINCAP: {
+                        name: 'CoinCap',
+                        url: 'https://api.coincap.io/v2/assets?ids=bitcoin,ethereum,tether,binance-coin,solana,xrp,dogecoin,cardano,tron,toncoin,shiba-inu,litecoin',
+                        handler: (data) => {
+                            const mapping = { 'binance-coin': 'BNB', 'xrp': 'XRP', 'bitcoin': 'BTC', 'ethereum': 'ETH', 'tether': 'USDT', 'solana': 'SOL', 'dogecoin': 'DOGE', 'cardano': 'ADA', 'tron': 'TRX', 'toncoin': 'TON', 'shiba-inu': 'SHIB', 'litecoin': 'LTC' };
+                            return data.data.map(item => ({
+                                id: item.id,
+                                symbol: item.symbol.toLowerCase(),
+                                name: item.name,
+                                image: `https://assets.coincap.io/assets/icons/${item.symbol.toLowerCase()}@2x.png`,
+                                current_price: parseFloat(item.priceUsd),
+                                price_change_percentage_24h: parseFloat(item.changePercent24Hr),
+                                market_cap: parseFloat(item.marketCapUsd),
+                                sparkline_in_7d: null
+                            }));
+                        }
+                    },
+                    COINGECKO: {
+                        name: 'CoinGecko',
+                        url: 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,tether,binancecoin,solana,ripple,dogecoin,cardano,tron,toncoin,shiba-inu,litecoin&order=market_cap_desc&sparkline=true&price_change_percentage=24h',
+                        handler: (data) => data
+                    }
+                };
 
                 function toggleCurrency() {
                     const btn = document.getElementById('currency-toggle');
@@ -5328,51 +5387,60 @@
                     renderCryptoTable(cryptoData);
                 }
 
-                function fetchCryptoData() {
+                // 尝试顺序：CryptoCompare -> CoinCap -> CoinGecko
+                async function fetchCryptoData() {
                     const dot = document.getElementById('api-status-dot');
+                    const label = document.getElementById('api-provider-name');
                     dot.style.color = '#f59e0b'; // fetching
 
-                    // Try CoinCap First (Better for CN)
-                    fetch(COINCAP_URL)
-                        .then(res => {
-                            if (!res.ok) throw new Error('CoinCap Failed');
-                            return res.json();
-                        })
-                        .then(data => {
-                            // Transform CoinCap data to match our render format
-                            cryptoData = data.data.map(item => ({
-                                id: idMapping[item.id] || item.id,
-                                symbol: item.symbol.toLowerCase(),
-                                name: item.name,
-                                image: `https://assets.coincap.io/assets/icons/${item.symbol.toLowerCase()}@2x.png`, // Icon fallback
-                                current_price: parseFloat(item.priceUsd),
-                                price_change_percentage_24h: parseFloat(item.changePercent24Hr),
-                                market_cap: parseFloat(item.marketCapUsd),
-                                sparkline_in_7d: null // CoinCap doesn't provide sparkline in list view easily
-                            }));
-                            renderCryptoTable(cryptoData);
-                            dot.style.color = '#10b981'; // success
-                            document.getElementById('api-provider-name').innerText = 'CoinCap API';
-                        })
-                        .catch(err => {
-                            console.warn('CoinCap failed, trying CoinGecko...', err);
-                            // Fallback to CoinGecko
-                            fetch(COINGECKO_URL)
-                                .then(res => res.json())
-                                .then(data => {
-                                    cryptoData = data;
-                                    renderCryptoTable(data);
-                                    dot.style.color = '#10b981'; // success
-                                    document.getElementById('api-provider-name').innerText = 'CoinGecko API';
-                                })
-                                .catch(err2 => {
-                                    console.error('All APIs failed', err2);
-                                    dot.style.color = '#ef4444'; // error
-                                });
-                        });
+                    try {
+                        // Try 1: CryptoCompare
+                        label.innerText = APIS.CRYPTOCOMPARE.name;
+                        const res1 = await fetch(APIS.CRYPTOCOMPARE.url);
+                        if (res1.ok) {
+                            const data1 = await res1.json();
+                            cryptoData = APIS.CRYPTOCOMPARE.handler(data1);
+                            onSuccess(dot);
+                            return;
+                        }
+                    } catch (e) { console.warn('CC failed', e); }
+
+                    try {
+                        // Try 2: CoinCap
+                        label.innerText = APIS.COINCAP.name;
+                        const res2 = await fetch(APIS.COINCAP.url);
+                        if (res2.ok) {
+                            const data2 = await res2.json();
+                            cryptoData = APIS.COINCAP.handler(data2);
+                            onSuccess(dot);
+                            return;
+                        }
+                    } catch (e) { console.warn('CoinCap failed', e); }
+
+                    try {
+                        // Try 3: CoinGecko
+                        label.innerText = APIS.COINGECKO.name;
+                        const res3 = await fetch(APIS.COINGECKO.url);
+                        if (res3.ok) {
+                            const data3 = await res3.json();
+                            cryptoData = APIS.COINGECKO.handler(data3);
+                            onSuccess(dot);
+                            return;
+                        }
+                    } catch (e) { console.warn('CG failed', e); }
+
+                    // All failed
+                    label.innerText = 'Offline';
+                    dot.style.color = '#ef4444';
+                }
+
+                function onSuccess(dot) {
+                    dot.style.color = '#10b981';
+                    renderCryptoTable(cryptoData);
                 }
 
                 function renderCryptoTable(data) {
+                    if (!data || data.length === 0) return;
                     const tbody = document.getElementById('crypto-table-body');
                     const searchQuery = document.getElementById('crypto-search').value.toLowerCase();
                     tbody.innerHTML = '';
@@ -5382,15 +5450,17 @@
                     const symbol = isCNY ? '¥' : '$';
 
                     data.forEach(coin => {
-                        if (!coin.name.toLowerCase().includes(searchQuery) && !coin.symbol.toLowerCase().includes(searchQuery)) return;
+                        // Map coin names for search if using non-standard names
+                        const searchName = coin.name || coin.symbol;
+                        if (!searchName.toLowerCase().includes(searchQuery) && !coin.symbol.toLowerCase().includes(searchQuery)) return;
 
                         const price = (coin.current_price * rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: (coin.current_price < 1 ? 6 : 2) });
                         const change = coin.price_change_percentage_24h;
                         const changeClass = change >= 0 ? 'price-up' : 'price-down';
                         const changeSign = change >= 0 ? '+' : '';
-                        const marketCap = (coin.market_cap * rate).toLocaleString(undefined, { maximumFractionDigits: 0, notation: "compact" }); // Compact notation for mobile
+                        const marketCap = (coin.market_cap * rate).toLocaleString(undefined, { maximumFractionDigits: 0, notation: "compact" });
 
-                        let sparklineSvg = '<span style="color:#ccc; font-size:10px;">N/A</span>';
+                        let sparklineSvg = '<span style="color:#eee;">-</span>';
                         if (coin.sparkline_in_7d && coin.sparkline_in_7d.price) {
                             const prices = coin.sparkline_in_7d.price;
                             const min = Math.min(...prices);
@@ -5406,16 +5476,16 @@
                             });
                             const color = change >= 0 ? '#10b981' : '#ef4444';
                             sparklineSvg = `<svg width="${width}" height="${height}" style="overflow:visible"><polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5"/></svg>`;
-                        } else if (!coin.sparkline_in_7d) {
-                            // Simple trend indicator if no sparkline (for CoinCap)
-                            sparklineSvg = change >= 0 ? '<i class="fa fa-arrow-up price-up"></i>' : '<i class="fa fa-arrow-down price-down"></i>';
+                        } else {
+                            // Simple text arrow if no sparkline
+                            sparklineSvg = change >= 0 ? '<span class="price-up">↗</span>' : '<span class="price-down">↘</span>';
                         }
 
-                        // Mobile optimization: Hide Market Cap and Sparkline on very small screens if needed, 
-                        // but horizontal scroll is enabled so we keep them for completeness.
-
-                        // Handle image load error for CoinCap icons
+                        // Fallback image
                         const imgError = "this.onerror=null;this.src='../assets/images/logos/btc.png';";
+
+                        // Gate.io Trade Link (Use Symbol)
+                        const tradeSymbol = coin.symbol.toUpperCase();
 
                         const tr = `
                             <tr>
@@ -5423,17 +5493,16 @@
                                     <div class="coin-info">
                                         <img src="${coin.image}" class="coin-icon" alt="${coin.symbol}" onerror="${imgError}">
                                         <div>
-                                            <div class="coin-name">${coin.name}</div>
-                                            <div class="coin-symbol">${coin.symbol.toUpperCase()}</div>
+                                            <div class="coin-name">${tradeSymbol}</div>
                                         </div>
                                     </div>
                                 </td>
-                                <td style="font-family:monospace; font-size:14px; font-weight:bold;">${symbol}${price}</td>
+                                <td style="font-family:monospace; font-size:13px; font-weight:bold;">${symbol}${price}</td>
                                 <td class="${changeClass}" style="font-weight:bold;">${changeSign}${change.toFixed(2)}%</td>
-                                <td style="color:#888;">${symbol}${marketCap}</td>
-                                <td>${sparklineSvg}</td>
+                                <td class="mobile-hide" style="color:#888;">${symbol}${marketCap}</td>
+                                <td class="mobile-hide">${sparklineSvg}</td>
                                 <td style="text-align:right;">
-                                    <a href="https://www.gate.io/trade/${coin.symbol.toUpperCase()}_USDT" target="_blank" class="btn-trade">交易</a>
+                                    <a href="https://www.gate.io/trade/${tradeSymbol}_USDT" target="_blank" class="btn-trade">交易</a>
                                 </td>
                             </tr>
                         `;
@@ -5448,7 +5517,6 @@
                 fetchCryptoData();
                 setInterval(fetchCryptoData, 60000);
             </script>
-
             <!--END 数字货币 -->
             <!-- Main Footer -->
             <!-- Choose between footer styles: "footer-type-1" or "footer-type-2" -->
@@ -6925,6 +6993,46 @@
             }
         })();
     </script>
+    <!-- 移动端防遮挡优化补丁 -->
+    <style>
+        @media screen and (max-width: 768px) {
+
+            /* 
+               增加页面底部内边距，确保内容可以滚动到浮动按钮上方 
+               给 body 和 main-content 都加，双重保险
+            */
+            body,
+            .main-content {
+                padding-bottom: 150px !important;
+            }
+
+            /* 调整返回顶部等浮动按钮的位置或样式，使其不那么碍事 */
+            .go-top,
+            #showHiddenCards,
+            #resetOrder {
+                bottom: 80px !important;
+                /* 稍微抬高一点，避开某些手机浏览器的底部栏 */
+                opacity: 0.8;
+                /*半透明，减少遮挡感*/
+                transform: scale(0.9);
+                /*缩小一点*/
+            }
+
+            /* 如果有特定的浮动操作栏，也可以抬高 */
+            #showHiddenCards {
+                bottom: 120px !important;
+            }
+
+            #resetOrder {
+                bottom: 160px !important;
+            }
+
+            /* 针对数字货币表格，确保其容器也有底部间距 (可选，页面已有padding-bottom通常足够) */
+            .crypto-table-container {
+                margin-bottom: 30px;
+            }
+        }
+    </style>
 </body>
 
 </html>

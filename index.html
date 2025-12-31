@@ -6152,33 +6152,41 @@
                     if (!urlMatch) return;
                     const url = urlMatch[1];
 
+                    // 错峰检测，间隔增加到200ms
                     setTimeout(() => {
-                        const img = new Image();
-                        const timeout = setTimeout(() => {
-                            indicator.className = 'card-status-indicator checking';
-                            indicator.title = '状态未知';
-                        }, 3000);
-
-                        img.onload = function () {
-                            clearTimeout(timeout);
-                            indicator.className = 'card-status-indicator online';
-                            indicator.title = '在线';
-                        };
-                        img.onerror = function () {
-                            clearTimeout(timeout);
-                            indicator.className = 'card-status-indicator offline';
-                            indicator.title = '离线';
-                        };
-
-                        try {
-                            const urlObj = new URL(url);
-                            img.src = `${urlObj.protocol}//${urlObj.host}/favicon.ico?t=` + Date.now();
-                        } catch (e) {
-                            img.src = url + '/favicon.ico?t=' + Date.now();
-                        }
-                    }, index * 100);
+                        checkUrl(url, indicator);
+                    }, index * 200);
                 });
             });
+
+            function checkUrl(url, indicator) {
+                const controller = new AbortController();
+                const signal = controller.signal;
+                const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
+
+                // 使用 no-cors 模式发起真实请求
+                // 这可以探测服务器是否响应（即使跨域）
+                // 如果网络通畅，会返回 opaque response (then)
+                // 如果网络不通/DNS错误，会抛出 error (catch)
+                fetch(url, {
+                    method: 'GET',
+                    mode: 'no-cors',
+                    cache: 'no-cache',
+                    referrerPolicy: 'no-referrer',
+                    signal: signal
+                })
+                    .then(() => {
+                        clearTimeout(timeoutId);
+                        indicator.className = 'card-status-indicator online';
+                        indicator.title = '连接正常';
+                    })
+                    .catch((err) => {
+                        clearTimeout(timeoutId);
+                        indicator.className = 'card-status-indicator offline';
+                        indicator.title = '无法连接 (网络错误或超时)';
+                        console.warn(`[Connect Fail] ${url}`, err);
+                    });
+            }
         })();
     </script>
 </body>

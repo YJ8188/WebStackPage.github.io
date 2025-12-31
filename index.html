@@ -774,7 +774,24 @@
             </nav>
 
             <!-- 我的收藏 -->
-            <h4 class="text-gray"><i class="linecons-heart" style="margin-right: 7px;" id="我的收藏"></i>我的收藏</h4>
+            <h4 class="text-gray">
+                <i class="linecons-heart" style="margin-right: 7px;" id="我的收藏"></i>我的收藏
+                <span style="float: right; font-size: 13px; margin-top: 2px;">
+                    <a href="javascript:;" onclick="exportFavorites()" title="备份收藏数据"
+                        style="color: #888; margin-right: 15px; text-decoration: none; transition: color 0.3s;"
+                        onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#888'">
+                        <i class="fa fa-download"></i> 备份
+                    </a>
+                    <a href="javascript:;" onclick="document.getElementById('importFile').click()" title="恢复收藏数据"
+                        style="color: #888; text-decoration: none; transition: color 0.3s;"
+                        onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#888'">
+                        <i class="fa fa-upload"></i> 恢复
+                    </a>
+                </span>
+            </h4>
+            <!-- 隐藏的文件输入框，用于恢复数据 -->
+            <input type="file" id="importFile" style="display: none;" accept=".json" onchange="importFavorites(this)">
+
             <div class="row" id="my-favorites-list">
                 <!-- 动态加载 -->
             </div>
@@ -6354,17 +6371,6 @@
                 </div>
             </div>
             <button class="btn-save-card" onclick="saveNewCard()">保存链接</button>
-
-            <div class="backup-btn-group">
-                <button style="background: #10b981;" onclick="exportFavorites()">
-                    <i class="fa fa-download"></i> 备份数据
-                </button>
-                <button style="background: #f59e0b;" onclick="document.getElementById('importFile').click()">
-                    <i class="fa fa-upload"></i> 恢复备份
-                </button>
-                <input type="file" id="importFile" style="display: none;" accept=".json"
-                    onchange="importFavorites(this)">
-            </div>
         </div>
     </div>
 

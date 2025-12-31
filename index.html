@@ -5107,491 +5107,499 @@
                         </div>
                     </div>
                 </div>
-                <!--END 交互设计 -->
+            </div>
+            <!--END 交互设计 -->
 
-                <!-- 数字货币 (Crypto Market) -->
-                <h4 class="text-gray">
-                    <i class="linecons-money" style="margin-right: 7px;" id="数字货币"></i>数字货币行情 (Live Market)
-                    <span style="float: right; display: flex; align-items: center; font-size: 13px;">
-                        <button id="refresh-crypto-btn" class="btn btn-xs btn-white" onclick="fetchCryptoData()"
-                            style="margin-right: 10px; padding: 2px 6px;" title="Refresh Data">
-                            <i class="fa fa-refresh"></i>
-                        </button>
-                        <span style="margin-right: 10px; color: #888;">Currency:</span>
-                        <button id="currency-toggle" class="btn btn-xs btn-primary" onclick="toggleCurrency()"
-                            style="padding: 2px 8px;">USD</button>
-                        <span style="margin: 0 10px; color: #333;">|</span>
-                        <input type="text" id="crypto-search" placeholder="Search Coin..." onkeyup="filterCrypto()"
-                            style="background: transparent; border: 1px solid #ddd; border-radius: 4px; padding: 2px 8px; color: inherit; width: 120px;">
-                    </span>
-                </h4>
+            <!-- 数字货币 (Crypto Market) -->
+            <h4 class="text-gray">
+                <i class="linecons-money" style="margin-right: 7px;" id="数字货币"></i>数字货币行情 (Live Market)
+                <span style="float: right; display: flex; align-items: center; font-size: 13px;">
+                    <button id="refresh-crypto-btn" class="btn btn-xs btn-white" onclick="fetchCryptoData()"
+                        style="margin-right: 10px; padding: 2px 6px;" title="Refresh Data">
+                        <i class="fa fa-refresh"></i>
+                    </button>
+                    <span style="margin-right: 10px; color: #888;">Currency:</span>
+                    <button id="currency-toggle" class="btn btn-xs btn-primary" onclick="toggleCurrency()"
+                        style="padding: 2px 8px;">USD</button>
+                    <span style="margin: 0 10px; color: #333;">|</span>
+                    <input type="text" id="crypto-search" placeholder="Search Coin..." onkeyup="filterCrypto()"
+                        style="background: transparent; border: 1px solid #ddd; border-radius: 4px; padding: 2px 8px; color: inherit; width: 120px;">
+                </span>
+            </h4>
 
-                <div class="row">
-                    <div class="col-sm-12">
-                        <div class="crypto-table-container">
-                            <table class="table crypto-table">
-                                <thead>
-                                    <tr>
-                                        <th style="width: 250px;">币种 (Coin)</th>
-                                        <th>最新价 (Price)</th>
-                                        <th>24H涨跌 (Change)</th>
-                                        <th>市值 (Market Cap)</th>
-                                        <th>走势 (7d)</th>
-                                        <th style="text-align: right;">操作</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="crypto-table-body">
-                                    <tr>
-                                        <td colspan="6" style="text-align:center; padding: 20px;">Loading Market Data...
-                                            <i class="fa fa-spinner fa-spin"></i>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                        <div style="font-size: 12px; color: #888; text-align: right; margin-top: 5px;">
-                            Data provided by <span id="api-provider-name">Crypto API</span> <span id="api-status-dot"
-                                style="color: #10b981;">●</span>
-                        </div>
+            <div class="row">
+                <div class="col-sm-12">
+                    <div class="crypto-table-container">
+                        <table class="table crypto-table">
+                            <thead>
+                                <tr>
+                                    <th style="max-width: 120px;">币种 (Coin)</th>
+                                    <th>最新价 (Price)</th>
+                                    <th>涨跌(24h)</th>
+                                    <th class="mobile-hide">市值 (Market Cap)</th>
+                                    <th class="mobile-hide">走势 (7d)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="crypto-table-body">
+                                <tr>
+                                    <td colspan="6" style="text-align:center; padding: 20px;">Loading Market Data...
+                                        <i class="fa fa-spinner fa-spin"></i>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div style="font-size: 12px; color: #888; text-align: right; margin-top: 5px;">
+                        Data provided by <span id="api-provider-name">Crypto API</span> <span id="api-status-dot"
+                            style="color: #10b981;">●</span>
                     </div>
                 </div>
+            </div>
 
-                <!-- Crypto Styles -->
-                <style>
+            <!-- Crypto Styles -->
+            <style>
+                .crypto-table-container {
+                    background: #fff;
+                    border-radius: 4px;
+                    overflow: hidden;
+                    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+                }
+
+                .crypto-table {
+                    margin-bottom: 0;
+                    width: 100%;
+                    white-space: nowrap;
+                }
+
+                .crypto-table th {
+                    background: #f9f9f9;
+                    font-weight: 600;
+                    color: #666;
+                    border-bottom: 1px solid #eee;
+                    padding: 12px 15px !important;
+                }
+
+                .crypto-table td {
+                    vertical-align: middle !important;
+                    padding: 12px 15px !important;
+                    border-top: 1px solid #f4f4f4;
+                    color: #333;
+                }
+
+                .coin-info {
+                    display: flex;
+                    align-items: center;
+                }
+
+                .coin-icon {
+                    width: 24px;
+                    height: 24px;
+                    margin-right: 10px;
+                    border-radius: 50%;
+                }
+
+                .coin-name {
+                    font-weight: bold;
+                    margin-right: 5px;
+                }
+
+                .coin-symbol {
+                    color: #999;
+                    font-size: 12px;
+                }
+
+                .price-up {
+                    color: #10b981;
+                }
+
+                .price-down {
+                    color: #ef4444;
+                }
+
+                .btn-trade {
+                    border: 1px solid #ddd;
+                    color: #666;
+                    background: transparent;
+                    padding: 2px 10px;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    text-decoration: none;
+                }
+
+                .btn-trade:hover {
+                    background: #f5f5f5;
+                    color: #333;
+                }
+
+                /* Dark Mode Adaptation */
+                body.dark-mode .crypto-table-container {
+                    background: #222;
+                    box-shadow: none;
+                }
+
+                body.dark-mode .crypto-table th {
+                    background: #2a2a2a;
+                    color: #aaa;
+                    border-bottom-color: #333;
+                }
+
+                body.dark-mode .crypto-table td {
+                    border-top-color: #333;
+                    color: #ddd;
+                }
+
+                body.dark-mode #crypto-search {
+                    border-color: #444;
+                    color: #ddd;
+                }
+
+                body.dark-mode .btn-trade {
+                    border-color: #444;
+                    color: #bbb;
+                }
+
+                body.dark-mode .btn-trade:hover {
+                    background: #333;
+                    color: #fff;
+                }
+
+                body.dark-mode .main-footer {
+                    background: #2c2e2f;
+                    border-top: 1px solid #333;
+                    color: #aaa;
+                }
+
+                body.dark-mode .main-footer .footer-text strong {
+                    color: #ddd;
+                }
+
+                /* Mobile Optimization (Vertical Screen) */
+                @media screen and (max-width: 768px) {
+
+                    /* 在移动端隐藏非核心列，避免横向滚动，提升竖屏体验 */
+                    .mobile-hide {
+                        display: none !important;
+                    }
+
                     .crypto-table-container {
-                        background: #fff;
-                        border-radius: 4px;
-                        overflow: hidden;
-                        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+                        overflow-x: hidden;
                     }
 
+                    /* 禁止横向滚动 */
                     .crypto-table {
-                        margin-bottom: 0;
-                        width: 100%;
-                        white-space: nowrap;
+                        white-space: normal;
                     }
 
-                    .crypto-table th {
-                        background: #f9f9f9;
-                        font-weight: 600;
-                        color: #666;
-                        border-bottom: 1px solid #eee;
-                        padding: 12px 15px !important;
-                    }
-
+                    /*允许换行*/
+                    .crypto-table th,
                     .crypto-table td {
-                        vertical-align: middle !important;
-                        padding: 12px 15px !important;
-                        border-top: 1px solid #f4f4f4;
-                        color: #333;
-                    }
-
-                    .coin-info {
-                        display: flex;
-                        align-items: center;
+                        padding: 8px 5px !important;
+                        font-size: 12px;
                     }
 
                     .coin-icon {
-                        width: 24px;
-                        height: 24px;
-                        margin-right: 10px;
-                        border-radius: 50%;
-                    }
-
-                    .coin-name {
-                        font-weight: bold;
+                        width: 20px;
+                        height: 20px;
                         margin-right: 5px;
                     }
 
-                    .coin-symbol {
-                        color: #999;
-                        font-size: 12px;
+                    /* 头部布局 */
+                    h4.text-gray {
+                        display: flex;
+                        flex-direction: column;
+                        align-items: flex-start;
                     }
 
-                    .price-up {
-                        color: #10b981;
+                    h4.text-gray>span {
+                        margin-top: 10px;
+                        width: 100%;
+                        justify-content: space-between;
                     }
 
-                    .price-down {
-                        color: #ef4444;
+                    #crypto-search {
+                        width: 100px !important;
                     }
 
-                    .btn-trade {
-                        border: 1px solid #ddd;
-                        color: #666;
-                        background: transparent;
-                        padding: 2px 10px;
-                        border-radius: 4px;
-                        font-size: 12px;
-                        text-decoration: none;
+                    /* Hide floating buttons and non-essential elements on mobile to clear view */
+                    .btn-reset,
+                    .btn-show-hidden,
+                    .back-to-top,
+                    .xp-panel {
+                        display: none !important;
                     }
+                }
 
-                    .btn-trade:hover {
-                        background: #f5f5f5;
-                        color: #333;
+                .fade-out {
+                    opacity: 0 !important;
+                    pointer-events: none !important;
+                    transition: opacity 0.3s ease;
+                }
+            </style>
+
+            <!-- Crypto Logic -->
+            <script>
+                let currentCurrency = 'USD';
+                let cryptoData = [];
+                const USD_CNY_RATE = 7.25;
+
+                // Helper: Fetch with Timeout to prevent hanging
+                async function fetchWithTimeout(resource, options = {}) {
+                    // Reset timeout to 8s for slower proxies
+                    const { timeout = 8000 } = options;
+                    const controller = new AbortController();
+                    const id = setTimeout(() => controller.abort(), timeout);
+                    try {
+                        const response = await fetch(resource, { ...options, signal: controller.signal });
+                        clearTimeout(id);
+                        return response;
+                    } catch (error) {
+                        clearTimeout(id);
+                        throw error;
                     }
+                }
 
-                    /* Dark Mode Adaptation */
-                    body.dark-mode .crypto-table-container {
-                        background: #222;
-                        box-shadow: none;
-                    }
+                // Success Handler
+                function onSuccess(dot, providerName) {
+                    const label = document.getElementById('api-provider-name');
+                    if (dot) dot.style.color = '#10b981';
+                    if (label) label.innerText = providerName;
+                    renderCryptoTable(cryptoData);
+                }
 
-                    body.dark-mode .crypto-table th {
-                        background: #2a2a2a;
-                        color: #aaa;
-                        border-bottom-color: #333;
-                    }
+                // API Strategies configuration
+                const APIS = {
+                    GATEIO: {
+                        name: 'Gate.io (Official)',
+                        url: 'https://api.gateio.ws/api/v4/spot/tickers', // Returns all tickers, need filtering
+                        handler: (data) => {
+                            // Target pairs
+                            const targets = ['BTC_USDT', 'ETH_USDT', 'USDT_CNY', 'BNB_USDT', 'XRP_USDT', 'SOL_USDT', 'DOGE_USDT', 'ADA_USDT', 'TRX_USDT', 'TON_USDT', 'SHIB_USDT', 'LTC_USDT'];
+                            // Map for quick lookup
+                            const validPairs = new Set(targets);
 
-                    body.dark-mode .crypto-table td {
-                        border-top-color: #333;
-                        color: #ddd;
-                    }
-
-                    body.dark-mode #crypto-search {
-                        border-color: #444;
-                        color: #ddd;
-                    }
-
-                    body.dark-mode .btn-trade {
-                        border-color: #444;
-                        color: #bbb;
-                    }
-
-                    body.dark-mode .btn-trade:hover {
-                        background: #333;
-                        color: #fff;
-                    }
-
-                    body.dark-mode .main-footer {
-                        background: #2c2e2f;
-                        border-top: 1px solid #333;
-                        color: #aaa;
-                    }
-
-                    body.dark-mode .main-footer .footer-text strong {
-                        color: #ddd;
-                    }
-
-                    /* Mobile Optimization (Vertical Screen) */
-                    @media screen and (max-width: 768px) {
-
-                        /* 在移动端隐藏非核心列，避免横向滚动，提升竖屏体验 */
-                        .mobile-hide {
-                            display: none !important;
-                        }
-
-                        .crypto-table-container {
-                            overflow-x: hidden;
-                        }
-
-                        /* 禁止横向滚动 */
-                        .crypto-table {
-                            white-space: normal;
-                        }
-
-                        /*允许换行*/
-                        .crypto-table th,
-                        .crypto-table td {
-                            padding: 8px 5px !important;
-                            font-size: 12px;
-                        }
-
-                        .coin-icon {
-                            width: 20px;
-                            height: 20px;
-                            margin-right: 5px;
-                        }
-
-                        /* 头部布局 */
-                        h4.text-gray {
-                            display: flex;
-                            flex-direction: column;
-                            align-items: flex-start;
-                        }
-
-                        h4.text-gray>span {
-                            margin-top: 10px;
-                            width: 100%;
-                            justify-content: space-between;
-                        }
-
-                        #crypto-search {
-                            width: 100px !important;
-                        }
-                    }
-
-                    .fade-out {
-                        opacity: 0 !important;
-                        pointer-events: none !important;
-                        transition: opacity 0.3s ease;
-                    }
-                </style>
-
-                <!-- Crypto Logic -->
-                <script>
-                    let currentCurrency = 'USD';
-                    let cryptoData = [];
-                    const USD_CNY_RATE = 7.25;
-
-                    // Helper: Fetch with Timeout to prevent hanging
-                    async function fetchWithTimeout(resource, options = {}) {
-                        // Reset timeout to 8s for slower proxies
-                        const { timeout = 8000 } = options;
-                        const controller = new AbortController();
-                        const id = setTimeout(() => controller.abort(), timeout);
-                        try {
-                            const response = await fetch(resource, { ...options, signal: controller.signal });
-                            clearTimeout(id);
-                            return response;
-                        } catch (error) {
-                            clearTimeout(id);
-                            throw error;
-                        }
-                    }
-
-                    // Success Handler
-                    function onSuccess(dot, providerName) {
-                        const label = document.getElementById('api-provider-name');
-                        if (dot) dot.style.color = '#10b981';
-                        if (label) label.innerText = providerName;
-                        renderCryptoTable(cryptoData);
-                    }
-
-                    // API Strategies configuration
-                    const APIS = {
-                        GATEIO: {
-                            name: 'Gate.io (Official)',
-                            url: 'https://api.gateio.ws/api/v4/spot/tickers', // Returns all tickers, need filtering
-                            handler: (data) => {
-                                // Target pairs
-                                const targets = ['BTC_USDT', 'ETH_USDT', 'USDT_CNY', 'BNB_USDT', 'XRP_USDT', 'SOL_USDT', 'DOGE_USDT', 'ADA_USDT', 'TRX_USDT', 'TON_USDT', 'SHIB_USDT', 'LTC_USDT'];
-                                // Map for quick lookup
-                                const validPairs = new Set(targets);
-
-                                return data.filter(item => validPairs.has(item.currency_pair)).map(item => {
-                                    const symbol = item.currency_pair.split('_')[0].toLowerCase();
-                                    const nameMap = { 'btc': 'Bitcoin', 'eth': 'Ethereum', 'usdt': 'Tether', 'bnb': 'BNB', 'xrp': 'Ripple', 'sol': 'Solana', 'doge': 'Dogecoin', 'ada': 'Cardano', 'trx': 'Tron', 'ton': 'Toncoin', 'shib': 'Shiba Inu', 'ltc': 'Litecoin' };
-                                    return {
-                                        id: symbol,
-                                        symbol: symbol,
-                                        name: nameMap[symbol] || symbol.toUpperCase(),
-                                        image: `https://assets.coincap.io/assets/icons/${symbol}@2x.png`, // Fallback icon
-                                        current_price: parseFloat(item.last),
-                                        price_change_percentage_24h: parseFloat(item.change_percentage),
-                                        market_cap: parseFloat(item.quote_volume) * 1000, // Gate doesn't return MC easily, use Vol as proxy or hide
-                                        sparkline_in_7d: null
-                                    };
-                                });
-                            }
-                        },
-                        CRYPTOCOMPARE: {
-                            name: 'CryptoCompare',
-                            url: 'https://min-api.cryptocompare.com/data/pricemultifull?fsyms=BTC,ETH,USDT,BNB,SOL,XRP,DOGE,ADA,TRX,TON,SHIB,LTC&tsyms=USD',
-                            handler: (data) => {
-                                const raw = data.RAW;
-                                if (!raw) throw new Error("Invalid CC Data");
-                                return Object.keys(raw).map(key => {
-                                    const coin = raw[key].USD;
-                                    return {
-                                        id: key.toLowerCase(),
-                                        symbol: coin.FROMSYMBOL.toLowerCase(),
-                                        name: key === 'USDT' ? 'Tether' : (key === 'BTC' ? 'Bitcoin' : key),
-                                        image: 'https://www.cryptocompare.com' + coin.IMAGEURL,
-                                        current_price: coin.PRICE,
-                                        price_change_percentage_24h: coin.CHANGEPCT24HOUR,
-                                        market_cap: coin.MKTCAP,
-                                        sparkline_in_7d: null
-                                    };
-                                });
-                            }
-                        },
-                        COINCAP: {
-                            name: 'CoinCap',
-                            url: 'https://api.coincap.io/v2/assets?ids=bitcoin,ethereum,tether,binance-coin,solana,xrp,dogecoin,cardano,tron,toncoin,shiba-inu,litecoin',
-                            handler: (data) => {
-                                const idMapping = { 'binance-coin': 'binancecoin', 'xrp': 'ripple' };
-                                return data.data.map(item => ({
-                                    id: item.id,
-                                    symbol: item.symbol.toLowerCase(),
-                                    name: item.name,
-                                    image: `https://assets.coincap.io/assets/icons/${item.symbol.toLowerCase()}@2x.png`,
-                                    current_price: parseFloat(item.priceUsd),
-                                    price_change_percentage_24h: parseFloat(item.changePercent24Hr),
-                                    market_cap: parseFloat(item.marketCapUsd),
+                            return data.filter(item => validPairs.has(item.currency_pair)).map(item => {
+                                const symbol = item.currency_pair.split('_')[0].toLowerCase();
+                                const nameMap = { 'btc': 'Bitcoin', 'eth': 'Ethereum', 'usdt': 'Tether', 'bnb': 'BNB', 'xrp': 'Ripple', 'sol': 'Solana', 'doge': 'Dogecoin', 'ada': 'Cardano', 'trx': 'Tron', 'ton': 'Toncoin', 'shib': 'Shiba Inu', 'ltc': 'Litecoin' };
+                                return {
+                                    id: symbol,
+                                    symbol: symbol,
+                                    name: nameMap[symbol] || symbol.toUpperCase(),
+                                    image: `https://assets.coincap.io/assets/icons/${symbol}@2x.png`, // Fallback icon
+                                    current_price: parseFloat(item.last),
+                                    price_change_percentage_24h: parseFloat(item.change_percentage),
+                                    market_cap: parseFloat(item.quote_volume) * 1000, // Gate doesn't return MC easily, use Vol as proxy or hide
                                     sparkline_in_7d: null
-                                }));
-                            }
-                        },
-                        COINGECKO: {
-                            name: 'CoinGecko',
-                            url: 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,tether,binancecoin,solana,ripple,dogecoin,cardano,tron,toncoin,shiba-inu,litecoin&order=market_cap_desc&sparkline=true&price_change_percentage=24h',
-                            handler: (data) => data
+                                };
+                            });
                         }
-                    };
+                    },
+                    CRYPTOCOMPARE: {
+                        name: 'CryptoCompare',
+                        url: 'https://min-api.cryptocompare.com/data/pricemultifull?fsyms=BTC,ETH,USDT,BNB,SOL,XRP,DOGE,ADA,TRX,TON,SHIB,LTC&tsyms=USD',
+                        handler: (data) => {
+                            const raw = data.RAW;
+                            if (!raw) throw new Error("Invalid CC Data");
+                            return Object.keys(raw).map(key => {
+                                const coin = raw[key].USD;
+                                return {
+                                    id: key.toLowerCase(),
+                                    symbol: coin.FROMSYMBOL.toLowerCase(),
+                                    name: key === 'USDT' ? 'Tether' : (key === 'BTC' ? 'Bitcoin' : key),
+                                    image: 'https://www.cryptocompare.com' + coin.IMAGEURL,
+                                    current_price: coin.PRICE,
+                                    price_change_percentage_24h: coin.CHANGEPCT24HOUR,
+                                    market_cap: coin.MKTCAP,
+                                    sparkline_in_7d: null
+                                };
+                            });
+                        }
+                    },
+                    COINCAP: {
+                        name: 'CoinCap',
+                        url: 'https://api.coincap.io/v2/assets?ids=bitcoin,ethereum,tether,binance-coin,solana,xrp,dogecoin,cardano,tron,toncoin,shiba-inu,litecoin',
+                        handler: (data) => {
+                            const idMapping = { 'binance-coin': 'binancecoin', 'xrp': 'ripple' };
+                            return data.data.map(item => ({
+                                id: item.id,
+                                symbol: item.symbol.toLowerCase(),
+                                name: item.name,
+                                image: `https://assets.coincap.io/assets/icons/${item.symbol.toLowerCase()}@2x.png`,
+                                current_price: parseFloat(item.priceUsd),
+                                price_change_percentage_24h: parseFloat(item.changePercent24Hr),
+                                market_cap: parseFloat(item.marketCapUsd),
+                                sparkline_in_7d: null
+                            }));
+                        }
+                    },
+                    COINGECKO: {
+                        name: 'CoinGecko',
+                        url: 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,tether,binancecoin,solana,ripple,dogecoin,cardano,tron,toncoin,shiba-inu,litecoin&order=market_cap_desc&sparkline=true&price_change_percentage=24h',
+                        handler: (data) => data
+                    }
+                };
 
-                    function toggleCurrency() {
-                        const btn = document.getElementById('currency-toggle');
-                        if (currentCurrency === 'USD') {
-                            currentCurrency = 'CNY';
-                            btn.innerText = 'CNY';
-                            btn.className = 'btn btn-xs btn-warning';
-                        } else {
-                            currentCurrency = 'USD';
-                            btn.innerText = 'USD';
-                            btn.className = 'btn btn-xs btn-primary';
-                        }
-                        renderCryptoTable(cryptoData);
+                function toggleCurrency() {
+                    const btn = document.getElementById('currency-toggle');
+                    if (currentCurrency === 'USD') {
+                        currentCurrency = 'CNY';
+                        btn.innerText = 'CNY';
+                        btn.className = 'btn btn-xs btn-warning';
+                    } else {
+                        currentCurrency = 'USD';
+                        btn.innerText = 'USD';
+                        btn.className = 'btn btn-xs btn-primary';
+                    }
+                    renderCryptoTable(cryptoData);
+                }
+
+                // Robust Fetch Logic: Gate (Proxy) -> CryptoCompare (Global) -> CoinCap (Fast) -> CoinGecko (Backup)
+                async function fetchCryptoData() {
+                    const dot = document.getElementById('api-status-dot');
+                    const label = document.getElementById('api-provider-name');
+                    const tbody = document.getElementById('crypto-table-body');
+                    const refreshIcon = document.querySelector('#refresh-crypto-btn i');
+
+                    dot.style.color = '#f59e0b'; // fetching
+                    if (refreshIcon) refreshIcon.classList.add('fa-spin'); // spin icon
+
+                    // Show loading status if empty and first load
+                    if (cryptoData.length === 0) {
+                        if (label) label.innerText = 'Connecting...';
                     }
 
-                    // Robust Fetch Logic: Gate (Proxy) -> CryptoCompare (Global) -> CoinCap (Fast) -> CoinGecko (Backup)
-                    async function fetchCryptoData() {
-                        const dot = document.getElementById('api-status-dot');
-                        const label = document.getElementById('api-provider-name');
-                        const tbody = document.getElementById('crypto-table-body');
-                        const refreshIcon = document.querySelector('#refresh-crypto-btn i');
+                    let lastError = '';
 
-                        dot.style.color = '#f59e0b'; // fetching
-                        if (refreshIcon) refreshIcon.classList.add('fa-spin'); // spin icon
-
-                        // Show loading status if empty and first load
-                        if (cryptoData.length === 0) {
-                            if (label) label.innerText = 'Connecting...';
-                        }
-
-                        let lastError = '';
-
+                    try {
+                        // 1. Try CryptoCompare (Adjusted timeout)
                         try {
-                            // 1. Try CryptoCompare (Adjusted timeout)
-                            try {
-                                if (label) label.innerText = 'Connecting CC...';
-                                const res = await fetchWithTimeout(APIS.CRYPTOCOMPARE.url, { timeout: 8000 });
-                                if (res.ok) {
-                                    const data = await res.json();
-                                    cryptoData = APIS.CRYPTOCOMPARE.handler(data);
-                                    onSuccess(dot, APIS.CRYPTOCOMPARE.name);
-                                    return;
-                                }
-                            } catch (e) { console.warn('CC Err', e); lastError = e.message; }
+                            if (label) label.innerText = 'Connecting CC...';
+                            const res = await fetchWithTimeout(APIS.CRYPTOCOMPARE.url, { timeout: 8000 });
+                            if (res.ok) {
+                                const data = await res.json();
+                                cryptoData = APIS.CRYPTOCOMPARE.handler(data);
+                                onSuccess(dot, APIS.CRYPTOCOMPARE.name);
+                                return;
+                            }
+                        } catch (e) { console.warn('CC Err', e); lastError = e.message; }
 
-                            // 2. Try Gate.io (Longer timeout for proxy)
-                            try {
-                                if (label) label.innerText = 'Connecting Gate...';
-                                const res = await fetchWithTimeout(APIS.GATEIO.url, { timeout: 10000 });
-                                if (res.ok) {
-                                    const data = await res.json();
-                                    cryptoData = APIS.GATEIO.handler(data);
-                                    onSuccess(dot, APIS.GATEIO.name);
-                                    return;
-                                }
-                            } catch (e) { console.warn('Gate Err', e); lastError = e.message; }
+                        // 2. Try Gate.io (Longer timeout for proxy)
+                        try {
+                            if (label) label.innerText = 'Connecting Gate...';
+                            const res = await fetchWithTimeout(APIS.GATEIO.url, { timeout: 10000 });
+                            if (res.ok) {
+                                const data = await res.json();
+                                cryptoData = APIS.GATEIO.handler(data);
+                                onSuccess(dot, APIS.GATEIO.name);
+                                return;
+                            }
+                        } catch (e) { console.warn('Gate Err', e); lastError = e.message; }
 
-                            // 3. Try CoinCap
-                            try {
-                                if (label) label.innerText = 'Connecting CoinCap...';
-                                const res = await fetchWithTimeout(APIS.COINCAP.url, { timeout: 8000 });
-                                if (res.ok) {
-                                    const data = await res.json();
-                                    cryptoData = APIS.COINCAP.handler(data);
-                                    onSuccess(dot, APIS.COINCAP.name);
-                                    return;
-                                }
-                            } catch (e) { console.warn('CoinCap Err', e); lastError = e.message; }
+                        // 3. Try CoinCap
+                        try {
+                            if (label) label.innerText = 'Connecting CoinCap...';
+                            const res = await fetchWithTimeout(APIS.COINCAP.url, { timeout: 8000 });
+                            if (res.ok) {
+                                const data = await res.json();
+                                cryptoData = APIS.COINCAP.handler(data);
+                                onSuccess(dot, APIS.COINCAP.name);
+                                return;
+                            }
+                        } catch (e) { console.warn('CoinCap Err', e); lastError = e.message; }
 
-                            // 4. Try CoinGecko (Last Resort)
-                            try {
-                                if (label) label.innerText = 'Connecting CG...';
-                                const res = await fetchWithTimeout(APIS.COINGECKO.url, { timeout: 8000 });
-                                if (res.ok) {
-                                    const data = await res.json();
-                                    cryptoData = APIS.COINGECKO.handler(data);
-                                    onSuccess(dot, APIS.COINGECKO.name);
-                                    return;
-                                }
-                            } catch (e) { console.warn('CG Err', e); lastError = 'All APIs failed'; }
+                        // 4. Try CoinGecko (Last Resort)
+                        try {
+                            if (label) label.innerText = 'Connecting CG...';
+                            const res = await fetchWithTimeout(APIS.COINGECKO.url, { timeout: 8000 });
+                            if (res.ok) {
+                                const data = await res.json();
+                                cryptoData = APIS.COINGECKO.handler(data);
+                                onSuccess(dot, APIS.COINGECKO.name);
+                                return;
+                            }
+                        } catch (e) { console.warn('CG Err', e); lastError = 'All APIs failed'; }
 
-                            // All failed
-                            if (label) label.innerText = 'Conn Failed';
-                            dot.style.color = '#ef4444';
+                        // All failed
+                        if (label) label.innerText = 'Conn Failed';
+                        dot.style.color = '#ef4444';
 
-                            // Show detailed error in table
-                            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px; color: #ef4444;">
+                        // Show detailed error in table
+                        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px; color: #ef4444;">
                                 <i class="fa fa-exclamation-triangle"></i> Failed to load data.<br>
                                 <small>Last Error: ${lastError || 'Timeout/Network'}</small><br>
                                 <button class="btn btn-xs btn-primary" style="margin-top:10px" onclick="fetchCryptoData()">Retry</button>
                             </td></tr>`;
 
-                        } finally {
-                            if (refreshIcon) refreshIcon.classList.remove('fa-spin'); // stop spin
-                        }
+                    } finally {
+                        if (refreshIcon) refreshIcon.classList.remove('fa-spin'); // stop spin
                     }
+                }
 
-                    function renderCryptoTable(data) {
-                        if (!data || data.length === 0) return;
-                        const tbody = document.getElementById('crypto-table-body');
-                        const searchQuery = document.getElementById('crypto-search').value.toLowerCase();
-                        tbody.innerHTML = '';
+                function renderCryptoTable(data) {
+                    if (!data || data.length === 0) return;
+                    const tbody = document.getElementById('crypto-table-body');
+                    const searchQuery = document.getElementById('crypto-search').value.toLowerCase();
+                    tbody.innerHTML = '';
 
-                        const isCNY = currentCurrency === 'CNY';
-                        const rate = isCNY ? USD_CNY_RATE : 1;
-                        const symbol = isCNY ? '¥' : '$';
+                    const isCNY = currentCurrency === 'CNY';
+                    const rate = isCNY ? USD_CNY_RATE : 1;
+                    const symbol = isCNY ? '¥' : '$';
 
-                        // Strict sorting map to keep main coins on top
-                        const orderMap = { 'btc': 1, 'eth': 2, 'usdt': 3, 'bnb': 4, 'sol': 5, 'xrp': 6 };
+                    // Strict sorting map to keep main coins on top
+                    const orderMap = { 'btc': 1, 'eth': 2, 'usdt': 3, 'bnb': 4, 'sol': 5, 'xrp': 6 };
 
-                        // Sort data
-                        data.sort((a, b) => {
-                            const oa = orderMap[a.symbol] || 999;
-                            const ob = orderMap[b.symbol] || 999;
-                            return oa - ob;
+                    // Sort data
+                    data.sort((a, b) => {
+                        const oa = orderMap[a.symbol] || 999;
+                        const ob = orderMap[b.symbol] || 999;
+                        return oa - ob;
+                    });
+
+                    data.forEach(coin => {
+                        const searchName = coin.name || coin.symbol;
+                        if (!searchName.toLowerCase().includes(searchQuery) && !coin.symbol.toLowerCase().includes(searchQuery))
+                            return;
+
+                        const price = (coin.current_price * rate).toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: (coin.current_price < 1 ? 6 : 2)
                         });
+                        const change = coin.price_change_percentage_24h;
+                        const changeClass = change >= 0 ? 'price-up' : 'price-down';
+                        const changeSign = change >= 0 ? '+' : '';
 
-                        data.forEach(coin => {
-                            const searchName = coin.name || coin.symbol;
-                            if (!searchName.toLowerCase().includes(searchQuery) && !coin.symbol.toLowerCase().includes(searchQuery))
-                                return;
+                        // Market cap might be missing or 0
+                        const mkVal = coin.market_cap && coin.market_cap > 0 ? (coin.market_cap * rate) : 0;
+                        const marketCap = mkVal > 0 ? mkVal.toLocaleString(undefined, { maximumFractionDigits: 0, notation: "compact" }) : '-';
 
-                            const price = (coin.current_price * rate).toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: (coin.current_price < 1 ? 6 : 2)
-                            });
-                            const change = coin.price_change_percentage_24h;
-                            const changeClass = change >= 0 ? 'price-up' : 'price-down';
-                            const changeSign = change >= 0 ? '+' : '';
-
-                            // Market cap might be missing or 0
-                            const mkVal = coin.market_cap && coin.market_cap > 0 ? (coin.market_cap * rate) : 0;
-                            const marketCap = mkVal > 0 ? mkVal.toLocaleString(undefined, { maximumFractionDigits: 0, notation: "compact" }) : '-';
-
-                            let sparklineSvg = '<span style="color:#eee;">-</span>';
-                            if (coin.sparkline_in_7d && coin.sparkline_in_7d.price) {
-                                const prices = coin.sparkline_in_7d.price;
-                                const min = Math.min(...prices);
-                                const max = Math.max(...prices);
-                                const width = 100;
-                                const height = 30;
-                                const range = max - min;
-                                let points = '';
-                                if (range > 0) {
-                                    prices.forEach((p, i) => {
-                                        const x = (i / (prices.length - 1)) * width;
-                                        const y = height - ((p - min) / range) * height;
-                                        points += `${x},${y} `;
-                                    });
-                                    const color = change >= 0 ? '#10b981' : '#ef4444';
-                                    sparklineSvg = `<svg width="${width}" height="${height}" style="overflow:visible">
+                        let sparklineSvg = '<span style="color:#eee;">-</span>';
+                        if (coin.sparkline_in_7d && coin.sparkline_in_7d.price) {
+                            const prices = coin.sparkline_in_7d.price;
+                            const min = Math.min(...prices);
+                            const max = Math.max(...prices);
+                            const width = 100;
+                            const height = 30;
+                            const range = max - min;
+                            let points = '';
+                            if (range > 0) {
+                                prices.forEach((p, i) => {
+                                    const x = (i / (prices.length - 1)) * width;
+                                    const y = height - ((p - min) / range) * height;
+                                    points += `${x},${y} `;
+                                });
+                                const color = change >= 0 ? '#10b981' : '#ef4444';
+                                sparklineSvg = `<svg width="${width}" height="${height}" style="overflow:visible">
                                         <polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5" />
                                     </svg>`;
-                                }
-                            } else {
-                                // Simple text arrow
-                                sparklineSvg = change >= 0 ? '<span class="price-up" style="font-size:16px">↗</span>' : '<span class="price-down" style="font-size:16px">↘</span>';
                             }
+                        } else {
+                            // Simple text arrow
+                            sparklineSvg = change >= 0 ? '<span class="price-up" style="font-size:16px">↗</span>' : '<span class="price-down" style="font-size:16px">↘</span>';
+                        }
 
-                            const imgError = "this.onerror=null;this.src='../assets/images/logos/btc.png';";
-                            const tradeSymbol = coin.symbol.toUpperCase();
+                        const imgError = "this.onerror=null;this.src='../assets/images/logos/btc.png';";
+                        const tradeSymbol = coin.symbol.toUpperCase();
 
-                            const tr = `
+                        const tr = `
                             <tr>
                                 <td>
                                     <div class="coin-info">
@@ -5606,1227 +5614,1223 @@
                                 <td class="${changeClass}" style="font-weight:bold;">${changeSign}${change.toFixed(2)}%</td>
                                 <td class="mobile-hide" style="color:#888;">${symbol}${marketCap}</td>
                                 <td class="mobile-hide">${sparklineSvg}</td>
-                                <td style="text-align:right;">
-                                    <a href="https://www.gate.io/trade/${tradeSymbol}_USDT" target="_blank"
-                                        class="btn-trade">交易</a>
-                                </td>
                             </tr>
                             `;
-                            tbody.innerHTML += tr;
+                        tbody.innerHTML += tr;
+                    });
+                }
+
+                function filterCrypto() {
+                    renderCryptoTable(cryptoData);
+                }
+
+                // Hover to hide floating buttons logic (Added)
+                document.addEventListener('DOMContentLoaded', () => {
+                    // Poll data
+                    fetchCryptoData();
+                    setInterval(fetchCryptoData, 60000);
+
+                    // Hover Logic
+                    const cryptoArea = document.querySelector('.crypto-table-container').parentElement.parentElement; // .row for crypto
+                    const floatBtns = ['.go-top', '#showHiddenCards', '#resetOrder', '.xp-panel'];
+
+                    if (cryptoArea) {
+                        cryptoArea.addEventListener('mouseenter', () => {
+                            floatBtns.forEach(selector => {
+                                const els = document.querySelectorAll(selector);
+                                els.forEach(el => el.classList.add('fade-out'));
+                            });
+                        });
+                        cryptoArea.addEventListener('mouseleave', () => {
+                            floatBtns.forEach(selector => {
+                                const els = document.querySelectorAll(selector);
+                                els.forEach(el => el.classList.remove('fade-out'));
+                            });
                         });
                     }
-
-                    function filterCrypto() {
-                        renderCryptoTable(cryptoData);
-                    }
-
-                    // Hover to hide floating buttons logic (Added)
-                    document.addEventListener('DOMContentLoaded', () => {
-                        // Poll data
-                        fetchCryptoData();
-                        setInterval(fetchCryptoData, 60000);
-
-                        // Hover Logic
-                        const cryptoArea = document.querySelector('.crypto-table-container').parentElement.parentElement; // .row for crypto
-                        const floatBtns = ['.go-top', '#showHiddenCards', '#resetOrder', '.xp-panel'];
-
-                        if (cryptoArea) {
-                            cryptoArea.addEventListener('mouseenter', () => {
-                                floatBtns.forEach(selector => {
-                                    const els = document.querySelectorAll(selector);
-                                    els.forEach(el => el.classList.add('fade-out'));
-                                });
-                            });
-                            cryptoArea.addEventListener('mouseleave', () => {
-                                floatBtns.forEach(selector => {
-                                    const els = document.querySelectorAll(selector);
-                                    els.forEach(el => el.classList.remove('fade-out'));
-                                });
-                            });
-                        }
-                    });
-                </script>
-                <!--END 数字货币 -->
-                <!-- Main Footer -->
-                <!-- Choose between footer styles: "footer-type-1" or "footer-type-2" -->
-                <!-- Add class "sticky" to  always stick the footer to the end of page (if page contents is small) -->
-                <!-- Or class "fixed" to  always fix the footer to the end of page -->
-                <footer class="main-footer sticky footer-type-1">
-                    <div class="footer-inner">
-                        <!-- Add your copyright text here -->
-                        <div class="footer-text">
-                            &copy; 2017-2026
-                            <a href="about.html"><strong>WebStack</strong></a> design by <a
-                                href="https://www.viggoz.com" target="_blank"><strong>Viggo</strong></a>
-                            <!--  - Purchase for only <strong>23$</strong> -->
-                        </div>
-                        <!-- Go to Top Link, just add rel="go-top" to any link to add this functionality -->
-                        <div class="go-up">
-                            <a href="#" rel="go-top">
-                                <i class="fa-angle-up"></i>
-                            </a>
-                        </div>
+                });
+            </script>
+            <!--END 数字货币 -->
+            <!-- Main Footer -->
+            <!-- Choose between footer styles: "footer-type-1" or "footer-type-2" -->
+            <!-- Add class "sticky" to  always stick the footer to the end of page (if page contents is small) -->
+            <!-- Or class "fixed" to  always fix the footer to the end of page -->
+            <footer class="main-footer sticky footer-type-1">
+                <div class="footer-inner">
+                    <!-- Add your copyright text here -->
+                    <div class="footer-text">
+                        &copy; 2017-2026
+                        <a href="about.html"><strong>WebStack</strong></a> design by <a href="https://www.viggoz.com"
+                            target="_blank"><strong>Viggo</strong></a>
+                        <!--  - Purchase for only <strong>23$</strong> -->
                     </div>
-                </footer>
-            </div>
+                    <!-- Go to Top Link, just add rel="go-top" to any link to add this functionality -->
+                    <div class="go-up">
+                        <a href="#" rel="go-top">
+                            <i class="fa-angle-up"></i>
+                        </a>
+                    </div>
+                </div>
+            </footer>
         </div>
-        <!-- 锚点平滑移动 -->
-        <script type="text/javascript">
-            $(document).ready(function () {
-                //img lazy loaded
-                const observer = lozad();
-                observer.observe();
+    </div>
+    <!-- 锚点平滑移动 -->
+    <script type="text/javascript">
+        $(document).ready(function () {
+            //img lazy loaded
+            const observer = lozad();
+            observer.observe();
 
-                $(document).on('click', '.has-sub', function () {
-                    var _this = $(this)
-                    if (!$(this).hasClass('expanded')) {
-                        setTimeout(function () {
-                            _this.find('ul').attr("style", "")
-                        }, 300);
+            $(document).on('click', '.has-sub', function () {
+                var _this = $(this)
+                if (!$(this).hasClass('expanded')) {
+                    setTimeout(function () {
+                        _this.find('ul').attr("style", "")
+                    }, 300);
 
-                    } else {
-                        $('.has-sub ul').each(function (id, ele) {
-                            var _that = $(this)
-                            if (_this.find('ul')[0] != ele) {
-                                setTimeout(function () {
-                                    _that.attr("style", "")
-                                }, 300);
-                            }
-                        })
-                    }
-                })
-                $('.user-info-menu .hidden-sm').click(function () {
-                    if ($('.sidebar-menu').hasClass('collapsed')) {
-                        $('.has-sub.expanded > ul').attr("style", "")
-                    } else {
-                        $('.has-sub.expanded > ul').show()
-                    }
-                })
-                $("#main-menu li ul li").click(function () {
-                    $(this).siblings('li').removeClass('active'); // 删除其他兄弟元素的样式
-                    $(this).addClass('active'); // 添加当前元素的样式
-                });
-
-                // 初始化tooltip，确保显示在最上层
-                $('[data-toggle="tooltip"]').tooltip({
-                    container: 'body',
-                    placement: 'bottom',
-                    trigger: 'hover'
-                });
-
-                $("a.smooth").click(function (ev) {
-                    ev.preventDefault();
-
-                    public_vars.$mainMenu.add(public_vars.$sidebarProfile).toggleClass('mobile-is-visible');
-                    ps_destroy();
-                    $("html, body").animate({
-                        scrollTop: $($(this).attr("href")).offset().top - 30
-                    }, {
-                        duration: 500,
-                        easing: "swing"
-                    });
-                });
-                return false;
-            });
-
-            var href = "";
-            var pos = 0;
-            $("a.smooth").click(function (e) {
-                $("#main-menu li").each(function () {
-                    $(this).removeClass("active");
-                });
-                $(this).parent("li").addClass("active");
-                e.preventDefault();
-                href = $(this).attr("href");
-                pos = $(href).position().top - 30;
-            });
-        </script>
-        <!-- Bottom Scripts -->
-        <script src="../assets/js/bootstrap.min.js"></script>
-        <script src="../assets/js/TweenMax.min.js"></script>
-        <script src="../assets/js/resizeable.js"></script>
-        <script src="../assets/js/joinable.js"></script>
-        <script src="../assets/js/xenon-api.js"></script>
-        <script src="../assets/js/xenon-toggles.js"></script>
-        <!-- JavaScripts initializations and stuff -->
-        <script src="../assets/js/xenon-custom.js"></script>
-        <script src="../assets/js/lozad.js"></script>
-        <div class="back-to-top" onclick="backToTop()">
-            <i class="fa fa-arrow-up"></i>
-        </div>
-        <script>
-            function backToTop() {
-                window.scrollTo({
-                    top: 0,
-                    behavior: 'smooth'
-                });
-            }
-
-            window.addEventListener('scroll', function () {
-                const btn = document.querySelector('.back-to-top');
-                if (!btn) return;
-
-                if (window.scrollY > 300) {
-                    btn.classList.add('visible');
                 } else {
-                    btn.classList.remove('visible');
+                    $('.has-sub ul').each(function (id, ele) {
+                        var _that = $(this)
+                        if (_this.find('ul')[0] != ele) {
+                            setTimeout(function () {
+                                _that.attr("style", "")
+                            }, 300);
+                        }
+                    })
+                }
+            })
+            $('.user-info-menu .hidden-sm').click(function () {
+                if ($('.sidebar-menu').hasClass('collapsed')) {
+                    $('.has-sub.expanded > ul').attr("style", "")
+                } else {
+                    $('.has-sub.expanded > ul').show()
+                }
+            })
+            $("#main-menu li ul li").click(function () {
+                $(this).siblings('li').removeClass('active'); // 删除其他兄弟元素的样式
+                $(this).addClass('active'); // 添加当前元素的样式
+            });
+
+            // 初始化tooltip，确保显示在最上层
+            $('[data-toggle="tooltip"]').tooltip({
+                container: 'body',
+                placement: 'bottom',
+                trigger: 'hover'
+            });
+
+            $("a.smooth").click(function (ev) {
+                ev.preventDefault();
+
+                public_vars.$mainMenu.add(public_vars.$sidebarProfile).toggleClass('mobile-is-visible');
+                ps_destroy();
+                $("html, body").animate({
+                    scrollTop: $($(this).attr("href")).offset().top - 30
+                }, {
+                    duration: 500,
+                    easing: "swing"
+                });
+            });
+            return false;
+        });
+
+        var href = "";
+        var pos = 0;
+        $("a.smooth").click(function (e) {
+            $("#main-menu li").each(function () {
+                $(this).removeClass("active");
+            });
+            $(this).parent("li").addClass("active");
+            e.preventDefault();
+            href = $(this).attr("href");
+            pos = $(href).position().top - 30;
+        });
+    </script>
+    <!-- Bottom Scripts -->
+    <script src="../assets/js/bootstrap.min.js"></script>
+    <script src="../assets/js/TweenMax.min.js"></script>
+    <script src="../assets/js/resizeable.js"></script>
+    <script src="../assets/js/joinable.js"></script>
+    <script src="../assets/js/xenon-api.js"></script>
+    <script src="../assets/js/xenon-toggles.js"></script>
+    <!-- JavaScripts initializations and stuff -->
+    <script src="../assets/js/xenon-custom.js"></script>
+    <script src="../assets/js/lozad.js"></script>
+    <div class="back-to-top" onclick="backToTop()">
+        <i class="fa fa-arrow-up"></i>
+    </div>
+    <script>
+        function backToTop() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+
+        window.addEventListener('scroll', function () {
+            const btn = document.querySelector('.back-to-top');
+            if (!btn) return;
+
+            if (window.scrollY > 300) {
+                btn.classList.add('visible');
+            } else {
+                btn.classList.remove('visible');
+            }
+        });
+    </script>
+    <!-- 全局固定搜索（支持站内+Bing+谷歌） -->
+    <div class="global-search">
+        <div class="global-search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" id="globalSearchInput" placeholder="搜索站内或网络..." />
+            <button class="search-engine-btn active" data-engine="local" title="搜索本站导航链接">站内</button>
+            <button class="search-engine-btn" data-engine="bing" title="使用必应搜索">Bing</button>
+            <button class="search-engine-btn" data-engine="google" title="使用谷歌搜索">谷歌</button>
+        </div>
+    </div>
+    <script>
+        (function () {
+            const input = document.querySelector('#globalSearchInput');
+            if (!input) return;
+
+            let currentEngine = 'local'; // 默认站内搜索
+
+            // 搜索引擎切换按钮
+            const engineBtns = document.querySelectorAll('.search-engine-btn');
+            engineBtns.forEach(btn => {
+                btn.addEventListener('click', function () {
+                    // 移除所有active类
+                    engineBtns.forEach(b => b.classList.remove('active'));
+                    // 添加当前按钮的active类
+                    this.classList.add('active');
+                    // 更新当前搜索引擎
+                    currentEngine = this.dataset.engine;
+
+                    // 更新输入框提示文字
+                    if (currentEngine === 'local') {
+                        input.placeholder = '搜索站内或网络...';
+                    } else if (currentEngine === 'bing') {
+                        input.placeholder = '必应搜索 (按Enter)...';
+                    } else if (currentEngine === 'google') {
+                        input.placeholder = '谷歌搜索 (按Enter)...';
+                    }
+
+                    // 聚焦输入框
+                    input.focus();
+                });
+            });
+
+            // 站内搜索逻辑（实时过滤）
+            input.addEventListener('input', function () {
+                if (currentEngine !== 'local') return; // 只在站内模式才实时过滤
+
+                const keyword = this.value.toLowerCase().trim();
+                const cards = document.querySelectorAll('.xe-widget');
+
+                // 1. 过滤所有卡片
+                cards.forEach(card => {
+                    const cardContainer = card.closest('.col-sm-3');
+                    // 跳过被手动隐藏的卡片
+                    if (cardContainer && cardContainer.classList.contains('card-hidden')) {
+                        return;
+                    }
+
+                    const text = card.innerText.toLowerCase();
+                    const isMatch = keyword === '' || text.includes(keyword);
+
+                    // 隐藏/显示整个列容器，消除空白占位
+                    if (cardContainer) {
+                        cardContainer.style.display = isMatch ? '' : 'none';
+                    }
+                });
+
+                // 2. 自动隐藏没有结果的分类标题
+                // 页面结构：h4.text-gray -> div.row -> col-sm-3...
+                const categories = document.querySelectorAll('h4.text-gray');
+                categories.forEach(h4 => {
+                    // 获取标题紧跟的下一个元素（通常是 row）
+                    let nextElem = h4.nextElementSibling;
+                    // 跳过可能的空文本节点或注释（稍微向下查找）
+                    while (nextElem && nextElem.nodeType !== 1) {
+                        nextElem = nextElem.nextSibling;
+                    }
+
+                    if (nextElem && nextElem.classList.contains('row')) {
+                        const row = nextElem;
+                        // 检查该分类下是否有任何可见的卡片
+                        // 注意：style.display !== 'none' 检查内联样式
+                        const hasVisibleCards = Array.from(row.querySelectorAll('.col-sm-3')).some(col => {
+                            return col.style.display !== 'none' && !col.classList.contains('card-hidden');
+                        });
+
+                        // 如果有匹配结果，显示标题和行；否则隐藏
+                        if (hasVisibleCards) {
+                            h4.style.display = '';
+                            row.style.display = '';
+                        } else {
+                            h4.style.display = 'none';
+                            row.style.display = 'none';
+                        }
+                    }
+                });
+            });
+
+            // Enter键触发搜索引擎搜索
+            input.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    const keyword = this.value.trim();
+                    if (!keyword) return;
+
+                    if (currentEngine === 'bing') {
+                        window.open(`https://www.bing.com/search?q=${encodeURIComponent(keyword)}`, '_blank');
+                        this.value = ''; // 清空输入框
+                    } else if (currentEngine === 'google') {
+                        window.open(`https://www.google.com/search?q=${encodeURIComponent(keyword)}`, '_blank');
+                        this.value = ''; // 清空输入框
+                    }
+                    // 站内搜索无需处理 Enter，已通过 input 事件实时过滤
                 }
             });
-        </script>
-        <!-- 全局固定搜索（支持站内+Bing+谷歌） -->
-        <div class="global-search">
-            <div class="global-search-box">
-                <i class="fas fa-search"></i>
-                <input type="text" id="globalSearchInput" placeholder="搜索站内或网络..." />
-                <button class="search-engine-btn active" data-engine="local" title="搜索本站导航链接">站内</button>
-                <button class="search-engine-btn" data-engine="bing" title="使用必应搜索">Bing</button>
-                <button class="search-engine-btn" data-engine="google" title="使用谷歌搜索">谷歌</button>
-            </div>
+        })();
+    </script>
+    <button id="resetOrder" class="btn-reset">恢复默认排序</button>
+    <button id="showHiddenCards" class="btn-show-hidden">显示已隐藏</button>
+
+    <!-- 隐藏卡片管理面板 -->
+    <div class="panel-overlay" id="panelOverlay"></div>
+    <div class="hidden-cards-panel" id="hiddenCardsPanel">
+        <button class="panel-close" id="panelClose">×</button>
+        <h3>已隐藏的卡片</h3>
+        <div class="hidden-cards-list" id="hiddenCardsList">
+            <p style="color: #999; text-align: center;">暂无隐藏的卡片</p>
         </div>
-        <script>
-            (function () {
-                const input = document.querySelector('#globalSearchInput');
-                if (!input) return;
+    </div>
 
-                let currentEngine = 'local'; // 默认站内搜索
+    <style>
+        /* 恢复默认排序按钮样式 */
+        .btn-reset {
+            position: fixed;
+            bottom: 90px;
+            right: 24px;
+            padding: 10px 20px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 9998;
+            font-size: 14px;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, .35);
+            transition: all .3s ease;
+        }
 
-                // 搜索引擎切换按钮
-                const engineBtns = document.querySelectorAll('.search-engine-btn');
-                engineBtns.forEach(btn => {
-                    btn.addEventListener('click', function () {
-                        // 移除所有active类
-                        engineBtns.forEach(b => b.classList.remove('active'));
-                        // 添加当前按钮的active类
-                        this.classList.add('active');
-                        // 更新当前搜索引擎
-                        currentEngine = this.dataset.engine;
+        .btn-reset:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(59, 130, 246, .45);
+        }
 
-                        // 更新输入框提示文字
-                        if (currentEngine === 'local') {
-                            input.placeholder = '搜索站内或网络...';
-                        } else if (currentEngine === 'bing') {
-                            input.placeholder = '必应搜索 (按Enter)...';
-                        } else if (currentEngine === 'google') {
-                            input.placeholder = '谷歌搜索 (按Enter)...';
-                        }
+        /* 显示已隐藏卡片按钮 */
+        .btn-show-hidden {
+            position: fixed;
+            bottom: 150px;
+            right: 24px;
+            padding: 10px 20px;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 9998;
+            font-size: 14px;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, .35);
+            transition: all .3s ease;
+        }
 
-                        // 聚焦输入框
-                        input.focus();
+        .btn-show-hidden:hover {
+            background: #059669;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(16, 185, 129, .45);
+        }
+
+        /* 隐藏卡片管理面板 */
+        .hidden-cards-panel {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(20, 20, 20, 0.95);
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 600px;
+            max-height: 70vh;
+            overflow-y: auto;
+            z-index: 10000;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            display: none;
+            backdrop-filter: blur(10px);
+        }
+
+        .hidden-cards-panel.active {
+            display: block;
+        }
+
+        .hidden-cards-panel h3 {
+            color: #fff;
+            margin: 0 0 20px 0;
+            font-size: 20px;
+        }
+
+        .hidden-cards-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .hidden-card-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            position: relative;
+        }
+
+        .hidden-card-item .card-title {
+            color: #fff;
+            font-size: 14px;
+            margin-bottom: 8px;
+            word-break: break-word;
+        }
+
+        .hidden-card-item .card-restore-btn {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .hidden-card-item .card-restore-btn:hover {
+            background: #059669;
+        }
+
+        .panel-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .panel-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .panel-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 9999;
+            display: none;
+        }
+
+        .panel-overlay.active {
+            display: block;
+        }
+    </style>
+
+    <script>
+        // 卡片管理功能：拖拽排序 + 隐藏/显示
+        document.addEventListener('DOMContentLoaded', function () {
+            // ========== 1. 为所有卡片添加ID和draggable属性 ==========
+            let cardCounter = 1;
+            document.querySelectorAll('.col-sm-3').forEach(card => {
+                if (!card.id) {
+                    card.id = `card-${cardCounter++}`;
+                }
+                if (!card.hasAttribute('draggable')) {
+                    card.setAttribute('draggable', 'true');
+                }
+            });
+
+            // ========== 2. 为所有卡片添加隐藏按钮 ==========
+            document.querySelectorAll('.xe-widget').forEach(widget => {
+                // 检查是否已有隐藏按钮
+                if (widget.querySelector('.card-hide-btn')) return;
+
+                const hideBtn = document.createElement('button');
+                hideBtn.className = 'card-hide-btn';
+                hideBtn.innerHTML = '×';
+                hideBtn.title = '隐藏此卡片';
+                hideBtn.onclick = function (e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    hideCard(widget);
+                };
+                widget.appendChild(hideBtn);
+            });
+
+            // ========== 3. 隐藏卡片功能 ==========
+            function hideCard(widget) {
+                const cardContainer = widget.closest('.col-sm-3');
+                if (!cardContainer) {
+                    console.error('无法找到卡片容器');
+                    return;
+                }
+
+                const cardId = cardContainer.id;
+                if (!cardId) {
+                    console.error('卡片没有ID');
+                    return;
+                }
+
+                const cardTitle = widget.querySelector('.xe-user-name strong')?.textContent || '未命名卡片';
+
+                // 添加隐藏类
+                cardContainer.classList.add('card-hidden');
+
+                // 保存到localStorage
+                let hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
+
+                // 检查是否已存在（数组存储的是对象，需要检查id属性）
+                const exists = hiddenCards.some(card => card && card.id === cardId);
+                if (!exists) {
+                    hiddenCards.push({
+                        id: cardId,
+                        title: cardTitle,
+                        widget: widget.outerHTML
                     });
-                });
+                    localStorage.setItem('hiddenCards', JSON.stringify(hiddenCards));
+                    console.log('已隐藏卡片:', cardId, '总数:', hiddenCards.length);
+                } else {
+                    console.log('卡片已存在，跳过:', cardId);
+                }
 
-                // 站内搜索逻辑（实时过滤）
-                input.addEventListener('input', function () {
-                    if (currentEngine !== 'local') return; // 只在站内模式才实时过滤
-
-                    const keyword = this.value.toLowerCase().trim();
-                    const cards = document.querySelectorAll('.xe-widget');
-
-                    // 1. 过滤所有卡片
-                    cards.forEach(card => {
-                        const cardContainer = card.closest('.col-sm-3');
-                        // 跳过被手动隐藏的卡片
-                        if (cardContainer && cardContainer.classList.contains('card-hidden')) {
-                            return;
-                        }
-
-                        const text = card.innerText.toLowerCase();
-                        const isMatch = keyword === '' || text.includes(keyword);
-
-                        // 隐藏/显示整个列容器，消除空白占位
-                        if (cardContainer) {
-                            cardContainer.style.display = isMatch ? '' : 'none';
-                        }
-                    });
-
-                    // 2. 自动隐藏没有结果的分类标题
-                    // 页面结构：h4.text-gray -> div.row -> col-sm-3...
-                    const categories = document.querySelectorAll('h4.text-gray');
-                    categories.forEach(h4 => {
-                        // 获取标题紧跟的下一个元素（通常是 row）
-                        let nextElem = h4.nextElementSibling;
-                        // 跳过可能的空文本节点或注释（稍微向下查找）
-                        while (nextElem && nextElem.nodeType !== 1) {
-                            nextElem = nextElem.nextSibling;
-                        }
-
-                        if (nextElem && nextElem.classList.contains('row')) {
-                            const row = nextElem;
-                            // 检查该分类下是否有任何可见的卡片
-                            // 注意：style.display !== 'none' 检查内联样式
-                            const hasVisibleCards = Array.from(row.querySelectorAll('.col-sm-3')).some(col => {
-                                return col.style.display !== 'none' && !col.classList.contains('card-hidden');
-                            });
-
-                            // 如果有匹配结果，显示标题和行；否则隐藏
-                            if (hasVisibleCards) {
-                                h4.style.display = '';
-                                row.style.display = '';
-                            } else {
-                                h4.style.display = 'none';
-                                row.style.display = 'none';
-                            }
-                        }
-                    });
-                });
-
-                // Enter键触发搜索引擎搜索
-                input.addEventListener('keypress', function (e) {
-                    if (e.key === 'Enter') {
-                        const keyword = this.value.trim();
-                        if (!keyword) return;
-
-                        if (currentEngine === 'bing') {
-                            window.open(`https://www.bing.com/search?q=${encodeURIComponent(keyword)}`, '_blank');
-                            this.value = ''; // 清空输入框
-                        } else if (currentEngine === 'google') {
-                            window.open(`https://www.google.com/search?q=${encodeURIComponent(keyword)}`, '_blank');
-                            this.value = ''; // 清空输入框
-                        }
-                        // 站内搜索无需处理 Enter，已通过 input 事件实时过滤
-                    }
-                });
-            })();
-        </script>
-        <button id="resetOrder" class="btn-reset">恢复默认排序</button>
-        <button id="showHiddenCards" class="btn-show-hidden">显示已隐藏</button>
-
-        <!-- 隐藏卡片管理面板 -->
-        <div class="panel-overlay" id="panelOverlay"></div>
-        <div class="hidden-cards-panel" id="hiddenCardsPanel">
-            <button class="panel-close" id="panelClose">×</button>
-            <h3>已隐藏的卡片</h3>
-            <div class="hidden-cards-list" id="hiddenCardsList">
-                <p style="color: #999; text-align: center;">暂无隐藏的卡片</p>
-            </div>
-        </div>
-
-        <style>
-            /* 恢复默认排序按钮样式 */
-            .btn-reset {
-                position: fixed;
-                bottom: 90px;
-                right: 24px;
-                padding: 10px 20px;
-                background: #3b82f6;
-                color: white;
-                border: none;
-                border-radius: 5px;
-                cursor: pointer;
-                z-index: 9998;
-                font-size: 14px;
-                box-shadow: 0 4px 12px rgba(59, 130, 246, .35);
-                transition: all .3s ease;
+                // 更新管理面板
+                updateHiddenPanel();
             }
 
-            .btn-reset:hover {
-                background: #2563eb;
-                transform: translateY(-2px);
-                box-shadow: 0 6px 16px rgba(59, 130, 246, .45);
-            }
+            // ========== 4. 显示卡片功能 ==========
+            function showCard(cardId) {
+                const cardContainer = document.getElementById(cardId);
+                if (cardContainer) {
+                    cardContainer.classList.remove('card-hidden');
 
-            /* 显示已隐藏卡片按钮 */
-            .btn-show-hidden {
-                position: fixed;
-                bottom: 150px;
-                right: 24px;
-                padding: 10px 20px;
-                background: #10b981;
-                color: white;
-                border: none;
-                border-radius: 5px;
-                cursor: pointer;
-                z-index: 9998;
-                font-size: 14px;
-                box-shadow: 0 4px 12px rgba(16, 185, 129, .35);
-                transition: all .3s ease;
-            }
-
-            .btn-show-hidden:hover {
-                background: #059669;
-                transform: translateY(-2px);
-                box-shadow: 0 6px 16px rgba(16, 185, 129, .45);
-            }
-
-            /* 隐藏卡片管理面板 */
-            .hidden-cards-panel {
-                position: fixed;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                background: rgba(20, 20, 20, 0.95);
-                border-radius: 12px;
-                padding: 24px;
-                max-width: 600px;
-                max-height: 70vh;
-                overflow-y: auto;
-                z-index: 10000;
-                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-                display: none;
-                backdrop-filter: blur(10px);
-            }
-
-            .hidden-cards-panel.active {
-                display: block;
-            }
-
-            .hidden-cards-panel h3 {
-                color: #fff;
-                margin: 0 0 20px 0;
-                font-size: 20px;
-            }
-
-            .hidden-cards-list {
-                display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-                gap: 12px;
-                margin-bottom: 20px;
-            }
-
-            .hidden-card-item {
-                background: rgba(255, 255, 255, 0.05);
-                padding: 12px;
-                border-radius: 8px;
-                text-align: center;
-                position: relative;
-            }
-
-            .hidden-card-item .card-title {
-                color: #fff;
-                font-size: 14px;
-                margin-bottom: 8px;
-                word-break: break-word;
-            }
-
-            .hidden-card-item .card-restore-btn {
-                background: #10b981;
-                color: white;
-                border: none;
-                padding: 6px 12px;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 12px;
-                transition: all 0.2s ease;
-            }
-
-            .hidden-card-item .card-restore-btn:hover {
-                background: #059669;
-            }
-
-            .panel-close {
-                position: absolute;
-                top: 16px;
-                right: 16px;
-                background: rgba(255, 255, 255, 0.1);
-                color: #fff;
-                border: none;
-                width: 32px;
-                height: 32px;
-                border-radius: 50%;
-                cursor: pointer;
-                font-size: 18px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                transition: all 0.2s ease;
-            }
-
-            .panel-close:hover {
-                background: rgba(255, 255, 255, 0.2);
-            }
-
-            .panel-overlay {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0, 0, 0, 0.6);
-                z-index: 9999;
-                display: none;
-            }
-
-            .panel-overlay.active {
-                display: block;
-            }
-        </style>
-
-        <script>
-            // 卡片管理功能：拖拽排序 + 隐藏/显示
-            document.addEventListener('DOMContentLoaded', function () {
-                // ========== 1. 为所有卡片添加ID和draggable属性 ==========
-                let cardCounter = 1;
-                document.querySelectorAll('.col-sm-3').forEach(card => {
-                    if (!card.id) {
-                        card.id = `card-${cardCounter++}`;
-                    }
-                    if (!card.hasAttribute('draggable')) {
-                        card.setAttribute('draggable', 'true');
-                    }
-                });
-
-                // ========== 2. 为所有卡片添加隐藏按钮 ==========
-                document.querySelectorAll('.xe-widget').forEach(widget => {
-                    // 检查是否已有隐藏按钮
-                    if (widget.querySelector('.card-hide-btn')) return;
-
-                    const hideBtn = document.createElement('button');
-                    hideBtn.className = 'card-hide-btn';
-                    hideBtn.innerHTML = '×';
-                    hideBtn.title = '隐藏此卡片';
-                    hideBtn.onclick = function (e) {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        hideCard(widget);
-                    };
-                    widget.appendChild(hideBtn);
-                });
-
-                // ========== 3. 隐藏卡片功能 ==========
-                function hideCard(widget) {
-                    const cardContainer = widget.closest('.col-sm-3');
-                    if (!cardContainer) {
-                        console.error('无法找到卡片容器');
-                        return;
-                    }
-
-                    const cardId = cardContainer.id;
-                    if (!cardId) {
-                        console.error('卡片没有ID');
-                        return;
-                    }
-
-                    const cardTitle = widget.querySelector('.xe-user-name strong')?.textContent || '未命名卡片';
-
-                    // 添加隐藏类
-                    cardContainer.classList.add('card-hidden');
-
-                    // 保存到localStorage
+                    // 从localStorage移除
                     let hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
-
-                    // 检查是否已存在（数组存储的是对象，需要检查id属性）
-                    const exists = hiddenCards.some(card => card && card.id === cardId);
-                    if (!exists) {
-                        hiddenCards.push({
-                            id: cardId,
-                            title: cardTitle,
-                            widget: widget.outerHTML
-                        });
-                        localStorage.setItem('hiddenCards', JSON.stringify(hiddenCards));
-                        console.log('已隐藏卡片:', cardId, '总数:', hiddenCards.length);
-                    } else {
-                        console.log('卡片已存在，跳过:', cardId);
-                    }
+                    hiddenCards = hiddenCards.filter(card => card.id !== cardId);
+                    localStorage.setItem('hiddenCards', JSON.stringify(hiddenCards));
 
                     // 更新管理面板
                     updateHiddenPanel();
                 }
-
-                // ========== 4. 显示卡片功能 ==========
-                function showCard(cardId) {
-                    const cardContainer = document.getElementById(cardId);
-                    if (cardContainer) {
-                        cardContainer.classList.remove('card-hidden');
-
-                        // 从localStorage移除
-                        let hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
-                        hiddenCards = hiddenCards.filter(card => card.id !== cardId);
-                        localStorage.setItem('hiddenCards', JSON.stringify(hiddenCards));
-
-                        // 更新管理面板
-                        updateHiddenPanel();
-                    }
-                }
-
-                // ========== 5. 更新隐藏卡片管理面板 ==========
-                function updateHiddenPanel() {
-                    const hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
-                    const listContainer = document.getElementById('hiddenCardsList');
-
-                    if (!listContainer) return;
-
-                    // 清空容器
-                    listContainer.innerHTML = '';
-
-                    if (hiddenCards.length === 0) {
-                        listContainer.innerHTML = '<p style="color: #999; text-align: center;">暂无隐藏的卡片</p>';
-                        return;
-                    }
-
-                    // 使用安全的DOM操作，避免XSS
-                    // 确保显示所有隐藏的卡片，包括那些可能丢失的
-                    hiddenCards.forEach((card, index) => {
-                        // 验证卡片数据完整性
-                        if (!card || !card.id) {
-                            console.warn('发现无效的隐藏卡片数据:', card);
-                            return;
-                        }
-
-                        const item = document.createElement('div');
-                        item.className = 'hidden-card-item';
-                        item.setAttribute('data-card-id', card.id);
-
-                        const title = document.createElement('div');
-                        title.className = 'card-title';
-                        title.textContent = card.title || `卡片 ${index + 1}`;
-
-                        const restoreBtn = document.createElement('button');
-                        restoreBtn.className = 'card-restore-btn';
-                        restoreBtn.textContent = '恢复显示';
-                        restoreBtn.onclick = function () {
-                            restoreCard(card.id);
-                        };
-
-                        item.appendChild(title);
-                        item.appendChild(restoreBtn);
-                        listContainer.appendChild(item);
-                    });
-
-                    // 调试信息
-                    console.log('已显示隐藏卡片数量:', hiddenCards.length);
-                }
-
-                // ========== 6. 恢复卡片（全局函数） ==========
-                window.restoreCard = function (cardId) {
-                    showCard(cardId);
-                };
-
-                // ========== 7. 加载已隐藏的卡片 ==========
-                // 注意：需要在添加隐藏按钮之后执行，确保所有卡片都已初始化
-                setTimeout(function () {
-                    const hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
-                    hiddenCards.forEach(card => {
-                        if (card && card.id) {
-                            const cardContainer = document.getElementById(card.id);
-                            if (cardContainer) {
-                                cardContainer.classList.add('card-hidden');
-                            }
-                        }
-                    });
-                }, 100);
-
-                // ========== 8. 拖拽排序功能 - 支持跨栏拖动（类似iPhone APP）==========
-                const allRows = document.querySelectorAll('.row');
-                let draggedCardId = null; // 全局拖拽卡片ID
-                let draggedCardElement = null; // 全局拖拽卡片元素
-                let lastDragTime = 0; // 用于节流
-                const DRAG_THROTTLE = 50; // 节流时间（毫秒）
-
-                // 为所有卡片添加拖拽事件（支持跨栏）
-                document.querySelectorAll('.col-sm-3[draggable="true"]').forEach(card => {
-                    if (card.classList.contains('card-hidden')) return;
-
-                    card.addEventListener('dragstart', function (e) {
-                        draggedCardId = this.id;
-                        draggedCardElement = this;
-                        e.dataTransfer.setData('text/plain', this.id);
-                        e.dataTransfer.effectAllowed = 'move';
-
-                        // 添加拖动样式
-                        this.classList.add('dragging');
-
-                        // 创建拖动预览图像
-                        const dragImage = this.cloneNode(true);
-                        dragImage.style.transform = 'rotate(5deg)';
-                        dragImage.style.opacity = '0.8';
-                        document.body.appendChild(dragImage);
-                        dragImage.style.position = 'absolute';
-                        dragImage.style.top = '-1000px';
-                        e.dataTransfer.setDragImage(dragImage, e.offsetX, e.offsetY);
-                        setTimeout(() => {
-                            if (document.body.contains(dragImage)) {
-                                document.body.removeChild(dragImage);
-                            }
-                        }, 0);
-                    });
-
-                    card.addEventListener('dragend', function () {
-                        // 清除所有拖动样式（所有容器）
-                        this.classList.remove('dragging');
-                        allRows.forEach(container => {
-                            container.querySelectorAll('.col-sm-3').forEach(c => {
-                                c.classList.remove('drag-insert-before', 'drag-insert-after', 'drag-over');
-                            });
-                        });
-                        draggedCardId = null;
-                        draggedCardElement = null;
-                        lastDragTime = 0;
-                    });
-                });
-
-                // 为所有容器添加跨栏拖动支持
-                allRows.forEach((container, rowIndex) => {
-                    const cards = container.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)');
-                    if (cards.length === 0) return;
-
-                    const storageKey = `cardOrder_${rowIndex}`;
-                    const defaultKey = `defaultOrder_${rowIndex}`;
-
-                    // 保存默认顺序（首次加载时记录，排除隐藏的卡片）
-                    if (!localStorage.getItem(defaultKey)) {
-                        const defaultIds = Array.from(cards)
-                            .filter(card => !card.classList.contains('card-hidden'))
-                            .map(card => card.id);
-                        localStorage.setItem(defaultKey, JSON.stringify(defaultIds));
-                    }
-
-                    // 加载用户保存的顺序
-                    const savedOrder = localStorage.getItem(storageKey);
-                    if (savedOrder) {
-                        applyOrder(container, JSON.parse(savedOrder));
-                    }
-
-                    // 使用节流的dragover事件处理
-                    container.addEventListener('dragover', function (e) {
-                        e.preventDefault();
-
-                        // 节流控制
-                        const now = Date.now();
-                        if (now - lastDragTime < DRAG_THROTTLE) {
-                            return;
-                        }
-                        lastDragTime = now;
-
-                        if (!draggedCardId || !draggedCardElement) return;
-
-                        // 清除当前容器的所有插入指示器
-                        container.querySelectorAll('.col-sm-3').forEach(card => {
-                            card.classList.remove('drag-insert-before', 'drag-insert-after', 'drag-over');
-                        });
-
-                        // 如果拖动的卡片不在当前容器，先移动到当前容器
-                        if (!container.contains(draggedCardElement)) {
-                            // 找到插入位置
-                            const afterElement = getDragAfterElement(container, e.clientY);
-                            if (afterElement) {
-                                container.insertBefore(draggedCardElement, afterElement);
-                            } else {
-                                container.appendChild(draggedCardElement);
-                            }
-                        } else {
-                            // 在同一容器内移动
-                            const afterElement = getDragAfterElement(container, e.clientY);
-
-                            if (afterElement && afterElement !== draggedCardElement) {
-                                afterElement.classList.add('drag-insert-before');
-                                container.insertBefore(draggedCardElement, afterElement);
-                            } else if (!afterElement) {
-                                // 最后一个元素
-                                const lastCard = container.querySelector('.col-sm-3:last-of-type:not(.dragging)');
-                                if (lastCard && lastCard !== draggedCardElement) {
-                                    lastCard.classList.add('drag-insert-after');
-                                }
-                                container.appendChild(draggedCardElement);
-                            }
-                        }
-                    });
-
-                    // 保存新顺序
-                    container.addEventListener('drop', function (e) {
-                        e.preventDefault();
-
-                        // 清除所有拖动样式
-                        allRows.forEach(c => {
-                            c.querySelectorAll('.col-sm-3').forEach(card => {
-                                card.classList.remove('drag-insert-before', 'drag-insert-after', 'drag-over');
-                            });
-                        });
-
-                        // 保存当前容器的顺序
-                        const newOrder = Array.from(container.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)')).map(card => card.id);
-                        localStorage.setItem(storageKey, JSON.stringify(newOrder));
-
-                        // 更新所有容器的顺序（因为可能跨栏移动）
-                        allRows.forEach((c, idx) => {
-                            const order = Array.from(c.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)')).map(card => card.id);
-                            localStorage.setItem(`cardOrder_${idx}`, JSON.stringify(order));
-                        });
-                    });
-
-                    // 拖动进入容器
-                    container.addEventListener('dragenter', function (e) {
-                        e.preventDefault();
-                    });
-
-                    // 拖动离开容器时清除样式
-                    container.addEventListener('dragleave', function (e) {
-                        // 只有当真正离开容器时才清除
-                        if (!container.contains(e.relatedTarget)) {
-                            container.querySelectorAll('.col-sm-3').forEach(card => {
-                                card.classList.remove('drag-insert-before', 'drag-insert-after', 'drag-over');
-                            });
-                        }
-                    });
-                });
-
-                // ========== 9. 恢复默认排序按钮 ==========
-                const resetBtn = document.getElementById('resetOrder');
-                if (resetBtn) {
-                    resetBtn.addEventListener('click', function () {
-                        if (confirm('确定要恢复默认排序吗？')) {
-                            allRows.forEach((container, rowIndex) => {
-                                const defaultKey = `defaultOrder_${rowIndex}`;
-                                const defaultOrder = localStorage.getItem(defaultKey);
-                                if (defaultOrder) {
-                                    applyOrder(container, JSON.parse(defaultOrder));
-                                    localStorage.removeItem(`cardOrder_${rowIndex}`);
-                                }
-                            });
-                        }
-                    });
-                }
-
-                // ========== 10. 显示已隐藏卡片按钮 ==========
-                const showHiddenBtn = document.getElementById('showHiddenCards');
-                const panel = document.getElementById('hiddenCardsPanel');
-                const overlay = document.getElementById('panelOverlay');
-                const panelClose = document.getElementById('panelClose');
-
-                if (showHiddenBtn && panel && overlay) {
-                    showHiddenBtn.addEventListener('click', function () {
-                        updateHiddenPanel();
-                        panel.classList.add('active');
-                        overlay.classList.add('active');
-                    });
-                }
-
-                function closePanel() {
-                    if (panel) panel.classList.remove('active');
-                    if (overlay) overlay.classList.remove('active');
-                }
-
-                if (panelClose) {
-                    panelClose.addEventListener('click', closePanel);
-                }
-
-                if (overlay) {
-                    overlay.addEventListener('click', closePanel);
-                }
-
-                // ========== 辅助函数 ==========
-                function getDragAfterElement(container, y) {
-                    const cards = [...container.querySelectorAll('.col-sm-3[draggable="true"]:not(.dragging):not(.card-hidden)')];
-                    if (cards.length === 0) return null;
-
-                    return cards.reduce((closest, card) => {
-                        const box = card.getBoundingClientRect();
-                        const offset = y - box.top - box.height / 2;
-                        if (offset < 0 && offset > closest.offset) {
-                            return { offset: offset, element: card };
-                        }
-                        return closest;
-                    }, { offset: Number.NEGATIVE_INFINITY }).element;
-                }
-
-                function applyOrder(container, order) {
-                    order.forEach(id => {
-                        const card = document.getElementById(id);
-                        if (card && container.contains(card) && !card.classList.contains('card-hidden')) {
-                            container.appendChild(card);
-                        }
-                    });
-                }
-
-                // 全局拖动处理：支持跨容器拖动（类似iPhone APP）
-                document.addEventListener('dragover', function (e) {
-                    if (!draggedCardId || !draggedCardElement) return;
-
-                    // 找到鼠标位置下的所有容器
-                    const elementsBelow = document.elementsFromPoint(e.clientX, e.clientY);
-                    const targetRow = elementsBelow.find(el => el.classList.contains('row'));
-
-                    if (targetRow && targetRow !== draggedCardElement.closest('.row')) {
-                        // 鼠标在另一个容器上，触发该容器的dragover
-                        e.preventDefault();
-                        const event = new DragEvent('dragover', {
-                            bubbles: true,
-                            cancelable: true,
-                            clientX: e.clientX,
-                            clientY: e.clientY
-                        });
-                        targetRow.dispatchEvent(event);
-                    }
-                }, false);
-
-                // 初始化管理面板
-                updateHiddenPanel();
-            });
-        </script>
-        <script>
-            // 禁止右键
-            document.addEventListener('contextmenu', function (e) {
-                e.preventDefault();
-                location.href = '/';
-            });
-
-            // 禁止 F12 / Ctrl+Shift+I / Ctrl+U
-            document.addEventListener('keydown', function (e) {
-                if (
-                    e.key === 'F12' ||
-                    (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'i') ||
-                    (e.ctrlKey && e.key.toLowerCase() === 'u')
-                ) {
-                    e.preventDefault();
-                    location.href = '/';
-                }
-            });
-        </script>
-
-        <!-- 卡片状态检测 -->
-        <script>
-            (function () {
-                document.addEventListener('DOMContentLoaded', function () {
-                    const cards = document.querySelectorAll('.xe-widget');
-                    const isHttps = location.protocol === 'https:';
-
-                    cards.forEach((card, index) => {
-                        const indicator = document.createElement('div');
-                        indicator.className = 'card-status-indicator checking';
-                        indicator.title = '检测中...';
-                        card.appendChild(indicator);
-
-                        const link = card.getAttribute('onclick');
-                        if (!link) return;
-                        const urlMatch = link.match(/window\.open\(['"]([^'"]+)['"]/);
-                        if (!urlMatch) return;
-                        const url = urlMatch[1];
-
-                        // 协议检查：HTTPS页面下无法检测HTTP链接
-                        if (isHttps && url.startsWith('http:')) {
-                            indicator.className = 'card-status-indicator unknown';
-                            indicator.title = 'HTTP站点 (HTTPS下无法检测)';
-                            indicator.style.background = '#f59e0b'; // 黄色
-                            return;
-                        }
-
-                        // 错峰检测
-                        setTimeout(() => {
-                            checkUrlWithFallback(url, indicator);
-                        }, index * 200);
-                    });
-                });
-
-                // 双重检测机制：Fetch -> 失败 -> Favicon -> 失败 -> 重试 -> 离线
-                async function checkUrlWithFallback(url, indicator) {
-                    // 尝试次数
-                    const maxRetries = 2;
-
-                    for (let i = 0; i <= maxRetries; i++) {
-                        try {
-                            // 尝试并行检测（Fetch 和 Favicon 哪个快用哪个）
-                            await Promise.any([
-                                checkUrlFetch(url),
-                                checkFavicon(url)
-                            ]);
-
-                            // 成功
-                            setOnline(indicator, '连接正常');
-                            return;
-                        } catch (e) {
-                            // 如果是最后一次尝试，且都失败了
-                            if (i === maxRetries) {
-                                indicator.className = 'card-status-indicator offline';
-                                indicator.title = '无法连接 (由于浏览器安全策略，可能存在误判)';
-                            } else {
-                                // 等待1秒后重试
-                                await new Promise(r => setTimeout(r, 1000));
-                            }
-                        }
-                    }
-                }
-
-                function setOnline(indicator, msg) {
-                    indicator.className = 'card-status-indicator online';
-                    indicator.title = msg;
-                }
-
-                function checkUrlFetch(url) {
-                    return new Promise((resolve, reject) => {
-                        const controller = new AbortController();
-                        // 延长超时到 8 秒
-                        const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-                        fetch(url, {
-                            method: 'GET',
-                            mode: 'no-cors',
-                            cache: 'no-cache',
-                            referrerPolicy: 'no-referrer',
-                            signal: controller.signal
-                        })
-                            .then(() => {
-                                clearTimeout(timeoutId);
-                                resolve();
-                            })
-                            .catch((err) => {
-                                clearTimeout(timeoutId);
-                                reject(err);
-                            });
-                    });
-                }
-
-                function checkFavicon(url) {
-                    return new Promise((resolve, reject) => {
-                        const img = new Image();
-                        // 延长图片加载超时到 8 秒
-                        const timeoutId = setTimeout(() => {
-                            img.src = '';
-                            reject();
-                        }, 8000);
-
-                        img.onload = () => {
-                            clearTimeout(timeoutId);
-                            resolve();
-                        };
-                        img.onerror = () => {
-                            clearTimeout(timeoutId);
-                            reject();
-                        };
-
-                        try {
-                            const urlObj = new URL(url);
-                            img.src = `${urlObj.protocol}//${urlObj.host}/favicon.ico?t=${Date.now()}`;
-                        } catch (e) {
-                            reject();
-                        }
-                    });
-                }
-            })();
-        </script>
-        <!-- 添加链接模态框 -->
-        <div class="panel-overlay" id="addCardOverlay"></div>
-        <div class="hidden-cards-panel" id="addCardModal">
-            <button class="panel-close" onclick="closeAddCardModal()">×</button>
-            <h3>添加收藏</h3>
-            <div class="add-card-form">
-                <div class="form-group">
-                    <label>网站标题</label>
-                    <input type="text" id="cardTitle" class="form-control" placeholder="例如：我的博客">
-                </div>
-                <div class="form-group">
-                    <label>网站链接 (URL)</label>
-                    <input type="text" id="cardUrl" class="form-control" placeholder="https://example.com"
-                        onblur="autoFillFavicon()">
-                    <small style="color: #666; display: block; margin-top: 5px;">输入链接后移开鼠标，尝试自动获取图标</small>
-                </div>
-                <div class="form-group">
-                    <label>描述 (可选)</label>
-                    <input type="text" id="cardDesc" class="form-control" placeholder="关于这个网站的描述...">
-                </div>
-                <div class="form-group">
-                    <label>图标链接 (可选)</label>
-                    <div style="display: flex; gap: 10px; align-items: center;">
-                        <img id="cardIconPreview" src="../assets/images/logos/pinterest.png" width="40" height="40"
-                            style="border-radius: 50%; background: #333;">
-                        <input type="text" id="cardIcon" class="form-control" placeholder="图标URL，留空则自动获取">
-                    </div>
-                </div>
-                <button class="btn-save-card" onclick="saveNewCard()">保存链接</button>
-            </div>
-        </div>
-
-        <style>
-            /* 我的收藏样式 */
-            .add-card-btn {
-                border: 2px dashed rgba(255, 255, 255, 0.1) !important;
-                background: transparent !important;
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                min-height: 100px;
-                transition: all 0.3s;
-                box-shadow: none !important;
             }
 
-            .add-card-btn:hover {
-                border-color: rgba(255, 255, 255, 0.3) !important;
-                background: rgba(255, 255, 255, 0.02) !important;
-                transform: translateY(-2px);
-            }
+            // ========== 5. 更新隐藏卡片管理面板 ==========
+            function updateHiddenPanel() {
+                const hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
+                const listContainer = document.getElementById('hiddenCardsList');
 
-            .add-card-inner {
-                text-align: center;
-                color: #888;
-            }
+                if (!listContainer) return;
 
-            .add-card-inner i {
-                font-size: 24px;
-                display: block;
-                margin-bottom: 8px;
-            }
+                // 清空容器
+                listContainer.innerHTML = '';
 
-            /* 模态框表单样式 */
-            .add-card-form {
-                text-align: left;
-            }
-
-            .add-card-form .form-group {
-                margin-bottom: 15px;
-            }
-
-            .add-card-form label {
-                display: block;
-                color: #ccc;
-                margin-bottom: 5px;
-            }
-
-            .add-card-form .form-control {
-                width: 100%;
-                padding: 10px;
-                background: rgba(255, 255, 255, 0.05);
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                color: #fff;
-                border-radius: 4px;
-            }
-
-            .add-card-form .form-control:focus {
-                border-color: #3b82f6;
-                outline: none;
-            }
-
-            .btn-save-card {
-                width: 100%;
-                padding: 12px;
-                background: #3b82f6;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                font-size: 16px;
-                cursor: pointer;
-                margin-top: 10px;
-                transition: background 0.2s;
-            }
-
-            .btn-save-card:hover {
-                background: #2563eb;
-            }
-
-            /* 自定义卡片删除按钮 */
-            .card-delete-btn {
-                position: absolute;
-                top: 5px;
-                right: 5px;
-                width: 20px;
-                height: 20px;
-                background: #ef4444;
-                color: white;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 12px;
-                opacity: 0;
-                transition: opacity 0.2s;
-                cursor: pointer;
-                z-index: 10;
-            }
-
-            .xe-widget:hover .card-delete-btn {
-                opacity: 1;
-            }
-        </style>
-
-        <script>
-            // ========== 我的收藏功能 ==========
-            const FAV_KEY = 'my_favorites_v1';
-
-            function openAddCardModal() {
-                document.getElementById('addCardOverlay').classList.add('active');
-                document.getElementById('addCardModal').classList.add('active');
-                // 清空表单
-                document.getElementById('cardTitle').value = '';
-                document.getElementById('cardUrl').value = '';
-                document.getElementById('cardDesc').value = '';
-                document.getElementById('cardIcon').value = '';
-                document.getElementById('cardIconPreview').src = '../assets/images/logos/pinterest.png';
-            }
-
-            function closeAddCardModal() {
-                document.getElementById('addCardOverlay').classList.remove('active');
-                document.getElementById('addCardModal').classList.remove('active');
-            }
-
-            // 自动提取 favicon
-            function autoFillFavicon() {
-                const url = document.getElementById('cardUrl').value.trim();
-                if (!url) return;
-
-                try {
-                    // 如果没有输入图标，尝试自动获取
-                    if (!document.getElementById('cardIcon').value) {
-                        let domain = new URL(url).origin;
-                        let favicon = `${domain}/favicon.ico`;
-                        document.getElementById('cardIconPreview').src = favicon;
-                        document.getElementById('cardIcon').value = favicon; // 隐式填入
-                    }
-                } catch (e) { }
-            }
-
-            // 监听图标输入变化
-            document.getElementById('cardIcon').addEventListener('input', function () {
-                if (this.value) {
-                    document.getElementById('cardIconPreview').src = this.value;
-                }
-            });
-
-            function saveNewCard() {
-                const title = document.getElementById('cardTitle').value.trim();
-                const url = document.getElementById('cardUrl').value.trim();
-                const desc = document.getElementById('cardDesc').value.trim() || '我的自定义收藏链接';
-                let icon = document.getElementById('cardIcon').value.trim();
-
-                if (!title || !url) {
-                    alert('请填写标题和链接！');
+                if (hiddenCards.length === 0) {
+                    listContainer.innerHTML = '<p style="color: #999; text-align: center;">暂无隐藏的卡片</p>';
                     return;
                 }
 
-                if (!icon) {
+                // 使用安全的DOM操作，避免XSS
+                // 确保显示所有隐藏的卡片，包括那些可能丢失的
+                hiddenCards.forEach((card, index) => {
+                    // 验证卡片数据完整性
+                    if (!card || !card.id) {
+                        console.warn('发现无效的隐藏卡片数据:', card);
+                        return;
+                    }
+
+                    const item = document.createElement('div');
+                    item.className = 'hidden-card-item';
+                    item.setAttribute('data-card-id', card.id);
+
+                    const title = document.createElement('div');
+                    title.className = 'card-title';
+                    title.textContent = card.title || `卡片 ${index + 1}`;
+
+                    const restoreBtn = document.createElement('button');
+                    restoreBtn.className = 'card-restore-btn';
+                    restoreBtn.textContent = '恢复显示';
+                    restoreBtn.onclick = function () {
+                        restoreCard(card.id);
+                    };
+
+                    item.appendChild(title);
+                    item.appendChild(restoreBtn);
+                    listContainer.appendChild(item);
+                });
+
+                // 调试信息
+                console.log('已显示隐藏卡片数量:', hiddenCards.length);
+            }
+
+            // ========== 6. 恢复卡片（全局函数） ==========
+            window.restoreCard = function (cardId) {
+                showCard(cardId);
+            };
+
+            // ========== 7. 加载已隐藏的卡片 ==========
+            // 注意：需要在添加隐藏按钮之后执行，确保所有卡片都已初始化
+            setTimeout(function () {
+                const hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
+                hiddenCards.forEach(card => {
+                    if (card && card.id) {
+                        const cardContainer = document.getElementById(card.id);
+                        if (cardContainer) {
+                            cardContainer.classList.add('card-hidden');
+                        }
+                    }
+                });
+            }, 100);
+
+            // ========== 8. 拖拽排序功能 - 支持跨栏拖动（类似iPhone APP）==========
+            const allRows = document.querySelectorAll('.row');
+            let draggedCardId = null; // 全局拖拽卡片ID
+            let draggedCardElement = null; // 全局拖拽卡片元素
+            let lastDragTime = 0; // 用于节流
+            const DRAG_THROTTLE = 50; // 节流时间（毫秒）
+
+            // 为所有卡片添加拖拽事件（支持跨栏）
+            document.querySelectorAll('.col-sm-3[draggable="true"]').forEach(card => {
+                if (card.classList.contains('card-hidden')) return;
+
+                card.addEventListener('dragstart', function (e) {
+                    draggedCardId = this.id;
+                    draggedCardElement = this;
+                    e.dataTransfer.setData('text/plain', this.id);
+                    e.dataTransfer.effectAllowed = 'move';
+
+                    // 添加拖动样式
+                    this.classList.add('dragging');
+
+                    // 创建拖动预览图像
+                    const dragImage = this.cloneNode(true);
+                    dragImage.style.transform = 'rotate(5deg)';
+                    dragImage.style.opacity = '0.8';
+                    document.body.appendChild(dragImage);
+                    dragImage.style.position = 'absolute';
+                    dragImage.style.top = '-1000px';
+                    e.dataTransfer.setDragImage(dragImage, e.offsetX, e.offsetY);
+                    setTimeout(() => {
+                        if (document.body.contains(dragImage)) {
+                            document.body.removeChild(dragImage);
+                        }
+                    }, 0);
+                });
+
+                card.addEventListener('dragend', function () {
+                    // 清除所有拖动样式（所有容器）
+                    this.classList.remove('dragging');
+                    allRows.forEach(container => {
+                        container.querySelectorAll('.col-sm-3').forEach(c => {
+                            c.classList.remove('drag-insert-before', 'drag-insert-after', 'drag-over');
+                        });
+                    });
+                    draggedCardId = null;
+                    draggedCardElement = null;
+                    lastDragTime = 0;
+                });
+            });
+
+            // 为所有容器添加跨栏拖动支持
+            allRows.forEach((container, rowIndex) => {
+                const cards = container.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)');
+                if (cards.length === 0) return;
+
+                const storageKey = `cardOrder_${rowIndex}`;
+                const defaultKey = `defaultOrder_${rowIndex}`;
+
+                // 保存默认顺序（首次加载时记录，排除隐藏的卡片）
+                if (!localStorage.getItem(defaultKey)) {
+                    const defaultIds = Array.from(cards)
+                        .filter(card => !card.classList.contains('card-hidden'))
+                        .map(card => card.id);
+                    localStorage.setItem(defaultKey, JSON.stringify(defaultIds));
+                }
+
+                // 加载用户保存的顺序
+                const savedOrder = localStorage.getItem(storageKey);
+                if (savedOrder) {
+                    applyOrder(container, JSON.parse(savedOrder));
+                }
+
+                // 使用节流的dragover事件处理
+                container.addEventListener('dragover', function (e) {
+                    e.preventDefault();
+
+                    // 节流控制
+                    const now = Date.now();
+                    if (now - lastDragTime < DRAG_THROTTLE) {
+                        return;
+                    }
+                    lastDragTime = now;
+
+                    if (!draggedCardId || !draggedCardElement) return;
+
+                    // 清除当前容器的所有插入指示器
+                    container.querySelectorAll('.col-sm-3').forEach(card => {
+                        card.classList.remove('drag-insert-before', 'drag-insert-after', 'drag-over');
+                    });
+
+                    // 如果拖动的卡片不在当前容器，先移动到当前容器
+                    if (!container.contains(draggedCardElement)) {
+                        // 找到插入位置
+                        const afterElement = getDragAfterElement(container, e.clientY);
+                        if (afterElement) {
+                            container.insertBefore(draggedCardElement, afterElement);
+                        } else {
+                            container.appendChild(draggedCardElement);
+                        }
+                    } else {
+                        // 在同一容器内移动
+                        const afterElement = getDragAfterElement(container, e.clientY);
+
+                        if (afterElement && afterElement !== draggedCardElement) {
+                            afterElement.classList.add('drag-insert-before');
+                            container.insertBefore(draggedCardElement, afterElement);
+                        } else if (!afterElement) {
+                            // 最后一个元素
+                            const lastCard = container.querySelector('.col-sm-3:last-of-type:not(.dragging)');
+                            if (lastCard && lastCard !== draggedCardElement) {
+                                lastCard.classList.add('drag-insert-after');
+                            }
+                            container.appendChild(draggedCardElement);
+                        }
+                    }
+                });
+
+                // 保存新顺序
+                container.addEventListener('drop', function (e) {
+                    e.preventDefault();
+
+                    // 清除所有拖动样式
+                    allRows.forEach(c => {
+                        c.querySelectorAll('.col-sm-3').forEach(card => {
+                            card.classList.remove('drag-insert-before', 'drag-insert-after', 'drag-over');
+                        });
+                    });
+
+                    // 保存当前容器的顺序
+                    const newOrder = Array.from(container.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)')).map(card => card.id);
+                    localStorage.setItem(storageKey, JSON.stringify(newOrder));
+
+                    // 更新所有容器的顺序（因为可能跨栏移动）
+                    allRows.forEach((c, idx) => {
+                        const order = Array.from(c.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)')).map(card => card.id);
+                        localStorage.setItem(`cardOrder_${idx}`, JSON.stringify(order));
+                    });
+                });
+
+                // 拖动进入容器
+                container.addEventListener('dragenter', function (e) {
+                    e.preventDefault();
+                });
+
+                // 拖动离开容器时清除样式
+                container.addEventListener('dragleave', function (e) {
+                    // 只有当真正离开容器时才清除
+                    if (!container.contains(e.relatedTarget)) {
+                        container.querySelectorAll('.col-sm-3').forEach(card => {
+                            card.classList.remove('drag-insert-before', 'drag-insert-after', 'drag-over');
+                        });
+                    }
+                });
+            });
+
+            // ========== 9. 恢复默认排序按钮 ==========
+            const resetBtn = document.getElementById('resetOrder');
+            if (resetBtn) {
+                resetBtn.addEventListener('click', function () {
+                    if (confirm('确定要恢复默认排序吗？')) {
+                        allRows.forEach((container, rowIndex) => {
+                            const defaultKey = `defaultOrder_${rowIndex}`;
+                            const defaultOrder = localStorage.getItem(defaultKey);
+                            if (defaultOrder) {
+                                applyOrder(container, JSON.parse(defaultOrder));
+                                localStorage.removeItem(`cardOrder_${rowIndex}`);
+                            }
+                        });
+                    }
+                });
+            }
+
+            // ========== 10. 显示已隐藏卡片按钮 ==========
+            const showHiddenBtn = document.getElementById('showHiddenCards');
+            const panel = document.getElementById('hiddenCardsPanel');
+            const overlay = document.getElementById('panelOverlay');
+            const panelClose = document.getElementById('panelClose');
+
+            if (showHiddenBtn && panel && overlay) {
+                showHiddenBtn.addEventListener('click', function () {
+                    updateHiddenPanel();
+                    panel.classList.add('active');
+                    overlay.classList.add('active');
+                });
+            }
+
+            function closePanel() {
+                if (panel) panel.classList.remove('active');
+                if (overlay) overlay.classList.remove('active');
+            }
+
+            if (panelClose) {
+                panelClose.addEventListener('click', closePanel);
+            }
+
+            if (overlay) {
+                overlay.addEventListener('click', closePanel);
+            }
+
+            // ========== 辅助函数 ==========
+            function getDragAfterElement(container, y) {
+                const cards = [...container.querySelectorAll('.col-sm-3[draggable="true"]:not(.dragging):not(.card-hidden)')];
+                if (cards.length === 0) return null;
+
+                return cards.reduce((closest, card) => {
+                    const box = card.getBoundingClientRect();
+                    const offset = y - box.top - box.height / 2;
+                    if (offset < 0 && offset > closest.offset) {
+                        return { offset: offset, element: card };
+                    }
+                    return closest;
+                }, { offset: Number.NEGATIVE_INFINITY }).element;
+            }
+
+            function applyOrder(container, order) {
+                order.forEach(id => {
+                    const card = document.getElementById(id);
+                    if (card && container.contains(card) && !card.classList.contains('card-hidden')) {
+                        container.appendChild(card);
+                    }
+                });
+            }
+
+            // 全局拖动处理：支持跨容器拖动（类似iPhone APP）
+            document.addEventListener('dragover', function (e) {
+                if (!draggedCardId || !draggedCardElement) return;
+
+                // 找到鼠标位置下的所有容器
+                const elementsBelow = document.elementsFromPoint(e.clientX, e.clientY);
+                const targetRow = elementsBelow.find(el => el.classList.contains('row'));
+
+                if (targetRow && targetRow !== draggedCardElement.closest('.row')) {
+                    // 鼠标在另一个容器上，触发该容器的dragover
+                    e.preventDefault();
+                    const event = new DragEvent('dragover', {
+                        bubbles: true,
+                        cancelable: true,
+                        clientX: e.clientX,
+                        clientY: e.clientY
+                    });
+                    targetRow.dispatchEvent(event);
+                }
+            }, false);
+
+            // 初始化管理面板
+            updateHiddenPanel();
+        });
+    </script>
+    <script>
+        // 禁止右键
+        document.addEventListener('contextmenu', function (e) {
+            e.preventDefault();
+            location.href = '/';
+        });
+
+        // 禁止 F12 / Ctrl+Shift+I / Ctrl+U
+        document.addEventListener('keydown', function (e) {
+            if (
+                e.key === 'F12' ||
+                (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'i') ||
+                (e.ctrlKey && e.key.toLowerCase() === 'u')
+            ) {
+                e.preventDefault();
+                location.href = '/';
+            }
+        });
+    </script>
+
+    <!-- 卡片状态检测 -->
+    <script>
+        (function () {
+            document.addEventListener('DOMContentLoaded', function () {
+                const cards = document.querySelectorAll('.xe-widget');
+                const isHttps = location.protocol === 'https:';
+
+                cards.forEach((card, index) => {
+                    const indicator = document.createElement('div');
+                    indicator.className = 'card-status-indicator checking';
+                    indicator.title = '检测中...';
+                    card.appendChild(indicator);
+
+                    const link = card.getAttribute('onclick');
+                    if (!link) return;
+                    const urlMatch = link.match(/window\.open\(['"]([^'"]+)['"]/);
+                    if (!urlMatch) return;
+                    const url = urlMatch[1];
+
+                    // 协议检查：HTTPS页面下无法检测HTTP链接
+                    if (isHttps && url.startsWith('http:')) {
+                        indicator.className = 'card-status-indicator unknown';
+                        indicator.title = 'HTTP站点 (HTTPS下无法检测)';
+                        indicator.style.background = '#f59e0b'; // 黄色
+                        return;
+                    }
+
+                    // 错峰检测
+                    setTimeout(() => {
+                        checkUrlWithFallback(url, indicator);
+                    }, index * 200);
+                });
+            });
+
+            // 双重检测机制：Fetch -> 失败 -> Favicon -> 失败 -> 重试 -> 离线
+            async function checkUrlWithFallback(url, indicator) {
+                // 尝试次数
+                const maxRetries = 2;
+
+                for (let i = 0; i <= maxRetries; i++) {
                     try {
-                        icon = new URL(url).origin + '/favicon.ico';
+                        // 尝试并行检测（Fetch 和 Favicon 哪个快用哪个）
+                        await Promise.any([
+                            checkUrlFetch(url),
+                            checkFavicon(url)
+                        ]);
+
+                        // 成功
+                        setOnline(indicator, '连接正常');
+                        return;
                     } catch (e) {
-                        icon = '../assets/images/logos/pinterest.png';
+                        // 如果是最后一次尝试，且都失败了
+                        if (i === maxRetries) {
+                            indicator.className = 'card-status-indicator offline';
+                            indicator.title = '无法连接 (由于浏览器安全策略，可能存在误判)';
+                        } else {
+                            // 等待1秒后重试
+                            await new Promise(r => setTimeout(r, 1000));
+                        }
                     }
                 }
-
-                const newCard = {
-                    id: 'fav_' + Date.now(),
-                    title,
-                    url,
-                    desc,
-                    icon
-                };
-
-                // 保存到 LocalStorage
-                let favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
-                favs.push(newCard);
-                localStorage.setItem(FAV_KEY, JSON.stringify(favs));
-
-                // 渲染
-                renderFavorites();
-                closeAddCardModal();
             }
 
-            function deleteFavCard(id, e) {
-                e.stopPropagation(); // 防止触发点击跳转
-                if (confirm('确定要删除这个收藏吗？')) {
-                    let favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
-                    favs = favs.filter(c => c.id !== id);
-                    localStorage.setItem(FAV_KEY, JSON.stringify(favs));
-                    renderFavorites();
+            function setOnline(indicator, msg) {
+                indicator.className = 'card-status-indicator online';
+                indicator.title = msg;
+            }
+
+            function checkUrlFetch(url) {
+                return new Promise((resolve, reject) => {
+                    const controller = new AbortController();
+                    // 延长超时到 8 秒
+                    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+                    fetch(url, {
+                        method: 'GET',
+                        mode: 'no-cors',
+                        cache: 'no-cache',
+                        referrerPolicy: 'no-referrer',
+                        signal: controller.signal
+                    })
+                        .then(() => {
+                            clearTimeout(timeoutId);
+                            resolve();
+                        })
+                        .catch((err) => {
+                            clearTimeout(timeoutId);
+                            reject(err);
+                        });
+                });
+            }
+
+            function checkFavicon(url) {
+                return new Promise((resolve, reject) => {
+                    const img = new Image();
+                    // 延长图片加载超时到 8 秒
+                    const timeoutId = setTimeout(() => {
+                        img.src = '';
+                        reject();
+                    }, 8000);
+
+                    img.onload = () => {
+                        clearTimeout(timeoutId);
+                        resolve();
+                    };
+                    img.onerror = () => {
+                        clearTimeout(timeoutId);
+                        reject();
+                    };
+
+                    try {
+                        const urlObj = new URL(url);
+                        img.src = `${urlObj.protocol}//${urlObj.host}/favicon.ico?t=${Date.now()}`;
+                    } catch (e) {
+                        reject();
+                    }
+                });
+            }
+        })();
+    </script>
+    <!-- 添加链接模态框 -->
+    <div class="panel-overlay" id="addCardOverlay"></div>
+    <div class="hidden-cards-panel" id="addCardModal">
+        <button class="panel-close" onclick="closeAddCardModal()">×</button>
+        <h3>添加收藏</h3>
+        <div class="add-card-form">
+            <div class="form-group">
+                <label>网站标题</label>
+                <input type="text" id="cardTitle" class="form-control" placeholder="例如：我的博客">
+            </div>
+            <div class="form-group">
+                <label>网站链接 (URL)</label>
+                <input type="text" id="cardUrl" class="form-control" placeholder="https://example.com"
+                    onblur="autoFillFavicon()">
+                <small style="color: #666; display: block; margin-top: 5px;">输入链接后移开鼠标，尝试自动获取图标</small>
+            </div>
+            <div class="form-group">
+                <label>描述 (可选)</label>
+                <input type="text" id="cardDesc" class="form-control" placeholder="关于这个网站的描述...">
+            </div>
+            <div class="form-group">
+                <label>图标链接 (可选)</label>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <img id="cardIconPreview" src="../assets/images/logos/pinterest.png" width="40" height="40"
+                        style="border-radius: 50%; background: #333;">
+                    <input type="text" id="cardIcon" class="form-control" placeholder="图标URL，留空则自动获取">
+                </div>
+            </div>
+            <button class="btn-save-card" onclick="saveNewCard()">保存链接</button>
+        </div>
+    </div>
+
+    <style>
+        /* 我的收藏样式 */
+        .add-card-btn {
+            border: 2px dashed rgba(255, 255, 255, 0.1) !important;
+            background: transparent !important;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100px;
+            transition: all 0.3s;
+            box-shadow: none !important;
+        }
+
+        .add-card-btn:hover {
+            border-color: rgba(255, 255, 255, 0.3) !important;
+            background: rgba(255, 255, 255, 0.02) !important;
+            transform: translateY(-2px);
+        }
+
+        .add-card-inner {
+            text-align: center;
+            color: #888;
+        }
+
+        .add-card-inner i {
+            font-size: 24px;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        /* 模态框表单样式 */
+        .add-card-form {
+            text-align: left;
+        }
+
+        .add-card-form .form-group {
+            margin-bottom: 15px;
+        }
+
+        .add-card-form label {
+            display: block;
+            color: #ccc;
+            margin-bottom: 5px;
+        }
+
+        .add-card-form .form-control {
+            width: 100%;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border-radius: 4px;
+        }
+
+        .add-card-form .form-control:focus {
+            border-color: #3b82f6;
+            outline: none;
+        }
+
+        .btn-save-card {
+            width: 100%;
+            padding: 12px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background 0.2s;
+        }
+
+        .btn-save-card:hover {
+            background: #2563eb;
+        }
+
+        /* 自定义卡片删除按钮 */
+        .card-delete-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 20px;
+            height: 20px;
+            background: #ef4444;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.2s;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        .xe-widget:hover .card-delete-btn {
+            opacity: 1;
+        }
+    </style>
+
+    <script>
+        // ========== 我的收藏功能 ==========
+        const FAV_KEY = 'my_favorites_v1';
+
+        function openAddCardModal() {
+            document.getElementById('addCardOverlay').classList.add('active');
+            document.getElementById('addCardModal').classList.add('active');
+            // 清空表单
+            document.getElementById('cardTitle').value = '';
+            document.getElementById('cardUrl').value = '';
+            document.getElementById('cardDesc').value = '';
+            document.getElementById('cardIcon').value = '';
+            document.getElementById('cardIconPreview').src = '../assets/images/logos/pinterest.png';
+        }
+
+        function closeAddCardModal() {
+            document.getElementById('addCardOverlay').classList.remove('active');
+            document.getElementById('addCardModal').classList.remove('active');
+        }
+
+        // 自动提取 favicon
+        function autoFillFavicon() {
+            const url = document.getElementById('cardUrl').value.trim();
+            if (!url) return;
+
+            try {
+                // 如果没有输入图标，尝试自动获取
+                if (!document.getElementById('cardIcon').value) {
+                    let domain = new URL(url).origin;
+                    let favicon = `${domain}/favicon.ico`;
+                    document.getElementById('cardIconPreview').src = favicon;
+                    document.getElementById('cardIcon').value = favicon; // 隐式填入
+                }
+            } catch (e) { }
+        }
+
+        // 监听图标输入变化
+        document.getElementById('cardIcon').addEventListener('input', function () {
+            if (this.value) {
+                document.getElementById('cardIconPreview').src = this.value;
+            }
+        });
+
+        function saveNewCard() {
+            const title = document.getElementById('cardTitle').value.trim();
+            const url = document.getElementById('cardUrl').value.trim();
+            const desc = document.getElementById('cardDesc').value.trim() || '我的自定义收藏链接';
+            let icon = document.getElementById('cardIcon').value.trim();
+
+            if (!title || !url) {
+                alert('请填写标题和链接！');
+                return;
+            }
+
+            if (!icon) {
+                try {
+                    icon = new URL(url).origin + '/favicon.ico';
+                } catch (e) {
+                    icon = '../assets/images/logos/pinterest.png';
                 }
             }
 
-            function renderFavorites() {
-                const container = document.getElementById('my-favorites-list');
-                if (!container) return;
+            const newCard = {
+                id: 'fav_' + Date.now(),
+                title,
+                url,
+                desc,
+                icon
+            };
 
-                const favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
+            // 保存到 LocalStorage
+            let favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
+            favs.push(newCard);
+            localStorage.setItem(FAV_KEY, JSON.stringify(favs));
 
-                // 清空现有内容
-                container.innerHTML = '';
+            // 渲染
+            renderFavorites();
+            closeAddCardModal();
+        }
 
-                favs.forEach(card => {
-                    const html = `
+        function deleteFavCard(id, e) {
+            e.stopPropagation(); // 防止触发点击跳转
+            if (confirm('确定要删除这个收藏吗？')) {
+                let favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
+                favs = favs.filter(c => c.id !== id);
+                localStorage.setItem(FAV_KEY, JSON.stringify(favs));
+                renderFavorites();
+            }
+        }
+
+        function renderFavorites() {
+            const container = document.getElementById('my-favorites-list');
+            if (!container) return;
+
+            const favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
+
+            // 清空现有内容
+            container.innerHTML = '';
+
+            favs.forEach(card => {
+                const html = `
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info" 
                          onclick="window.open('${card.url}', '_blank')" 
@@ -6851,317 +6855,317 @@
                         </div>
                     </div>
                 </div>`;
-                    container.insertAdjacentHTML('beforeend', html);
-                });
-
-                // 重新初始化 tooltip
-                if (window.jQuery && window.jQuery.fn.tooltip) {
-                    $('[data-toggle="tooltip"]').tooltip();
-                }
-            }
-
-            // 初始化
-            document.addEventListener('DOMContentLoaded', function () {
-                renderFavorites();
-
-                // 点击遮罩关闭
-                document.getElementById('addCardOverlay').addEventListener('click', closeAddCardModal);
+                container.insertAdjacentHTML('beforeend', html);
             });
 
-            // 导出收藏数据
-            function exportFavorites() {
-                const favs = localStorage.getItem(FAV_KEY);
-                if (!favs || favs === '[]') {
-                    alert('还没有收藏任何链接哦！');
-                    return;
-                }
-                const blob = new Blob([favs], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'my_nav_backup_' + new Date().toISOString().slice(0, 10) + '.json';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
+            // 重新初始化 tooltip
+            if (window.jQuery && window.jQuery.fn.tooltip) {
+                $('[data-toggle="tooltip"]').tooltip();
             }
+        }
 
-            // 导入收藏数据
-            function importFavorites(input) {
-                const file = input.files[0];
-                if (!file) return;
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function () {
+            renderFavorites();
 
-                const reader = new FileReader();
-                reader.onload = function (e) {
-                    try {
-                        const json = e.target.result;
-                        const data = JSON.parse(json);
-                        if (Array.isArray(data)) {
-                            if (confirm('导入将覆盖当前的收藏数据，确定要继续吗？')) {
-                                localStorage.setItem(FAV_KEY, JSON.stringify(data));
-                                renderFavorites();
-                                alert('导入成功！');
-                                closeAddCardModal();
-                            }
-                        } else {
-                            alert('文件格式不正确！');
+            // 点击遮罩关闭
+            document.getElementById('addCardOverlay').addEventListener('click', closeAddCardModal);
+        });
+
+        // 导出收藏数据
+        function exportFavorites() {
+            const favs = localStorage.getItem(FAV_KEY);
+            if (!favs || favs === '[]') {
+                alert('还没有收藏任何链接哦！');
+                return;
+            }
+            const blob = new Blob([favs], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'my_nav_backup_' + new Date().toISOString().slice(0, 10) + '.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // 导入收藏数据
+        function importFavorites(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const json = e.target.result;
+                    const data = JSON.parse(json);
+                    if (Array.isArray(data)) {
+                        if (confirm('导入将覆盖当前的收藏数据，确定要继续吗？')) {
+                            localStorage.setItem(FAV_KEY, JSON.stringify(data));
+                            renderFavorites();
+                            alert('导入成功！');
+                            closeAddCardModal();
                         }
-                    } catch (err) {
-                        alert('无法解析文件，请确保是有效的备份文件。');
+                    } else {
+                        alert('文件格式不正确！');
                     }
-                    // 清重input，防止同名文件不触发onchange
-                    input.value = '';
-                };
-                reader.readAsText(file);
-            }
-        </script>
+                } catch (err) {
+                    alert('无法解析文件，请确保是有效的备份文件。');
+                }
+                // 清重input，防止同名文件不触发onchange
+                input.value = '';
+            };
+            reader.readAsText(file);
+        }
+    </script>
 
-        <!-- 备份功能样式补丁 -->
-        <style>
-            .backup-btn-group {
-                display: flex;
-                gap: 10px;
-                margin-top: 15px;
-                padding-top: 15px;
-                border-top: 1px solid rgba(255, 255, 255, 0.1);
-            }
+    <!-- 备份功能样式补丁 -->
+    <style>
+        .backup-btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
 
-            .backup-btn-group button {
-                flex: 1;
-                padding: 8px;
-                border: none;
-                border-radius: 4px;
-                color: white;
-                cursor: pointer;
-                font-size: 13px;
-                transition: opacity 0.2s;
-            }
+        .backup-btn-group button {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+            font-size: 13px;
+            transition: opacity 0.2s;
+        }
 
-            .backup-btn-group button:hover {
-                opacity: 0.9;
-            }
-        </style>
-        <style>
-            /* ========== 暗黑模式样式 ========== */
-            body.dark-mode {
-                background-color: #1a1a1a;
-                color: #b0b0b0;
-            }
+        .backup-btn-group button:hover {
+            opacity: 0.9;
+        }
+    </style>
+    <style>
+        /* ========== 暗黑模式样式 ========== */
+        body.dark-mode {
+            background-color: #1a1a1a;
+            color: #b0b0b0;
+        }
 
-            body.dark-mode .page-container .sidebar-menu {
-                background-color: #222;
-            }
+        body.dark-mode .page-container .sidebar-menu {
+            background-color: #222;
+        }
 
-            body.dark-mode .page-container .main-content {
-                background-color: #1a1a1a;
-            }
+        body.dark-mode .page-container .main-content {
+            background-color: #1a1a1a;
+        }
 
-            body.dark-mode .navbar {
-                background-color: #222;
-                border-bottom: 1px solid #333;
-            }
+        body.dark-mode .navbar {
+            background-color: #222;
+            border-bottom: 1px solid #333;
+        }
 
-            body.dark-mode h1,
-            body.dark-mode h2,
-            body.dark-mode h3,
-            body.dark-mode h4,
-            body.dark-mode h5,
-            body.dark-mode h6 {
-                color: #e0e0e0 !important;
-            }
+        body.dark-mode h1,
+        body.dark-mode h2,
+        body.dark-mode h3,
+        body.dark-mode h4,
+        body.dark-mode h5,
+        body.dark-mode h6 {
+            color: #e0e0e0 !important;
+        }
 
-            /* 卡片暗黑样式 */
-            body.dark-mode .xe-widget {
-                background: #252525;
-                border-color: #333;
-            }
+        /* 卡片暗黑样式 */
+        body.dark-mode .xe-widget {
+            background: #252525;
+            border-color: #333;
+        }
 
-            body.dark-mode .xe-widget .xe-comment-entry .xe-user-name strong {
-                color: #ddd;
-            }
+        body.dark-mode .xe-widget .xe-comment-entry .xe-user-name strong {
+            color: #ddd;
+        }
 
-            body.dark-mode .xe-widget .xe-comment-entry p {
-                color: #888;
-            }
+        body.dark-mode .xe-widget .xe-comment-entry p {
+            color: #888;
+        }
 
-            /* 搜索框暗黑样式 */
-            body.dark-mode .global-search-box {
-                background: rgba(255, 255, 255, 0.08);
-                border-color: #444;
-            }
+        /* 搜索框暗黑样式 */
+        body.dark-mode .global-search-box {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: #444;
+        }
 
-            body.dark-mode #globalSearchInput {
-                color: #fff;
-            }
+        body.dark-mode #globalSearchInput {
+            color: #fff;
+        }
 
-            /* 模态框暗黑样式 */
-            body.dark-mode .hidden-cards-panel {
-                background: #2a2a2a;
-                color: #eee;
-            }
+        /* 模态框暗黑样式 */
+        body.dark-mode .hidden-cards-panel {
+            background: #2a2a2a;
+            color: #eee;
+        }
 
-            body.dark-mode .add-card-form .form-control {
-                background: #333;
-                border-color: #444;
-                color: #fff;
-            }
+        body.dark-mode .add-card-form .form-control {
+            background: #333;
+            border-color: #444;
+            color: #fff;
+        }
 
-            /* 侧边栏激活状态 */
-            body.dark-mode .sidebar-menu li.active>a {
-                background-color: #333;
-            }
+        /* 侧边栏激活状态 */
+        body.dark-mode .sidebar-menu li.active>a {
+            background-color: #333;
+        }
 
-            body.dark-mode .sidebar-menu li ul {
-                background-color: #222;
-            }
-        </style>
+        body.dark-mode .sidebar-menu li ul {
+            background-color: #222;
+        }
+    </style>
 
-        <script>
-            // ========== 天气组件 ==========
-            (function () {
-                const widget = document.getElementById('weather-widget');
-                if (!widget) return;
+    <script>
+        // ========== 天气组件 ==========
+        (function () {
+            const widget = document.getElementById('weather-widget');
+            if (!widget) return;
 
-                // 优先使用国内源 (教书先生 API - 基于高德/百度)
-                // 备用: wttr.in
-                const weatherAPI = 'https://api.oioweb.cn/api/weather/weather';
+            // 优先使用国内源 (教书先生 API - 基于高德/百度)
+            // 备用: wttr.in
+            const weatherAPI = 'https://api.oioweb.cn/api/weather/weather';
 
-                fetch(weatherAPI)
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.code === 200) {
-                            const res = data.result;
-                            const city = res.city_name; // 例如：北京市
-                            const weather = res.current_condition; // 例如：多云
-                            const temp = res.current_temperature; // 例如：25
+            fetch(weatherAPI)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.code === 200) {
+                        const res = data.result;
+                        const city = res.city_name; // 例如：北京市
+                        const weather = res.current_condition; // 例如：多云
+                        const temp = res.current_temperature; // 例如：25
 
-                            // 简单图标映射
-                            let iconClass = 'fa-cloud';
-                            if (weather.includes('晴')) iconClass = 'fa-sun-o';
-                            else if (weather.includes('雨')) iconClass = 'fa-tint';
-                            else if (weather.includes('雪')) iconClass = 'fa-snowflake-o';
-                            else if (weather.includes('阴')) iconClass = 'fa-cloud';
-                            else if (weather.includes('雷')) iconClass = 'fa-bolt';
-                            else if (weather.includes('雾') || weather.includes('霾')) iconClass = 'fa-align-justify';
+                        // 简单图标映射
+                        let iconClass = 'fa-cloud';
+                        if (weather.includes('晴')) iconClass = 'fa-sun-o';
+                        else if (weather.includes('雨')) iconClass = 'fa-tint';
+                        else if (weather.includes('雪')) iconClass = 'fa-snowflake-o';
+                        else if (weather.includes('阴')) iconClass = 'fa-cloud';
+                        else if (weather.includes('雷')) iconClass = 'fa-bolt';
+                        else if (weather.includes('雾') || weather.includes('霾')) iconClass = 'fa-align-justify';
 
-                            widget.innerHTML = `<span style="margin-right: 5px;">${city}</span> <i class="fa ${iconClass}" style="margin-right:4px"></i> ${weather} ${temp}°C`;
-                            widget.title = `更新时间: ${res.update_time} | ${res.dat_condition}`;
-                        } else {
-                            throw new Error('API Error');
-                        }
-                    })
-                    .catch(() => {
-                        // 失败则回退到 wttr.in
-                        fetch('https://wttr.in/?format=j1&lang=zh')
-                            .then(response => response.json())
-                            .then(data => {
-                                try {
-                                    const current = data.current_condition[0];
-                                    const weatherDesc = current.lang_zh ? current.lang_zh[0].value : current.weatherDesc[0].value;
-                                    const temp = current.temp_C;
-                                    let originCity = data.nearest_area[0].areaName[0].value;
+                        widget.innerHTML = `<span style="margin-right: 5px;">${city}</span> <i class="fa ${iconClass}" style="margin-right:4px"></i> ${weather} ${temp}°C`;
+                        widget.title = `更新时间: ${res.update_time} | ${res.dat_condition}`;
+                    } else {
+                        throw new Error('API Error');
+                    }
+                })
+                .catch(() => {
+                    // 失败则回退到 wttr.in
+                    fetch('https://wttr.in/?format=j1&lang=zh')
+                        .then(response => response.json())
+                        .then(data => {
+                            try {
+                                const current = data.current_condition[0];
+                                const weatherDesc = current.lang_zh ? current.lang_zh[0].value : current.weatherDesc[0].value;
+                                const temp = current.temp_C;
+                                let originCity = data.nearest_area[0].areaName[0].value;
 
-                                    // 常用城市汉化映射 (wttr.in通常返回拼音或英文)
-                                    const cityMap = {
-                                        'Beijing': '北京', 'Shanghai': '上海', 'Tianjin': '天津', 'Chongqing': '重庆',
-                                        'Guangzhou': '广州', 'Shenzhen': '深圳', 'Zhuhai': '珠海', 'Foshan': '佛山', 'Dongguan': '东莞',
-                                        'Hangzhou': '杭州', 'Ningbo': '宁波', 'Wenzhou': '温州', 'Nanjing': '南京', 'Suzhou': '苏州', 'Wuxi': '无锡',
-                                        'Chengdu': '成都', 'Wuhan': '武汉', 'Changsha': '长沙', 'Zhengzhou': '郑州', 'Xi\'an': '西安', 'Xian': '西安',
-                                        'Qingdao': '青岛', 'Dalian': '大连', 'Xiamen': '厦门', 'Sanya': '三亚', 'Haikou': '海口',
-                                        'Jinan': '济南', 'Shijiazhuang': '石家庄', 'Taiyuan': '太原', 'Hefei': '合肥', 'Fuzhou': '福州',
-                                        'Nanchang': '南昌', 'Kunming': '昆明', 'Guiyang': '贵阳', 'Lanzhou': '兰州', 'Nanning': '南宁',
-                                        'Harbin': '哈尔滨', 'Changchun': '长春', 'Shenyang': '沈阳', 'Huhehaote': '呼和浩特', 'Urumqi': '乌鲁木齐',
-                                        'Lhasa': '拉萨', 'Xining': '西宁', 'Yinchuan': '银川', 'Hong Kong': '香港', 'Macau': '澳门', 'Taipei': '台北',
-                                        'Coffee': '咖啡县(IP定位)' // 特殊处理
-                                    };
+                                // 常用城市汉化映射 (wttr.in通常返回拼音或英文)
+                                const cityMap = {
+                                    'Beijing': '北京', 'Shanghai': '上海', 'Tianjin': '天津', 'Chongqing': '重庆',
+                                    'Guangzhou': '广州', 'Shenzhen': '深圳', 'Zhuhai': '珠海', 'Foshan': '佛山', 'Dongguan': '东莞',
+                                    'Hangzhou': '杭州', 'Ningbo': '宁波', 'Wenzhou': '温州', 'Nanjing': '南京', 'Suzhou': '苏州', 'Wuxi': '无锡',
+                                    'Chengdu': '成都', 'Wuhan': '武汉', 'Changsha': '长沙', 'Zhengzhou': '郑州', 'Xi\'an': '西安', 'Xian': '西安',
+                                    'Qingdao': '青岛', 'Dalian': '大连', 'Xiamen': '厦门', 'Sanya': '三亚', 'Haikou': '海口',
+                                    'Jinan': '济南', 'Shijiazhuang': '石家庄', 'Taiyuan': '太原', 'Hefei': '合肥', 'Fuzhou': '福州',
+                                    'Nanchang': '南昌', 'Kunming': '昆明', 'Guiyang': '贵阳', 'Lanzhou': '兰州', 'Nanning': '南宁',
+                                    'Harbin': '哈尔滨', 'Changchun': '长春', 'Shenyang': '沈阳', 'Huhehaote': '呼和浩特', 'Urumqi': '乌鲁木齐',
+                                    'Lhasa': '拉萨', 'Xining': '西宁', 'Yinchuan': '银川', 'Hong Kong': '香港', 'Macau': '澳门', 'Taipei': '台北',
+                                    'Coffee': '咖啡县(IP定位)' // 特殊处理
+                                };
 
-                                    let city = originCity;
-                                    const lowerCity = originCity.toLowerCase();
-                                    for (let k in cityMap) {
-                                        if (k.toLowerCase() === lowerCity) {
-                                            city = cityMap[k];
-                                            break;
-                                        }
+                                let city = originCity;
+                                const lowerCity = originCity.toLowerCase();
+                                for (let k in cityMap) {
+                                    if (k.toLowerCase() === lowerCity) {
+                                        city = cityMap[k];
+                                        break;
                                     }
+                                }
 
-                                    widget.innerHTML = `<span style="margin-right: 5px;">${city}</span> <i class="fa fa-cloud" style="margin-right:4px"></i> ${weatherDesc} ${temp}°C`;
-                                    widget.title = `源: wttr.in | 城市: ${originCity}`;
-                                } catch (e) { widget.innerHTML = '天气暂不可用'; }
-                            })
-                            .catch(() => {
-                                widget.innerHTML = `<span style="cursor:pointer" onclick="window.open('https://weather.cma.cn/','_blank')">点击查看天气</span>`;
-                            });
-                    });
-            })();
+                                widget.innerHTML = `<span style="margin-right: 5px;">${city}</span> <i class="fa fa-cloud" style="margin-right:4px"></i> ${weatherDesc} ${temp}°C`;
+                                widget.title = `源: wttr.in | 城市: ${originCity}`;
+                            } catch (e) { widget.innerHTML = '天气暂不可用'; }
+                        })
+                        .catch(() => {
+                            widget.innerHTML = `<span style="cursor:pointer" onclick="window.open('https://weather.cma.cn/','_blank')">点击查看天气</span>`;
+                        });
+                });
+        })();
 
-            // ========== 暗黑模式逻辑 ==========
-            function toggleDarkMode() {
-                const body = document.body;
-                body.classList.toggle('dark-mode');
+        // ========== 暗黑模式逻辑 ==========
+        function toggleDarkMode() {
+            const body = document.body;
+            body.classList.toggle('dark-mode');
 
-                const isDark = body.classList.contains('dark-mode');
+            const isDark = body.classList.contains('dark-mode');
 
-                // 切换图标
-                const icon = document.getElementById('darkModeIcon');
-                if (icon) {
-                    icon.className = isDark ? 'fa fa-sun-o' : 'fa fa-moon-o';
-                }
-
-                // 保存设置
-                localStorage.setItem('theme_mode', isDark ? 'dark' : 'light');
+            // 切换图标
+            const icon = document.getElementById('darkModeIcon');
+            if (icon) {
+                icon.className = isDark ? 'fa fa-sun-o' : 'fa fa-moon-o';
             }
 
-            // 初始化暗黑模式
-            (function () {
-                const savedMode = localStorage.getItem('theme_mode');
-                // 如果用户之前设置了 Dark，或者没设置但系统是 Dark
-                const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            // 保存设置
+            localStorage.setItem('theme_mode', isDark ? 'dark' : 'light');
+        }
 
-                if (savedMode === 'dark' || (!savedMode && sysDark)) {
-                    toggleDarkMode(); // 切换过去
-                }
-            })();
-        </script>
-        <!-- 移动端防遮挡优化补丁 -->
-        <style>
-            @media screen and (max-width: 768px) {
+        // 初始化暗黑模式
+        (function () {
+            const savedMode = localStorage.getItem('theme_mode');
+            // 如果用户之前设置了 Dark，或者没设置但系统是 Dark
+            const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-                /* 
+            if (savedMode === 'dark' || (!savedMode && sysDark)) {
+                toggleDarkMode(); // 切换过去
+            }
+        })();
+    </script>
+    <!-- 移动端防遮挡优化补丁 -->
+    <style>
+        @media screen and (max-width: 768px) {
+
+            /* 
                增加页面底部内边距，确保内容可以滚动到浮动按钮上方 
                给 body 和 main-content 都加，双重保险
             */
-                body,
-                .main-content {
-                    padding-bottom: 150px !important;
-                }
-
-                /* 调整返回顶部等浮动按钮的位置或样式，使其不那么碍事 */
-                .go-top,
-                #showHiddenCards,
-                #resetOrder {
-                    bottom: 80px !important;
-                    /* 稍微抬高一点，避开某些手机浏览器的底部栏 */
-                    opacity: 0.8;
-                    /*半透明，减少遮挡感*/
-                    transform: scale(0.9);
-                    /*缩小一点*/
-                }
-
-                /* 如果有特定的浮动操作栏，也可以抬高 */
-                #showHiddenCards {
-                    bottom: 120px !important;
-                }
-
-                #resetOrder {
-                    bottom: 160px !important;
-                }
-
-                /* 针对数字货币表格，确保其容器也有底部间距 (可选，页面已有padding-bottom通常足够) */
-                .crypto-table-container {
-                    margin-bottom: 30px;
-                }
+            body,
+            .main-content {
+                padding-bottom: 150px !important;
             }
-        </style>
+
+            /* 调整返回顶部等浮动按钮的位置或样式，使其不那么碍事 */
+            .go-top,
+            #showHiddenCards,
+            #resetOrder {
+                bottom: 80px !important;
+                /* 稍微抬高一点，避开某些手机浏览器的底部栏 */
+                opacity: 0.8;
+                /*半透明，减少遮挡感*/
+                transform: scale(0.9);
+                /*缩小一点*/
+            }
+
+            /* 如果有特定的浮动操作栏，也可以抬高 */
+            #showHiddenCards {
+                bottom: 120px !important;
+            }
+
+            #resetOrder {
+                bottom: 160px !important;
+            }
+
+            /* 针对数字货币表格，确保其容器也有底部间距 (可选，页面已有padding-bottom通常足够) */
+            .crypto-table-container {
+                margin-bottom: 30px;
+            }
+        }
+    </style>
 </body>
 
 </html>

@@ -6354,6 +6354,17 @@
                 </div>
             </div>
             <button class="btn-save-card" onclick="saveNewCard()">保存链接</button>
+
+            <div class="backup-btn-group">
+                <button style="background: #10b981;" onclick="exportFavorites()">
+                    <i class="fa fa-download"></i> 备份数据
+                </button>
+                <button style="background: #f59e0b;" onclick="document.getElementById('importFile').click()">
+                    <i class="fa fa-upload"></i> 恢复备份
+                </button>
+                <input type="file" id="importFile" style="display: none;" accept=".json"
+                    onchange="importFavorites(this)">
+            </div>
         </div>
     </div>
 
@@ -6600,7 +6611,80 @@
             // 点击遮罩关闭
             document.getElementById('addCardOverlay').addEventListener('click', closeAddCardModal);
         });
+
+        // 导出收藏数据
+        function exportFavorites() {
+            const favs = localStorage.getItem(FAV_KEY);
+            if (!favs || favs === '[]') {
+                alert('还没有收藏任何链接哦！');
+                return;
+            }
+            const blob = new Blob([favs], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'my_nav_backup_' + new Date().toISOString().slice(0, 10) + '.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // 导入收藏数据
+        function importFavorites(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const json = e.target.result;
+                    const data = JSON.parse(json);
+                    if (Array.isArray(data)) {
+                        if (confirm('导入将覆盖当前的收藏数据，确定要继续吗？')) {
+                            localStorage.setItem(FAV_KEY, JSON.stringify(data));
+                            renderFavorites();
+                            alert('导入成功！');
+                            closeAddCardModal();
+                        }
+                    } else {
+                        alert('文件格式不正确！');
+                    }
+                } catch (err) {
+                    alert('无法解析文件，请确保是有效的备份文件。');
+                }
+                // 清重input，防止同名文件不触发onchange
+                input.value = '';
+            };
+            reader.readAsText(file);
+        }
     </script>
+
+    <!-- 备份功能样式补丁 -->
+    <style>
+        .backup-btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .backup-btn-group button {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+            font-size: 13px;
+            transition: opacity 0.2s;
+        }
+
+        .backup-btn-group button:hover {
+            opacity: 0.9;
+        }
+    </style>
     <style>
         /* ========== 暗黑模式样式 ========== */
         body.dark-mode {
@@ -6715,14 +6799,37 @@
                     fetch('https://wttr.in/?format=j1&lang=zh')
                         .then(response => response.json())
                         .then(data => {
-                            // ... (原有 wttr.in 逻辑保留精简版) ...
                             try {
                                 const current = data.current_condition[0];
                                 const weatherDesc = current.lang_zh ? current.lang_zh[0].value : current.weatherDesc[0].value;
                                 const temp = current.temp_C;
-                                let city = data.nearest_area[0].areaName[0].value;
-                                // ... 简单汉化略 ...
+                                let originCity = data.nearest_area[0].areaName[0].value;
+
+                                // 常用城市汉化映射 (wttr.in通常返回拼音或英文)
+                                const cityMap = {
+                                    'Beijing': '北京', 'Shanghai': '上海', 'Tianjin': '天津', 'Chongqing': '重庆',
+                                    'Guangzhou': '广州', 'Shenzhen': '深圳', 'Zhuhai': '珠海', 'Foshan': '佛山', 'Dongguan': '东莞',
+                                    'Hangzhou': '杭州', 'Ningbo': '宁波', 'Wenzhou': '温州', 'Nanjing': '南京', 'Suzhou': '苏州', 'Wuxi': '无锡',
+                                    'Chengdu': '成都', 'Wuhan': '武汉', 'Changsha': '长沙', 'Zhengzhou': '郑州', 'Xi\'an': '西安', 'Xian': '西安',
+                                    'Qingdao': '青岛', 'Dalian': '大连', 'Xiamen': '厦门', 'Sanya': '三亚', 'Haikou': '海口',
+                                    'Jinan': '济南', 'Shijiazhuang': '石家庄', 'Taiyuan': '太原', 'Hefei': '合肥', 'Fuzhou': '福州',
+                                    'Nanchang': '南昌', 'Kunming': '昆明', 'Guiyang': '贵阳', 'Lanzhou': '兰州', 'Nanning': '南宁',
+                                    'Harbin': '哈尔滨', 'Changchun': '长春', 'Shenyang': '沈阳', 'Huhehaote': '呼和浩特', 'Urumqi': '乌鲁木齐',
+                                    'Lhasa': '拉萨', 'Xining': '西宁', 'Yinchuan': '银川', 'Hong Kong': '香港', 'Macau': '澳门', 'Taipei': '台北',
+                                    'Coffee': '咖啡县(IP定位)' // 特殊处理
+                                };
+
+                                let city = originCity;
+                                const lowerCity = originCity.toLowerCase();
+                                for (let k in cityMap) {
+                                    if (k.toLowerCase() === lowerCity) {
+                                        city = cityMap[k];
+                                        break;
+                                    }
+                                }
+
                                 widget.innerHTML = `<span style="margin-right: 5px;">${city}</span> <i class="fa fa-cloud" style="margin-right:4px"></i> ${weatherDesc} ${temp}°C`;
+                                widget.title = `源: wttr.in | 城市: ${originCity}`;
                             } catch (e) { widget.innerHTML = '天气暂不可用'; }
                         })
                         .catch(() => {

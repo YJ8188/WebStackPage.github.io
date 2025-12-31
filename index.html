@@ -5150,7 +5150,8 @@
                             </table>
                         </div>
                         <div style="font-size: 12px; color: #888; text-align: right; margin-top: 5px;">
-                            Data provided by CoinGecko API <span id="api-status-dot" style="color: #10b981;">●</span>
+                            Data provided by <span id="api-provider-name">Crypto API</span> <span id="api-status-dot"
+                                style="color: #10b981;">●</span>
                         </div>
                     </div>
                 </div>
@@ -5335,7 +5336,8 @@
 
                     // Helper: Fetch with Timeout to prevent hanging
                     async function fetchWithTimeout(resource, options = {}) {
-                        const { timeout = 4000 } = options;
+                        // Reset timeout to 8s for slower proxies
+                        const { timeout = 8000 } = options;
                         const controller = new AbortController();
                         const id = setTimeout(() => controller.abort(), timeout);
                         try {
@@ -5346,6 +5348,14 @@
                             clearTimeout(id);
                             throw error;
                         }
+                    }
+
+                    // Success Handler
+                    function onSuccess(dot, providerName) {
+                        const label = document.getElementById('api-provider-name');
+                        if (dot) dot.style.color = '#10b981';
+                        if (label) label.innerText = providerName;
+                        renderCryptoTable(cryptoData);
                     }
 
                     // API Strategies configuration
@@ -5438,73 +5448,82 @@
                     async function fetchCryptoData() {
                         const dot = document.getElementById('api-status-dot');
                         const label = document.getElementById('api-provider-name');
+                        const tbody = document.getElementById('crypto-table-body');
                         const refreshIcon = document.querySelector('#refresh-crypto-btn i');
 
                         dot.style.color = '#f59e0b'; // fetching
                         if (refreshIcon) refreshIcon.classList.add('fa-spin'); // spin icon
 
+                        // Show loading status if empty and first load
+                        if (cryptoData.length === 0) {
+                            if (label) label.innerText = 'Connecting...';
+                        }
+
+                        let lastError = '';
+
                         try {
-                            // 1. Try CryptoCompare (Balanced URL)
+                            // 1. Try CryptoCompare (Adjusted timeout)
                             try {
-                                label.innerText = 'Connecting CC...';
-                                const res = await fetchWithTimeout(APIS.CRYPTOCOMPARE.url, { timeout: 3000 });
+                                if (label) label.innerText = 'Connecting CC...';
+                                const res = await fetchWithTimeout(APIS.CRYPTOCOMPARE.url, { timeout: 8000 });
                                 if (res.ok) {
                                     const data = await res.json();
                                     cryptoData = APIS.CRYPTOCOMPARE.handler(data);
                                     onSuccess(dot, APIS.CRYPTOCOMPARE.name);
                                     return;
                                 }
-                            } catch (e) { console.warn('CC Err', e); }
+                            } catch (e) { console.warn('CC Err', e); lastError = e.message; }
 
-                            // 2. Try Gate.io (Good if proxy is ON)
+                            // 2. Try Gate.io (Longer timeout for proxy)
                             try {
-                                label.innerText = 'Connecting Gate...';
-                                const res = await fetchWithTimeout(APIS.GATEIO.url, { timeout: 5000 });
+                                if (label) label.innerText = 'Connecting Gate...';
+                                const res = await fetchWithTimeout(APIS.GATEIO.url, { timeout: 10000 });
                                 if (res.ok) {
                                     const data = await res.json();
                                     cryptoData = APIS.GATEIO.handler(data);
                                     onSuccess(dot, APIS.GATEIO.name);
                                     return;
                                 }
-                            } catch (e) { console.warn('Gate Err', e); }
+                            } catch (e) { console.warn('Gate Err', e); lastError = e.message; }
 
                             // 3. Try CoinCap
                             try {
-                                label.innerText = 'Connecting CoinCap...';
-                                const res = await fetchWithTimeout(APIS.COINCAP.url, { timeout: 3000 });
+                                if (label) label.innerText = 'Connecting CoinCap...';
+                                const res = await fetchWithTimeout(APIS.COINCAP.url, { timeout: 8000 });
                                 if (res.ok) {
                                     const data = await res.json();
                                     cryptoData = APIS.COINCAP.handler(data);
                                     onSuccess(dot, APIS.COINCAP.name);
                                     return;
                                 }
-                            } catch (e) { console.warn('CoinCap Err', e); }
+                            } catch (e) { console.warn('CoinCap Err', e); lastError = e.message; }
 
                             // 4. Try CoinGecko (Last Resort)
                             try {
-                                label.innerText = 'Connecting CG...';
-                                const res = await fetchWithTimeout(APIS.COINGECKO.url, { timeout: 4000 });
+                                if (label) label.innerText = 'Connecting CG...';
+                                const res = await fetchWithTimeout(APIS.COINGECKO.url, { timeout: 8000 });
                                 if (res.ok) {
                                     const data = await res.json();
                                     cryptoData = APIS.COINGECKO.handler(data);
                                     onSuccess(dot, APIS.COINGECKO.name);
                                     return;
                                 }
-                            } catch (e) { console.warn('CG Err', e); }
+                            } catch (e) { console.warn('CG Err', e); lastError = 'All APIs failed'; }
 
                             // All failed
-                            label.innerText = 'Data Error (Check Proxy)';
+                            if (label) label.innerText = 'Conn Failed';
                             dot.style.color = '#ef4444';
+
+                            // Show detailed error in table
+                            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px; color: #ef4444;">
+                                <i class="fa fa-exclamation-triangle"></i> Failed to load data.<br>
+                                <small>Last Error: ${lastError || 'Timeout/Network'}</small><br>
+                                <button class="btn btn-xs btn-primary" style="margin-top:10px" onclick="fetchCryptoData()">Retry</button>
+                            </td></tr>`;
 
                         } finally {
                             if (refreshIcon) refreshIcon.classList.remove('fa-spin'); // stop spin
                         }
-                    }
-
-                    function onSuccess(dot, name) {
-                        dot.style.color = '#10b981';
-                        document.getElementById('api-provider-name').innerText = name;
-                        renderCryptoTable(cryptoData);
                     }
 
                     function renderCryptoTable(data) {
@@ -5529,9 +5548,13 @@
 
                         data.forEach(coin => {
                             const searchName = coin.name || coin.symbol;
-                            if (!searchName.toLowerCase().includes(searchQuery) && !coin.symbol.toLowerCase().includes(searchQuery)) return;
+                            if (!searchName.toLowerCase().includes(searchQuery) && !coin.symbol.toLowerCase().includes(searchQuery))
+                                return;
 
-                            const price = (coin.current_price * rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: (coin.current_price < 1 ? 6 : 2) });
+                            const price = (coin.current_price * rate).toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: (coin.current_price < 1 ? 6 : 2)
+                            });
                             const change = coin.price_change_percentage_24h;
                             const changeClass = change >= 0 ? 'price-up' : 'price-down';
                             const changeSign = change >= 0 ? '+' : '';
@@ -5556,7 +5579,9 @@
                                         points += `${x},${y} `;
                                     });
                                     const color = change >= 0 ? '#10b981' : '#ef4444';
-                                    sparklineSvg = `<svg width="${width}" height="${height}" style="overflow:visible"><polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5"/></svg>`;
+                                    sparklineSvg = `<svg width="${width}" height="${height}" style="overflow:visible">
+                                        <polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5" />
+                                    </svg>`;
                                 }
                             } else {
                                 // Simple text arrow
@@ -5582,10 +5607,11 @@
                                 <td class="mobile-hide" style="color:#888;">${symbol}${marketCap}</td>
                                 <td class="mobile-hide">${sparklineSvg}</td>
                                 <td style="text-align:right;">
-                                    <a href="https://www.gate.io/trade/${tradeSymbol}_USDT" target="_blank" class="btn-trade">交易</a>
+                                    <a href="https://www.gate.io/trade/${tradeSymbol}_USDT" target="_blank"
+                                        class="btn-trade">交易</a>
                                 </td>
                             </tr>
-                        `;
+                            `;
                             tbody.innerHTML += tr;
                         });
                     }
@@ -5594,8 +5620,31 @@
                         renderCryptoTable(cryptoData);
                     }
 
-                    fetchCryptoData();
-                    setInterval(fetchCryptoData, 60000);
+                    // Hover to hide floating buttons logic (Added)
+                    document.addEventListener('DOMContentLoaded', () => {
+                        // Poll data
+                        fetchCryptoData();
+                        setInterval(fetchCryptoData, 60000);
+
+                        // Hover Logic
+                        const cryptoArea = document.querySelector('.crypto-table-container').parentElement.parentElement; // .row for crypto
+                        const floatBtns = ['.go-top', '#showHiddenCards', '#resetOrder', '.xp-panel'];
+
+                        if (cryptoArea) {
+                            cryptoArea.addEventListener('mouseenter', () => {
+                                floatBtns.forEach(selector => {
+                                    const els = document.querySelectorAll(selector);
+                                    els.forEach(el => el.classList.add('fade-out'));
+                                });
+                            });
+                            cryptoArea.addEventListener('mouseleave', () => {
+                                floatBtns.forEach(selector => {
+                                    const els = document.querySelectorAll(selector);
+                                    els.forEach(el => el.classList.remove('fade-out'));
+                                });
+                            });
+                        }
+                    });
                 </script>
                 <!--END 数字货币 -->
                 <!-- Main Footer -->

@@ -5339,6 +5339,28 @@
                     pointer-events: none !important;
                     transition: opacity 0.3s ease;
                 }
+
+                .detail-row {
+                    display: none;
+                    background: rgba(0, 0, 0, 0.02);
+                }
+
+                body.dark-mode .detail-row {
+                    background: rgba(255, 255, 255, 0.02);
+                }
+
+                .crypto-table tr.main-row {
+                    cursor: pointer;
+                    transition: background 0.2s;
+                }
+
+                .crypto-table tr.main-row:hover {
+                    background: rgba(0, 0, 0, 0.01);
+                }
+
+                body.dark-mode .crypto-table tr.main-row:hover {
+                    background: rgba(255, 255, 255, 0.01);
+                }
             </style>
 
             <!-- Crypto Logic -->
@@ -5393,7 +5415,7 @@
 
                     sparklineRequests.add(symbol);
                     // Update UI to loading
-                    const el = document.getElementById(`spark-${symbol}`);
+                    const el = document.getElementById(`graph-${symbol}`);
                     if (el) el.innerText = 'Loading...';
 
                     try {
@@ -5407,7 +5429,7 @@
                                 const prices = json.data.map(d => parseFloat(d.priceUsd));
                                 sparklineCache[symbol] = prices;
                                 // Update DOM if element exists
-                                const target = document.getElementById(`spark-${symbol}`);
+                                const target = document.getElementById(`graph-${symbol}`);
                                 if (target) {
                                     target.innerHTML = generateSparklineSvg(prices, changePct);
                                 }
@@ -5415,7 +5437,7 @@
                         }
                     } catch (e) {
                         console.warn('Sparkline fetch err', symbol, e);
-                        const target = document.getElementById(`spark-${symbol}`);
+                        const target = document.getElementById(`graph-${symbol}`);
                         if (target) {
                             // Fallback to arrow if failed
                             target.innerHTML = changePct >= 0 ? '<span class="price-up" style="font-size:16px">↗</span>' : '<span class="price-down" style="font-size:16px">↘</span>';
@@ -5446,7 +5468,17 @@
                     const label = document.getElementById('api-provider-name');
                     if (dot) dot.style.color = '#10b981';
                     if (label) label.innerText = providerName;
-                    renderCryptoTable(cryptoData);
+
+                    // If table is empty (first load), do full render
+                    const tbody = document.getElementById('crypto-table-body');
+                    const hasData = tbody && tbody.querySelector('.main-row');
+
+                    if (!hasData) {
+                        renderCryptoTable(cryptoData);
+                    } else {
+                        // Selective update only
+                        updateCryptoUI(cryptoData);
+                    }
                 }
 
                 // API Strategies configuration
@@ -5665,10 +5697,10 @@
                             sparklineSvg = generateSparklineSvg(cached, change);
                         } else if (isFetching) {
                             // Keep loading state if currently fetching
-                            sparklineSvg = `<div id="spark-${coin.symbol}" style="height:30px; display:flex; align-items:center; color:#888; font-size:12px;">Loading...</div>`;
+                            sparklineSvg = `<div id="graph-${coin.symbol}" style="height:30px; display:flex; align-items:center; color:#888; font-size:12px;">Loading...</div>`;
                         } else {
                             // Placeholder and lazy load
-                            sparklineSvg = `<div id="spark-${coin.symbol}" style="height:30px; display:flex; align-items:center;">-</div>`;
+                            sparklineSvg = `<div id="graph-${coin.symbol}" style="height:30px; display:flex; align-items:center;">-</div>`;
                             // Trigger async load
                             setTimeout(() => loadSparkline(coin.symbol, change), 0);
                         }
@@ -5677,7 +5709,7 @@
                         const tradeSymbol = coin.symbol.toUpperCase();
 
                         const tr = `
-                            <tr>
+                            <tr class="main-row" onclick="toggleCoinDetail('${coin.symbol}')">
                                 <td>
                                     <div class="coin-info">
                                         <img src="${coin.image}" class="coin-icon" alt="${coin.symbol}" onerror="${imgError}">
@@ -5687,13 +5719,62 @@
                                         </div>
                                     </div>
                                 </td>
-                                <td style="font-family:monospace; font-size:13px; font-weight:bold;">${symbol}${price}</td>
-                                <td class="${changeClass}" style="font-weight:bold;">${changeSign}${change.toFixed(2)}%</td>
+                                <td style="font-family:monospace; font-size:13px; font-weight:bold;">
+                                    <span id="price-${coin.symbol}">${symbol}${price}</span>
+                                </td>
+                                <td class="${changeClass}" style="font-weight:bold;">
+                                    <span id="change-${coin.symbol}">${changeSign}${change.toFixed(2)}%</span>
+                                </td>
                                 <td class="mobile-hide" style="color:#888;">${symbol}${marketCap}</td>
-                                <td class="mobile-hide">${sparklineSvg}</td>
+                                <td class="mobile-hide" style="text-align:right; font-size:12px; color:#999;">
+                                    Trend Details <i class="fa fa-angle-down"></i>
+                                </td>
+                            </tr>
+                            <tr id="detail-${coin.symbol}" class="detail-row">
+                                <td colspan="5" style="padding: 15px 30px !important;">
+                                    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;">
+                                        <div style="font-size:12px; color:#888; margin-bottom:10px;">7-Day Price Trend (Area Chart):</div>
+                                        <div id="graph-${coin.symbol}" style="min-width:150px; text-align:right;">${sparklineSvg}</div>
+                                    </div>
+                                </td>
                             </tr>
                             `;
                         tbody.innerHTML += tr;
+                    });
+                }
+
+                function toggleCoinDetail(symbol) {
+                    const row = document.getElementById(`detail-${symbol}`);
+                    if (row) {
+                        const isNone = row.style.display !== 'table-row';
+                        row.style.display = isNone ? 'table-row' : 'none';
+                    }
+                }
+
+                function updateCryptoUI(data) {
+                    if (!data) return;
+                    const isCNY = currentCurrency === 'CNY';
+                    const rate = isCNY ? USD_CNY_RATE : 1;
+                    const symbol = isCNY ? '¥' : '$';
+
+                    data.forEach(coin => {
+                        const priceEl = document.getElementById(`price-${coin.symbol}`);
+                        const changeEl = document.getElementById(`change-${coin.symbol}`);
+
+                        if (priceEl) {
+                            const formattedPrice = (coin.current_price * rate).toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: (coin.current_price < 1 ? 6 : 2)
+                            });
+                            priceEl.innerText = `${symbol}${formattedPrice}`;
+                        }
+
+                        if (changeEl) {
+                            const change = coin.price_change_percentage_24h;
+                            const changeSign = change >= 0 ? '+' : '';
+                            changeEl.innerText = `${changeSign}${change.toFixed(2)}%`;
+                            changeEl.parentElement.className = (change >= 0 ? 'price-up' : 'price-down') + ' font-weight-bold';
+                        }
                     });
                 }
 

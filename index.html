@@ -5110,216 +5110,291 @@
             </div>
             <br />
             <!--END 交互设计 -->
-            <img data-src="../assets/images/logos/cdc.png" class="lozad img-circle" width="40">
-            </a>
-            <div class="xe-comment">
-                <a href="#" class="xe-user-name overflowClip_1">
-                    <strong>腾讯CDC</strong>
-                </a>
-                <p class="overflowClip_2">腾讯CDC关注于互联网视觉设计、交互设计、用户研究、前端开发。</p>
-            </div>
-        </div>
-    </div>
-    </div>
-    <div class="col-sm-3">
-        <div class="xe-widget xe-conversations box2 label-info"
-            onclick="window.open('http://tgideas.qq.com/', '_blank')" data-toggle="tooltip" data-placement="bottom"
-            title="" data-original-title="http://tgideas.qq.com/">
-            <div class="xe-comment-entry">
-                <a class="xe-user-img">
-                    <img data-src="../assets/images/logos/tgideas.png" class="lozad img-circle" width="40">
-                </a>
-                <div class="xe-comment">
-                    <a href="#" class="xe-user-name overflowClip_1">
-                        <strong>TGideas</strong>
-                    </a>
-                    <p class="overflowClip_2">TGideas隶属于腾讯公司互动娱乐业务系统的专业推广类设计团队</p>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-sm-3">
-        <div class="xe-widget xe-conversations box2 label-info"
-            onclick="window.open('https://isux.tencent.com/', '_blank')" data-toggle="tooltip" data-placement="bottom"
-            title="" data-original-title="https://isux.tencent.com/">
-            <div class="xe-comment-entry">
-                <a class="xe-user-img">
-                    <img data-src="../assets/images/logos/isux.png" class="lozad img-circle" width="40">
-                </a>
-                <div class="xe-comment">
-                    <a href="#" class="xe-user-name overflowClip_1">
-                        <strong>ISUX</strong>
-                    </a>
-                    <p class="overflowClip_2">腾讯社交用户体验设计部</p>
-                </div>
-            </div>
-        </div>
-    </div>
-    </div>
-    <div class="row">
-        <div class="col-sm-3">
-            <div class="xe-widget xe-conversations box2 label-info"
-                onclick="window.open('http://mxd.tencent.com/', '_blank')" data-toggle="tooltip" data-placement="bottom"
-                title="" data-original-title="http://mxd.tencent.com/">
-                <div class="xe-comment-entry">
-                    <a class="xe-user-img">
-                        <img data-src="../assets/images/logos/mxd.png" class="lozad img-circle" width="40">
-                    </a>
-                    <div class="xe-comment">
-                        <a href="#" class="xe-user-name overflowClip_1">
-                            <strong>MXD</strong>
-                        </a>
-                        <p class="overflowClip_2">腾讯MIG无线互联网事业群设计团队</p>
+
+            <!-- 数字货币 (Crypto Market) -->
+            <h4 class="text-gray">
+                <i class="linecons-money" style="margin-right: 7px;" id="数字货币"></i>数字货币行情 (Live Market)
+                <span style="float: right; display: flex; align-items: center; font-size: 13px;">
+                    <span style="margin-right: 10px; color: #888;">Currency:</span>
+                    <button id="currency-toggle" class="btn btn-xs btn-primary" onclick="toggleCurrency()"
+                        style="padding: 2px 8px;">USD</button>
+                    <span style="margin: 0 10px; color: #333;">|</span>
+                    <input type="text" id="crypto-search" placeholder="Search Coin..." onkeyup="filterCrypto()"
+                        style="background: transparent; border: 1px solid #ddd; border-radius: 4px; padding: 2px 8px; color: inherit; width: 120px;">
+                </span>
+            </h4>
+
+            <div class="row">
+                <div class="col-sm-12">
+                    <div class="crypto-table-container">
+                        <table class="table crypto-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 250px;">币种 (Coin)</th>
+                                    <th>最新价 (Price)</th>
+                                    <th>24H涨跌 (Change)</th>
+                                    <th>市值 (Market Cap)</th>
+                                    <th>走势 (7d)</th>
+                                    <th style="text-align: right;">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="crypto-table-body">
+                                <tr>
+                                    <td colspan="6" style="text-align:center; padding: 20px;">Loading Market Data... <i
+                                            class="fa fa-spinner fa-spin"></i></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div style="font-size: 12px; color: #888; text-align: right; margin-top: 5px;">
+                        Data provided by CoinGecko API <span id="api-status-dot" style="color: #10b981;">●</span>
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="col-sm-3">
-            <div class="xe-widget xe-conversations box2 label-info"
-                onclick="window.open('http://www.aliued.com/', '_blank')" data-toggle="tooltip" data-placement="bottom"
-                title="" data-original-title="http://www.aliued.com/">
-                <div class="xe-comment-entry">
-                    <a class="xe-user-img">
-                        <img data-src="../assets/images/logos/aliued.png" class="lozad img-circle" width="40">
-                    </a>
-                    <div class="xe-comment">
-                        <a href="#" class="xe-user-name overflowClip_1">
-                            <strong>Aliued</strong>
+
+            <!-- Crypto Styles -->
+            <style>
+                .crypto-table-container {
+                    background: #fff;
+                    border-radius: 4px;
+                    overflow: hidden;
+                    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+                }
+
+                .crypto-table {
+                    margin-bottom: 0;
+                    width: 100%;
+                }
+
+                .crypto-table th {
+                    background: #f9f9f9;
+                    font-weight: 600;
+                    color: #666;
+                    border-bottom: 1px solid #eee;
+                    padding: 12px 15px !important;
+                }
+
+                .crypto-table td {
+                    vertical-align: middle !important;
+                    padding: 12px 15px !important;
+                    border-top: 1px solid #f4f4f4;
+                    color: #333;
+                }
+
+                .coin-info {
+                    display: flex;
+                    align-items: center;
+                }
+
+                .coin-icon {
+                    width: 24px;
+                    height: 24px;
+                    margin-right: 10px;
+                    border-radius: 50%;
+                }
+
+                .coin-name {
+                    font-weight: bold;
+                    margin-right: 5px;
+                }
+
+                .coin-symbol {
+                    color: #999;
+                    font-size: 12px;
+                }
+
+                .price-up {
+                    color: #10b981;
+                }
+
+                /* Green for Up */
+                .price-down {
+                    color: #ef4444;
+                }
+
+                /* Red for Down */
+
+                .btn-trade {
+                    border: 1px solid #ddd;
+                    color: #666;
+                    background: transparent;
+                    padding: 2px 10px;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    text-decoration: none;
+                }
+
+                .btn-trade:hover {
+                    background: #f5f5f5;
+                    color: #333;
+                }
+
+                /* Dark Mode Adaptation */
+                body.dark-mode .crypto-table-container {
+                    background: #222;
+                    box-shadow: none;
+                }
+
+                body.dark-mode .crypto-table th {
+                    background: #2a2a2a;
+                    color: #aaa;
+                    border-bottom-color: #333;
+                }
+
+                body.dark-mode .crypto-table td {
+                    border-top-color: #333;
+                    color: #ddd;
+                }
+
+                body.dark-mode #crypto-search {
+                    border-color: #444;
+                    color: #ddd;
+                }
+
+                body.dark-mode .btn-trade {
+                    border-color: #444;
+                    color: #bbb;
+                }
+
+                body.dark-mode .btn-trade:hover {
+                    background: #333;
+                    color: #fff;
+                }
+            </style>
+
+            <!-- Crypto Logic -->
+            <script>
+                let currentCurrency = 'USD'; // or 'CNY'
+                let cryptoData = [];
+                const API_URL = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,tether,binancecoin,solana,ripple,dogecoin,cardano,tron,toncoin,shiba-inu,litecoin&order=market_cap_desc&sparkline=true&price_change_percentage=24h';
+
+                // 汇率 (也可以通过API获取，这里为了速度先固定一个近似值，生产环境建议动态获取)
+                const USD_CNY_RATE = 7.25;
+
+                function toggleCurrency() {
+                    const btn = document.getElementById('currency-toggle');
+                    if (currentCurrency === 'USD') {
+                        currentCurrency = 'CNY';
+                        btn.innerText = 'CNY';
+                        btn.className = 'btn btn-xs btn-warning'; // Change color
+                    } else {
+                        currentCurrency = 'USD';
+                        btn.innerText = 'USD';
+                        btn.className = 'btn btn-xs btn-primary';
+                    }
+                    renderCryptoTable(cryptoData); // Re-render with new currency
+                }
+
+                function fetchCryptoData() {
+                    document.getElementById('api-status-dot').style.color = '#f59e0b'; // fetching
+                    fetch(API_URL)
+                        .then(res => res.json())
+                        .then(data => {
+                            cryptoData = data;
+                            renderCryptoTable(data);
+                            document.getElementById('api-status-dot').style.color = '#10b981'; // success
+                        })
+                        .catch(err => {
+                            console.error('Crypto API Error:', err);
+                            document.getElementById('api-status-dot').style.color = '#ef4444'; // error
+                        });
+                }
+
+                function renderCryptoTable(data) {
+                    const tbody = document.getElementById('crypto-table-body');
+                    const searchQuery = document.getElementById('crypto-search').value.toLowerCase();
+                    tbody.innerHTML = '';
+
+                    const isCNY = currentCurrency === 'CNY';
+                    const rate = isCNY ? USD_CNY_RATE : 1;
+                    const symbol = isCNY ? '¥' : '$';
+
+                    data.forEach(coin => {
+                        // Filter
+                        if (!coin.name.toLowerCase().includes(searchQuery) && !coin.symbol.toLowerCase().includes(searchQuery)) return;
+
+                        const price = (coin.current_price * rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: (coin.current_price < 1 ? 6 : 2) });
+                        const change = coin.price_change_percentage_24h;
+                        const changeClass = change >= 0 ? 'price-up' : 'price-down';
+                        const changeSign = change >= 0 ? '+' : '';
+                        const marketCap = (coin.market_cap * rate).toLocaleString(undefined, { maximumFractionDigits: 0 });
+
+                        let sparklineSvg = '';
+                        if (coin.sparkline_in_7d && coin.sparkline_in_7d.price) {
+                            const prices = coin.sparkline_in_7d.price;
+                            const min = Math.min(...prices);
+                            const max = Math.max(...prices);
+                            const width = 100;
+                            const height = 30;
+                            const range = max - min;
+                            let points = '';
+                            prices.forEach((p, i) => {
+                                const x = (i / (prices.length - 1)) * width;
+                                const y = height - ((p - min) / range) * height;
+                                points += `${x},${y} `;
+                            });
+                            const color = change >= 0 ? '#10b981' : '#ef4444';
+                            sparklineSvg = `<svg width="${width}" height="${height}" style="overflow:visible"><polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5"/></svg>`;
+                        }
+
+                        const tr = `
+                            <tr>
+                                <td>
+                                    <div class="coin-info">
+                                        <img src="${coin.image}" class="coin-icon" alt="${coin.symbol}">
+                                        <div>
+                                            <div class="coin-name">${coin.name}</div>
+                                            <div class="coin-symbol">${coin.symbol.toUpperCase()}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td style="font-family:monospace; font-size:14px; font-weight:bold;">${symbol}${price}</td>
+                                <td class="${changeClass}" style="font-weight:bold;">${changeSign}${change.toFixed(2)}%</td>
+                                <td style="color:#888;">${symbol}${marketCap}</td>
+                                <td>${sparklineSvg}</td>
+                                <td style="text-align:right;">
+                                    <a href="https://www.gate.io/trade/${coin.symbol.toUpperCase()}_USDT" target="_blank" class="btn-trade">交易</a>
+                                    <a href="https://www.coingecko.com/en/coins/${coin.id}" target="_blank" class="btn-trade" style="margin-left:5px">详情</a>
+                                </td>
+                            </tr>
+                        `;
+                        tbody.innerHTML += tr;
+                    });
+                }
+
+                function filterCrypto() {
+                    renderCryptoTable(cryptoData);
+                }
+
+                // Initial Load
+                fetchCryptoData();
+                // Polling every 60s
+                setInterval(fetchCryptoData, 60000);
+            </script>
+
+            <!--END 数字货币 -->
+            <!-- Main Footer -->
+            <!-- Choose between footer styles: "footer-type-1" or "footer-type-2" -->
+            <!-- Add class "sticky" to  always stick the footer to the end of page (if page contents is small) -->
+            <!-- Or class "fixed" to  always fix the footer to the end of page -->
+            <footer class="main-footer sticky footer-type-1">
+                <div class="footer-inner">
+                    <!-- Add your copyright text here -->
+                    <div class="footer-text">
+                        &copy; 2017-2026
+                        <a href="about.html"><strong>WebStack</strong></a> design by <a href="https://www.viggoz.com"
+                            target="_blank"><strong>Viggo</strong></a>
+                        <!--  - Purchase for only <strong>23$</strong> -->
+                    </div>
+                    <!-- Go to Top Link, just add rel="go-top" to any link to add this functionality -->
+                    <div class="go-up">
+                        <a href="#" rel="go-top">
+                            <i class="fa-angle-up"></i>
                         </a>
-                        <p class="overflowClip_2">阿里巴巴国际数字货币</p>
                     </div>
                 </div>
-            </div>
+            </footer>
         </div>
-        <div class="col-sm-3">
-            <div class="xe-widget xe-conversations box2 label-info"
-                onclick="window.open('http://www.aliued.cn/', '_blank')" data-toggle="tooltip" data-placement="bottom"
-                title="" data-original-title="http://www.aliued.cn/">
-                <div class="xe-comment-entry">
-                    <a class="xe-user-img">
-                        <img data-src="../assets/images/logos/aliuedcn.png" class="lozad img-circle" width="40">
-                    </a>
-                    <div class="xe-comment">
-                        <a href="#" class="xe-user-name overflowClip_1">
-                            <strong>U一点</strong>
-                        </a>
-                        <p class="overflowClip_2">阿里巴巴（中国站）用户体验设计部博客U一点设计 数字货币</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-sm-3">
-            <div class="xe-widget xe-conversations box2 label-info"
-                onclick="window.open('http://uedc.163.com/', '_blank')" data-toggle="tooltip" data-placement="bottom"
-                title="" data-original-title="http://uedc.163.com/">
-                <div class="xe-comment-entry">
-                    <a class="xe-user-img">
-                        <img data-src="../assets/images/logos/uedc.png" class="lozad img-circle" width="40">
-                    </a>
-                    <div class="xe-comment">
-                        <a href="#" class="xe-user-name overflowClip_1">
-                            <strong>网易uedc</strong>
-                        </a>
-                        <p class="overflowClip_2">网易用户体验设计中心（User Experience Design Center）</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="row">
-        <div class="col-sm-3">
-            <div class="xe-widget xe-conversations box2 label-info"
-                onclick="window.open('http://ued.baidu.com/', '_blank')" data-toggle="tooltip" data-placement="bottom"
-                title="" data-original-title="http://ued.baidu.com/">
-                <div class="xe-comment-entry">
-                    <a class="xe-user-img">
-                        <img data-src="../assets/images/logos/uedbaidu.png" class="lozad img-circle" width="40">
-                    </a>
-                    <div class="xe-comment">
-                        <a href="#" class="xe-user-name overflowClip_1">
-                            <strong>百度用户体验中心</strong>
-                        </a>
-                        <p class="overflowClip_2">百度用户体验中心</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-sm-3">
-            <div class="xe-widget xe-conversations box2 label-info"
-                onclick="window.open('http://jdc.jd.com/', '_blank')" data-toggle="tooltip" data-placement="bottom"
-                title="" data-original-title="http://jdc.jd.com/">
-                <div class="xe-comment-entry">
-                    <a class="xe-user-img">
-                        <img data-src="../assets/images/logos/jdc.png" class="lozad img-circle" width="40">
-                    </a>
-                    <div class="xe-comment">
-                        <a href="#" class="xe-user-name overflowClip_1">
-                            <strong>京东设计中心</strong>
-                        </a>
-                        <p class="overflowClip_2">京东设计中心</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-sm-3">
-            <div class="xe-widget xe-conversations box2 label-info"
-                onclick="window.open('http://eux.baidu.com/', '_blank')" data-toggle="tooltip" data-placement="bottom"
-                title="" data-original-title="http://eux.baidu.com/">
-                <div class="xe-comment-entry">
-                    <a class="xe-user-img">
-                        <img data-src="../assets/images/logos/euxbaidu.png" class="lozad img-circle" width="40">
-                    </a>
-                    <div class="xe-comment">
-                        <a href="#" class="xe-user-name overflowClip_1">
-                            <strong>百度企业产品用户体验中心</strong>
-                        </a>
-                        <p class="overflowClip_2">百度企业产品用户体验中心</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-sm-3">
-            <div class="xe-widget xe-conversations box2 label-info"
-                onclick="window.open('http://ued.ctrip.com/', '_blank')" data-toggle="tooltip" data-placement="bottom"
-                title="" data-original-title="http://ued.ctrip.com/">
-                <div class="xe-comment-entry">
-                    <a class="xe-user-img">
-                        <img data-src="../assets/images/logos/ctrip.png" class="lozad img-circle" width="40">
-                    </a>
-                    <div class="xe-comment">
-                        <a href="#" class="xe-user-name overflowClip_1">
-                            <strong>携程设计委员会</strong>
-                        </a>
-                        <p class="overflowClip_2">携程设计委员会-Ctrip Design Committee</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <br />
-    <!--END 数字货币 -->
-    <!-- Main Footer -->
-    <!-- Choose between footer styles: "footer-type-1" or "footer-type-2" -->
-    <!-- Add class "sticky" to  always stick the footer to the end of page (if page contents is small) -->
-    <!-- Or class "fixed" to  always fix the footer to the end of page -->
-    <footer class="main-footer sticky footer-type-1">
-        <div class="footer-inner">
-            <!-- Add your copyright text here -->
-            <div class="footer-text">
-                &copy; 2017-2026
-                <a href="about.html"><strong>WebStack</strong></a> design by <a href="https://www.viggoz.com"
-                    target="_blank"><strong>Viggo</strong></a>
-                <!--  - Purchase for only <strong>23$</strong> -->
-            </div>
-            <!-- Go to Top Link, just add rel="go-top" to any link to add this functionality -->
-            <div class="go-up">
-                <a href="#" rel="go-top">
-                    <i class="fa-angle-up"></i>
-                </a>
-            </div>
-        </div>
-    </footer>
-    </div>
     </div>
     <!-- 锚点平滑移动 -->
     <script type="text/javascript">

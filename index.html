@@ -5429,47 +5429,51 @@
                     sparklineRequests.add(symbol);
                     const containers = document.querySelectorAll(`.graph-container-${symbol}`);
                     containers.forEach(el => {
-                        if (el.innerHTML.length < 20) el.innerHTML = '<i class="fa fa-spinner fa-spin" style="opacity:0.3"></i>';
+                        if (el.innerHTML.length < 20) el.innerHTML = '<i class="fa fa-spinner fa-spin" style="opacity:0.3; margin-right:5px;"></i><span style="font-size:10px; color:#999;">加载趋势...</span>';
                     });
 
                     try {
-                        const end = Date.now();
-                        const start = end - (7 * 24 * 60 * 60 * 1000);
                         let prices = null;
 
-                        // Try CoinCap History
-                        const res = await fetchWithTimeout(`https://api.coincap.io/v2/assets/${finalId}/history?interval=h2&start=${start}&end=${end}`, { timeout: 8000 });
-                        if (res.ok) {
-                            const json = await res.json();
-                            if (json.data && json.data.length > 0) {
-                                prices = json.data.map(d => parseFloat(d.priceUsd));
-                            }
-                        }
-
-                        if (!prices) {
-                            // Fallback to CoinGecko
-                            const geckoRes = await fetchWithTimeout(`https://api.coingecko.com/api/v3/coins/${finalId}/market_chart?vs_currency=usd&days=7&interval=daily`, { timeout: 8000 });
-                            if (geckoRes.ok) {
-                                const json = await geckoRes.json();
-                                if (json.prices) {
-                                    prices = json.prices.map(p => p[1]);
+                        // 1. Try CryptoCompare (v2 Histominute/hour is reliable for charts)
+                        try {
+                            const res = await fetchWithTimeout(`https://min-api.cryptocompare.com/data/v2/histohour?fsym=${symbol.toUpperCase()}&tsym=USD&limit=168`, { timeout: 6000 });
+                            if (res.ok) {
+                                const json = await res.json();
+                                if (json.Data && json.Data.Data && json.Data.Data.length > 0) {
+                                    prices = json.Data.Data.map(d => d.close);
                                 }
                             }
+                        } catch (e) { console.warn('CC Sparkline Err', symbol, e); }
+
+                        // 2. Fallback to CoinCap History if CC failed
+                        if (!prices) {
+                            try {
+                                const end = Date.now();
+                                const start = end - (7 * 24 * 60 * 60 * 1000);
+                                const res = await fetchWithTimeout(`https://api.coincap.io/v2/assets/${finalId}/history?interval=h2&start=${start}&end=${end}`, { timeout: 6000 });
+                                if (res.ok) {
+                                    const json = await res.json();
+                                    if (json.data && json.data.length > 0) {
+                                        prices = json.data.map(d => parseFloat(d.priceUsd));
+                                    }
+                                }
+                            } catch (e) { console.warn('CoinCap Sparkline Err', symbol, e); }
                         }
 
-                        if (prices) {
+                        if (prices && prices.length > 2) {
                             sparklineCache[symbol] = prices;
                             document.querySelectorAll(`.graph-container-${symbol}`).forEach(target => {
                                 const isDetail = target.id.startsWith('graph-detail-');
                                 target.innerHTML = generateSparklineSvg(prices, changePct, isDetail ? 240 : 100);
                             });
                         } else {
-                            throw new Error('No data');
+                            throw new Error('No valid price data');
                         }
                     } catch (e) {
-                        console.warn('Sparkline fetch err', symbol, e);
+                        console.warn('Final Sparkline Err', symbol, e);
                         document.querySelectorAll(`.graph-container-${symbol}`).forEach(target => {
-                            if (target.innerHTML.includes('fa-spin')) target.innerHTML = '<span style="color:#666">-</span>';
+                            target.innerHTML = `<span style="color:#888; font-size:10px; cursor:pointer;" onclick="loadSparkline('${id}','${symbol}',${changePct})">暂无数据(点击重试)</span>`;
                         });
                     } finally {
                         sparklineRequests.delete(symbol);
@@ -5834,9 +5838,6 @@
                                                 <div><span style="color:#aaa">24h涨跌幅:</span> <br><b class="${change >= 0 ? 'text-danger' : 'text-success'}">${changeSign}${change.toFixed(2)}%</b></div>
                                                 <div><span style="color:#aaa">币种名称:</span> <br><b>${coin.name} (${coin.symbol.toUpperCase()})</b></div>
                                             </div>
-                                            <button class="btn btn-xs btn-white" style="margin-top:20px; border-radius:20px; font-size:11px; padding: 4px 15px;" onclick="event.stopPropagation(); window.open('https://www.gate.io/zh/trade/${coin.symbol.toUpperCase()}_USDT', '_blank')">
-                                                去交易 <i class="fa fa-external-link"></i>
-                                            </button>
                                         </div>
                                         <div style="flex:2;">
                                             <h5 style="margin-top:0; font-size:14px; font-weight:bold; color:#555; margin-bottom:15px; display:flex; justify-content:space-between;">

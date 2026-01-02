@@ -5463,7 +5463,8 @@
                     'arb': 'arbitrum', 'op': 'optimism', 'tia': 'celestia', 'sei': 'sei-network',
                     'pepe': 'pepe', 'stx': 'stacks', 'apt': 'aptos', 'floki': 'floki', 'fet': 'fetch-ai',
                     'bonk': 'bonk', 'kas': 'kaspa', 'rndr': 'render-token', 'inj': 'injective',
-                    'near': 'near-protocol', 'bch': 'bitcoin-cash', 'uni': 'uniswap'
+                    'near': 'near-protocol', 'bch': 'bitcoin-cash', 'uni': 'uniswap', 'ldo': 'lido-dao',
+                    'icp': 'internet-computer', 'apt': 'aptos', 'mnt': 'mantle', 'kas': 'kaspa'
                 };
 
                 // Track detail row states
@@ -5484,11 +5485,11 @@
                         let prices = null;
                         // 1. Try CryptoCompare (Fastest chart API)
                         try {
-                            const res = await fetchWithTimeout(`https://min-api.cryptocompare.com/data/v2/histohour?fsym=${symbol.toUpperCase()}&tsym=USD&limit=168`, { timeout: 5000 });
+                            const res = await fetchWithTimeout(`https://min-api.cryptocompare.com/data/v2/histohour?fsym=${symbol.toUpperCase()}&tsym=USD&limit=168`, { timeout: 4000 });
                             if (res.ok) {
                                 const json = await res.json();
                                 if (json.Data && json.Data.Data && json.Data.Data.length > 0) {
-                                    prices = json.Data.Data.map(d => d.close);
+                                    prices = json.Data.Data.map(d => d.close).filter(p => !isNaN(p));
                                 }
                             }
                         } catch (e) { }
@@ -5645,28 +5646,36 @@
                         name: 'Gate.io (Official)',
                         url: 'https://api.gateio.ws/api/v4/spot/tickers', // Returns all tickers, need filtering
                         handler: (data) => {
-                            // Target pairs
-                            const targets = ['BTC_USDT', 'ETH_USDT', 'USDT_CNY', 'BNB_USDT', 'XRP_USDT', 'SOL_USDT', 'DOGE_USDT', 'ADA_USDT', 'TRX_USDT', 'TON_USDT', 'SHIB_USDT', 'LTC_USDT'];
-                            const validPairs = new Set(targets);
-
-                            // Detect USDT_CNY for dynamic exchange rate
+                            // 1. Sync Exchange Rate (Fixed issue with finding USDT_CNY accurately)
                             const usdtCny = data.find(item => item.currency_pair === 'USDT_CNY');
-                            if (usdtCny) {
+                            if (usdtCny && usdtCny.last) {
                                 USD_CNY_RATE = parseFloat(usdtCny.last);
                                 lastRateUpdate = Date.now();
                             }
 
-                            return data.filter(item => validPairs.has(item.currency_pair)).map(item => {
+                            // 2. Filter USDT pairs and sort by volume to get Top 50
+                            const sortedTickers = data
+                                .filter(item => item.currency_pair.endsWith('_USDT'))
+                                .filter(item => !item.currency_pair.includes('3L_') && !item.currency_pair.includes('3S_')) // Exclude leveraged
+                                .sort((a, b) => parseFloat(b.quote_volume) - parseFloat(a.quote_volume))
+                                .slice(0, 50);
+
+                            return sortedTickers.map(item => {
                                 const symbol = item.currency_pair.split('_')[0].toLowerCase();
-                                const nameMap = { 'btc': 'Bitcoin', 'eth': 'Ethereum', 'usdt': 'Tether', 'bnb': 'BNB', 'xrp': 'Ripple', 'sol': 'Solana', 'doge': 'Dogecoin', 'ada': 'Cardano', 'trx': 'Tron', 'ton': 'Toncoin', 'shib': 'Shiba Inu', 'ltc': 'Litecoin' };
+                                const nameMap = {
+                                    'btc': 'Bitcoin', 'eth': 'Ethereum', 'usdt': 'Tether', 'bnb': 'BNB',
+                                    'xrp': 'Ripple', 'sol': 'Solana', 'doge': 'Dogecoin', 'ada': 'Cardano',
+                                    'trx': 'Tron', 'ton': 'Toncoin', 'shib': 'Shiba Inu', 'ltc': 'Litecoin',
+                                    'pepe': 'PEPE', 'link': 'Chainlink', 'near': 'NEAR Protocol', 'apt': 'Aptos'
+                                };
                                 return {
                                     id: symbol,
                                     symbol: symbol,
                                     name: nameMap[symbol] || symbol.toUpperCase(),
-                                    image: `https://assets.coincap.io/assets/icons/${symbol}@2x.png`, // Fallback icon
+                                    image: `https://gimg2.gateimg.com/coin_icon/64/${symbol}.png`,
                                     current_price: parseFloat(item.last),
                                     price_change_percentage_24h: parseFloat(item.change_percentage),
-                                    market_cap: parseFloat(item.quote_volume) * 1000, // Gate doesn't return MC easily, use Vol as proxy or hide
+                                    market_cap: parseFloat(item.quote_volume) * 7.5, // Proxy for display
                                     sparkline_in_7d: null
                                 };
                             });

@@ -158,15 +158,16 @@ function injectCryptoStyles() {
             font-weight: 500;
             color: #888;
             border-bottom: 1px solid #f0f0f0;
-            padding: 12px 15px !important;
-            font-size: 13px;
+            padding: 10px 12px !important;
+            font-size: 12px;
         }
 
         .crypto-table td {
             vertical-align: middle !important;
-            padding: 12px 15px !important;
+            padding: 10px 12px !important;
             border-top: 1px solid #f8f8f8;
             color: #333;
+            font-size: 12px;
         }
 
         .coin-info {
@@ -188,7 +189,7 @@ function injectCryptoStyles() {
 
         .coin-name {
             font-weight: bold;
-            font-size: 14px;
+            font-size: 13px;
             color: #1a1a1a;
         }
 
@@ -212,7 +213,7 @@ function injectCryptoStyles() {
         .main-price {
             font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
             font-weight: 600;
-            font-size: 14px;
+            font-size: 13px;
         }
 
         .converted-price {
@@ -250,6 +251,28 @@ function injectCryptoStyles() {
         .market_cap_cell {
             font-size: 12px;
             color: #666;
+        }
+
+        /* Detail container styles */
+        .detail-container {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px 20px;
+            background: #fafafa;
+            border-top: 1px solid #f0f0f0;
+        }
+
+        .detail-info, .detail-chart {
+            flex: 1;
+            margin: 0 10px;
+        }
+
+        .detail-info h5, .detail-chart h5 {
+            margin-top: 0;
+            font-size: 13px;
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 12px;
         }
 
         /* Real-time Pulse Animation (Restored & Enhanced) */
@@ -304,6 +327,16 @@ function injectCryptoStyles() {
             color: #888;
         }
 
+        /* Dark mode for detail container */
+        body.dark-mode .detail-container {
+            background: #2a2a2a;
+            border-top-color: #333;
+        }
+
+        body.dark-mode .detail-info h5, body.dark-mode .detail-chart h5 {
+            color: #ddd;
+        }
+
         body.dark-mode #crypto-search {
             border-color: #444;
             color: #ddd;
@@ -351,23 +384,26 @@ function injectCryptoStyles() {
 function createCryptoHTML() {
     return `
         <div class="xe-widget xe-conversations" style="padding: 20px;">
-            <h4 class="xe-header">
-                <i class="linecons-money" style="margin-right: 7px;" id="数字货币"></i>数字货币行情 (Live Market)
-                <span style="float: right; display: flex; align-items: center; font-size: 13px;">
-                    <button id="refresh-crypto-btn" class="btn btn-xs btn-white" onclick="fetchCryptoData()" style="margin-right: 10px; padding: 2px 6px;" title="刷新数据">
+            <h4 class="xe-header" onclick="toggleCryptoPanel()" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center;">
+                    <i class="linecons-money" style="margin-right: 7px;" id="数字货币"></i>数字货币行情 (Live Market)
+                </div>
+                <div style="display: flex; align-items: center;">
+                    <i class="fa fa-chevron-down" id="crypto-panel-toggle" style="margin-right: 10px; transition: transform 0.3s;"></i>
+                    <button id="refresh-crypto-btn" class="btn btn-xs btn-white" onclick="event.stopPropagation(); fetchCryptoData()" style="margin-right: 10px; padding: 2px 6px;" title="刷新数据">
                         <i class="fa fa-refresh"></i>
                     </button>
                     <span style="margin-right: 10px; color: #888;">计价:</span>
-                    <button id="currency-toggle" class="btn btn-xs btn-primary" onclick="toggleCurrency()" style="padding: 2px 8px;">USD</button>
+                    <button id="currency-toggle" class="btn btn-xs btn-primary" onclick="event.stopPropagation(); toggleCurrency()" style="padding: 2px 8px;">USD</button>
                     <span style="margin: 0 10px; color: #333;">|</span>
                     <div class="search-box-crypto" style="position: relative; display: inline-block; vertical-align: middle; z-index: 100;">
                         <input type="text" id="crypto-search" placeholder="输入币种 (如 ETC, PEPE)..." style="background:rgba(255,255,255,0.05); border: 1px solid #444; border-radius: 4px; padding: 2px 50px 2px 10px; color: inherit; width: 190px; height: 26px; font-size: 12px; transition: border-color 0.3s;">
-                        <i class="fa fa-times" id="crypto-search-clear" onclick="clearCryptoSearch()" style="position: absolute; right: 28px; top: 50%; transform: translateY(-50%); color: #666; font-size: 12px; cursor: pointer; display: none; padding: 5px;"></i>
-                        <i class="fa fa-search" id="crypto-search-trigger" onclick="searchCrypto()" style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); color: #999; font-size: 14px; cursor: pointer; padding: 5px;"></i>
+                        <i class="fa fa-times" id="crypto-search-clear" onclick="event.stopPropagation(); clearCryptoSearch()" style="position: absolute; right: 28px; top: 50%; transform: translateY(-50%); color: #666; font-size: 12px; cursor: pointer; display: none; padding: 5px;"></i>
+                        <i class="fa fa-search" id="crypto-search-trigger" onclick="event.stopPropagation(); searchCrypto()" style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); color: #999; font-size: 14px; cursor: pointer; padding: 5px;"></i>
                     </div>
-                </span>
+                </div>
             </h4>
-            <div class="row">
+            <div class="row" id="crypto-panel-content" style="display: none; max-height: 0; overflow: hidden; transition: max-height 0.3s ease;">
                 <div class="col-sm-12">
                     <div class="crypto-table-container">
                         <table class="table crypto-table">
@@ -1108,3 +1144,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 });
+
+// 整体展开/闭合功能
+function toggleCryptoPanel() {
+    const content = document.getElementById('crypto-panel-content');
+    const toggle = document.getElementById('crypto-panel-toggle');
+    if (content.style.display === 'none' || content.style.display === '') {
+        content.style.display = 'block';
+        content.style.maxHeight = content.scrollHeight + 'px';
+        toggle.style.transform = 'rotate(180deg)';
+    } else {
+        content.style.maxHeight = '0';
+        setTimeout(() => {
+            content.style.display = 'none';
+        }, 300);
+        toggle.style.transform = 'rotate(0deg)';
+    }
+}

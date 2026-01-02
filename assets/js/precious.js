@@ -145,9 +145,27 @@ function handleRealtimeData(data) {
         updateRealtimeStatus(true);
         lastRealtimeUpdate = Date.now();
         
+        // 检查数据格式
+        if (!data) {
+            console.warn('[Precious] 收到空数据');
+            return;
+        }
+        
+        // 多种数据格式处理
+        if (typeof data === 'string') {
+            try {
+                data = JSON.parse(data);
+            } catch (parseError) {
+                console.error('[Precious] 解析字符串数据失败:', parseError);
+                return;
+            }
+        }
+        
         // 解析数据并更新贵金属价格
         if (data && typeof data === 'object') {
             updatePreciousDataFromWS(data);
+        } else {
+            console.warn('[Precious] 数据格式不正确:', typeof data);
         }
         
     } catch (error) {
@@ -231,31 +249,84 @@ function updateRealtimeStatus(isConnected) {
 // 初始化 WebSocket 连接
 function initRealtimeConnection() {
     try {
-        // 检查 WSClient 是否可用
-        if (typeof WSClient === 'undefined') {
-            console.warn('[Precious] WSClient 未加载，使用备用数据源');
-            isRealtimeEnabled = false;
+        console.log('[Precious] 初始化实时数据连接...');
+        
+        // 方法1：检查直接的 WSClient
+        if (typeof WSClient !== 'undefined') {
+            if (typeof WSClient.onData === 'function') {
+                WSClient.onData(handleRealtimeData);
+                isRealtimeEnabled = true;
+                console.log('[Precious] 通过 WSClient 初始化实时数据连接');
+                return;
+            } else {
+                console.warn('[Precious] WSClient 存在但 onData 方法不可用');
+            }
+        }
+        
+        // 方法2：检查全局 WebSocket 实例
+        if (typeof window.websocket !== 'undefined' && typeof window.websocket.on === 'function') {
+            window.websocket.on('precious-data', handleRealtimeData);
+            isRealtimeEnabled = true;
+            console.log('[Precious] 通过 window.websocket 初始化实时数据连接');
             return;
         }
         
-        console.log('[Precious] 初始化实时数据连接...');
+        // 方法3：检查是否有 WebSocket 工厂函数
+        if (typeof window.createWebSocket === 'function') {
+            try {
+                const ws = window.createWebSocket();
+                if (typeof ws.on === 'function') {
+                    ws.on('data', handleRealtimeData);
+                    isRealtimeEnabled = true;
+                    console.log('[Precious] 通过 createWebSocket() 初始化实时数据连接');
+                    return;
+                }
+            } catch (wsError) {
+                console.warn('[Precious] WebSocket 创建失败:', wsError);
+            }
+        }
         
-        // 设置数据回调
-        WSClient.onData(handleRealtimeData);
-        
-        // 监听全局事件（备用方案）
+        // 方法4：监听全局事件（备用方案）
         window.addEventListener('ws-data-received', function(event) {
             if (event.detail) {
                 handleRealtimeData(event.detail);
             }
         });
         
-        isRealtimeEnabled = true;
-        console.log('[Precious] 实时数据连接已初始化');
+        // 检查是否有其他 WebSocket 相关对象
+        const possibleClients = ['socket', 'ws', 'websocketClient', 'realtimeClient'];
+        for (const clientName of possibleClients) {
+            if (typeof window[clientName] !== 'undefined') {
+                const client = window[clientName];
+                if (typeof client.on === 'function') {
+                    client.on('data', handleRealtimeData);
+                    isRealtimeEnabled = true;
+                    console.log(`[Precious] 通过 window.${clientName} 初始化实时数据连接`);
+                    return;
+                }
+            }
+        }
+        
+        console.warn('[Precious] 未找到可用的WebSocket客户端，使用备用数据源');
+        isRealtimeEnabled = false;
         
     } catch (error) {
         console.error('[Precious] 初始化实时连接失败:', error);
         isRealtimeEnabled = false;
+    }
+}
+
+// 延迟初始化 WebSocket 连接（等待其他脚本加载）
+function initRealtimeConnectionWithDelay() {
+    // 首先尝试立即初始化
+    initRealtimeConnection();
+    
+    // 如果失败，等待一段时间后重试
+    if (!isRealtimeEnabled) {
+        setTimeout(() => {
+            console.log('[Precious] 尝试重新初始化WebSocket连接...');
+            initRealtimeConnection();
+        }, 2000);
     }
 }
 
@@ -443,6 +514,39 @@ function renderPreciousTable(data) {
     tbody.innerHTML = rows;
 }
 
+// 调试函数：检查WebSocket连接状态
+function checkPreciousWebSocketStatus() {
+    const status = {
+        isRealtimeEnabled,
+        lastRealtimeUpdate,
+        wsClientAvailable: typeof WSClient !== 'undefined',
+        windowWebsocketAvailable: typeof window.websocket !== 'undefined',
+        createWebSocketAvailable: typeof window.createWebSocket === 'function',
+        possibleClients: []
+    };
+    
+    // 检查所有可能的WebSocket客户端
+    const clientNames = ['socket', 'ws', 'websocketClient', 'realtimeClient'];
+    clientNames.forEach(name => {
+        if (typeof window[name] !== 'undefined') {
+            status.possibleClients.push({
+                name,
+                hasOnMethod: typeof window[name].on === 'function'
+            });
+        }
+    });
+    
+    console.log('[Precious] WebSocket状态检查:', status);
+    return status;
+}
+
+// 手动重新连接WebSocket
+function reconnectPreciousWebSocket() {
+    console.log('[Precious] 手动重新连接WebSocket...');
+    isRealtimeEnabled = false;
+    initRealtimeConnectionWithDelay();
+}
+
 // 初始化贵金属功能
 function initPrecious() {
     console.log('[Precious] 初始化贵金属模块...');
@@ -463,7 +567,7 @@ function initPrecious() {
     }
 
     // 初始化实时连接
-    initRealtimeConnection();
+    initRealtimeConnectionWithDelay();
 
     // 定期检查连接状态（如果实时数据长时间未更新，使用备用API）
     setInterval(() => {
@@ -492,6 +596,10 @@ function initPrecious() {
                 .catch(err => console.error('[Precious] 更新USD/CNY汇率失败:', err));
         }
     }, 60000);
+    
+    // 暴露调试函数到全局
+    window.checkPreciousWebSocketStatus = checkPreciousWebSocketStatus;
+    window.reconnectPreciousWebSocket = reconnectPreciousWebSocket;
     
     console.log('[Precious] 贵金属模块初始化完成');
 }

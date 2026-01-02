@@ -5122,11 +5122,16 @@
                         style="padding: 2px 8px;">USD</button>
                     <span style="margin: 0 10px; color: #333;">|</span>
                     <div style="position: relative; display: inline-block;">
-                        <input type="text" id="crypto-search" placeholder="搜索币种..." oninput="handleSearchInput()"
-                            onkeydown="handleSearchKey(event)"
-                            style="background: transparent; border: 1px solid #ddd; border-radius: 4px; padding: 2px 25px 2px 8px; color: inherit; width: 140px;">
-                        <i class="fa fa-search"
-                            style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: #999; font-size: 12px; pointer-events: none;"></i>
+                        <div class="input-group" style="width: 100%; max-width: 300px; display: flex;">
+                            <input type="text" id="crypto-search" class="form-control"
+                                placeholder="搜索币种 (e.g. BTC, 比特币)..." oninput="handleSearchInput()"
+                                onkeydown="handleSearchKey(event)"
+                                style="border-radius: 4px 0 0 4px; border-right: none;">
+                            <button class="btn btn-primary" onclick="searchCrypto()"
+                                style="border-radius: 0 4px 4px 0; padding: 6px 12px;">
+                                <i class="fa fa-search"></i>
+                            </button>
+                        </div>
                     </div>
                 </span>
             </h4>
@@ -5270,6 +5275,29 @@
                 .market_cap_cell {
                     font-size: 12px;
                     color: #666;
+                }
+
+                /* Real-time Pulse Animation (Restored & Enhanced) */
+                .price-update {
+                    transition: background-color 0.8s ease;
+                }
+
+                .pulse-green {
+                    background-color: rgba(239, 68, 68, 0.2) !important;
+                    /* Red for up (China style) */
+                }
+
+                .pulse-red {
+                    background-color: rgba(16, 185, 129, 0.2) !important;
+                    /* Green for down */
+                }
+
+                body.dark-mode .pulse-green {
+                    background-color: rgba(239, 68, 68, 0.15) !important;
+                }
+
+                body.dark-mode .pulse-red {
+                    background-color: rgba(16, 185, 129, 0.15) !important;
                 }
 
                 /* Dark Mode Adaptation */
@@ -5449,24 +5477,34 @@
                 }
 
                 // Success Handler
-                function onSuccess(dot, providerName) {
+                function onSuccess(dot, providerName, freshData) {
                     const label = document.getElementById('api-provider-name');
                     if (dot) dot.style.color = '#10b981';
                     if (label && !isSearching) label.innerText = providerName;
 
-                    // If searching, don't auto-update with default market data
-                    if (isSearching) return;
+                    // Always update UI elements if they exist
+                    if (freshData) updateCryptoUI(freshData);
 
-                    // If table is empty (first load), do full render
-                    const tbody = document.getElementById('crypto-table-body');
-                    const hasData = tbody && tbody.querySelector('.main-row');
-
-                    if (!hasData) {
-                        renderCryptoTable(cryptoData);
-                    } else {
-                        // Selective update only
-                        updateCryptoUI(cryptoData);
+                    // If NOT searching and table is empty or we need full refresh
+                    if (!isSearching) {
+                        const tbody = document.getElementById('crypto-table-body');
+                        const hasData = tbody && tbody.querySelector('.main-row');
+                        if (!hasData) {
+                            renderCryptoTable(cryptoData);
+                        }
                     }
+                }
+
+                // Add this new function to help search results update too
+                async function updateSearchPrices() {
+                    const query = document.getElementById('crypto-search').value.trim();
+                    if (!query || !isSearching) return;
+
+                    try {
+                        // For search results, we just update what's in cryptoData or do another search
+                        // Better: just fetch standard data and let updateCryptoUI do its job
+                        fetchCryptoData();
+                    } catch (e) { }
                 }
 
                 // API Strategies configuration
@@ -5575,51 +5613,55 @@
                     try {
                         // 1. Try CryptoCompare (Adjusted timeout)
                         try {
-                            if (label) label.innerText = 'Connecting CC...';
+                            if (label) label.innerText = '正在获取 (CC)...';
                             const res = await fetchWithTimeout(APIS.CRYPTOCOMPARE.url, { timeout: 8000 });
                             if (res.ok) {
                                 const data = await res.json();
-                                cryptoData = APIS.CRYPTOCOMPARE.handler(data);
-                                onSuccess(dot, APIS.CRYPTOCOMPARE.name);
+                                const fetched = APIS.CRYPTOCOMPARE.handler(data);
+                                if (!isSearching) cryptoData = fetched;
+                                onSuccess(dot, APIS.CRYPTOCOMPARE.name, fetched);
                                 return;
                             }
                         } catch (e) { console.warn('CC Err', e); lastError = e.message; }
 
                         // 2. Try Gate.io (Longer timeout for proxy)
                         try {
-                            if (label) label.innerText = 'Connecting Gate...';
+                            if (label) label.innerText = '正在获取 (Gate)...';
                             const res = await fetchWithTimeout(APIS.GATEIO.url, { timeout: 10000 });
                             if (res.ok) {
                                 const data = await res.json();
-                                cryptoData = APIS.GATEIO.handler(data);
-                                onSuccess(dot, APIS.GATEIO.name);
+                                const fetched = APIS.GATEIO.handler(data);
+                                if (!isSearching) cryptoData = fetched;
+                                onSuccess(dot, APIS.GATEIO.name, fetched);
                                 return;
                             }
                         } catch (e) { console.warn('Gate Err', e); lastError = e.message; }
 
                         // 3. Try CoinCap
                         try {
-                            if (label) label.innerText = 'Connecting CoinCap...';
+                            if (label) label.innerText = '正在获取 (CoinCap)...';
                             const res = await fetchWithTimeout(APIS.COINCAP.url, { timeout: 8000 });
                             if (res.ok) {
                                 const data = await res.json();
-                                cryptoData = APIS.COINCAP.handler(data);
-                                onSuccess(dot, APIS.COINCAP.name);
+                                const fetched = APIS.COINCAP.handler(data);
+                                if (!isSearching) cryptoData = fetched;
+                                onSuccess(dot, APIS.COINCAP.name, fetched);
                                 return;
                             }
                         } catch (e) { console.warn('CoinCap Err', e); lastError = e.message; }
 
                         // 4. Try CoinGecko (Last Resort)
                         try {
-                            if (label) label.innerText = 'Connecting CG...';
+                            if (label) label.innerText = '正在获取 (CG)...';
                             const res = await fetchWithTimeout(APIS.COINGECKO.url, { timeout: 8000 });
                             if (res.ok) {
                                 const data = await res.json();
-                                cryptoData = APIS.COINGECKO.handler(data);
-                                onSuccess(dot, APIS.COINGECKO.name);
+                                const fetched = APIS.COINGECKO.handler(data);
+                                if (!isSearching) cryptoData = fetched;
+                                onSuccess(dot, APIS.COINGECKO.name, fetched);
                                 return;
                             }
-                        } catch (e) { console.warn('CG Err', e); lastError = 'All APIs failed'; }
+                        } catch (e) { console.warn('CG Err', e); lastError = '所有接口均失效'; }
 
                         // All failed
                         if (label) label.innerText = 'Conn Failed';
@@ -5699,7 +5741,7 @@
                                 </td>
                                 <td>
                                     <div class="price-wrap">
-                                        <span id="price-${coin.symbol}" class="main-price price-update">${symbol}${price}</span>
+                                        <span id="price-${coin.symbol}" class="main-price price-update" data-val="${rawPrice * rate}">${symbol}${price}</span>
                                         <span class="converted-price">${secondarySymbol}${secondaryPrice}</span>
                                     </div>
                                 </td>
@@ -5751,11 +5793,15 @@
                                 priceEl.innerText = newText;
                                 priceEl.dataset.val = newVal;
 
-                                const pulseClass = newVal >= oldVal ? 'pulse-green' : 'pulse-red';
-                                priceEl.classList.remove('pulse-green', 'pulse-red');
-                                void priceEl.offsetWidth;
-                                priceEl.classList.add(pulseClass);
-                                setTimeout(() => priceEl.classList.remove(pulseClass), 800);
+                                // IMPORTANT: Restore pulse to the PARENT cell (TD)
+                                const cell = priceEl.closest('td');
+                                if (cell) {
+                                    const pulseClass = newVal >= oldVal ? 'pulse-green' : 'pulse-red';
+                                    cell.classList.remove('pulse-green', 'pulse-red');
+                                    void cell.offsetWidth;
+                                    cell.classList.add(pulseClass);
+                                    setTimeout(() => cell.classList.remove(pulseClass), 1000);
+                                }
 
                                 const secondaryEl = priceEl.nextElementSibling;
                                 if (secondaryEl && secondaryEl.classList.contains('converted-price')) {
@@ -5776,6 +5822,15 @@
 
                             if (changeEl.innerText.trim() !== newText) {
                                 changeEl.innerText = newText;
+                                // IMPORTANT: Apply pulse to the Change button container cell too
+                                const cell = changeEl.closest('td');
+                                if (cell) {
+                                    const pulseClass = change >= 0 ? 'pulse-green' : 'pulse-red';
+                                    cell.classList.remove('pulse-green', 'pulse-red');
+                                    void cell.offsetWidth;
+                                    cell.classList.add(pulseClass);
+                                    setTimeout(() => cell.classList.remove(pulseClass), 1000);
+                                }
                                 changeEl.className = `change-box ${change >= 0 ? 'change-up' : 'change-down'} price-update`;
                             }
                         }
@@ -5786,8 +5841,14 @@
                 let searchTimeout;
 
                 function handleSearchInput() {
+                    const query = document.getElementById('crypto-search').value.trim();
+                    if (!query) {
+                        isSearching = false;
+                        fetchCryptoData();
+                        return;
+                    }
                     clearTimeout(searchTimeout);
-                    searchTimeout = setTimeout(searchCrypto, 800); // 800ms debounce
+                    searchTimeout = setTimeout(searchCrypto, 800);
                 }
 
                 async function handleSearchKey(e) {
@@ -5801,8 +5862,15 @@
                     }
                 }
 
+                // Map common Chinese names to English for better search
+                const CN_COIN_MAP = {
+                    '比特币': 'bitcoin', '以太坊': 'ethereum', '泰达币': 'tether', '狗狗币': 'dogecoin',
+                    '波卡': 'polkadot', '币安': 'binance', '瑞波': 'ripple', '索拉纳': 'solana',
+                    '莱特币': 'litecoin', '艾达币': 'cardano', '波场': 'tron'
+                };
+
                 async function searchCrypto() {
-                    const query = document.getElementById('crypto-search').value.trim().toLowerCase();
+                    let query = document.getElementById('crypto-search').value.trim().toLowerCase();
                     const dot = document.getElementById('api-status-dot');
                     const label = document.getElementById('api-provider-name');
                     const tbody = document.getElementById('crypto-table-body');
@@ -5813,20 +5881,27 @@
                         return;
                     }
 
-                    if (label) label.innerText = 'Searching...';
+                    // Translate Chinese query if necessary
+                    if (CN_COIN_MAP[query]) query = CN_COIN_MAP[query];
+
+                    if (label) label.innerText = '正在搜索...';
                     if (dot) dot.style.color = '#f59e0b';
                     isSearching = true;
 
                     try {
-                        const res = await fetchWithTimeout(`https://api.coincap.io/v2/assets?search=${query}&limit=10`, { timeout: 8000 });
+                        // Use a wider search limit and better feedback
+                        const res = await fetchWithTimeout(`https://api.coincap.io/v2/assets?search=${query}&limit=20`, { timeout: 8000 });
                         if (res.ok) {
                             const json = await res.json();
                             const items = json.data;
 
                             if (items.length === 0) {
-                                if (label) label.innerText = `No results for "${query}"`;
+                                if (label) label.innerText = `未找到 "${query}"`;
                                 if (dot) dot.style.color = '#ef4444';
-                                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: #888;">No coins found matching "${query}"</td></tr>`;
+                                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 30px; color: #888;">
+                                    <div style="font-size:24px; margin-bottom:10px;">🔍</div>
+                                    未找到匹配 "${query}" 的币种
+                                </td></tr>`;
                                 return;
                             }
 
@@ -5842,8 +5917,10 @@
                                 sparkline_in_7d: null
                             }));
 
+                            // Save search results to global data so they can be updated
+                            cryptoData = mapped;
                             renderCryptoTable(mapped);
-                            if (label) label.innerText = `Found ${items.length} for "${query}"`;
+                            if (label) label.innerText = `已找到 ${items.length} 个关于 "${query}" 的结果`;
                             if (dot) dot.style.color = '#10b981';
                         } else {
                             throw new Error('Search failed');
@@ -5862,11 +5939,8 @@
 
                     // Real-time polling (3s)
                     setInterval(() => {
-                        const query = document.getElementById('crypto-search').value.trim();
-                        if (!query) {
-                            isSearching = false;
-                            fetchCryptoData();
-                        }
+                        // Always poll, even when searching, to keep prices updated
+                        fetchCryptoData();
                     }, 3000);
 
                     // Hover Logic

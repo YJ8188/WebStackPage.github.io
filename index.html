@@ -5468,7 +5468,11 @@
                 };
 
                 // Data persistence & cache
-                let allGateTickers = []; // Master list from Gate.io for global search
+                let allGateTickers = [];
+                try {
+                    const savedTickers = localStorage.getItem('gate_tickers_full');
+                    if (savedTickers) allGateTickers = JSON.parse(savedTickers);
+                } catch (e) { }
                 const expandedCoins = new Set();
 
                 async function loadSparkline(id, symbol, changePct) {
@@ -5661,8 +5665,9 @@
                         name: 'Gate.io (Official)',
                         url: 'https://api.gateio.ws/api/v4/spot/tickers', // Returns all tickers, need filtering
                         handler: (data) => {
-                            // 0. Backup all tickers for global search
+                            // 0. Backup all tickers for global search & Persist
                             allGateTickers = data;
+                            localStorage.setItem('gate_tickers_full', JSON.stringify(data));
 
                             // 1. Sync Exchange Rate (Fixed issue with finding USDT_CNY accurately)
                             const usdtCny = data.find(item => item.currency_pair === 'USDT_CNY');
@@ -5913,8 +5918,8 @@
                         let sparklineDetail = '';
                         const cached = sparklineCache[coin.symbol];
                         if (cached) {
-                            sparklineContent = `<div style="display:flex; justify-content:center; width:100%;">${generateSparklineSvg(cached, change, 100)}</div>`;
-                            sparklineDetail = `<div style="display:flex; justify-content:center; width:100%;">${generateSparklineSvg(cached, change, 240)}</div>`;
+                            sparklineContent = `<div style="display:flex; justify-content:center; align-items:center; width:100%; height:30px;">${generateSparklineSvg(cached, change, 100)}</div>`;
+                            sparklineDetail = `<div style="display:flex; justify-content:center; align-items:center; width:100%; height:60px;">${generateSparklineSvg(cached, change, 240)}</div>`;
                         } else {
                             sparklineContent = `<div id="graph-${coin.symbol}" class="graph-container-${coin.symbol}" style="height:30px; display:flex; align-items:center; justify-content:center;">-</div>`;
                             sparklineDetail = `<div id="graph-detail-${coin.symbol}" class="graph-container-${coin.symbol}" style="height:60px; min-width:240px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.05); border-radius:6px; border: 1px dotted rgba(0,0,0,0.05);"></div>`;
@@ -6149,11 +6154,21 @@
                     isSearching = true;
 
                     tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color: #888;">
-                        <i class="fa fa-circle-o-notch fa-spin"></i> 正在深度检索全网币种...
-                    </td></tr>`;
+                            <i class="fa fa-circle-o-notch fa-spin"></i> 正在深度检索全网币种...
+                        </td></tr > `;
 
                     try {
-                        // 1. Efficient Global Search in allGateTickers (Synced with Gate.io)
+                        // 1. Force fetch allGateTickers if empty
+                        if (allGateTickers.length === 0) {
+                            if (label) label.innerText = '正在同步全网库...';
+                            const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers', { timeout: 10000 });
+                            if (res.ok) {
+                                allGateTickers = await res.json();
+                                localStorage.setItem('gate_tickers_full', JSON.stringify(allGateTickers));
+                            }
+                        }
+
+                        // 2. Efficient Global Search in allGateTickers (Synced with Gate.io)
                         const filtered = allGateTickers
                             .filter(item => {
                                 const pair = item.currency_pair.toLowerCase();

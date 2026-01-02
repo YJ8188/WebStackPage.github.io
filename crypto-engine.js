@@ -415,32 +415,40 @@ const CryptoEngine = (() => {
     window.handleIconError = function (img, symLower, symUpper) {
         if (!img.tried) img.tried = 1; else img.tried++;
         const sources = [
-            // 国内来源（优先）
+            // 国内来源（优先） - 新增更多国内可访问源
             `https://gimg2.gateimg.com/coin_icon/64/${symLower}.png`, //  Gate.io 国内CDN
             `https://static.coinpaper.com/coin/${symLower}.png`, // 国内服务
             `https://cdn.coin98.net/coins/${symLower}.png`, // 国内CDN
             `https://cdn.jsdelivr.net/gh/guoshijiang/cryptocurrency-icons@master/128/color/${symLower}.png`, // 国内开发者维护的CDN
+            `https://img.360buyimg.com/img/jfs/${symLower}.png`, // 京东CDN
+            `https://img.alicdn.com/tfs/TB${symLower}.png`, // 阿里CDN
+            `https://static.360buyimg.com/img/jfs/${symLower}.png`, // 京东云CDN
             
-            // 国内交易所图标源
+            // 国内交易所图标源 - 优化路径
             `https://bin.bnbstatic.com/image2/binance/static/image/cryptocurrency/${symLower.toUpperCase()}.png`, // 币安国内CDN
             `https://static.huobi.co.kr/static/client/images/coin/icon_${symLower.toLowerCase()}_64.png`, // 火币国内CDN
             `https://cdn.okex.com/cdn/portal/c2c/images/coin/${symLower.toLowerCase()}.png`, // OKX国内CDN
+            `https://static.gate.io/images/coin/icon_${symLower.toLowerCase()}_64.png`, // Gate.io备用
+            `https://www.binance.com/bapi/asset/v2/public/asset/get-icon?symbol=${symLower.toUpperCase()}`, // 币安API
             
-            // 主要国际来源
+            // 主要国际来源 - 增加缓存和优化
             `https://assets.coincap.io/assets/icons/${symLower}@2x.png`,
             `https://s2.coinmarketcap.com/static/img/coins/64x64/${symLower}.png`,
             `https://www.cryptocompare.com/media/331246/${symLower}.png`,
             
-            // 可靠CDN备份
+            // 可靠CDN备份 - 增加更多国内可访问的CDN
             `https://cdn.jsdelivr.net/gh/cjdowner/cryptocurrency-icons@latest/128/color/${symLower}.png`,
             `https://fastly.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/${symLower}.png`,
             `https://unpkg.com/cryptocurrency-icons@0.18.1/svg/color/${symLower}.svg`,
             `https://cdnjs.cloudflare.com/ajax/libs/cryptocurrency-icons/0.18.1/svg/color/${symLower}.svg`,
+            `https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/${symLower}.png`,
             
-            // 其他API
+            // 其他API - 增加更多来源
             `https://cryptoicons.org/api/color/${symLower}/128`,
             `https://coinicons-api.vercel.app/api/icon/${symLower}`,
             `https://cryptologos.cc/logos/${symLower}-${symUpper.toLowerCase()}-logo.png`,
+            `https://logo.coinlore.com/svg/${symLower}.svg`,
+            `https://www.coingecko.com/coins/${symLower}/logo?size=64`,
             
             // 特定币种的可靠来源（国内优先）
             symLower === 'btc' ? 'https://gimg2.gateimg.com/coin_icon/64/btc.png' : null,
@@ -448,10 +456,14 @@ const CryptoEngine = (() => {
             symLower === 'usdt' ? 'https://gimg2.gateimg.com/coin_icon/64/usdt.png' : null,
             symLower === 'bnb' ? 'https://bin.bnbstatic.com/image2/binance/static/image/cryptocurrency/BNB.png' : null,
             symLower === 'xrp' ? 'https://gimg2.gateimg.com/coin_icon/64/xrp.png' : null,
+            symLower === 'doge' ? 'https://gimg2.gateimg.com/coin_icon/64/doge.png' : null,
+            symLower === 'sol' ? 'https://gimg2.gateimg.com/coin_icon/64/sol.png' : null,
             
-            // 最后使用国内可访问的占位符
+            // 最后使用国内可访问的占位符 - 增加更多选项
             `https://cdn.iconscout.com/icon/free/png-256/free-${symLower}-3629635-3030178.png`,
-            `https://via.placeholder.com/32?text=${symUpper}`
+            `https://via.placeholder.com/32?text=${symUpper}`,
+            `https://img.icons8.com/color/64/${symLower}.png`,
+            `https://img.icons8.com/external-others-pike-picture/64/${symLower}.png`
         ].filter(Boolean); // 过滤掉null值
         
         if (img.tried <= sources.length) {
@@ -832,7 +844,21 @@ const CryptoEngine = (() => {
                                     // 对于关键指标（市值、流通量、24h高/低、价格），更智能地选择数据
                                     const isKeyMetric = ['market_cap', 'circulating_supply', 'high_24h', 'low_24h', 'current_price'].includes(key);
                                     
-                                    if (key !== 'symbol' && key !== 'name') {
+                                    if (key === 'image' || key === 'image_backup') {
+                                        // 对于logo，优先使用国内源
+                                        if (key === 'image' && !existingCoin.image) {
+                                            existingCoin.image = coin.image;
+                                        } else if (key === 'image_backup') {
+                                            // 如果没有备用logo或者新的logo源是国内的，优先使用
+                                            if (!existingCoin.image_backup || 
+                                                coin.image_backup.includes('gateimg.com') || 
+                                                coin.image_backup.includes('binance.com') ||
+                                                coin.image_backup.includes('huobi.co') ||
+                                                coin.image_backup.includes('okex.com')) {
+                                                existingCoin.image_backup = coin.image_backup;
+                                            }
+                                        }
+                                    } else if (key !== 'symbol' && key !== 'name') {
                                         const coinValue = parseFloat(coin[key]);
                                         const existingValue = parseFloat(existingCoin[key]);
                                         
@@ -911,12 +937,16 @@ const CryptoEngine = (() => {
                     
                     // 再次确保ETH在列表中（即使有STETH转换也确保位置正确）
                     const ethIndex = cryptoData.findIndex(coin => coin.symbol.toLowerCase() === 'eth');
-                    if (ethIndex > -1) {
-                        // 确保ETH位于前5位
-                        if (ethIndex >= 5) {
-                            const ethCoin = cryptoData.splice(ethIndex, 1)[0];
-                            cryptoData.unshift(ethCoin);
-                        }
+                    const btcIndex = cryptoData.findIndex(coin => coin.symbol.toLowerCase() === 'btc');
+                    
+                    if (ethIndex > -1 && btcIndex > -1) {
+                        // 确保ETH始终在BTC之后，即第二位
+                        const ethCoin = cryptoData.splice(ethIndex, 1)[0];
+                        cryptoData.splice(btcIndex + 1, 0, ethCoin);
+                    } else if (ethIndex > -1) {
+                        // 如果只有ETH没有BTC，将ETH放在第一位
+                        const ethCoin = cryptoData.splice(ethIndex, 1)[0];
+                        cryptoData.unshift(ethCoin);
                     }
                     
                     if (statusDot) statusDot.style.color = '#10b981';
@@ -947,12 +977,16 @@ const CryptoEngine = (() => {
                     
                     // 确保ETH在列表中（即使有STETH转换也确保位置正确）
                     const ethIndex = cryptoData.findIndex(coin => coin.symbol.toLowerCase() === 'eth');
-                    if (ethIndex > -1) {
-                        // 确保ETH位于前5位
-                        if (ethIndex >= 5) {
-                            const ethCoin = cryptoData.splice(ethIndex, 1)[0];
-                            cryptoData.unshift(ethCoin);
-                        }
+                    const btcIndex = cryptoData.findIndex(coin => coin.symbol.toLowerCase() === 'btc');
+                    
+                    if (ethIndex > -1 && btcIndex > -1) {
+                        // 确保ETH始终在BTC之后，即第二位
+                        const ethCoin = cryptoData.splice(ethIndex, 1)[0];
+                        cryptoData.splice(btcIndex + 1, 0, ethCoin);
+                    } else if (ethIndex > -1) {
+                        // 如果只有ETH没有BTC，将ETH放在第一位
+                        const ethCoin = cryptoData.splice(ethIndex, 1)[0];
+                        cryptoData.unshift(ethCoin);
                     }
                 }
                 if (statusDot) statusDot.style.color = '#ef4444';

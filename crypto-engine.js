@@ -37,6 +37,7 @@ const CryptoEngine = (() => {
                     return {
                         symbol, name: symbol.toUpperCase(),
                         image: `https://gimg2.gateimg.com/coin_icon/64/${symbol}.png`,
+                        image_backup: `https://static.coinpaper.com/coin/${symbol}.png`,
                         current_price: parseFloat(item.last),
                         price_change_percentage_24h: parseFloat(item.change_percentage),
                         market_cap: parseFloat(item.quote_volume) * 7.5,
@@ -153,10 +154,24 @@ const CryptoEngine = (() => {
 
             html += `
                 <tr class="main-row" onclick="CryptoEngine.toggleCoinDetail('${coin.symbol}')">
-                    <td><div class="coin-info"><img src="${coin.image}" class="coin-icon" onerror="this.src='../assets/images/logos/btc.png'"><div class="coin-name-wrap"><strong>${coin.symbol.toUpperCase()}</strong><span class="coin-vol">量: ${vol}</span></div></div></td>
+                    <td>
+                        <div class="coin-info">
+                            <img src="${coin.image}" class="coin-icon" 
+                                 onerror="if(!this.tried){this.tried=true; this.src='https://static.coinpaper.com/coin/${coin.symbol}.png';}else{this.src='../assets/images/logos/btc.png';}">
+                            <div class="coin-name-wrap">
+                                <strong>${coin.symbol.toUpperCase()}</strong>
+                                <span class="coin-vol">${vol}</span>
+                            </div>
+                        </div>
+                    </td>
                     <td><div class="price-wrap"><span class="main-price">${sym}${price}</span></div></td>
                     <td><div class="change-box ${change >= 0 ? 'change-up' : 'change-down'}">${change >= 0 ? '+' : ''}${change.toFixed(2)}%</div></td>
-                    <td class="market_cap_cell">${sym}${mcap} <i class="fa fa-angle-down" style="margin-left:5px; transition:0.3s; ${isOpen ? 'transform:rotate(180deg)' : ''}"></i></td>
+                    <td class="market_cap_cell">
+                        <span style="display:flex; align-items:center;">
+                            ${sym}${mcap} 
+                            <i class="fa fa-angle-down" style="margin-left:8px; transition:0.3s; ${isOpen ? 'transform:rotate(180deg)' : ''}"></i>
+                        </span>
+                    </td>
                     <td style="text-align:center;"><div class="spark-box">${sparklineCache[coin.symbol] ? generateSparklineSvg(sparklineCache[coin.symbol], change) : '-'}</div></td>
                 </tr>
                 <tr id="detail-${coin.symbol}" class="detail-row" style="${isOpen ? 'display:table-row; opacity:1;' : 'display:none;'}">
@@ -187,27 +202,52 @@ const CryptoEngine = (() => {
             // 样式注入
             const style = document.createElement('style');
             style.innerHTML = `
-                .crypto-table-container { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06); margin-top: 15px; }
+                .crypto-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 5px; margin-top: 15px; }
+                .crypto-header-left { display: flex; align-items: center; gap: 10px; font-weight: bold; }
+                .crypto-header-right { display: flex; align-items: center; gap: 10px; }
+                .crypto-controls { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+                .search-box-crypto { position: relative; display: flex; align-items: center; background: rgba(0,0,0,0.05); border-radius: 4px; padding: 2px 8px; border: 1px solid rgba(0,0,0,0.1); }
+                .search-box-crypto input { background: transparent; border: none; outline: none; padding: 4px; width: 150px; font-size: 12px; color: inherit; }
+                
+                .crypto-table-container { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
                 .crypto-table { width: 100%; margin-bottom: 0; }
                 .crypto-table th { background: #fafafa; padding: 12px 15px; color: #888; font-size: 13px; font-weight: 500; border-bottom: 1px solid #f0f0f0; }
                 .crypto-table td { padding: 12px 15px; vertical-align: middle; border-top: 1px solid #f8f8f8; color: #333; }
                 .main-row { cursor: pointer; transition: background 0.2s; } .main-row:hover { background: #f9f9f9; }
-                .coin-info { display: flex; align-items: center; } .coin-icon { width: 30px; height: 30px; margin-right: 12px; border-radius: 50%; }
-                .coin-name-wrap { display: flex; flex-direction: column; } .coin-name-wrap strong { font-size: 14px; color: #111; } .coin-vol { font-size: 10px; color: #999; margin-top: 1px; }
+                .coin-info { display: flex; align-items: center; } 
+                .coin-icon { width: 32px; height: 32px; margin-right: 12px; border-radius: 50%; background: #f5f5f5; object-fit: contain; }
+                .coin-name-wrap { display: flex; flex-direction: column; line-height: 1.2; } 
+                .coin-name-wrap strong { font-size: 14px; color: #111; } 
+                .coin-vol { font-size: 11px; color: #999; margin-top: 2px; }
+                .main-price { font-weight: 600; font-family: monospace; font-size: 14px; }
+                
                 .change-box { display: inline-block; min-width: 75px; padding: 5px; border-radius: 4px; color: #fff; text-align: center; font-weight: bold; font-size: 12px; }
                 .change-up { background: #ef4444; } .change-down { background: #10b981; }
+                
+                .detail-row { transition: opacity 0.3s ease; }
                 .detail-container { display: flex; gap: 30px; padding: 20px; border-top: 1px solid #f0f0f0; }
-                .detail-info { flex: 1; } .detail-info h5 { margin: 0 0 15px; font-weight: bold; color: #444; } .detail-info p { margin: 5px 0; font-size: 12px; color: #666; }
-                .detail-chart { flex: 2; height: 120px; } .detail-chart h5 { margin: 0 0 10px; font-weight: bold; color: #444; }
+                .detail-info { flex: 1; } .detail-info h5 { margin: 0 0 15px; font-weight: bold; color: #444; } .detail-info p { margin: 8px 0; font-size: 12px; color: #666; }
+                .detail-chart { flex: 2; } .detail-chart h5 { margin: 0 0 10px; font-weight: bold; color: #444; }
                 .spark-box { height: 40px; display: flex; align-items: center; justify-content: center; }
-                body.dark-mode .crypto-table-container { background: #222; box-shadow: none; border: 1px solid #333; }
-                body.dark-mode .crypto-table th { background: #2a2a2a; border-bottom-color: #333; }
-                body.dark-mode .crypto-table td { border-top-color: #333; color: #ccc; }
-                body.dark-mode .main-row:hover { background: #2a2a2a; }
+
+                /* Dark Mode Optimization */
+                body.dark-mode .search-box-crypto { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
+                body.dark-mode .crypto-table-container { background: #1a1a1a; box-shadow: none; border: 1px solid #2a2a2a; }
+                body.dark-mode .crypto-table th { background: #222; border-bottom-color: #2a2a2a; color: #777; }
+                body.dark-mode .crypto-table td { border-top-color: #2a2a2a; color: #ccc; }
+                body.dark-mode .main-row:hover { background: #252525; }
                 body.dark-mode .coin-name-wrap strong { color: #eee; }
                 body.dark-mode .detail-info h5, body.dark-mode .detail-chart h5 { color: #ccc; }
-                body.dark-mode .detail-info p { color: #999; }
-                /* 渐隐动画 */
+                body.dark-mode .detail-info p { color: #aaa; }
+                body.dark-mode .coin-icon { background: #333; }
+
+                @media screen and (max-width: 768px) {
+                    .crypto-header-right { width: 100%; justify-content: space-between; }
+                    .search-box-crypto { flex: 1; }
+                    .search-box-crypto input { width: 100%; }
+                    .detail-container { flex-direction: column; gap: 15px; }
+                    .market_cap_cell { font-size: 11px; }
+                }
                 .fade-out { opacity: 0; pointer-events: none; transition: opacity 0.3s; }
             `;
             document.head.appendChild(style);

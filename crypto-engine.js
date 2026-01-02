@@ -42,7 +42,9 @@ const CryptoEngine = (() => {
                         current_price: parseFloat(item.last),
                         price_change_percentage_24h: parseFloat(item.change_percentage),
                         market_cap: parseFloat(item.quote_volume) * 7.5,
-                        total_volume: parseFloat(item.quote_volume)
+                        total_volume: parseFloat(item.quote_volume),
+                        high_24h: parseFloat(item.high_24h || 0),
+                        low_24h: parseFloat(item.low_24h || 0)
                     };
                 });
             }
@@ -60,7 +62,10 @@ const CryptoEngine = (() => {
                         current_price: parseFloat(item.priceUsd),
                         price_change_percentage_24h: parseFloat(item.changePercent24Hr),
                         market_cap: parseFloat(item.marketCapUsd),
-                        total_volume: parseFloat(item.volumeUsd24Hr)
+                        total_volume: parseFloat(item.volumeUsd24Hr),
+                        circulating_supply: parseFloat(item.supply),
+                        high_24h: parseFloat(item.high24hr),
+                        low_24h: parseFloat(item.low24hr)
                     };
                 });
             }
@@ -78,7 +83,10 @@ const CryptoEngine = (() => {
                         current_price: parseFloat(item.price_usd),
                         price_change_percentage_24h: parseFloat(item.percent_change_24h),
                         market_cap: (parseFloat(item.msupply) || 0) * parseFloat(item.price_usd),
-                        total_volume: parseFloat(item.volume24)
+                        total_volume: parseFloat(item.volume24),
+                        circulating_supply: parseFloat(item.msupply),
+                        high_24h: parseFloat(item.high24),
+                        low_24h: parseFloat(item.low24)
                     };
                 });
             }
@@ -125,8 +133,16 @@ const CryptoEngine = (() => {
     }
 
     async function loadSparkline(symbol, changePct) {
-        if (sparklineCache[symbol] || sparklineRequests.has(symbol)) return;
+        if (sparklineRequests.has(symbol)) return;
         sparklineRequests.add(symbol);
+        
+        // 显示加载指示器
+        const sparkContainer = document.querySelector(`.spark-box[data-symbol="${symbol}"]`);
+        if (sparkContainer) sparkContainer.innerHTML = '<div class="pulse-loader"></div>';
+        
+        const detailContainer = document.getElementById(`graph-detail-${symbol}`);
+        if (detailContainer) detailContainer.innerHTML = '<div class="sync-text">聚合趋势计算中...</div>';
+        
         try {
             const res = await fetchWithTimeout(`https://min-api.cryptocompare.com/data/v2/histohour?fsym=${symbol.toUpperCase()}&tsym=USD&limit=168`);
             if (res.ok) {
@@ -136,14 +152,19 @@ const CryptoEngine = (() => {
                     sparklineCache[symbol] = prices;
 
                     // 核心优化：局部更新 DOM，防止整表刷新导致的图标闪烁
-                    const sparkContainer = document.querySelector(`.spark-box[data-symbol="${symbol}"]`);
                     if (sparkContainer) sparkContainer.innerHTML = generateSparklineSvg(prices, changePct);
-
-                    const detailContainer = document.getElementById(`graph-detail-${symbol}`);
                     if (detailContainer) detailContainer.innerHTML = generateSparklineSvg(prices, changePct, 450);
+                } else {
+                    throw new Error('Invalid data structure');
                 }
+            } else {
+                throw new Error('API request failed');
             }
-        } catch (e) { } finally { sparklineRequests.delete(symbol); }
+        } catch (e) {
+            // 显示重试按钮
+            if (sparkContainer) sparkContainer.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:48px;"><button onclick="CryptoEngine.reloadSparkline('${symbol}')" style="background:none;border:none;color:#666;cursor:pointer;padding:5px 10px;border-radius:4px;font-size:12px;"><i class="fa fa-refresh"></i> 重试</button></div>`;
+            if (detailContainer) detailContainer.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100px;"><button onclick="CryptoEngine.reloadSparkline('${symbol}')" class="btn btn-xs btn-primary"><i class="fa fa-refresh"></i> 重新加载趋势图</button></div>`;
+        } finally { sparklineRequests.delete(symbol); }
     }
 
     function renderTable() {
@@ -284,6 +305,11 @@ const CryptoEngine = (() => {
             `https://cryptoicons.org/api/color/${symLower}/128`,
             `https://static.coinpaper.com/coin/${symLower}.png`,
             `https://api.gateio.ws/api/v4/spot/currencies/${symUpper}/icon`,
+            `https://cryptologos.cc/logos/${symLower}-${symUpper}-logo.png`,
+            `https://cdn.jsdelivr.net/gh/cjdowner/cryptocurrency-icons@latest/128/color/${symLower}.png`,
+            `https://www.cryptocompare.com/media/${(symUpper === 'BTC' ? 331244 : 331246)}/btc.png`,
+            `https://s2.coinmarketcap.com/static/img/coins/64x64/${symLower}.png`,
+            `https://coinicons-api.vercel.app/api/icon/${symLower}`,
             '../assets/images/logos/btc.png'
         ];
         if (img.tried <= sources.length) {
@@ -378,10 +404,10 @@ const CryptoEngine = (() => {
 
                 /* 表格容器高级阴影 */
                 .crypto-table-container { 
-                    background: #fff !important; 
-                    border-radius: 20px !important; 
-                    box-shadow: 0 20px 60px rgba(0,0,0,0.06) !important; 
-                    border: 1px solid #ebedf0 !important; 
+                    background: rgba(255, 255, 255, 0.02) !important; 
+                    border-radius: 10px !important; 
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35) !important; 
+                    border: 1px solid rgba(255, 255, 255, 0.1) !important; 
                     overflow: hidden !important;
                 }
                 
@@ -393,21 +419,22 @@ const CryptoEngine = (() => {
                 }
                 
                 .crypto-table th { 
-                    background: #f8faff !important; 
+                    background: rgba(255, 255, 255, 0.05) !important; 
                     padding: 18px 20px !important; 
-                    color: #707a8a !important; 
+                    color: rgba(255, 255, 255, 0.7) !important; 
                     font-size: 12px !important; 
                     font-weight: 700 !important; 
                     text-transform: uppercase;
                     letter-spacing: 0.5px;
-                    border-bottom: 1px solid #f1f3f6 !important; 
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important; 
                 }
                 .crypto-table td { 
                     padding: 16px 20px !important; 
-                    border-bottom: 1px solid #f8f9fb !important; 
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important; 
                     transition: all 0.2s; 
+                    color: rgba(255, 255, 255, 0.9) !important;
                 }
-                .main-row:hover td { background-color: #f9fbff !important; cursor: pointer; }
+                .main-row:hover td { background-color: rgba(255, 255, 255, 0.05) !important; cursor: pointer; }
 
                 /* 价格双叠架构 */
                 .price-stack { display: flex; flex-direction: column; gap: 4px; }
@@ -415,11 +442,11 @@ const CryptoEngine = (() => {
                     font-family: 'Roboto Mono', monospace !important; 
                     font-weight: 700 !important; 
                     font-size: 17px !important; 
-                    color: #1e2329 !important; 
+                    color: rgba(255, 255, 255, 0.9) !important; 
                 }
                 .price-secondary { 
                     font-size: 12px !important; 
-                    color: #848e9c !important; 
+                    color: rgba(255, 255, 255, 0.6) !important; 
                     font-weight: 500; 
                 }
                 
@@ -444,34 +471,34 @@ const CryptoEngine = (() => {
                     width: 40px; 
                     height: 40px; 
                     border-radius: 50%; 
-                    background: #f1f3f6; 
+                    background: rgba(255, 255, 255, 0.1); 
                     display: flex; 
                     align-items: center; 
                     justify-content: center; 
                     margin-right: 12px;
                 }
                 .coin-icon { width: 32px !important; height: 32px !important; object-fit: contain !important; }
-                .coin-name-wrap .sym { font-size: 16px !important; color: #1e2329 !important; font-weight: 700 !important; letter-spacing: -0.2px; }
-                .coin-vol-text { font-size: 11px !important; color: #848e9c !important; font-weight: 500; margin-top: 2px; }
+                .coin-name-wrap .sym { font-size: 16px !important; color: rgba(255, 255, 255, 0.9) !important; font-weight: 700 !important; letter-spacing: -0.2px; }
+                .coin-vol-text { font-size: 11px !important; color: rgba(255, 255, 255, 0.6) !important; font-weight: 500; margin-top: 2px; }
 
                 /* 详情展示区面板 */
                 .pro-panel { 
-                    background: #fbfcfd !important; 
+                    background: rgba(255, 255, 255, 0.02) !important; 
                     padding: 35px !important; 
-                    border-top: 1px solid #eff2f5; 
-                    box-shadow: inset 0 10px 30px rgba(0,0,0,0.02);
+                    border-top: 1px solid rgba(255, 255, 255, 0.1); 
+                    box-shadow: inset 0 10px 30px rgba(0,0,0,0.3);
                 }
                 .pro-grid { display: grid !important; grid-template-columns: repeat(4, 1fr) !important; gap: 30px !important; }
                 .pro-stat { border-left: 4px solid #f0b90b; padding-left: 20px; }
-                .pro-stat label { font-size: 12px !important; color: #848e9c !important; font-weight: 600; margin-bottom: 10px; display: block; }
+                .pro-stat label { font-size: 12px !important; color: rgba(255, 255, 255, 0.6) !important; font-weight: 600; margin-bottom: 10px; display: block; }
                 .pro-stat .v { 
                     font-family: 'Roboto Mono', monospace !important; 
                     font-size: 16px !important; 
                     font-weight: 700 !important; 
-                    color: #1e2329 !important; 
+                    color: rgba(255, 255, 255, 0.9) !important; 
                 }
                 
-                .chart-header { border-bottom: 1px solid #f0f2f5; padding-bottom: 15px; margin-bottom: 25px; }
+                .chart-header { border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 15px; margin-bottom: 25px; }
 
                 /* 暗黑模式深度定制 */
                 body.dark-mode #crypto-section-wrapper { background: #0b0e11 !important; }
@@ -577,6 +604,16 @@ const CryptoEngine = (() => {
                 setTimeout(() => { if (expandedCoins.has(symbol)) row.style.opacity = '1'; }, 10);
             }
             renderTable(); // 更新箭头旋转
+        },
+        
+        reloadSparkline(symbol) {
+            // 移除缓存，强制重新加载
+            delete sparklineCache[symbol];
+            // 找到对应的币种数据获取changePct
+            const coin = cryptoData.find(c => c.symbol === symbol);
+            if (coin) {
+                loadSparkline(symbol, coal(coin.price_change_percentage_24h));
+            }
         }
     };
 })();

@@ -5143,7 +5143,7 @@
                                     <th>最新价</th>
                                     <th>24h涨跌</th>
                                     <th class="table-market-cap">市值</th>
-                                    <th style="text-align:right;">7日趋势</th>
+                                    <th style="text-align:center;">7日趋势</th>
                                 </tr>
                             </thead>
                             <tbody id="crypto-table-body">
@@ -5460,8 +5460,10 @@
                     'xrp': 'ripple', 'sol': 'solana', 'doge': 'dogecoin', 'ada': 'cardano',
                     'trx': 'tron', 'ton': 'toncoin', 'shib': 'shiba-inu', 'ltc': 'litecoin',
                     'etc': 'ethereum-classic', 'link': 'chainlink', 'uni': 'uniswap', 'bch': 'bitcoin-cash',
-                    'near': 'near-protocol', 'pepe': 'pepe', 'apt': 'aptos', 'stx': 'stack', 'dot': 'polkadot',
-                    'arb': 'arbitrum', 'op': 'optimism', 'tia': 'celestia', 'sei': 'sei-network'
+                    'arb': 'arbitrum', 'op': 'optimism', 'tia': 'celestia', 'sei': 'sei-network',
+                    'pepe': 'pepe', 'stx': 'stacks', 'apt': 'aptos', 'floki': 'floki', 'fet': 'fetch-ai',
+                    'bonk': 'bonk', 'kas': 'kaspa', 'rndr': 'render-token', 'inj': 'injective',
+                    'near': 'near-protocol', 'bch': 'bitcoin-cash', 'uni': 'uniswap'
                 };
 
                 // Track detail row states
@@ -5514,6 +5516,19 @@
                         if (!prices) {
                             await new Promise(r => setTimeout(r, 3000));
                             prices = await tryFetch();
+                        }
+
+                        // 3. Last Resort: CoinGecko (Backup)
+                        if (!prices) {
+                            try {
+                                const geckoRes = await fetchWithTimeout(`https://api.coingecko.com/api/v3/coins/${finalId}/market_chart?vs_currency=usd&days=7&interval=daily`, { timeout: 5000 });
+                                if (geckoRes.ok) {
+                                    const json = await geckoRes.json();
+                                    if (json.prices && json.prices.length > 0) {
+                                        prices = json.prices.map(p => p[1]);
+                                    }
+                                }
+                            } catch (e) { }
                         }
 
                         if (prices && prices.length > 2) {
@@ -5912,7 +5927,7 @@
                                         <i class="fa fa-angle-down" id="arrow-${coin.symbol}" style="margin-left:8px; color:#666; transition:transform 0.3s; ${isOpen ? 'transform:rotate(180deg)' : ''}"></i>
                                     </span>
                                 </td>
-                                <td style="text-align:right;">
+                                <td style="text-align:center;">
                                     ${sparklineContent}
                                 </td>
                             </tr>

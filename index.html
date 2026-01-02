@@ -6129,7 +6129,7 @@
                     const cryptoContainer = document.querySelector('.crypto-table-container');
                     if (cryptoContainer) {
                         const cryptoSection = cryptoContainer.closest('.row');
-                        const floatBtns = ['.go-top', '#showHiddenCards', '#resetOrder', '.xp-panel', '.go-up', '.back-to-top'];
+                        const floatBtns = ['#showHiddenCards', '#resetOrder', '.xp-panel'];
 
                         const hideFloats = () => {
                             floatBtns.forEach(selector => {
@@ -7698,13 +7698,28 @@
                 display: block !important;
             }
 
+            /* 移动端主内容区域适配 */
             .main-content {
                 margin-left: 0 !important;
-                padding-bottom: 150px !important;
+                padding-bottom: 120px !important;
+                padding-left: 10px !important;
+                padding-right: 10px !important;
             }
 
             /* 移动端币种表格竖屏展示优化 */
             @media screen and (max-width: 600px) {
+                .crypto-table-container {
+                    padding: 0 !important;
+                    margin-left: -5px;
+                    margin-right: -5px;
+                    width: calc(100% + 10px);
+                }
+
+                .crypto-table th,
+                .crypto-table td {
+                    padding: 8px 4px !important;
+                    font-size: 11px !important;
+                }
 
                 .crypto-table th:nth-child(4),
                 .crypto-table td:nth-child(4),
@@ -7714,15 +7729,11 @@
                 }
 
                 .coin-name {
-                    font-size: 11px !important;
+                    font-size: 10px !important;
                 }
 
                 .main-price {
-                    font-size: 13px !important;
-                }
-
-                .crypto-table-container {
-                    padding: 0 5px !important;
+                    font-size: 12px !important;
                 }
             }
         }

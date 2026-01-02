@@ -7803,19 +7803,27 @@
                     margin-left: -5px;
                     margin-right: -5px;
                     width: calc(100% + 10px);
+                    overflow-x: auto !important;
+                    -webkit-overflow-scrolling: touch;
+                }
+
+                .crypto-table {
+                    min-width: 500px;
+                    /* Force minimum width to enable scrolling */
                 }
 
                 .crypto-table th,
                 .crypto-table td {
-                    padding: 8px 4px !important;
+                    padding: 8px 6px !important;
                     font-size: 11px !important;
                 }
 
+                /* Restore the hidden columns but keep them compact */
                 .crypto-table th:nth-child(4),
                 .crypto-table td:nth-child(4),
                 .crypto-table th:nth-child(5),
                 .crypto-table td:nth-child(5) {
-                    display: none !important;
+                    display: table-cell !important;
                 }
 
                 .coin-name {

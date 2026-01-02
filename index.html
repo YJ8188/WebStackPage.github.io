@@ -5478,7 +5478,11 @@
                     sparklineRequests.add(symbol);
                     const containers = document.querySelectorAll(`.graph-container-${symbol}`);
                     containers.forEach(el => {
-                        if (el.innerHTML.length < 20) el.innerHTML = '<i class="fa fa-spinner fa-spin" style="opacity:0.3; margin-right:5px;"></i><span style="font-size:10px; color:#999;">努力加载中...</span>';
+                        // Better loading state
+                        el.innerHTML = `<div style="display:flex; align-items:center; justify-content:center; height:30px; opacity:0.6;">
+                            <i class="fa fa-spinner fa-spin" style="font-size:12px; margin-right:6px; color:#10b981;"></i>
+                            <span style="font-size:10px; color:#10b981;">数据同步中...</span>
+                        </div>`;
                     });
 
                     async function tryFetch() {
@@ -5543,7 +5547,12 @@
                         }
                     } catch (e) {
                         document.querySelectorAll(`.graph-container-${symbol}`).forEach(target => {
-                            target.innerHTML = `<span style="color:#666; font-size:10px;">暂无趋势数据</span>`;
+                            target.innerHTML = `<a href="javascript:void(0)" onclick="loadSparkline(null, '${symbol}', ${changePct})" 
+                                style="color:#888; font-size:10px; text-decoration:none; border:1px solid #444; padding:2px 6px; border-radius:10px; display:inline-block; transition:all 0.3s;"
+                                onmouseover="this.style.borderColor='#10b981';this.style.color='#10b981'" 
+                                onmouseout="this.style.borderColor='#444';this.style.color='#888'">
+                                <i class="fa fa-refresh" style="margin-right:3px;"></i>补全趋势
+                            </a>`;
                         });
                     } finally {
                         sparklineRequests.delete(symbol);

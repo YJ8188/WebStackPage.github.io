@@ -14,6 +14,11 @@ const CryptoEngine = (() => {
     const iconCache = {}; // 缓存加载成功的图标源防止闪烁
     const sparklineRequests = new Set();
     const localStorageKey = 'crypto_market_cache_v3';
+    // 排序状态
+    let sortConfig = {
+        column: 'market_cap',
+        direction: 'desc'
+    };
 
     // 常用币种映射
     const CN_COIN_MAP = {
@@ -167,6 +172,38 @@ const CryptoEngine = (() => {
         } finally { sparklineRequests.delete(symbol); }
     }
 
+    // 排序函数
+    function sortCryptoData(data, column, direction) {
+        return [...data].sort((a, b) => {
+            let valueA, valueB;
+            
+            switch (column) {
+                case 'symbol':
+                    valueA = a.symbol.toLowerCase();
+                    valueB = b.symbol.toLowerCase();
+                    break;
+                case 'current_price':
+                    valueA = coal(a.current_price);
+                    valueB = coal(b.current_price);
+                    break;
+                case 'price_change_percentage_24h':
+                    valueA = coal(a.price_change_percentage_24h);
+                    valueB = coal(b.price_change_percentage_24h);
+                    break;
+                case 'market_cap':
+                    valueA = coal(a.market_cap);
+                    valueB = coal(b.market_cap);
+                    break;
+                default:
+                    return 0;
+            }
+            
+            if (valueA < valueB) return direction === 'asc' ? -1 : 1;
+            if (valueA > valueB) return direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }
+
     function renderTable() {
         const tbody = document.getElementById('crypto-table-body');
         if (!tbody) return;
@@ -174,8 +211,11 @@ const CryptoEngine = (() => {
         const query = (document.getElementById('crypto-search')?.value || '').toLowerCase().trim();
         const mappedQuery = CN_COIN_MAP[query] || query;
 
+        // 应用排序
+        const sortedData = sortCryptoData(cryptoData, sortConfig.column, sortConfig.direction);
+
         // --- 核心优化：局部更新逻辑 (彻底解决图标闪烁) ---
-        cryptoData.forEach(coin => {
+        sortedData.forEach(coin => {
             const isMatch = !mappedQuery || coin.symbol.includes(mappedQuery) || coin.name.toLowerCase().includes(mappedQuery);
             let row = document.querySelector(`.main-row[data-symbol="${coin.symbol}"]`);
             let detailRow = document.getElementById(`detail-${coin.symbol}`);
@@ -287,8 +327,8 @@ const CryptoEngine = (() => {
         });
 
         // 维持列表顺序 (如果需要重排)
-        const sortedCoins = cryptoData.filter(c => !mappedQuery || c.symbol.includes(mappedQuery) || c.name.toLowerCase().includes(mappedQuery));
-        sortedCoins.forEach(coin => {
+        const filteredData = sortedData.filter(c => !mappedQuery || c.symbol.includes(mappedQuery) || c.name.toLowerCase().includes(mappedQuery));
+        filteredData.forEach(coin => {
             const r = document.querySelector(`.main-row[data-symbol="${coin.symbol}"]`);
             const d = document.getElementById(`detail-${coin.symbol}`);
             if (r) tbody.appendChild(r);
@@ -307,18 +347,51 @@ const CryptoEngine = (() => {
             `https://api.gateio.ws/api/v4/spot/currencies/${symUpper}/icon`,
             `https://cryptologos.cc/logos/${symLower}-${symUpper}-logo.png`,
             `https://cdn.jsdelivr.net/gh/cjdowner/cryptocurrency-icons@latest/128/color/${symLower}.png`,
-            `https://www.cryptocompare.com/media/${(symUpper === 'BTC' ? 331244 : 331246)}/btc.png`,
+            `https://www.cryptocompare.com/media/331246/${symLower}.png`,
             `https://s2.coinmarketcap.com/static/img/coins/64x64/${symLower}.png`,
             `https://coinicons-api.vercel.app/api/icon/${symLower}`,
-            '../assets/images/logos/btc.png'
+            `https://via.placeholder.com/32?text=${symUpper}`
         ];
         if (img.tried <= sources.length) {
             const nextSrc = sources[img.tried - 1];
             img.src = nextSrc;
             // 如果加载成功，缓存该路径
-            img.onload = () => { if (img.tried > 0) iconCache[symUpper] = nextSrc; };
+            img.onload = () => { if (img.tried > 0) iconCache[symLower] = nextSrc; };
         }
     };
+
+    // 处理排序点击
+    function handleSortClick(column) {
+        if (sortConfig.column === column) {
+            // 切换排序方向
+            sortConfig.direction = sortConfig.direction === 'asc' ? 'desc' : 'asc';
+        } else {
+            // 新的排序列，默认降序
+            sortConfig.column = column;
+            sortConfig.direction = 'desc';
+        }
+        // 更新表头样式
+        updateSortIndicators();
+        // 重新渲染表格
+        renderTable();
+    }
+
+    // 更新表头排序指示器
+    function updateSortIndicators() {
+        // 移除所有排序指示器
+        document.querySelectorAll('.crypto-table th span').forEach(span => {
+            span.innerHTML = '';
+        });
+        
+        // 为当前排序列添加指示器
+        const th = document.querySelector(`.crypto-table th[data-sort="${sortConfig.column}"]`);
+        if (th) {
+            const span = th.querySelector('span');
+            if (span) {
+                span.innerHTML = sortConfig.direction === 'asc' ? ' ▲' : ' ▼';
+            }
+        }
+    }
 
     // --- 外部接口 ---
     return {
@@ -501,18 +574,18 @@ const CryptoEngine = (() => {
                 .chart-header { border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 15px; margin-bottom: 25px; }
 
                 /* 暗黑模式深度定制 */
-                body.dark-mode #crypto-section-wrapper { background: #0b0e11 !important; }
+                body.dark-mode #crypto-section-wrapper { background: transparent !important; }
                 body.dark-mode .crypto-title { color: #eaecef !important; }
                 body.dark-mode .api-status-wrap { background: rgba(255,255,255,0.05); color: #848e9c; }
                 body.dark-mode .search-box-crypto { background: #1e2329 !important; }
                 body.dark-mode .search-box-crypto input { color: #eaecef !important; }
-                body.dark-mode .crypto-table-container { background: #181a20 !important; border-color: #2b3139 !important; box-shadow: none !important; }
-                body.dark-mode .crypto-table th { background: #1e2329 !important; color: #848e9c !important; }
-                body.dark-mode .crypto-table td { border-bottom-color: #2b3139 !important; }
-                body.dark-mode .main-row:hover td { background-color: #2b3139 !important; }
-                body.dark-mode .price-primary, body.dark-mode .coin-name-wrap .sym, body.dark-mode .pro-stat .v { color: #eaecef !important; }
-                body.dark-mode .pro-panel { background: #181a20 !important; border-top-color: #2b3139; }
-                body.dark-mode .coin-icon-wrapper { background: #2b3139; }
+                body.dark-mode .crypto-table-container { background: rgba(255, 255, 255, 0.02) !important; border-color: rgba(255, 255, 255, 0.1) !important; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35) !important; }
+                body.dark-mode .crypto-table th { background: rgba(255, 255, 255, 0.05) !important; color: rgba(255, 255, 255, 0.7) !important; }
+                body.dark-mode .crypto-table td { border-bottom-color: rgba(255, 255, 255, 0.05) !important; }
+                body.dark-mode .main-row:hover td { background-color: rgba(255, 255, 255, 0.05) !important; }
+                body.dark-mode .price-primary, body.dark-mode .coin-name-wrap .sym, body.dark-mode .pro-stat .v { color: rgba(255, 255, 255, 0.9) !important; }
+                body.dark-mode .pro-panel { background: rgba(255, 255, 255, 0.02) !important; border-top-color: rgba(255, 255, 255, 0.1); }
+                body.dark-mode .coin-icon-wrapper { background: rgba(255, 255, 255, 0.1); }
                 body.dark-mode .pro-stat { border-left-color: #f0b90b; }
                 
                 .pulse-loader { width: 20px; height: 2px; background: #eee; animation: pulse 1.5s infinite; }
@@ -534,6 +607,25 @@ const CryptoEngine = (() => {
                     document.querySelectorAll('#showHiddenCards, #resetOrder, .back-to-top').forEach(el => el.classList.remove('fade-out'));
                 });
             }
+
+            // 添加表头排序事件监听器
+            setTimeout(() => {
+                const headers = document.querySelectorAll('.crypto-table th[data-sort]');
+                headers.forEach(th => {
+                    th.addEventListener('click', () => {
+                        const column = th.getAttribute('data-sort');
+                        handleSortClick(column);
+                    });
+                    // 为表头添加排序指示器容器
+                    if (!th.querySelector('span')) {
+                        const span = document.createElement('span');
+                        span.style.marginLeft = '5px';
+                        th.appendChild(span);
+                    }
+                });
+                // 初始化排序指示器
+                updateSortIndicators();
+            }, 100);
 
             // 初始数据
             await this.refresh();

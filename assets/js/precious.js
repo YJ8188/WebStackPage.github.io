@@ -1,9 +1,14 @@
-// 金银行情功能模块
-let currentPreciousCurrency = 'USD';
+// precious.js - 贵金属行情功能模块（支持实时WebSocket数据）
+
+let currentPreciousCurrency = 'CNY'; // 默认显示人民币
 let preciousData = [];
 let isPreciousSearching = false;
 let USD_CNY_RATE = 7.25; // 默认汇率，将动态更新
 let lastRateUpdate = 0;
+
+// 实时数据状态
+let isRealtimeEnabled = false;
+let lastRealtimeUpdate = 0;
 
 // Sparkline 缓存和工具
 const preciousSparklineCache = {};
@@ -60,7 +65,10 @@ function formatChangePercent(percent) {
 // 切换货币
 function togglePreciousCurrency() {
     currentPreciousCurrency = currentPreciousCurrency === 'USD' ? 'CNY' : 'USD';
-    document.getElementById('precious-currency-toggle').innerText = currentPreciousCurrency;
+    const toggleBtn = document.getElementById('precious-currency-toggle');
+    if (toggleBtn) {
+        toggleBtn.innerText = currentPreciousCurrency;
+    }
     
     // 更新所有价格显示
     if (preciousData.length > 0) {
@@ -70,7 +78,10 @@ function togglePreciousCurrency() {
 
 // 搜索功能
 function searchPrecious() {
-    const searchTerm = document.getElementById('precious-search').value.trim().toLowerCase();
+    const searchInput = document.getElementById('precious-search');
+    if (!searchInput) return;
+    
+    const searchTerm = searchInput.value.trim().toLowerCase();
     if (!searchTerm) {
         isPreciousSearching = false;
         renderPreciousTable(preciousData);
@@ -88,8 +99,12 @@ function searchPrecious() {
 
 // 清除搜索
 function clearPreciousSearch() {
-    document.getElementById('precious-search').value = '';
-    document.getElementById('precious-search-clear').style.display = 'none';
+    const searchInput = document.getElementById('precious-search');
+    const searchClear = document.getElementById('precious-search-clear');
+    
+    if (searchInput) searchInput.value = '';
+    if (searchClear) searchClear.style.display = 'none';
+    
     isPreciousSearching = false;
     renderPreciousTable(preciousData);
 }
@@ -98,6 +113,8 @@ function clearPreciousSearch() {
 function handlePreciousSearchInput() {
     const searchInput = document.getElementById('precious-search');
     const searchClear = document.getElementById('precious-search-clear');
+    
+    if (!searchInput || !searchClear) return;
     
     if (searchInput.value.trim()) {
         searchClear.style.display = 'block';
@@ -117,190 +134,156 @@ function handlePreciousSearchKey(e) {
     }
 }
 
-// 配置TianAPI的API Key（用户需要自行注册获取）
-const TIANAPI_KEY = ''; // 在这里填入你的天聚数行API Key
+// ========== WebSocket 实时数据处理 ==========
 
-// 配置StockTV API（免费，需注册获取API Key）
-const STOCKTV_KEY = ''; // 在这里填入你的StockTV API Key
+// 处理 WebSocket 实时数据
+function handleRealtimeData(data) {
+    try {
+        console.log('[Precious] 收到实时数据:', data);
+        
+        // 更新状态指示器
+        updateRealtimeStatus(true);
+        lastRealtimeUpdate = Date.now();
+        
+        // 解析数据并更新贵金属价格
+        if (data && typeof data === 'object') {
+            updatePreciousDataFromWS(data);
+        }
+        
+    } catch (error) {
+        console.error('[Precious] 处理实时数据失败:', error);
+        updateRealtimeStatus(false);
+    }
+}
 
-// 获取贵金属数据
+// 从 WebSocket 数据更新贵金属价格
+function updatePreciousDataFromWS(wsData) {
+    try {
+        // 根据实际返回的数据结构解析
+        // 假设数据格式为: { XAU: 1800, XAG: 23, ... }
+        
+        const newPreciousData = [];
+        
+        // 定义贵金属映射
+        const metalMapping = {
+            'XAU': { name: '黄金', baseKey: 'XAU' },
+            'XAG': { name: '白银', baseKey: 'XAG' },
+            'XPT': { name: '铂金', baseKey: 'XPT' },
+            'XPD': { name: '钯金', baseKey: 'XPD' },
+            'OLD': { name: '旧料9999', baseKey: 'XAU', multiplier: 0.99 },
+            '18K': { name: '18K金', baseKey: 'XAU', multiplier: 0.75 },
+            'PT950': { name: 'Pt950', baseKey: 'XPT', multiplier: 0.95 },
+            'PD990': { name: 'Pd990', baseKey: 'XPD', multiplier: 0.99 }
+        };
+        
+        // 解析数据
+        for (const [symbol, config] of Object.entries(metalMapping)) {
+            let basePrice = wsData[config.baseKey];
+            
+            // 如果没有数据，跳过
+            if (!basePrice) continue;
+            
+            // 应用乘数
+            if (config.multiplier) {
+                basePrice *= config.multiplier;
+            }
+            
+            // 计算回购价和销售价（加减0.5%）
+            newPreciousData.push({
+                name: config.name,
+                symbol: symbol,
+                buybackPrice: parseFloat((basePrice * 0.995).toFixed(2)),
+                sellingPrice: parseFloat((basePrice * 1.005).toFixed(2))
+            });
+        }
+        
+        // 如果有有效数据，更新显示
+        if (newPreciousData.length > 0) {
+            preciousData = newPreciousData;
+            
+            // 如果不在搜索状态，更新表格
+            if (!isPreciousSearching) {
+                renderPreciousTable(preciousData);
+            }
+            
+            console.log('[Precious] 已更新实时行情，共', newPreciousData.length, '项');
+        }
+        
+    } catch (error) {
+        console.error('[Precious] 解析WebSocket数据失败:', error);
+    }
+}
+
+// 更新实时状态指示器
+function updateRealtimeStatus(isConnected) {
+    const statusDot = document.getElementById('precious-api-status-dot');
+    const providerName = document.getElementById('precious-api-provider-name');
+    
+    if (statusDot) {
+        statusDot.style.color = isConnected ? '#10b981' : '#ef4444';
+    }
+    
+    if (providerName && isConnected) {
+        providerName.innerText = 'WebSocket 实时数据';
+    }
+}
+
+// 初始化 WebSocket 连接
+function initRealtimeConnection() {
+    try {
+        // 检查 WSClient 是否可用
+        if (typeof WSClient === 'undefined') {
+            console.warn('[Precious] WSClient 未加载，使用备用数据源');
+            isRealtimeEnabled = false;
+            return;
+        }
+        
+        console.log('[Precious] 初始化实时数据连接...');
+        
+        // 设置数据回调
+        WSClient.onData(handleRealtimeData);
+        
+        // 监听全局事件（备用方案）
+        window.addEventListener('ws-data-received', function(event) {
+            if (event.detail) {
+                handleRealtimeData(event.detail);
+            }
+        });
+        
+        isRealtimeEnabled = true;
+        console.log('[Precious] 实时数据连接已初始化');
+        
+    } catch (error) {
+        console.error('[Precious] 初始化实时连接失败:', error);
+        isRealtimeEnabled = false;
+    }
+}
+
+// ========== 备用数据源（API） ==========
+
+// 获取贵金属数据（备用方案）
 async function fetchPreciousData() {
     try {
         const tbody = document.getElementById('precious-table-body');
         const apiProviderName = document.getElementById('precious-api-provider-name');
         const apiStatusDot = document.getElementById('precious-api-status-dot');
 
+        // 如果实时数据可用且最近更新过，不使用备用API
+        if (isRealtimeEnabled && (Date.now() - lastRealtimeUpdate) < 10000) {
+            console.log('[Precious] 使用实时数据，跳过API调用');
+            return;
+        }
+
         // 确保DOM元素存在
         if (!tbody || !apiProviderName || !apiStatusDot) {
-            console.error('无法找到金银行情所需的DOM元素');
+            console.error('[Precious] 无法找到贵金属行情所需的DOM元素');
             return;
         }
 
         tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding: 20px;">正在加载实时行情...<i class="fa fa-spinner fa-spin"></i></td></tr>`;
 
         try {
-            // 1. 首先尝试使用天聚数行TianAPI（如果配置了API Key）
-            if (TIANAPI_KEY) {
-                const tianapiRes = await fetchWithTimeout(`https://apis.tianapi.com/gold/index?key=${TIANAPI_KEY}&code=au9999,agTplusD`, { timeout: 5000 });
-                
-                if (tianapiRes.ok) {
-                    const tianapiData = await tianapiRes.json();
-                    
-                    if (tianapiData.code === 200 && tianapiData.result && tianapiData.result.length > 0) {
-                        // 计算人民币汇率（使用默认汇率或最新汇率）
-                        const usdToCny = USD_CNY_RATE;
-                        
-                        // 基于TianAPI数据生成贵金属价格
-                        const tianapiPrices = {};
-                        tianapiData.result.forEach(item => {
-                            tianapiPrices[item.code] = parseFloat(item.price);
-                        });
-                        
-                        preciousData = [
-                            {
-                                name: '黄金',
-                                symbol: 'XAU',
-                                buybackPrice: parseFloat((tianapiPrices['au9999'] * 0.995).toFixed(2)),
-                                sellingPrice: parseFloat((tianapiPrices['au9999'] * 1.005).toFixed(2))
-                            },
-                            {
-                                name: '白银',
-                                symbol: 'XAG',
-                                buybackPrice: parseFloat((tianapiPrices['agTplusD'] * 0.995).toFixed(3)),
-                                sellingPrice: parseFloat((tianapiPrices['agTplusD'] * 1.005).toFixed(3))
-                            },
-                            {
-                                name: '铂金',
-                                symbol: 'XPT',
-                                buybackPrice: parseFloat(((tianapiPrices['au9999'] * 0.5) * 0.995).toFixed(1)),
-                                sellingPrice: parseFloat(((tianapiPrices['au9999'] * 0.5) * 1.005).toFixed(1))
-                            },
-                            {
-                                name: '钯金',
-                                symbol: 'XPD',
-                                buybackPrice: parseFloat(((tianapiPrices['au9999'] * 0.4) * 0.995).toFixed(1)),
-                                sellingPrice: parseFloat(((tianapiPrices['au9999'] * 0.4) * 1.005).toFixed(1))
-                            },
-                            {
-                                name: '旧料9999',
-                                symbol: 'OLD',
-                                buybackPrice: parseFloat((tianapiPrices['au9999'] * 0.985).toFixed(2)),
-                                sellingPrice: parseFloat((tianapiPrices['au9999'] * 0.995).toFixed(2))
-                            },
-                            {
-                                name: '18K金',
-                                symbol: '18K',
-                                buybackPrice: parseFloat((tianapiPrices['au9999'] * 0.75 * 0.995).toFixed(2)),
-                                sellingPrice: parseFloat((tianapiPrices['au9999'] * 0.75 * 1.005).toFixed(2))
-                            },
-                            {
-                                name: 'Pt950',
-                                symbol: 'PT950',
-                                buybackPrice: parseFloat(((tianapiPrices['au9999'] * 0.5) * 0.95 * 0.995).toFixed(1)),
-                                sellingPrice: parseFloat(((tianapiPrices['au9999'] * 0.5) * 0.95 * 1.005).toFixed(1))
-                            },
-                            {
-                                name: 'Pd990',
-                                symbol: 'PD990',
-                                buybackPrice: parseFloat(((tianapiPrices['au9999'] * 0.4) * 0.99 * 0.995).toFixed(1)),
-                                sellingPrice: parseFloat(((tianapiPrices['au9999'] * 0.4) * 0.99 * 1.005).toFixed(1))
-                            }
-                        ];
-                        
-                        renderPreciousTable(preciousData);
-                        apiProviderName.innerText = '天聚数行TianAPI (上金所数据)';
-                        apiStatusDot.style.color = '#34d399';
-                        return;
-                    }
-                }
-            }
-        } catch (apiError) {
-            console.error('天聚数行TianAPI调用失败:', apiError);
-        }
-
-        try {
-            // 2. 尝试使用StockTV API（如果配置了API Key）
-            if (STOCKTV_KEY) {
-                // StockTV的贵金属实时行情接口（以黄金和白银为例）
-                const stocktvRes = await fetchWithTimeout(`https://api.stocktv.com/v1/quote?symbols=XAUUSD,XAGUSD,XPTUSD,XPDUSD&key=${STOCKTV_KEY}`, { timeout: 5000 });
-                
-                if (stocktvRes.ok) {
-                    const stocktvData = await stocktvRes.json();
-                    
-                    if (stocktvData && stocktvData.quotes && stocktvData.quotes.length > 0) {
-                        // 计算人民币汇率（使用默认汇率或最新汇率）
-                        const usdToCny = USD_CNY_RATE;
-                        
-                        // 构建价格映射
-                        const stocktvPrices = {};
-                        stocktvData.quotes.forEach(quote => {
-                            stocktvPrices[quote.symbol] = parseFloat(quote.last);
-                        });
-                        
-                        preciousData = [
-                            {
-                                name: '黄金',
-                                symbol: 'XAU',
-                                buybackPrice: parseFloat((stocktvPrices['XAUUSD'] * usdToCny * 0.995).toFixed(2)),
-                                sellingPrice: parseFloat((stocktvPrices['XAUUSD'] * usdToCny * 1.005).toFixed(2))
-                            },
-                            {
-                                name: '白银',
-                                symbol: 'XAG',
-                                buybackPrice: parseFloat((stocktvPrices['XAGUSD'] * usdToCny * 0.995).toFixed(3)),
-                                sellingPrice: parseFloat((stocktvPrices['XAGUSD'] * usdToCny * 1.005).toFixed(3))
-                            },
-                            {
-                                name: '铂金',
-                                symbol: 'XPT',
-                                buybackPrice: parseFloat((stocktvPrices['XPTUSD'] ? stocktvPrices['XPTUSD'] * usdToCny * 0.995 : (stocktvPrices['XAUUSD'] * 0.5 * usdToCny * 0.995)).toFixed(1)),
-                                sellingPrice: parseFloat((stocktvPrices['XPTUSD'] ? stocktvPrices['XPTUSD'] * usdToCny * 1.005 : (stocktvPrices['XAUUSD'] * 0.5 * usdToCny * 1.005)).toFixed(1))
-                            },
-                            {
-                                name: '钯金',
-                                symbol: 'XPD',
-                                buybackPrice: parseFloat((stocktvPrices['XPDUSD'] ? stocktvPrices['XPDUSD'] * usdToCny * 0.995 : (stocktvPrices['XAUUSD'] * 0.4 * usdToCny * 0.995)).toFixed(1)),
-                                sellingPrice: parseFloat((stocktvPrices['XPDUSD'] ? stocktvPrices['XPDUSD'] * usdToCny * 1.005 : (stocktvPrices['XAUUSD'] * 0.4 * usdToCny * 1.005)).toFixed(1))
-                            },
-                            {
-                                name: '旧料9999',
-                                symbol: 'OLD',
-                                buybackPrice: parseFloat((stocktvPrices['XAUUSD'] * usdToCny * 0.985).toFixed(2)),
-                                sellingPrice: parseFloat((stocktvPrices['XAUUSD'] * usdToCny * 0.995).toFixed(2))
-                            },
-                            {
-                                name: '18K金',
-                                symbol: '18K',
-                                buybackPrice: parseFloat((stocktvPrices['XAUUSD'] * usdToCny * 0.75 * 0.995).toFixed(2)),
-                                sellingPrice: parseFloat((stocktvPrices['XAUUSD'] * usdToCny * 0.75 * 1.005).toFixed(2))
-                            },
-                            {
-                                name: 'Pt950',
-                                symbol: 'PT950',
-                                buybackPrice: parseFloat((stocktvPrices['XPTUSD'] ? stocktvPrices['XPTUSD'] * usdToCny * 0.95 * 0.995 : (stocktvPrices['XAUUSD'] * 0.47 * usdToCny * 0.995)).toFixed(1)),
-                                sellingPrice: parseFloat((stocktvPrices['XPTUSD'] ? stocktvPrices['XPTUSD'] * usdToCny * 0.95 * 1.005 : (stocktvPrices['XAUUSD'] * 0.47 * usdToCny * 1.005)).toFixed(1))
-                            },
-                            {
-                                name: 'Pd990',
-                                symbol: 'PD990',
-                                buybackPrice: parseFloat((stocktvPrices['XPDUSD'] ? stocktvPrices['XPDUSD'] * usdToCny * 0.99 * 0.995 : (stocktvPrices['XAUUSD'] * 0.38 * usdToCny * 0.995)).toFixed(1)),
-                                sellingPrice: parseFloat((stocktvPrices['XPDUSD'] ? stocktvPrices['XPDUSD'] * usdToCny * 0.99 * 1.005 : (stocktvPrices['XAUUSD'] * 0.38 * usdToCny * 1.005)).toFixed(1))
-                            }
-                        ];
-                        
-                        renderPreciousTable(preciousData);
-                        apiProviderName.innerText = 'StockTV API (全球贵金属数据)';
-                        apiStatusDot.style.color = '#34d399';
-                        return;
-                    }
-                }
-            }
-        } catch (apiError) {
-            console.error('StockTV API调用失败:', apiError);
-        }
-
-        try {
-            // 2. 尝试从CoinGecko API获取数据
+            // 尝试从CoinGecko API获取数据
             const coingeckoRes = await fetchWithTimeout('https://api.coingecko.com/api/v3/simple/price?ids=gold,silver,platinum,palladium&vs_currencies=usd', { timeout: 5000 });
             
             if (coingeckoRes.ok) {
@@ -311,7 +294,7 @@ async function fetchPreciousData() {
                     // 计算人民币汇率（使用默认汇率或最新汇率）
                     const usdToCny = USD_CNY_RATE;
                     
-                    // 基于CoinGecko数据生成贵金属价格（接近ysx9999.com的展示格式）
+                    // 基于CoinGecko数据生成贵金属价格
                     preciousData = [
                         {
                             name: '黄金',
@@ -364,165 +347,24 @@ async function fetchPreciousData() {
                     ];
                     
                     renderPreciousTable(preciousData);
-                    apiProviderName.innerText = 'CoinGecko API (模拟YSX9999格式)';
+                    apiProviderName.innerText = 'CoinGecko API (备用数据源)';
                     apiStatusDot.style.color = '#34d399';
                     return;
                 }
             }
         } catch (apiError) {
-            console.error('CoinGecko API调用失败:', apiError);
+            console.error('[Precious] CoinGecko API调用失败:', apiError);
         }
 
-        try {
-            // 2. 回退到Alpha Vantage API
-            const alphaVantageRes = await fetchWithTimeout('https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=XAUUSD&apikey=demo', { timeout: 5000 });
-            
-            if (alphaVantageRes.ok) {
-                const alphaVantageData = await alphaVantageRes.json();
-                if (alphaVantageData['Global Quote'] && alphaVantageData['Global Quote']['05. price']) {
-                    const goldPrice = parseFloat(alphaVantageData['Global Quote']['05. price']);
-                    
-                    // 基于黄金价格生成其他贵金属价格（合理的市场比例）
-                    preciousData = [
-                        {
-                            name: '黄金',
-                            symbol: 'XAU',
-                            buybackPrice: goldPrice * 0.995,
-                            sellingPrice: goldPrice * 1.005
-                        },
-                        {
-                            name: '白银',
-                            symbol: 'XAG',
-                            buybackPrice: (goldPrice / 80) * 0.995,
-                            sellingPrice: (goldPrice / 80) * 1.005
-                        },
-                        {
-                            name: '铂金',
-                            symbol: 'XPT',
-                            buybackPrice: (goldPrice * 0.5) * 0.995,
-                            sellingPrice: (goldPrice * 0.5) * 1.005
-                        },
-                        {
-                            name: '钯金',
-                            symbol: 'XPD',
-                            buybackPrice: (goldPrice * 0.4) * 0.995,
-                            sellingPrice: (goldPrice * 0.4) * 1.005
-                        },
-                        {
-                            name: '旧料9999',
-                            symbol: 'OLD',
-                            buybackPrice: goldPrice * 0.985,
-                            sellingPrice: goldPrice * 0.995
-                        },
-                        {
-                            name: '18K金',
-                            symbol: '18K',
-                            buybackPrice: (goldPrice * 0.75) * 0.995,
-                            sellingPrice: (goldPrice * 0.75) * 1.005
-                        },
-                        {
-                            name: 'Pt950',
-                            symbol: 'PT950',
-                            buybackPrice: (goldPrice * 0.47) * 0.995,
-                            sellingPrice: (goldPrice * 0.47) * 1.005
-                        },
-                        {
-                            name: 'Pd990',
-                            symbol: 'PD990',
-                            buybackPrice: (goldPrice * 0.38) * 0.995,
-                            sellingPrice: (goldPrice * 0.38) * 1.005
-                        }
-                    ];
-                    
-                    renderPreciousTable(preciousData);
-                    apiProviderName.innerText = 'Alpha Vantage API';
-                    apiStatusDot.style.color = '#34d399';
-                    return;
-                }
-            }
-        } catch (apiError) {
-            console.error('Alpha Vantage API调用失败:', apiError);
-        }
-
-        try {
-            // 2. 回退到另一个可靠的API - CryptoCompare（提供贵金属数据）
-            const cryptoCompareRes = await fetchWithTimeout('https://min-api.cryptocompare.com/data/price?fsym=XAU&tsyms=USD', { timeout: 5000 });
-            
-            if (cryptoCompareRes.ok) {
-                const cryptoCompareData = await cryptoCompareRes.json();
-                if (cryptoCompareData.USD) {
-                    const goldPrice = cryptoCompareData.USD;
-                    
-                    // 基于黄金价格生成其他贵金属价格
-                    preciousData = [
-                        {
-                            name: '黄金',
-                            symbol: 'XAU',
-                            buybackPrice: goldPrice * 0.995,
-                            sellingPrice: goldPrice * 1.005
-                        },
-                        {
-                            name: '白银',
-                            symbol: 'XAG',
-                            buybackPrice: (goldPrice / 80) * 0.995,
-                            sellingPrice: (goldPrice / 80) * 1.005
-                        },
-                        {
-                            name: '铂金',
-                            symbol: 'XPT',
-                            buybackPrice: (goldPrice * 0.5) * 0.995,
-                            sellingPrice: (goldPrice * 0.5) * 1.005
-                        },
-                        {
-                            name: '钯金',
-                            symbol: 'XPD',
-                            buybackPrice: (goldPrice * 0.4) * 0.995,
-                            sellingPrice: (goldPrice * 0.4) * 1.005
-                        },
-                        {
-                            name: '旧料9999',
-                            symbol: 'OLD',
-                            buybackPrice: goldPrice * 0.985,
-                            sellingPrice: goldPrice * 0.995
-                        },
-                        {
-                            name: '18K金',
-                            symbol: '18K',
-                            buybackPrice: (goldPrice * 0.75) * 0.995,
-                            sellingPrice: (goldPrice * 0.75) * 1.005
-                        },
-                        {
-                            name: 'Pt950',
-                            symbol: 'PT950',
-                            buybackPrice: (goldPrice * 0.47) * 0.995,
-                            sellingPrice: (goldPrice * 0.47) * 1.005
-                        },
-                        {
-                            name: 'Pd990',
-                            symbol: 'PD990',
-                            buybackPrice: (goldPrice * 0.38) * 0.995,
-                            sellingPrice: (goldPrice * 0.38) * 1.005
-                        }
-                    ];
-                    
-                    renderPreciousTable(preciousData);
-                    apiProviderName.innerText = 'CryptoCompare API';
-                    apiStatusDot.style.color = '#34d399';
-                    return;
-                }
-            }
-        } catch (apiError) {
-            console.error('CryptoCompare API调用失败:', apiError);
-        }
-
-        // 回退到模拟数据（无论API是否成功，只要没有有效数据就使用模拟数据）
-        console.log('使用模拟数据');
+        // 回退到模拟数据
+        console.log('[Precious] 使用模拟数据');
         preciousData = generateMockPreciousData();
         renderPreciousTable(preciousData);
         apiProviderName.innerText = '模拟数据';
-        apiStatusDot.style.color = '#f59e0b'; // 警告颜色
+        apiStatusDot.style.color = '#f59e0b';
+        
     } catch (error) {
-        console.error('获取贵金属数据时发生严重错误:', error);
+        console.error('[Precious] 获取贵金属数据时发生严重错误:', error);
         const tbody = document.getElementById('precious-table-body');
         if (tbody) {
             tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding: 20px; color: #ef4444;">加载失败，请刷新页面重试</td></tr>`;
@@ -532,69 +374,44 @@ async function fetchPreciousData() {
 
 // 生成模拟贵金属数据
 function generateMockPreciousData() {
-    // 基于用户提供的图片数据，调整价格范围更接近实际现货行情
     const metals = [
-        { symbol: 'XAU', name: '黄金', baseBuybackPrice: 980, baseSellingPrice: 985 },
-        { symbol: 'XAG', name: '白银', baseBuybackPrice: 17, baseSellingPrice: 17.5 },
-        { symbol: 'XPT', name: '铂金', baseBuybackPrice: 481, baseSellingPrice: 483 },
-        { symbol: 'XPD', name: '钯金', baseBuybackPrice: 375, baseSellingPrice: 377 },
-        { symbol: 'XRH', name: '铑金', baseBuybackPrice: 1780, baseSellingPrice: 1800 },
-        { symbol: 'XTI', name: '钛金', baseBuybackPrice: 850, baseSellingPrice: 870 },
-        { symbol: 'XRN', name: '钌金', baseBuybackPrice: 110, baseSellingPrice: 115 },
-        { symbol: 'OLD', name: '旧料9999', baseBuybackPrice: 980, baseSellingPrice: 995 },
-        { symbol: '18K', name: '18K金', baseBuybackPrice: 732, baseSellingPrice: 745 },
-        { symbol: 'PT950', name: 'Pt950', baseBuybackPrice: 456, baseSellingPrice: 465 },
-        { symbol: 'PD990', name: 'Pd990', baseBuybackPrice: 364, baseSellingPrice: 372 }
+        { symbol: 'XAU', name: '黄金', baseBuybackPrice: 480, baseSellingPrice: 485 },
+        { symbol: 'XAG', name: '白银', baseBuybackPrice: 6.5, baseSellingPrice: 7.0 },
+        { symbol: 'XPT', name: '铂金', baseBuybackPrice: 220, baseSellingPrice: 225 },
+        { symbol: 'XPD', name: '钯金', baseBuybackPrice: 180, baseSellingPrice: 185 },
+        { symbol: 'OLD', name: '旧料9999', baseBuybackPrice: 475, baseSellingPrice: 480 },
+        { symbol: '18K', name: '18K金', baseBuybackPrice: 360, baseSellingPrice: 365 },
+        { symbol: 'PT950', name: 'Pt950', baseBuybackPrice: 210, baseSellingPrice: 215 },
+        { symbol: 'PD990', name: 'Pd990', baseBuybackPrice: 175, baseSellingPrice: 180 }
     ];
 
     return metals.map(metal => {
-        // 添加小幅随机波动
         const buybackVariation = (Math.random() - 0.5) * 2;
         const sellingVariation = (Math.random() - 0.5) * 2;
         
-        const buybackPrice = metal.baseBuybackPrice + buybackVariation;
-        const sellingPrice = metal.baseSellingPrice + sellingVariation;
-
         return {
             name: metal.name,
             symbol: metal.symbol,
-            buybackPrice: buybackPrice,
-            sellingPrice: sellingPrice
+            buybackPrice: parseFloat((metal.baseBuybackPrice + buybackVariation).toFixed(2)),
+            sellingPrice: parseFloat((metal.baseSellingPrice + sellingVariation).toFixed(2))
         };
     });
-}
-
-// 从符号获取完整的金属名称
-function getMetalName(symbol) {
-    const names = {
-        'XAU': '黄金',
-        'XAG': '白银',
-        'XPT': '铂金',
-        'XPD': '钯金',
-        'XRH': '铑金',
-        'XTI': '钛金',
-        'XRN': '钌金',
-        'OLD': '旧料9999',
-        '18K': '18K金',
-        'PT950': 'Pt950',
-        'PD990': 'Pd990'
-    };
-    return names[symbol] || symbol;
 }
 
 // 渲染贵金属表格
 function renderPreciousTable(data) {
     const tbody = document.getElementById('precious-table-body');
+    if (!tbody) return;
+    
     if (!data || data.length === 0) {
         tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding: 40px; color: #888;">暂无数据</td></tr>`;
         return;
     }
 
-    const rows = data.map((item, index) => {
+    const rows = data.map((item) => {
         const buybackPrice = parseFloat(item.buybackPrice);
         const sellingPrice = parseFloat(item.sellingPrice);
 
-        // 根据回购价和销售价的关系确定颜色（用户图片中显示为绿色）
         const buybackColor = '#10b981';
         const sellingColor = '#ef4444';
 
@@ -626,74 +443,11 @@ function renderPreciousTable(data) {
     tbody.innerHTML = rows;
 }
 
-// 加载贵金属的Sparkline图表
-async function loadPreciousSparkline(symbol, changePct) {
-    if (preciousSparklineCache[symbol] || preciousSparklineRequests.has(symbol)) return;
-    
-    preciousSparklineRequests.add(symbol);
-
-    try {
-        // 生成模拟的24h数据点
-        const points = [];
-        const basePrice = preciousData.find(item => item.symbol === symbol)?.price || 1000;
-        
-        for (let i = 0; i < 24; i++) {
-            // 生成有轻微波动的价格点
-            const variation = (Math.random() - 0.5) * 0.02;
-            points.push(basePrice * (1 + variation));
-        }
-        
-        preciousSparklineCache[symbol] = points;
-
-        const container = document.querySelector(`.graph-container-${symbol}`);
-        if (!container) return;
-
-        // 创建简单的SVG图表
-        const width = 60;
-        const height = 20;
-        const margin = { top: 2, right: 2, bottom: 2, left: 2 };
-        const innerWidth = width - margin.left - margin.right;
-        const innerHeight = height - margin.top - margin.bottom;
-
-        const minPrice = Math.min(...points);
-        const maxPrice = Math.max(...points);
-        const priceRange = maxPrice - minPrice || 1;
-
-        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.setAttribute('width', width);
-        svg.setAttribute('height', height);
-        svg.setAttribute('class', 'sparkline');
-
-        const polylinePoints = points.map((price, index) => {
-            const x = margin.left + (index / (points.length - 1)) * innerWidth;
-            const y = margin.top + (1 - (price - minPrice) / priceRange) * innerHeight;
-            return `${x},${y}`;
-        }).join(' ');
-
-        const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-        polyline.setAttribute('points', polylinePoints);
-        polyline.setAttribute('fill', 'none');
-        polyline.setAttribute('stroke', changePct > 0 ? '#ef4444' : '#10b981');
-        polyline.setAttribute('stroke-width', '1.5');
-        polyline.setAttribute('stroke-linecap', 'round');
-
-        svg.appendChild(polyline);
-        container.innerHTML = '';
-        container.appendChild(svg);
-
-    } catch (error) {
-        console.error('加载贵金属趋势图错误:', error);
-        const container = document.querySelector(`.graph-container-${symbol}`);
-        if (container) {
-            container.innerHTML = `<a href="javascript:void(0)" onclick="loadPreciousSparkline('${symbol}', ${changePct})" style="font-size: 11px; color: #666; text-decoration: none;">补全趋势</a>`;
-        }
-    } finally {
-        preciousSparklineRequests.delete(symbol);
-    }
-}
-
 // 初始化贵金属功能
 function initPrecious() {
+    console.log('[Precious] 初始化贵金属模块...');
+    
+    // 初始化搜索功能
     const searchInput = document.getElementById('precious-search');
     const searchTrigger = document.getElementById('precious-search-trigger');
     
@@ -708,29 +462,53 @@ function initPrecious() {
         });
     }
 
-    // 实时轮询
+    // 初始化实时连接
+    initRealtimeConnection();
+
+    // 定期检查连接状态（如果实时数据长时间未更新，使用备用API）
     setInterval(() => {
-        if (!isPreciousSearching) fetchPreciousData();
-    }, 5000);
+        if (!isPreciousSearching) {
+            const timeSinceUpdate = Date.now() - lastRealtimeUpdate;
+            
+            // 如果超过30秒没收到数据，使用备用API
+            if (!isRealtimeEnabled || timeSinceUpdate > 30000) {
+                fetchPreciousData();
+            }
+        }
+    }, 10000); // 每10秒检查一次
 
     // 定期更新USD/CNY汇率
     setInterval(() => {
-        if (Date.now() - lastRateUpdate > 300000) { // 每5分钟更新一次
+        if (Date.now() - lastRateUpdate > 300000) {
             fetch('https://api.exchangerate-api.com/v4/latest/USD')
                 .then(res => res.json())
                 .then(data => {
                     if (data.rates && data.rates.CNY) {
                         USD_CNY_RATE = data.rates.CNY;
                         lastRateUpdate = Date.now();
+                        console.log('[Precious] 汇率已更新: 1 USD =', USD_CNY_RATE, 'CNY');
                     }
                 })
-                .catch(err => console.error('更新USD/CNY汇率失败:', err));
+                .catch(err => console.error('[Precious] 更新USD/CNY汇率失败:', err));
         }
     }, 60000);
+    
+    console.log('[Precious] 贵金属模块初始化完成');
 }
 
 // 当DOM加载完成后初始化
-document.addEventListener('DOMContentLoaded', initPrecious);
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initPrecious);
+} else {
+    initPrecious();
+}
 
-// 页面加载完成后立即获取数据
-window.addEventListener('load', fetchPreciousData);
+// 页面加载完成后获取初始数据
+window.addEventListener('load', function() {
+    // 等待1秒让 WebSocket 连接建立
+    setTimeout(() => {
+        if (!isRealtimeEnabled || preciousData.length === 0) {
+            fetchPreciousData();
+        }
+    }, 1000);
+});

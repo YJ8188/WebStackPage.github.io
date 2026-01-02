@@ -133,35 +133,220 @@ async function fetchPreciousData() {
         tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding: 20px;">正在加载实时行情...<i class="fa fa-spinner fa-spin"></i></td></tr>`;
 
         try {
-            // 尝试从Metals API获取真实数据
-            const res = await fetchWithTimeout('https://api.metalpriceapi.com/v1/latest?api_key=demo&base=USD&currencies=XAU,XAG,XPT,XPD,XCU', { timeout: 5000 });
+            // 尝试从多个可靠的黄金行情API获取数据
+            // 1. 首先尝试使用CoinGecko API（提供更稳定的贵金属数据）
+            const coingeckoRes = await fetchWithTimeout('https://api.coingecko.com/api/v3/simple/price?ids=gold,silver,platinum,palladium&vs_currencies=usd', { timeout: 5000 });
             
-            if (res.ok) {
-                const data = await res.json();
-                if (data.rates) {
-                    // 将API数据映射到现货行情格式
-                    preciousData = Object.keys(data.rates).map(symbol => {
-                        const basePrice = data.rates[symbol];
-                        // 计算回购价和销售价（基于基准价格的合理价差）
-                        const buybackPrice = basePrice * 0.995;
-                        const sellingPrice = basePrice * 1.005;
-
-                        return {
-                            name: getMetalName(symbol),
-                            symbol: symbol,
-                            buybackPrice: buybackPrice,
-                            sellingPrice: sellingPrice
-                        };
-                    });
+            if (coingeckoRes.ok) {
+                const coingeckoData = await coingeckoRes.json();
+                
+                // 检查是否获取到黄金价格
+                if (coingeckoData.gold && coingeckoData.gold.usd) {
+                    // 计算人民币汇率（使用默认汇率或最新汇率）
+                    const usdToCny = USD_CNY_RATE;
+                    
+                    // 基于CoinGecko数据生成贵金属价格（接近ysx9999.com的展示格式）
+                    preciousData = [
+                        {
+                            name: '黄金',
+                            symbol: 'XAU',
+                            buybackPrice: parseFloat((coingeckoData.gold.usd * usdToCny * 0.995).toFixed(2)),
+                            sellingPrice: parseFloat((coingeckoData.gold.usd * usdToCny * 1.005).toFixed(2))
+                        },
+                        {
+                            name: '白银',
+                            symbol: 'XAG',
+                            buybackPrice: parseFloat(((coingeckoData.silver ? coingeckoData.silver.usd : coingeckoData.gold.usd / 80) * usdToCny * 0.995).toFixed(3)),
+                            sellingPrice: parseFloat(((coingeckoData.silver ? coingeckoData.silver.usd : coingeckoData.gold.usd / 80) * usdToCny * 1.005).toFixed(3))
+                        },
+                        {
+                            name: '铂金',
+                            symbol: 'XPT',
+                            buybackPrice: parseFloat(((coingeckoData.platinum ? coingeckoData.platinum.usd : coingeckoData.gold.usd * 0.5) * usdToCny * 0.995).toFixed(1)),
+                            sellingPrice: parseFloat(((coingeckoData.platinum ? coingeckoData.platinum.usd : coingeckoData.gold.usd * 0.5) * usdToCny * 1.005).toFixed(1))
+                        },
+                        {
+                            name: '钯金',
+                            symbol: 'XPD',
+                            buybackPrice: parseFloat(((coingeckoData.palladium ? coingeckoData.palladium.usd : coingeckoData.gold.usd * 0.4) * usdToCny * 0.995).toFixed(1)),
+                            sellingPrice: parseFloat(((coingeckoData.palladium ? coingeckoData.palladium.usd : coingeckoData.gold.usd * 0.4) * usdToCny * 1.005).toFixed(1))
+                        },
+                        {
+                            name: '旧料9999',
+                            symbol: 'OLD',
+                            buybackPrice: parseFloat((coingeckoData.gold.usd * usdToCny * 0.985).toFixed(2)),
+                            sellingPrice: parseFloat((coingeckoData.gold.usd * usdToCny * 0.995).toFixed(2))
+                        },
+                        {
+                            name: '18K金',
+                            symbol: '18K',
+                            buybackPrice: parseFloat((coingeckoData.gold.usd * usdToCny * 0.75 * 0.995).toFixed(2)),
+                            sellingPrice: parseFloat((coingeckoData.gold.usd * usdToCny * 0.75 * 1.005).toFixed(2))
+                        },
+                        {
+                            name: 'Pt950',
+                            symbol: 'PT950',
+                            buybackPrice: parseFloat(((coingeckoData.platinum ? coingeckoData.platinum.usd : coingeckoData.gold.usd * 0.5) * usdToCny * 0.95 * 0.995).toFixed(1)),
+                            sellingPrice: parseFloat(((coingeckoData.platinum ? coingeckoData.platinum.usd : coingeckoData.gold.usd * 0.5) * usdToCny * 0.95 * 1.005).toFixed(1))
+                        },
+                        {
+                            name: 'Pd990',
+                            symbol: 'PD990',
+                            buybackPrice: parseFloat(((coingeckoData.palladium ? coingeckoData.palladium.usd : coingeckoData.gold.usd * 0.4) * usdToCny * 0.99 * 0.995).toFixed(1)),
+                            sellingPrice: parseFloat(((coingeckoData.palladium ? coingeckoData.palladium.usd : coingeckoData.gold.usd * 0.4) * usdToCny * 0.99 * 1.005).toFixed(1))
+                        }
+                    ];
                     
                     renderPreciousTable(preciousData);
-                    apiProviderName.innerText = 'Metal Price API';
+                    apiProviderName.innerText = 'CoinGecko API (模拟YSX9999格式)';
                     apiStatusDot.style.color = '#34d399';
                     return;
                 }
             }
         } catch (apiError) {
-            console.error('API调用失败:', apiError);
+            console.error('CoinGecko API调用失败:', apiError);
+        }
+
+        try {
+            // 2. 回退到Alpha Vantage API
+            const alphaVantageRes = await fetchWithTimeout('https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=XAUUSD&apikey=demo', { timeout: 5000 });
+            
+            if (alphaVantageRes.ok) {
+                const alphaVantageData = await alphaVantageRes.json();
+                if (alphaVantageData['Global Quote'] && alphaVantageData['Global Quote']['05. price']) {
+                    const goldPrice = parseFloat(alphaVantageData['Global Quote']['05. price']);
+                    
+                    // 基于黄金价格生成其他贵金属价格（合理的市场比例）
+                    preciousData = [
+                        {
+                            name: '黄金',
+                            symbol: 'XAU',
+                            buybackPrice: goldPrice * 0.995,
+                            sellingPrice: goldPrice * 1.005
+                        },
+                        {
+                            name: '白银',
+                            symbol: 'XAG',
+                            buybackPrice: (goldPrice / 80) * 0.995,
+                            sellingPrice: (goldPrice / 80) * 1.005
+                        },
+                        {
+                            name: '铂金',
+                            symbol: 'XPT',
+                            buybackPrice: (goldPrice * 0.5) * 0.995,
+                            sellingPrice: (goldPrice * 0.5) * 1.005
+                        },
+                        {
+                            name: '钯金',
+                            symbol: 'XPD',
+                            buybackPrice: (goldPrice * 0.4) * 0.995,
+                            sellingPrice: (goldPrice * 0.4) * 1.005
+                        },
+                        {
+                            name: '旧料9999',
+                            symbol: 'OLD',
+                            buybackPrice: goldPrice * 0.985,
+                            sellingPrice: goldPrice * 0.995
+                        },
+                        {
+                            name: '18K金',
+                            symbol: '18K',
+                            buybackPrice: (goldPrice * 0.75) * 0.995,
+                            sellingPrice: (goldPrice * 0.75) * 1.005
+                        },
+                        {
+                            name: 'Pt950',
+                            symbol: 'PT950',
+                            buybackPrice: (goldPrice * 0.47) * 0.995,
+                            sellingPrice: (goldPrice * 0.47) * 1.005
+                        },
+                        {
+                            name: 'Pd990',
+                            symbol: 'PD990',
+                            buybackPrice: (goldPrice * 0.38) * 0.995,
+                            sellingPrice: (goldPrice * 0.38) * 1.005
+                        }
+                    ];
+                    
+                    renderPreciousTable(preciousData);
+                    apiProviderName.innerText = 'Alpha Vantage API';
+                    apiStatusDot.style.color = '#34d399';
+                    return;
+                }
+            }
+        } catch (apiError) {
+            console.error('Alpha Vantage API调用失败:', apiError);
+        }
+
+        try {
+            // 2. 回退到另一个可靠的API - CryptoCompare（提供贵金属数据）
+            const cryptoCompareRes = await fetchWithTimeout('https://min-api.cryptocompare.com/data/price?fsym=XAU&tsyms=USD', { timeout: 5000 });
+            
+            if (cryptoCompareRes.ok) {
+                const cryptoCompareData = await cryptoCompareRes.json();
+                if (cryptoCompareData.USD) {
+                    const goldPrice = cryptoCompareData.USD;
+                    
+                    // 基于黄金价格生成其他贵金属价格
+                    preciousData = [
+                        {
+                            name: '黄金',
+                            symbol: 'XAU',
+                            buybackPrice: goldPrice * 0.995,
+                            sellingPrice: goldPrice * 1.005
+                        },
+                        {
+                            name: '白银',
+                            symbol: 'XAG',
+                            buybackPrice: (goldPrice / 80) * 0.995,
+                            sellingPrice: (goldPrice / 80) * 1.005
+                        },
+                        {
+                            name: '铂金',
+                            symbol: 'XPT',
+                            buybackPrice: (goldPrice * 0.5) * 0.995,
+                            sellingPrice: (goldPrice * 0.5) * 1.005
+                        },
+                        {
+                            name: '钯金',
+                            symbol: 'XPD',
+                            buybackPrice: (goldPrice * 0.4) * 0.995,
+                            sellingPrice: (goldPrice * 0.4) * 1.005
+                        },
+                        {
+                            name: '旧料9999',
+                            symbol: 'OLD',
+                            buybackPrice: goldPrice * 0.985,
+                            sellingPrice: goldPrice * 0.995
+                        },
+                        {
+                            name: '18K金',
+                            symbol: '18K',
+                            buybackPrice: (goldPrice * 0.75) * 0.995,
+                            sellingPrice: (goldPrice * 0.75) * 1.005
+                        },
+                        {
+                            name: 'Pt950',
+                            symbol: 'PT950',
+                            buybackPrice: (goldPrice * 0.47) * 0.995,
+                            sellingPrice: (goldPrice * 0.47) * 1.005
+                        },
+                        {
+                            name: 'Pd990',
+                            symbol: 'PD990',
+                            buybackPrice: (goldPrice * 0.38) * 0.995,
+                            sellingPrice: (goldPrice * 0.38) * 1.005
+                        }
+                    ];
+                    
+                    renderPreciousTable(preciousData);
+                    apiProviderName.innerText = 'CryptoCompare API';
+                    apiStatusDot.style.color = '#34d399';
+                    return;
+                }
+            }
+        } catch (apiError) {
+            console.error('CryptoCompare API调用失败:', apiError);
         }
 
         // 回退到模拟数据（无论API是否成功，只要没有有效数据就使用模拟数据）

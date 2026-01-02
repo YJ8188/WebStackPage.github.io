@@ -5485,7 +5485,7 @@
                         let prices = null;
                         // 1. Try CryptoCompare (Fastest chart API)
                         try {
-                            const res = await fetchWithTimeout(`https://min-api.cryptocompare.com/data/v2/histohour?fsym=${symbol.toUpperCase()}&tsym=USD&limit=168`, { timeout: 4000 });
+                            const res = await fetchWithTimeout(`https://min-api.cryptocompare.com/data/v2/histohour?fsym=${symbol.toUpperCase()}&tsym=USD&limit=168`, { timeout: 7000 });
                             if (res.ok) {
                                 const json = await res.json();
                                 if (json.Data && json.Data.Data && json.Data.Data.length > 0) {
@@ -5618,12 +5618,17 @@
                     // Always update UI elements if they exist
                     if (freshData) updateCryptoUI(freshData);
 
-                    // If NOT searching and table is empty or we need full refresh
+                    // If NOT searching, handle table sync
                     if (!isSearching) {
                         const tbody = document.getElementById('crypto-table-body');
-                        const hasData = tbody && tbody.querySelector('.main-row');
-                        if (!hasData) {
+                        const rowCount = tbody ? tbody.querySelectorAll('.main-row').length : 0;
+
+                        // Force re-render if coin count changed (e.g. from 12 to 50)
+                        if (rowCount !== cryptoData.length) {
                             renderCryptoTable(cryptoData);
+                        } else {
+                            // Otherwise just update prices/changes
+                            updateCryptoUI(freshData);
                         }
                     }
                 }
@@ -5760,30 +5765,10 @@
                     dot.style.color = '#f59e0b'; // fetching
                     if (refreshIcon) refreshIcon.classList.add('fa-spin'); // spin icon
 
-                    // 0. Sync Exchange Rate if needed (Gate.io USDT_CNY)
-                    if (Date.now() - lastRateUpdate > 60000) { // Sync every 1 minute
+                    // 1. Sync Exchange Rate (Gate.io USDT_CNY) - only once, synced every 30s
+                    if (Date.now() - lastRateUpdate > 30000) {
                         try {
-                            const rateRes = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY', { timeout: 3000 });
-                            if (rateRes.ok) {
-                                const rateData = await rateRes.json();
-                                if (rateData && rateData[0] && rateData[0].last) {
-                                    USD_CNY_RATE = parseFloat(rateData[0].last);
-                                    lastRateUpdate = Date.now();
-                                    console.log('Dynamic Rate Sync:', USD_CNY_RATE);
-                                }
-                            }
-                        } catch (e) { console.warn('Rate sync failed', e); }
-                    }
-
-                    // Show loading status if empty and first load
-                    if (cryptoData.length === 0) {
-                        if (label) label.innerText = 'Connecting...';
-                    }
-
-                    // 0. Sync Exchange Rate (Force refresh more often for accuracy)
-                    if (Date.now() - lastRateUpdate > 30000) { // Sync every 30s
-                        try {
-                            const rateRes = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY', { timeout: 3000 });
+                            const rateRes = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY', { timeout: 5000 });
                             if (rateRes.ok) {
                                 const rateData = await rateRes.json();
                                 if (rateData && rateData[0] && rateData[0].last) {
@@ -5799,8 +5784,8 @@
                     try {
                         // 1. Try Gate.io (Priority for user as it matches their reference)
                         try {
-                            if (label) label.innerText = '正在获取 (Gate)...';
-                            const res = await fetchWithTimeout(APIS.GATEIO.url, { timeout: 8000 });
+                            if (label) label.innerText = '正在同步价格 (Gate)...';
+                            const res = await fetchWithTimeout(APIS.GATEIO.url, { timeout: 15000 });
                             if (res.ok) {
                                 const data = await res.json();
                                 const fetched = APIS.GATEIO.handler(data);
@@ -5810,10 +5795,12 @@
                             }
                         } catch (e) { lastError = e.message; }
 
+                        await new Promise(r => setTimeout(r, 1000)); // Small delay between fallbacks
+
                         // 2. Try CryptoCompare 
                         try {
-                            if (label) label.innerText = '正在获取 (CC)...';
-                            const res = await fetchWithTimeout(APIS.CRYPTOCOMPARE.url, { timeout: 5000 });
+                            if (label) label.innerText = '正在同步价格 (CC)...';
+                            const res = await fetchWithTimeout(APIS.CRYPTOCOMPARE.url, { timeout: 10000 });
                             if (res.ok) {
                                 const data = await res.json();
                                 const fetched = APIS.CRYPTOCOMPARE.handler(data);
@@ -5822,6 +5809,8 @@
                                 return;
                             }
                         } catch (e) { lastError = e.message; }
+
+                        await new Promise(r => setTimeout(r, 1000));
 
                         // 3. Try CoinCap
                         try {

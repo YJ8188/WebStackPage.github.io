@@ -5475,36 +5475,45 @@
                     sparklineRequests.add(symbol);
                     const containers = document.querySelectorAll(`.graph-container-${symbol}`);
                     containers.forEach(el => {
-                        if (el.innerHTML.length < 20) el.innerHTML = '<i class="fa fa-spinner fa-spin" style="opacity:0.3; margin-right:5px;"></i><span style="font-size:10px; color:#999;">加载趋势...</span>';
+                        if (el.innerHTML.length < 20) el.innerHTML = '<i class="fa fa-spinner fa-spin" style="opacity:0.3; margin-right:5px;"></i><span style="font-size:10px; color:#999;">努力加载中...</span>';
                     });
 
-                    try {
+                    async function tryFetch() {
                         let prices = null;
-
-                        // 1. Try CryptoCompare (v2 Histominute/hour is reliable for charts)
+                        // 1. Try CryptoCompare (Fastest chart API)
                         try {
-                            const res = await fetchWithTimeout(`https://min-api.cryptocompare.com/data/v2/histohour?fsym=${symbol.toUpperCase()}&tsym=USD&limit=168`, { timeout: 6000 });
+                            const res = await fetchWithTimeout(`https://min-api.cryptocompare.com/data/v2/histohour?fsym=${symbol.toUpperCase()}&tsym=USD&limit=168`, { timeout: 5000 });
                             if (res.ok) {
                                 const json = await res.json();
                                 if (json.Data && json.Data.Data && json.Data.Data.length > 0) {
                                     prices = json.Data.Data.map(d => d.close);
                                 }
                             }
-                        } catch (e) { console.warn('CC Sparkline Err', symbol, e); }
+                        } catch (e) { }
 
-                        // 2. Fallback to CoinCap History if CC failed
+                        // 2. Fallback to CoinCap
                         if (!prices) {
                             try {
                                 const end = Date.now();
                                 const start = end - (7 * 24 * 60 * 60 * 1000);
-                                const res = await fetchWithTimeout(`https://api.coincap.io/v2/assets/${finalId}/history?interval=h2&start=${start}&end=${end}`, { timeout: 6000 });
+                                const res = await fetchWithTimeout(`https://api.coincap.io/v2/assets/${finalId}/history?interval=h2&start=${start}&end=${end}`, { timeout: 5000 });
                                 if (res.ok) {
                                     const json = await res.json();
                                     if (json.data && json.data.length > 0) {
                                         prices = json.data.map(d => parseFloat(d.priceUsd));
                                     }
                                 }
-                            } catch (e) { console.warn('CoinCap Sparkline Err', symbol, e); }
+                            } catch (e) { }
+                        }
+                        return prices;
+                    }
+
+                    try {
+                        let prices = await tryFetch();
+                        // Auto-retry once after 3 seconds if failed
+                        if (!prices) {
+                            await new Promise(r => setTimeout(r, 3000));
+                            prices = await tryFetch();
                         }
 
                         if (prices && prices.length > 2) {
@@ -5514,12 +5523,11 @@
                                 target.innerHTML = generateSparklineSvg(prices, changePct, isDetail ? 240 : 100);
                             });
                         } else {
-                            throw new Error('No valid price data');
+                            throw new Error('No data');
                         }
                     } catch (e) {
-                        console.warn('Final Sparkline Err', symbol, e);
                         document.querySelectorAll(`.graph-container-${symbol}`).forEach(target => {
-                            target.innerHTML = `<span style="color:#888; font-size:10px; cursor:pointer;" onclick="loadSparkline('${id}','${symbol}',${changePct})">暂无数据(点击重试)</span>`;
+                            target.innerHTML = `<span style="color:#666; font-size:10px;">暂无趋势数据</span>`;
                         });
                     } finally {
                         sparklineRequests.delete(symbol);
@@ -5738,26 +5746,27 @@
                         if (label) label.innerText = 'Connecting...';
                     }
 
+                    // 0. Sync Exchange Rate (Force refresh more often for accuracy)
+                    if (Date.now() - lastRateUpdate > 30000) { // Sync every 30s
+                        try {
+                            const rateRes = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY', { timeout: 3000 });
+                            if (rateRes.ok) {
+                                const rateData = await rateRes.json();
+                                if (rateData && rateData[0] && rateData[0].last) {
+                                    USD_CNY_RATE = parseFloat(rateData[0].last);
+                                    lastRateUpdate = Date.now();
+                                }
+                            }
+                        } catch (e) { }
+                    }
+
                     let lastError = '';
 
                     try {
-                        // 1. Try CryptoCompare (Adjusted timeout)
-                        try {
-                            if (label) label.innerText = '正在获取 (CC)...';
-                            const res = await fetchWithTimeout(APIS.CRYPTOCOMPARE.url, { timeout: 8000 });
-                            if (res.ok) {
-                                const data = await res.json();
-                                const fetched = APIS.CRYPTOCOMPARE.handler(data);
-                                if (!isSearching) cryptoData = fetched;
-                                onSuccess(dot, APIS.CRYPTOCOMPARE.name, fetched);
-                                return;
-                            }
-                        } catch (e) { console.warn('CC Err', e); lastError = e.message; }
-
-                        // 2. Try Gate.io (Longer timeout for proxy)
+                        // 1. Try Gate.io (Priority for user as it matches their reference)
                         try {
                             if (label) label.innerText = '正在获取 (Gate)...';
-                            const res = await fetchWithTimeout(APIS.GATEIO.url, { timeout: 10000 });
+                            const res = await fetchWithTimeout(APIS.GATEIO.url, { timeout: 8000 });
                             if (res.ok) {
                                 const data = await res.json();
                                 const fetched = APIS.GATEIO.handler(data);
@@ -5765,7 +5774,20 @@
                                 onSuccess(dot, APIS.GATEIO.name, fetched);
                                 return;
                             }
-                        } catch (e) { console.warn('Gate Err', e); lastError = e.message; }
+                        } catch (e) { lastError = e.message; }
+
+                        // 2. Try CryptoCompare 
+                        try {
+                            if (label) label.innerText = '正在获取 (CC)...';
+                            const res = await fetchWithTimeout(APIS.CRYPTOCOMPARE.url, { timeout: 5000 });
+                            if (res.ok) {
+                                const data = await res.json();
+                                const fetched = APIS.CRYPTOCOMPARE.handler(data);
+                                if (!isSearching) cryptoData = fetched;
+                                onSuccess(dot, APIS.CRYPTOCOMPARE.name, fetched);
+                                return;
+                            }
+                        } catch (e) { lastError = e.message; }
 
                         // 3. Try CoinCap
                         try {
@@ -6191,7 +6213,7 @@
                     // Real-time polling
                     setInterval(() => {
                         if (!isSearching) fetchCryptoData();
-                    }, 5000);
+                    }, 3000);
 
                     // Hover Logic - Optimized to hide all floating buttons
                     const cryptoContainer = document.querySelector('.crypto-table-container');

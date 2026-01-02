@@ -7681,6 +7681,28 @@
                 margin-bottom: 30px;
             }
 
+            /* 确保移动端侧边栏切换按钮可见 */
+            .mobile-menu-toggle {
+                display: block !important;
+                visibility: visible !important;
+            }
+
+            /* 针对移动端侧边栏的优化：防止收缩状态在手机端漏出 */
+            .sidebar-menu.collapsed {
+                width: 0 !important;
+                display: none !important;
+            }
+
+            .sidebar-menu.mobile-is-visible {
+                width: 280px !important;
+                display: block !important;
+            }
+
+            .main-content {
+                margin-left: 0 !important;
+                padding-bottom: 150px !important;
+            }
+
             /* 移动端币种表格竖屏展示优化 */
             @media screen and (max-width: 600px) {
 
@@ -7701,27 +7723,6 @@
 
                 .crypto-table-container {
                     padding: 0 5px !important;
-                }
-
-                /* 确保移动端侧边栏切换按钮可见 */
-                .mobile-menu-toggle {
-                    display: block !important;
-                }
-
-                /* 强制隐藏移动端的收缩栏(防遮挡) */
-                .sidebar-menu.collapsed,
-                .sidebar-menu {
-                    width: 0 !important;
-                    display: none !important;
-                }
-
-                .sidebar-menu.mobile-is-visible {
-                    width: 280px !important;
-                    display: block !important;
-                }
-
-                .main-content {
-                    margin-left: 0 !important;
                 }
             }
         }

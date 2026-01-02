@@ -1,1047 +1,1053 @@
-/**
- * CryptoEngine - 数字货币行情模块 (集成化)
- * 修复了 PC 端下拉菜单、国内网络更新、及所有已知语法错误。
- */
-const CryptoEngine = (() => {
-    // --- 配置与状态 ---
-    let currentCurrency = 'USD';
-    let cryptoData = [];
-    let isSearching = false;
-    let USD_CNY_RATE = 7.25;
-    let lastRateUpdate = 0;
-    const expandedCoins = new Set();
-    const sparklineCache = {};
-    const iconCache = {}; // 缓存加载成功的图标源防止闪烁
-    const sparklineRequests = new Set();
-    const localStorageKey = 'crypto_market_cache_v3';
-    // 排序状态
-    let sortConfig = {
-        column: 'market_cap',
-        direction: 'desc'
-    };
+// 数字货币行情引擎 - Crypto Engine
 
-    // 常用币种映射
-    const CN_COIN_MAP = {
-        '比特币': 'btc', '以太坊': 'eth', '泰达币': 'usdt', '狗狗币': 'doge',
-        '波卡': 'dot', '币安': 'bnb', '瑞波': 'xrp', '索拉纳': 'sol',
-        '莱特币': 'ltc', '艾达币': 'ada', '波场': 'trx', '以太经典': 'etc',
-        '佩佩': 'pepe', '链克': 'link', '优尼': 'uni', '近': 'near'
-    };
+// 全局变量
+let currentCurrency = 'USD';
+let cryptoData = [];
+let isSearching = false;
+let USD_CNY_RATE = 7.25; // Default, will be updated dynamically
+let lastRateUpdate = 0;
 
-    // --- API 策略 (增加国内多源备份) ---
-    const APIS = {
-        GATEIO: {
-            name: 'Gate.io',
-            url: 'https://api.gateio.ws/api/v4/spot/tickers',
-            handler: (data) => {
-                const results = data.filter(item => item.currency_pair.endsWith('_USDT'))
-                    .filter(item => !item.currency_pair.includes('3L_') && !item.currency_pair.includes('3S_'))
-                    .sort((a, b) => parseFloat(b.quote_volume) - parseFloat(a.quote_volume))
-                    .slice(0, 50);
-                return results.map(item => {
-                    const symbol = item.currency_pair.split('_')[0].toLowerCase();
-                    return {
-                        symbol, name: symbol.toUpperCase(),
-                        image: `https://gimg2.gateimg.com/coin_icon/64/${symbol}.png`,
-                        image_backup: `https://static.coinpaper.com/coin/${symbol}.png`,
-                        current_price: parseFloat(item.last),
-                        price_change_percentage_24h: parseFloat(item.change_percentage),
-                        market_cap: parseFloat(item.quote_volume) * 7.5,
-                        total_volume: parseFloat(item.quote_volume),
-                        high_24h: parseFloat(item.high_24h || 0),
-                        low_24h: parseFloat(item.low_24h || 0)
-                    };
-                });
+// Sparkline Cache & Utils
+const sparklineCache = {};
+const sparklineRequests = new Set();
+const COIN_ID_MAP = {
+    'btc': 'bitcoin', 'eth': 'ethereum', 'usdt': 'tether', 'bnb': 'binance-coin',
+    'xrp': 'ripple', 'sol': 'solana', 'doge': 'dogecoin', 'ada': 'cardano',
+    'trx': 'tron', 'ton': 'toncoin', 'shib': 'shiba-inu', 'ltc': 'litecoin',
+    'etc': 'ethereum-classic', 'link': 'chainlink', 'uni': 'uniswap', 'bch': 'bitcoin-cash',
+    'arb': 'arbitrum', 'op': 'optimism', 'tia': 'celestia', 'sei': 'sei-network',
+    'pepe': 'pepe', 'stx': 'stacks', 'apt': 'aptos', 'floki': 'floki', 'fet': 'fetch-ai',
+    'bonk': 'bonk', 'kas': 'kaspa', 'rndr': 'render-token', 'inj': 'injective',
+    'near': 'near-protocol', 'bch': 'bitcoin-cash', 'uni': 'uniswap', 'ldo': 'lido-dao',
+    'icp': 'internet-computer', 'apt': 'aptos', 'mnt': 'mantle', 'kas': 'kaspa'
+};
+
+// Data persistence & cache
+let allGateTickers = []; // Master list from Gate.io for global search
+const expandedCoins = new Set();
+
+// Map common Chinese names to English for better search
+const CN_COIN_MAP = {
+    '比特币': 'bitcoin', '以太坊': 'ethereum', '泰达币': 'tether', '狗狗币': 'dogecoin',
+    '波卡': 'polkadot', '币安': 'binance', '瑞波': 'ripple', '索拉纳': 'solana',
+    '莱特币': 'litecoin', '艾达币': 'cardano', '波场': 'tron', '以太经典': 'ethereum-classic',
+    '佩佩': 'pepe', '链克': 'chainlink', '优尼': 'uniswap', '近': 'near-protocol',
+    '艾普特': 'aptos', '堆栈': 'stack', '奥普': 'optimism', '阿比特': 'arbitrum',
+    '天体': 'celestia', '赛伊': 'sei-network'
+};
+
+// Search Logic with Debounce
+let searchTimeout;
+
+// API Strategies configuration
+const APIS = {
+    GATEIO: {
+        name: 'Gate.io (Official)',
+        url: 'https://api.gateio.ws/api/v4/spot/tickers', // Returns all tickers, need filtering
+        handler: (data) => {
+            // 0. Backup all tickers for global search
+            allGateTickers = data;
+
+            // 1. Sync Exchange Rate (Fixed issue with finding USDT_CNY accurately)
+            const usdtCny = data.find(item => item.currency_pair === 'USDT_CNY');
+            if (usdtCny && usdtCny.last) {
+                USD_CNY_RATE = parseFloat(usdtCny.last);
+                lastRateUpdate = Date.now();
             }
-        },
-        BINANCE: {
-            name: 'Binance',
-            url: 'https://api.binance.com/api/v3/ticker/24hr',
-            handler: (data) => {
-                const results = data.filter(item => item.symbol.endsWith('USDT'))
-                    .filter(item => !item.symbol.includes('UP') && !item.symbol.includes('DOWN'))
-                    .sort((a, b) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume))
-                    .slice(0, 50);
-                return results.map(item => {
-                    const symbol = item.symbol.slice(0, -4).toLowerCase();
-                    return {
-                        symbol, name: symbol.toUpperCase(),
-                        image: `https://gimg2.gateimg.com/coin_icon/64/${symbol}.png`,
-                        image_backup: `https://static.coinpaper.com/coin/${symbol}.png`,
-                        current_price: parseFloat(item.lastPrice),
-                        price_change_percentage_24h: parseFloat(item.priceChangePercent),
-                        market_cap: parseFloat(item.quoteVolume) * parseFloat(item.lastPrice),
-                        total_volume: parseFloat(item.quoteVolume),
-                        high_24h: parseFloat(item.highPrice),
-                        low_24h: parseFloat(item.lowPrice),
-                        circulating_supply: 0
-                    };
-                });
-            }
-        },
-        HUOBI: {
-            name: 'Huobi',
-            url: 'https://api.huobi.pro/market/tickers',
-            handler: (data) => {
-                const results = data.data.filter(item => item.symbol.endsWith('usdt'))
-                    .filter(item => !item.symbol.includes('3l') && !item.symbol.includes('3s'))
-                    .sort((a, b) => parseFloat(b.vol) - parseFloat(a.vol))
-                    .slice(0, 50);
-                return results.map(item => {
-                    const symbol = item.symbol.slice(0, -4).toLowerCase();
-                    return {
-                        symbol, name: symbol.toUpperCase(),
-                        image: `https://gimg2.gateimg.com/coin_icon/64/${symbol}.png`,
-                        image_backup: `https://static.coinpaper.com/coin/${symbol}.png`,
-                        current_price: parseFloat(item.close),
-                        price_change_percentage_24h: parseFloat(item.change),
-                        market_cap: parseFloat(item.vol) * parseFloat(item.close),
-                        total_volume: parseFloat(item.vol),
-                        high_24h: parseFloat(item.high),
-                        low_24h: parseFloat(item.low),
-                        circulating_supply: 0
-                    };
-                });
-            }
-        },
-        OKX: {
-            name: 'OKX',
-            url: 'https://www.okx.com/api/v5/market/tickers?instType=SPOT',
-            handler: (data) => {
-                const results = data.data.filter(item => item.instId.endsWith('-USDT'))
-                    .filter(item => !item.instId.includes('-USDT-'))
-                    .sort((a, b) => parseFloat(b.vol24h) - parseFloat(a.vol24h))
-                    .slice(0, 50);
-                return results.map(item => {
-                    const symbol = item.instId.slice(0, -5).toLowerCase();
-                    return {
-                        symbol, name: symbol.toUpperCase(),
-                        image: `https://gimg2.gateimg.com/coin_icon/64/${symbol}.png`,
-                        image_backup: `https://static.coinpaper.com/coin/${symbol}.png`,
-                        current_price: parseFloat(item.last),
-                        price_change_percentage_24h: parseFloat(item.change24h),
-                        market_cap: parseFloat(item.vol24h) * parseFloat(item.last),
-                        total_volume: parseFloat(item.vol24h),
-                        high_24h: parseFloat(item.high24h),
-                        low_24h: parseFloat(item.low24h),
-                        circulating_supply: 0
-                    };
-                });
-            }
-        },
-        COINCAP: {
-            name: 'CoinCap',
-            url: 'https://api.coincap.io/v2/assets?limit=50',
-            handler: (data) => {
-                return data.data.map(item => {
-                    const symbol = item.symbol.toLowerCase();
-                    return {
-                        symbol, name: item.name,
-                        image: `https://gimg2.gateimg.com/coin_icon/64/${symbol}.png`,
-                        image_backup: `https://static.coinpaper.com/coin/${symbol}.png`,
-                        current_price: parseFloat(item.priceUsd),
-                        price_change_percentage_24h: parseFloat(item.changePercent24Hr),
-                        market_cap: parseFloat(item.marketCapUsd),
-                        total_volume: parseFloat(item.volumeUsd24Hr),
-                        circulating_supply: parseFloat(item.supply),
-                        high_24h: parseFloat(item.high24hr),
-                        low_24h: parseFloat(item.low24hr)
-                    };
-                });
-            }
-        },
-        COINLORE: {
-            name: 'CoinLore',
-            url: 'https://api.coinlore.net/api/tickers/?start=0&limit=50',
-            handler: (data) => {
-                return data.data.map(item => {
-                    const symbol = item.symbol.toLowerCase();
-                    return {
-                        symbol, name: item.name,
-                        image: `https://gimg2.gateimg.com/coin_icon/64/${symbol}.png`,
-                        image_backup: `https://static.coinpaper.com/coin/${symbol}.png`,
-                        current_price: parseFloat(item.price_usd),
-                        price_change_percentage_24h: parseFloat(item.percent_change_24h),
-                        market_cap: (parseFloat(item.msupply) || 0) * parseFloat(item.price_usd),
-                        total_volume: parseFloat(item.volume24),
-                        circulating_supply: parseFloat(item.msupply),
-                        high_24h: parseFloat(item.high24),
-                        low_24h: parseFloat(item.low24)
-                    };
-                });
-            }
+
+            // 2. Filter USDT pairs and sort by volume to get Top 50
+            const sortedTickers = data
+                .filter(item => item.currency_pair.endsWith('_USDT'))
+                .filter(item => !item.currency_pair.includes('3L_') && !item.currency_pair.includes('3S_')) // Exclude leveraged
+                .sort((a, b) => parseFloat(b.quote_volume) - parseFloat(a.quote_volume))
+                .slice(0, 50);
+
+            return sortedTickers.map(item => {
+                const symbol = item.currency_pair.split('_')[0].toLowerCase();
+                const nameMap = {
+                    'btc': 'Bitcoin', 'eth': 'Ethereum', 'usdt': 'Tether', 'bnb': 'BNB',
+                    'xrp': 'Ripple', 'sol': 'Solana', 'doge': 'Dogecoin', 'ada': 'Cardano',
+                    'trx': 'Tron', 'ton': 'Toncoin', 'shib': 'Shiba Inu', 'ltc': 'Litecoin',
+                    'pepe': 'PEPE', 'link': 'Chainlink', 'near': 'NEAR Protocol', 'apt': 'Aptos'
+                };
+                return {
+                    id: symbol,
+                    symbol: symbol,
+                    name: nameMap[symbol] || symbol.toUpperCase(),
+                    image: `https://gimg2.gateimg.com/coin_icon/64/${symbol}.png`,
+                    current_price: parseFloat(item.last),
+                    price_change_percentage_24h: parseFloat(item.change_percentage),
+                    market_cap: parseFloat(item.quote_volume) * 7.5, // Proxy for display
+                    total_volume: parseFloat(item.quote_volume),
+                    sparkline_in_7d: null
+                };
+            });
         }
-    };
-
-    // --- 辅助工具 ---
-    const fetchWithTimeout = async (url, timeout = 8000) => {
-        const controller = new AbortController();
-        const id = setTimeout(() => controller.abort(), timeout);
-        const res = await fetch(url, { signal: controller.signal });
-        clearTimeout(id);
-        return res;
-    };
-
-    const coal = (val) => (val && !isNaN(val)) ? parseFloat(val) : 0;
-
-    // --- 渲染逻辑 ---
-    function generateSparklineSvg(prices, changePct, width = 100) {
-        if (!prices || prices.length < 2) return '-';
-        const min = Math.min(...prices), max = Math.max(...prices);
-        const height = 48, padding = 12;
-        const innerHeight = height - (padding * 2);
-        const range = max - min || 1;
-        let points = '';
-        let maxP = { x: 0, y: height }, minP = { x: 0, y: 0 };
-        prices.forEach((p, i) => {
-            const x = (i / (prices.length - 1)) * width;
-            const y = padding + innerHeight - ((p - min) / range) * innerHeight;
-            points += `${x},${y} `;
-            if (p === max) maxP = { x, y, val: p };
-            if (p === min) minP = { x, y, val: p };
-        });
-        const color = changePct >= 0 ? '#ef4444' : '#10b981';
-        const gid = `grad-${Math.random().toString(36).substr(2, 8)}`;
-        const fmt = (v) => v < 1 ? v.toFixed(4) : (v > 1000 ? v.toLocaleString(undefined, { maximumFractionDigits: 1 }) : v.toFixed(2));
-        return `<svg width="${width}" height="${height}" class="sparkline-svg">
-            <defs><linearGradient id="${gid}" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style="stop-color:${color};stop-opacity:0.2" /><stop offset="100%" style="stop-color:${color};stop-opacity:0" /></linearGradient></defs>
-            <polygon points="0,${height} ${points} ${width},${height}" fill="url(#${gid})" />
-            <polyline points="${points}" fill="none" stroke="${color}" stroke-width="2" />
-            <circle cx="${maxP.x}" cy="${maxP.y}" r="2" fill="#ef4444" /><text x="${maxP.x}" y="${maxP.y - 3}" fill="#ef4444" style="font-size:9px" text-anchor="${maxP.x > width * 0.7 ? 'end' : 'start'}">${fmt(maxP.val)}</text>
-            <circle cx="${minP.x}" cy="${minP.y}" r="2" fill="#10b981" /><text x="${minP.x}" y="${minP.y + 10}" fill="#10b981" style="font-size:9px" text-anchor="${minP.x > width * 0.7 ? 'end' : 'start'}">${fmt(minP.val)}</text>
-        </svg>`;
+    },
+    CRYPTOCOMPARE: {
+        name: 'CryptoCompare',
+        // Fetching top 50 by volume from CC
+        url: 'https://min-api.cryptocompare.com/data/top/totalvolfull?limit=50&tsym=USD',
+        handler: (data) => {
+            if (!data.Data) throw new Error("Invalid CC Data");
+            return data.Data.map(item => {
+                const coin = item.RAW.USD;
+                return {
+                    id: item.CoinInfo.Name.toLowerCase(),
+                    symbol: item.CoinInfo.Name.toLowerCase(),
+                    name: item.CoinInfo.FullName,
+                    image: 'https://www.cryptocompare.com' + coin.IMAGEURL,
+                    current_price: coin.PRICE,
+                    price_change_percentage_24h: coin.CHANGEPCT24HOUR,
+                    market_cap: coin.MKTCAP,
+                    sparkline_in_7d: null
+                };
+            });
+        }
+    },
+    COINCAP: {
+        name: 'CoinCap',
+        // Fetching top 50 by market cap from CoinCap
+        url: 'https://api.coincap.io/v2/assets?limit=50',
+        handler: (data) => {
+            return data.data.map(item => ({
+                id: item.id,
+                symbol: item.symbol.toLowerCase(),
+                name: item.name,
+                image: `https://gimg2.gateimg.com/coin_icon/64/${item.symbol.toLowerCase()}.png`, // Use gate icons as they are better
+                current_price: parseFloat(item.priceUsd),
+                price_change_percentage_24h: parseFloat(item.changePercent24Hr),
+                market_cap: parseFloat(item.marketCapUsd),
+                sparkline_in_7d: null
+            }));
+        }
+    },
+    COINGECKO: {
+        name: 'CoinGecko',
+        // Fetching top 50 by market cap from CoinGecko
+        url: 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=50&page=1&sparkline=false&price_change_percentage=24h',
+        handler: (data) => data.map(item => ({
+            id: item.id,
+            symbol: item.symbol.toLowerCase(),
+            name: item.name,
+            image: item.image,
+            current_price: item.current_price,
+            price_change_percentage_24h: item.price_change_percentage_24h,
+            market_cap: item.market_cap,
+            sparkline_in_7d: null
+        }))
     }
+};
 
-    async function loadSparkline(symbol, changePct) {
-        if (sparklineRequests.has(symbol)) return;
-        sparklineRequests.add(symbol);
-        
-        // 显示加载指示器
-        const sparkContainer = document.querySelector(`.spark-box[data-symbol="${symbol}"]`);
-        if (sparkContainer) sparkContainer.innerHTML = '<div class="pulse-loader"></div>';
-        
-        const detailContainer = document.getElementById(`graph-detail-${symbol}`);
-        if (detailContainer) detailContainer.innerHTML = '<div class="sync-text">聚合趋势计算中...</div>';
-        
+// 函数定义
+async function loadSparkline(id, symbol, changePct) {
+    if (sparklineCache[symbol] || sparklineRequests.has(symbol)) return;
+    const finalId = id || COIN_ID_MAP[symbol] || symbol.toLowerCase();
+    if (!finalId) return;
+
+    sparklineRequests.add(symbol);
+    const containers = document.querySelectorAll(`.graph-container-${symbol}`);
+    containers.forEach(el => {
+        // Better loading state
+        el.innerHTML = `<div style="display:flex; align-items:center; justify-content:center; height:30px; opacity:0.6;">
+            <i class="fa fa-spinner fa-spin" style="font-size:12px; margin-right:6px; color:#10b981;"></i>
+            <span style="font-size:10px; color:#10b981;">数据同步中...</span>
+        </div>`;
+    });
+
+    async function tryFetch() {
+        let prices = null;
+        // 1. Try CryptoCompare (Fastest chart API)
         try {
-            const res = await fetchWithTimeout(`https://min-api.cryptocompare.com/data/v2/histohour?fsym=${symbol.toUpperCase()}&tsym=USD&limit=168`);
+            const res = await fetchWithTimeout(`https://min-api.cryptocompare.com/data/v2/histohour?fsym=${symbol.toUpperCase()}&tsym=USD&limit=168`, { timeout: 7000 });
             if (res.ok) {
                 const json = await res.json();
-                if (json.Data && json.Data.Data) {
-                    const prices = json.Data.Data.map(d => d.close);
-                    sparklineCache[symbol] = prices;
-
-                    // 核心优化：局部更新 DOM，防止整表刷新导致的图标闪烁
-                    if (sparkContainer) sparkContainer.innerHTML = generateSparklineSvg(prices, changePct);
-                    if (detailContainer) detailContainer.innerHTML = generateSparklineSvg(prices, changePct, 450);
-                } else {
-                    throw new Error('Invalid data structure');
+                if (json.Data && json.Data.Data && json.Data.Data.length > 0) {
+                    prices = json.Data.Data.map(d => d.close).filter(p => !isNaN(p));
                 }
-            } else {
-                throw new Error('API request failed');
             }
-        } catch (e) {
-            // 显示重试按钮
-            if (sparkContainer) sparkContainer.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:48px;"><button onclick="CryptoEngine.reloadSparkline('${symbol}')" style="background:none;border:none;color:#666;cursor:pointer;padding:5px 10px;border-radius:4px;font-size:12px;"><i class="fa fa-refresh"></i> 重试</button></div>`;
-            if (detailContainer) detailContainer.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100px;"><button onclick="CryptoEngine.reloadSparkline('${symbol}')" class="btn btn-xs btn-primary"><i class="fa fa-refresh"></i> 重新加载趋势图</button></div>`;
-        } finally { sparklineRequests.delete(symbol); }
-    }
+        } catch (e) { }
 
-    // 排序函数
-    function sortCryptoData(data, column, direction) {
-        return [...data].sort((a, b) => {
-            let valueA, valueB;
-            
-            switch (column) {
-                case 'symbol':
-                    valueA = a.symbol.toLowerCase();
-                    valueB = b.symbol.toLowerCase();
-                    break;
-                case 'current_price':
-                    valueA = coal(a.current_price);
-                    valueB = coal(b.current_price);
-                    break;
-                case 'price_change_percentage_24h':
-                    valueA = coal(a.price_change_percentage_24h);
-                    valueB = coal(b.price_change_percentage_24h);
-                    break;
-                case 'market_cap':
-                    valueA = coal(a.market_cap);
-                    valueB = coal(b.market_cap);
-                    break;
-                default:
-                    return 0;
-            }
-            
-            if (valueA < valueB) return direction === 'asc' ? -1 : 1;
-            if (valueA > valueB) return direction === 'asc' ? 1 : -1;
-            return 0;
-        });
-    }
-
-    function renderTable() {
-        const tbody = document.getElementById('crypto-table-body');
-        if (!tbody) return;
-
-        const query = (document.getElementById('crypto-search')?.value || '').toLowerCase().trim();
-        const mappedQuery = CN_COIN_MAP[query] || query;
-
-        // 应用排序
-        const sortedData = sortCryptoData(cryptoData, sortConfig.column, sortConfig.direction);
-
-        // --- 核心优化：局部更新逻辑 (彻底解决图标闪烁) ---
-        sortedData.forEach(coin => {
-            const isMatch = !mappedQuery || coin.symbol.includes(mappedQuery) || coin.name.toLowerCase().includes(mappedQuery);
-            let row = document.querySelector(`.main-row[data-symbol="${coin.symbol}"]`);
-            let detailRow = document.getElementById(`detail-${coin.symbol}`);
-
-            if (!isMatch) {
-                if (row) row.style.display = 'none';
-                if (detailRow) detailRow.style.display = 'none';
-                return;
-            }
-
-            const p_raw = coal(coin.current_price);
-            // 格式化美元价格 (使用 Roboto Mono 加强金融感)
-            const priceUSD = p_raw.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: p_raw < 0.1 ? 6 : (p_raw < 1 ? 4 : 2) });
-            // 格式化人民币价格
-            const priceCNY = (p_raw * USD_CNY_RATE).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY', minimumFractionDigits: 2 });
-            const change = coal(coin.price_change_percentage_24h);
-            const mcap = (p_raw * coal(coin.circulating_supply || 0) * USD_CNY_RATE).toLocaleString('zh-CN', { notation: 'compact' });
-            const vol = coal(coin.total_volume).toLocaleString('zh-CN', { notation: 'compact' });
-            const isOpen = expandedCoins.has(coin.symbol);
-
-            // 如果行不存在，则创建骨架
-            if (!row) {
-                const displayIcon = iconCache[coin.symbol] || coin.image;
-                const tr = document.createElement('tr');
-                tr.className = 'main-row';
-                tr.setAttribute('data-symbol', coin.symbol);
-                tr.onclick = (e) => {
-                    // 排除点击特定交互元素
-                    if (e.target.closest('button') || e.target.closest('input')) return;
-                    CryptoEngine.toggleCoinDetail(coin.symbol);
-                };
-                tr.innerHTML = `
-                    <td class="coin-cell">
-                        <div class="coin-info">
-                            <div class="coin-icon-wrapper">
-                                <img src="${displayIcon}" class="coin-icon" 
-                                     onerror="handleIconError(this, '${coin.symbol.toLowerCase()}', '${coin.symbol.toUpperCase()}')">
-                            </div>
-                            <div class="coin-name-wrap">
-                                <strong class="sym">${coin.symbol.toUpperCase()}</strong>
-                                <span class="coin-vol-text">24h: ${vol} USDT</span>
-                            </div>
-                        </div>
-                    </td>
-                    <td class="price-cell">
-                        <div class="price-stack">
-                            <span class="price-primary">${priceUSD}</span>
-                            <span class="price-secondary">≈ ${priceCNY}</span>
-                        </div>
-                    </td>
-                    <td class="change-cell"><div class="change-pill"></div></td>
-                    <td class="market-cap-cell table-market-cap"><div class="mcap-val-wrap"><span class="mcap-text">¥${mcap}</span><i class="fa fa-angle-right"></i></div></td>
-                    <td class="trend-cell" style="text-align:center;"><div class="spark-box" data-symbol="${coin.symbol}">${sparklineCache[coin.symbol] ? generateSparklineSvg(sparklineCache[coin.symbol], change) : '<div class="pulse-loader"></div>'}</div></td>
-                `;
-                tbody.appendChild(tr);
-
-                // 创建详情行备份
-                const dtr = document.createElement('tr');
-                dtr.id = `detail-${coin.symbol}`;
-                dtr.className = 'detail-row';
-                dtr.style.display = 'none';
-                dtr.innerHTML = `<td colspan="5"><div class="pro-panel"></div></td>`;
-                tbody.appendChild(dtr);
-
-                row = tr;
-                detailRow = dtr;
-            }
-
-            // --- 动态更新具体数值 (不重载行，根绝闪烁) ---
-            row.style.display = 'table-row';
-            row.querySelector('.price-primary').innerText = priceUSD;
-            row.querySelector('.price-secondary').innerText = `≈ ${priceCNY}`;
-            row.querySelector('.coin-vol-text').innerText = `24h: ${vol} USDT`;
-
-            const pill = row.querySelector('.change-pill');
-            pill.innerText = `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
-            pill.className = `change-pill ${change >= 0 ? 'up' : 'down'}`;
-
-            row.querySelector('.mcap-text').innerText = `¥${mcap}`;
-            const angle = row.querySelector('.fa-angle-right');
-            angle.className = `fa fa-angle-right ${isOpen ? 'rotate-down' : ''}`;
-
-            // 更新详情面板内容 (仅开启时更新，极致性能)
-            if (isOpen) {
-                detailRow.style.display = 'table-row';
-                const panel = detailRow.querySelector('.pro-panel');
-                // 仅在内容为空时或强制刷新内容
-                if (!panel.innerHTML || row.dataset.needsUpdate === 'true') {
-                    panel.innerHTML = `
-                        <div class="pro-grid">
-                            <div class="pro-stat"><label>估算市值(CNY)</label><div class="v">¥${(p_raw * coal(coin.circulating_supply || 0) * USD_CNY_RATE).toLocaleString()}</div></div>
-                            <div class="pro-stat"><label>24h 成交额(USD)</label><div class="v">$${coal(coin.total_volume).toLocaleString()}</div></div>
-                            <div class="pro-stat"><label>流通供应量</label><div class="v">${coal(coin.circulating_supply).toLocaleString()} ${coin.symbol.toUpperCase()}</div></div>
-                            <div class="pro-stat"><label>24h 高/低</label><div class="v">$${coal(coin.high_24h || 0).toLocaleString()} / $${coal(coin.low_24h || 0).toLocaleString()}</div></div>
-                        </div>
-                        <div class="pro-chart">
-                            <div class="chart-header"><h6>7D 趋势图谱 (CryptoCompare)</h6><span class="time-label">数据采样自最近168小时</span></div>
-                            <div id="graph-detail-${coin.symbol}" class="expanded-spark">
-                                ${sparklineCache[coin.symbol] ? generateSparklineSvg(sparklineCache[coin.symbol], change, 500) : '<div class="sync-text">聚合趋势计算中...</div>'}
-                            </div>
-                        </div>
-                    `;
-                }
-            } else {
-                detailRow.style.display = 'none';
-            }
-
-            if (!sparklineCache[coin.symbol]) setTimeout(() => loadSparkline(coin.symbol, change), 0);
-        });
-
-        // 维持列表顺序 (如果需要重排)
-        const filteredData = sortedData.filter(c => !mappedQuery || c.symbol.includes(mappedQuery) || c.name.toLowerCase().includes(mappedQuery));
-        filteredData.forEach(coin => {
-            const r = document.querySelector(`.main-row[data-symbol="${coin.symbol}"]`);
-            const d = document.getElementById(`detail-${coin.symbol}`);
-            if (r) tbody.appendChild(r);
-            if (d) tbody.appendChild(d);
-        });
-    }
-
-    // 独立图标错误处理，带路径缓存
-    window.handleIconError = function (img, symLower, symUpper) {
-        if (!img.tried) img.tried = 1; else img.tried++;
-        const sources = [
-            // 国内来源（优先） - 新增更多国内可访问源
-            `https://gimg2.gateimg.com/coin_icon/64/${symLower}.png`, //  Gate.io 国内CDN
-            `https://static.coinpaper.com/coin/${symLower}.png`, // 国内服务
-            `https://cdn.coin98.net/coins/${symLower}.png`, // 国内CDN
-            `https://cdn.jsdelivr.net/gh/guoshijiang/cryptocurrency-icons@master/128/color/${symLower}.png`, // 国内开发者维护的CDN
-            `https://img.360buyimg.com/img/jfs/${symLower}.png`, // 京东CDN
-            `https://img.alicdn.com/tfs/TB${symLower}.png`, // 阿里CDN
-            `https://static.360buyimg.com/img/jfs/${symLower}.png`, // 京东云CDN
-            
-            // 国内交易所图标源 - 优化路径
-            `https://bin.bnbstatic.com/image2/binance/static/image/cryptocurrency/${symLower.toUpperCase()}.png`, // 币安国内CDN
-            `https://static.huobi.co.kr/static/client/images/coin/icon_${symLower.toLowerCase()}_64.png`, // 火币国内CDN
-            `https://cdn.okex.com/cdn/portal/c2c/images/coin/${symLower.toLowerCase()}.png`, // OKX国内CDN
-            `https://static.gate.io/images/coin/icon_${symLower.toLowerCase()}_64.png`, // Gate.io备用
-            `https://www.binance.com/bapi/asset/v2/public/asset/get-icon?symbol=${symLower.toUpperCase()}`, // 币安API
-            
-            // 主要国际来源 - 增加缓存和优化
-            `https://assets.coincap.io/assets/icons/${symLower}@2x.png`,
-            `https://s2.coinmarketcap.com/static/img/coins/64x64/${symLower}.png`,
-            `https://www.cryptocompare.com/media/331246/${symLower}.png`,
-            
-            // 可靠CDN备份 - 增加更多国内可访问的CDN
-            `https://cdn.jsdelivr.net/gh/cjdowner/cryptocurrency-icons@latest/128/color/${symLower}.png`,
-            `https://fastly.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/${symLower}.png`,
-            `https://unpkg.com/cryptocurrency-icons@0.18.1/svg/color/${symLower}.svg`,
-            `https://cdnjs.cloudflare.com/ajax/libs/cryptocurrency-icons/0.18.1/svg/color/${symLower}.svg`,
-            `https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@master/128/color/${symLower}.png`,
-            
-            // 其他API - 增加更多来源
-            `https://cryptoicons.org/api/color/${symLower}/128`,
-            `https://coinicons-api.vercel.app/api/icon/${symLower}`,
-            `https://cryptologos.cc/logos/${symLower}-${symUpper.toLowerCase()}-logo.png`,
-            `https://logo.coinlore.com/svg/${symLower}.svg`,
-            `https://www.coingecko.com/coins/${symLower}/logo?size=64`,
-            
-            // 特定币种的可靠来源（国内优先）
-            symLower === 'btc' ? 'https://gimg2.gateimg.com/coin_icon/64/btc.png' : null,
-            symLower === 'eth' ? 'https://gimg2.gateimg.com/coin_icon/64/eth.png' : null,
-            symLower === 'usdt' ? 'https://gimg2.gateimg.com/coin_icon/64/usdt.png' : null,
-            symLower === 'bnb' ? 'https://bin.bnbstatic.com/image2/binance/static/image/cryptocurrency/BNB.png' : null,
-            symLower === 'xrp' ? 'https://gimg2.gateimg.com/coin_icon/64/xrp.png' : null,
-            symLower === 'doge' ? 'https://gimg2.gateimg.com/coin_icon/64/doge.png' : null,
-            symLower === 'sol' ? 'https://gimg2.gateimg.com/coin_icon/64/sol.png' : null,
-            
-            // 最后使用国内可访问的占位符 - 增加更多选项
-            `https://cdn.iconscout.com/icon/free/png-256/free-${symLower}-3629635-3030178.png`,
-            `https://via.placeholder.com/32?text=${symUpper}`,
-            `https://img.icons8.com/color/64/${symLower}.png`,
-            `https://img.icons8.com/external-others-pike-picture/64/${symLower}.png`
-        ].filter(Boolean); // 过滤掉null值
-        
-        if (img.tried <= sources.length) {
-            const nextSrc = sources[img.tried - 1];
-            img.src = nextSrc;
-            // 如果加载成功，缓存该路径
-            img.onload = () => {
-                if (img.tried > 0) {
-                    iconCache[symLower] = nextSrc;
-                }
-            };
-        }
-    };
-
-    // 处理排序点击
-    function handleSortClick(column) {
-        if (sortConfig.column === column) {
-            // 切换排序方向
-            sortConfig.direction = sortConfig.direction === 'asc' ? 'desc' : 'asc';
-        } else {
-            // 新的排序列，默认降序
-            sortConfig.column = column;
-            sortConfig.direction = 'desc';
-        }
-        // 更新表头样式
-        updateSortIndicators();
-        // 重新渲染表格
-        renderTable();
-    }
-
-    // 更新表头排序指示器
-    function updateSortIndicators() {
-        // 移除所有排序指示器
-        document.querySelectorAll('.crypto-table th span').forEach(span => {
-            span.innerHTML = '';
-        });
-        
-        // 为当前排序列添加指示器
-        const th = document.querySelector(`.crypto-table th[data-sort="${sortConfig.column}"]`);
-        if (th) {
-            const span = th.querySelector('span');
-            if (span) {
-                span.innerHTML = sortConfig.direction === 'asc' ? ' ▲' : ' ▼';
-            }
-        }
-    }
-
-    // --- 外部接口 ---
-    return {
-        async init() {
-            // 样式注入
-            const style = document.createElement('style');
-            style.id = 'crypto-engine-styles';
-            style.innerHTML = `
-                /* --- Gate.io 风格极致美化 --- */
-                #crypto-section-wrapper { 
-                    font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif !important; 
-                    margin-top: 35px !important;
-                    padding-bottom: 30px;
-                    background: transparent !important;
-                }
-                
-                .crypto-header { 
-                    display: flex !important; 
-                    justify-content: space-between !important; 
-                    align-items: center !important; 
-                    flex-wrap: wrap !important; 
-                    padding: 0 5px 25px 5px !important; 
-                }
-                .crypto-header-left { 
-                    display: flex !important; 
-                    align-items: center !important; 
-                    gap: 15px !important; 
-                }
-                .crypto-header-right { display: flex !important; gap: 15px !important; align-items: center !important; }
-                .crypto-controls { display: flex !important; gap: 10px !important; align-items: center !important; }
-                .crypto-title { 
-                    font-size: 22px !important; 
-                    font-weight: 800 !important; 
-                    color: #1e2329 !important; 
-                    letter-spacing: -0.8px; 
-                    display: flex;
-                    align-items: center;
-                }
-                
-                /* API 状态指示灯呼吸效 */
-                .api-status-wrap { 
-                    display: inline-flex; 
-                    align-items: center; 
-                    background: rgba(0,0,0,0.03); 
-                    padding: 4px 10px; 
-                    border-radius: 20px; 
-                    margin-left: 15px;
-                    font-size: 11px;
-                    font-weight: 600;
-                    color: #707a8a;
-                    border: 1px solid rgba(0,0,0,0.05);
-                }
-                #api-status-dot { 
-                    margin-right: 6px; 
-                    font-size: 8px; 
-                    animation: status-pulse 2s infinite; 
-                }
-                @keyframes status-pulse {
-                    0% { opacity: 1; transform: scale(1); }
-                    50% { opacity: 0.5; transform: scale(1.2); }
-                    100% { opacity: 1; transform: scale(1); }
-                }
-
-                /* 搜索盒优化 */
-                .search-box-crypto {
-                    position: relative;
-                    background: #f1f3f6 !important;
-                    border-radius: 10px !important;
-                    padding: 0 15px !important;
-                    display: flex;
-                    align-items: center;
-                    width: 260px;
-                    height: 40px;
-                    transition: all 0.3s;
-                    border: 1px solid transparent;
-                }
-                .search-box-crypto:focus-within {
-                    background: #fff !important;
-                    border-color: #f0b90b !important;
-                    box-shadow: 0 0 0 3px rgba(240, 185, 11, 0.1);
-                }
-                .search-box-crypto i { color: #848e9c; margin-right: 10px; font-size: 14px; }
-                .search-box-crypto input {
-                    border: none !important;
-                    background: transparent !important;
-                    color: #1e2329 !important;
-                    font-size: 14px !important;
-                    outline: none !important;
-                    width: 100%;
-                }
-
-                /* 表格容器高级阴影 */
-                .crypto-table-container { 
-                    background: white !important; 
-                    border-radius: 10px !important; 
-                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important; 
-                    border: 1px solid rgba(0, 0, 0, 0.1) !important; 
-                    overflow: hidden !important;
-                }
-                
-                @media screen and (max-width: 768px) {
-                    .crypto-table-container { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
-                    .crypto-table { min-width: 750px !important; }
-                    .search-box-crypto { width: 100% !important; margin-top: 15px; }
-                    .crypto-header-right { width: 100% !important; flex-direction: column !important; align-items: stretch !important; }
-                    
-                    /* 移动端表格优化 */
-                    .crypto-table th { padding: 12px 8px !important; font-size: 11px !important; }
-                    .crypto-table td { padding: 10px 8px !important; font-size: 13px !important; }
-                    
-                    /* 移动端价格和涨跌幅优化 */
-                    .price-primary { font-size: 14px !important; }
-                    .price-secondary { font-size: 11px !important; }
-                    .change-pill { min-width: 70px !important; padding: 4px 8px !important; font-size: 12px !important; }
-                    
-                    /* 移动端图标和名称布局优化 */
-                    .coin-icon-wrapper { width: 32px !important; height: 32px !important; margin-right: 8px !important; }
-                    .coin-icon { width: 24px !important; height: 24px !important; }
-                    .coin-name-wrap .sym { font-size: 14px !important; }
-                    .coin-vol-text { font-size: 10px !important; }
-                    
-                    /* 移动端详情面板优化 */
-                    .pro-panel { padding: 20px !important; }
-                    .pro-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 20px !important; }
-                    .pro-stat { padding-left: 15px !important; }
-                    .pro-stat label { font-size: 11px !important; margin-bottom: 5px !important; }
-                    .pro-stat .v { font-size: 14px !important; }
-                }
-                
-                /* 针对小屏幕设备的进一步优化 */
-                @media screen and (max-width: 480px) {
-                    .crypto-header-left { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
-                    .api-status-wrap { margin-top: 5px !important; }
-                    
-                    /* 进一步减小表格内边距 */
-                    .crypto-table th { padding: 8px 6px !important; font-size: 10px !important; }
-                    .crypto-table td { padding: 8px 6px !important; font-size: 12px !important; }
-                    
-                    /* 简化涨跌幅显示 */
-                    .change-pill { min-width: 60px !important; font-size: 11px !important; }
-                    
-                    /* 简化详情面板布局 */
-                    .pro-panel { padding: 15px !important; }
-                    .pro-grid { grid-template-columns: 1fr !important; gap: 15px !important; }
-                }
-                
-                .crypto-table th { 
-                    background: #f8f9fa !important; 
-                    padding: 18px 20px !important; 
-                    color: #666 !important; 
-                    font-size: 12px !important; 
-                    font-weight: 700 !important; 
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                    border-bottom: 1px solid #e9ecef !important; 
-                }
-                .crypto-table td { 
-                    padding: 16px 20px !important; 
-                    border-bottom: 1px solid #f1f3f6 !important; 
-                    transition: all 0.2s; 
-                    color: #1e2329 !important;
-                }
-                .main-row:hover td { background-color: #f8f9fa !important; cursor: pointer; }
-
-                /* 价格双叠架构 */
-                .price-stack { display: flex; flex-direction: column; gap: 4px; }
-                .price-primary { 
-                    font-family: 'Roboto Mono', monospace !important; 
-                    font-weight: 700 !important; 
-                    font-size: 17px !important; 
-                    color: #1e2329 !important; 
-                }
-                .price-secondary { 
-                    font-size: 12px !important; 
-                    color: #848e9c !important; 
-                    font-weight: 500; 
-                }
-                
-                /* 涨跌幅药丸效果 */
-                .change-pill { 
-                    display: inline-flex !important; 
-                    align-items: center; 
-                    justify-content: center; 
-                    min-width: 88px; 
-                    padding: 6px 0 !important; 
-                    border-radius: 6px !important; 
-                    color: #fff !important; 
-                    font-weight: 700 !important; 
-                    font-size: 14px !important; 
-                    transition: transform 0.2s;
-                }
-                .change-pill:hover { transform: scale(1.05); }
-                .change-pill.up { background: #0ecb81 !important; box-shadow: 0 4px 12px rgba(14,203,129,0.25); }
-                .change-pill.down { background: #f6465d !important; box-shadow: 0 4px 12px rgba(246,70,93,0.25); }
-                
-                .coin-icon-wrapper { 
-                    width: 40px; 
-                    height: 40px; 
-                    border-radius: 50%; 
-                    background: #f1f3f6; 
-                    display: flex; 
-                    align-items: center; 
-                    justify-content: center; 
-                    margin-right: 12px;
-                }
-                .coin-icon { width: 32px !important; height: 32px !important; object-fit: contain !important; }
-                .coin-name-wrap .sym { font-size: 16px !important; color: #1e2329 !important; font-weight: 700 !important; letter-spacing: -0.2px; }
-                .coin-vol-text { font-size: 11px !important; color: #848e9c !important; font-weight: 500; margin-top: 2px; }
-
-                /* 详情展示区面板 */
-                .pro-panel { 
-                    background: #f8f9fa !important; 
-                    padding: 35px !important; 
-                    border-top: 1px solid #e9ecef; 
-                    box-shadow: inset 0 10px 30px rgba(0,0,0,0.05);
-                }
-                .pro-grid { display: grid !important; grid-template-columns: repeat(4, 1fr) !important; gap: 30px !important; }
-                .pro-stat { border-left: 4px solid #f0b90b; padding-left: 20px; }
-                .pro-stat label { font-size: 12px !important; color: #848e9c !important; font-weight: 600; margin-bottom: 10px; display: block; }
-                .pro-stat .v { 
-                    font-family: 'Roboto Mono', monospace !important; 
-                    font-size: 16px !important; 
-                    font-weight: 700 !important; 
-                    color: #1e2329 !important; 
-                }
-                
-                .chart-header { border-bottom: 1px solid #e9ecef; padding-bottom: 15px; margin-bottom: 25px; }
-
-                /* 暗黑模式深度定制 */
-                body.dark-mode #crypto-section-wrapper { background: transparent !important; }
-                body.dark-mode .crypto-title { color: #eaecef !important; }
-                body.dark-mode .api-status-wrap { background: rgba(255,255,255,0.05); color: #848e9c; }
-                body.dark-mode .search-box-crypto { background: #1e2329 !important; }
-                body.dark-mode .search-box-crypto input { color: #eaecef !important; }
-                body.dark-mode .crypto-table-container { background: rgba(255, 255, 255, 0.02) !important; border-color: rgba(255, 255, 255, 0.1) !important; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35) !important; }
-                body.dark-mode .crypto-table th { background: rgba(255, 255, 255, 0.05) !important; color: rgba(255, 255, 255, 0.7) !important; border-bottom-color: rgba(255, 255, 255, 0.1) !important; }
-                body.dark-mode .crypto-table td { color: rgba(255, 255, 255, 0.9) !important; border-bottom-color: rgba(255, 255, 255, 0.05) !important; }
-                body.dark-mode .main-row:hover td { background-color: rgba(255, 255, 255, 0.05) !important; }
-                body.dark-mode .price-primary { color: rgba(255, 255, 255, 0.9) !important; }
-                body.dark-mode .price-secondary { color: rgba(255, 255, 255, 0.6) !important; }
-                body.dark-mode .coin-name-wrap .sym { color: rgba(255, 255, 255, 0.9) !important; }
-                body.dark-mode .coin-vol-text { color: rgba(255, 255, 255, 0.6) !important; }
-                body.dark-mode .pro-panel { background: rgba(255, 255, 255, 0.02) !important; border-top-color: rgba(255, 255, 255, 0.1); }
-                body.dark-mode .coin-icon-wrapper { background: rgba(255, 255, 255, 0.1); }
-                body.dark-mode .pro-stat { border-left-color: #f0b90b; }
-                body.dark-mode .pro-stat label { color: rgba(255, 255, 255, 0.6) !important; }
-                body.dark-mode .pro-stat .v { color: rgba(255, 255, 255, 0.9) !important; }
-                body.dark-mode .chart-header { border-bottom-color: rgba(255, 255, 255, 0.1); }
-                
-                .pulse-loader { width: 20px; height: 2px; background: #eee; animation: pulse 1.5s infinite; }
-                @keyframes pulse { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
-                .fade-out { opacity: 0 !important; pointer-events: none !important; transition: opacity 0.3s !important; }
-            `;
-            document.head.appendChild(style);
-
-            // 搜索与交互
-            document.getElementById('crypto-search')?.addEventListener('input', renderTable);
-
-            // 浮动按钮隐藏逻辑
-            const wrapper = document.getElementById('crypto-section-wrapper');
-            if (wrapper) {
-                wrapper.addEventListener('mouseenter', () => {
-                    document.querySelectorAll('#showHiddenCards, #resetOrder, .back-to-top').forEach(el => el.classList.add('fade-out'));
-                });
-                wrapper.addEventListener('mouseleave', () => {
-                    document.querySelectorAll('#showHiddenCards, #resetOrder, .back-to-top').forEach(el => el.classList.remove('fade-out'));
-                });
-            }
-
-            // 添加表头排序事件监听器
-            setTimeout(() => {
-                const headers = document.querySelectorAll('.crypto-table th[data-sort]');
-                headers.forEach(th => {
-                    th.addEventListener('click', () => {
-                        const column = th.getAttribute('data-sort');
-                        handleSortClick(column);
-                    });
-                    // 为表头添加排序指示器容器
-                    if (!th.querySelector('span')) {
-                        const span = document.createElement('span');
-                        span.style.marginLeft = '5px';
-                        th.appendChild(span);
-                    }
-                });
-                // 初始化排序指示器
-                updateSortIndicators();
-            }, 100);
-
-            // 初始数据
-            await this.refresh();
-            setInterval(() => this.refresh(), 10000);
-
-            // 汇率更新
-            this.updateRate();
-            setInterval(() => this.updateRate(), 60000);
-        },
-
-        async refresh() {
-            const statusDot = document.getElementById('api-status-dot');
-            const statusText = document.getElementById('api-status-text');
-            if (statusDot) statusDot.style.color = '#f59e0b';
-            if (statusText) statusText.innerText = 'Syncing...';
+        // 2. Fallback to CoinCap
+        if (!prices) {
             try {
-                // 并行请求所有API，获取最完整的数据
-                const apiResponses = await Promise.allSettled(Object.values(APIS).map(async api => {
-                    try {
-                        const r = await fetchWithTimeout(api.url);
-                        if (!r.ok) throw new Error();
-                        const d = await r.json();
-                        return { data: api.handler(d), name: api.name, success: true };
-                    } catch (e) {
-                        return { success: false };
+                const end = Date.now();
+                const start = end - (7 * 24 * 60 * 60 * 1000);
+                const res = await fetchWithTimeout(`https://api.coincap.io/v2/assets/${finalId}/history?interval=h2&start=${start}&end=${end}`, { timeout: 5000 });
+                if (res.ok) {
+                    const json = await res.json();
+                    if (json.data && json.data.length > 0) {
+                        prices = json.data.map(d => parseFloat(d.priceUsd));
                     }
-                }));
-                
-                // 过滤成功的响应
-                const successfulResponses = apiResponses.filter(r => r.success);
-                
-                if (successfulResponses.length > 0) {
-                    // 合并所有API数据，优先使用更完整的数据源
-                    const mergedData = {};
-                    
-                    // 首先收集所有数据
-                    successfulResponses.forEach(response => {
-                        response.data.forEach(coin => {
-                            if (!mergedData[coin.symbol]) {
-                                mergedData[coin.symbol] = coin;
-                            } else {
-                                // 合并字段，优先使用更完整、更准确的数据
-                                const existingCoin = mergedData[coin.symbol];
-                                Object.keys(coin).forEach(key => {
-                                    // 对于关键指标（市值、流通量、24h高/低、价格），更智能地选择数据
-                                    const isKeyMetric = ['market_cap', 'circulating_supply', 'high_24h', 'low_24h', 'current_price'].includes(key);
-                                    
-                                    if (key === 'image' || key === 'image_backup') {
-                                        // 对于logo，优先使用国内源
-                                        if (key === 'image' && !existingCoin.image) {
-                                            existingCoin.image = coin.image;
-                                        } else if (key === 'image_backup') {
-                                            // 如果没有备用logo或者新的logo源是国内的，优先使用
-                                            if (!existingCoin.image_backup || 
-                                                coin.image_backup.includes('gateimg.com') || 
-                                                coin.image_backup.includes('binance.com') ||
-                                                coin.image_backup.includes('huobi.co') ||
-                                                coin.image_backup.includes('okex.com')) {
-                                                existingCoin.image_backup = coin.image_backup;
-                                            }
-                                        }
-                                    } else if (key !== 'symbol' && key !== 'name') {
-                                        const coinValue = parseFloat(coin[key]);
-                                        const existingValue = parseFloat(existingCoin[key]);
-                                        
-                                        // 检查是否为有效数字
-                                        const isValidCoinValue = !isNaN(coinValue) && coinValue > 0;
-                                        const isValidExistingValue = !isNaN(existingValue) && existingValue > 0;
-                                        
-                                        if (isKeyMetric) {
-                                            // 对于关键指标，总是使用更大的有效数值（通常更准确）
-                                            if (isValidCoinValue) {
-                                                if (!isValidExistingValue || coinValue > existingValue) {
-                                                    existingCoin[key] = coinValue;
-                                                }
-                                            }
-                                        } else {
-                                            // 对于非关键指标，只在现有值为空或0时更新
-                                            if ((existingCoin[key] === undefined || existingCoin[key] === null || existingCoin[key] === 0) &&
-                                                coin[key] !== undefined && coin[key] !== null && coin[key] !== 0) {
-                                                existingCoin[key] = coin[key];
-                                            }
-                                        }
-                                    }
-                                });
-                            }
-                        });
-                    });
-                    
-                    // 转换为数组并排序
-                    let sortedData = Object.values(mergedData).sort((a, b) => 
-                        parseFloat(b.market_cap || 0) - parseFloat(a.market_cap || 0)
-                    ).slice(0, 50);
-                    
-                    // 确保BTC始终在第一位，ETH始终在第二位
-                    const btc = sortedData.find(coin => coin.symbol.toLowerCase() === 'btc');
-                    const eth = sortedData.find(coin => coin.symbol.toLowerCase() === 'eth');
-                    
-                    // 移除BTC和ETH
-                    sortedData = sortedData.filter(coin => 
-                        coin.symbol.toLowerCase() !== 'btc' && coin.symbol.toLowerCase() !== 'eth'
-                    );
-                    
-                    // 构建最终排序：BTC, ETH, 其他币种
-                    cryptoData = [];
-                    if (btc) cryptoData.push(btc);
-                    if (eth) cryptoData.push(eth);
-                    cryptoData = cryptoData.concat(sortedData);
-                    
-                    // 确保至少有50个币种
-                    if (cryptoData.length < 50) {
-                        const remaining = 50 - cryptoData.length;
-                        const allCoins = Object.values(mergedData);
-                        const additionalCoins = allCoins.filter(coin => 
-                            !cryptoData.some(c => c.symbol === coin.symbol)
-                        ).sort((a, b) => 
-                            parseFloat(b.market_cap || 0) - parseFloat(a.market_cap || 0)
-                        ).slice(0, remaining);
-                        cryptoData = cryptoData.concat(additionalCoins);
-                    }
-                    
-                    // 确保ETH存在，如果没有，检查是否有STETH可以替代
-                    const hasETH = cryptoData.some(coin => coin.symbol.toLowerCase() === 'eth');
-                    const stethCoin = cryptoData.find(coin => coin.symbol.toLowerCase() === 'steth');
-                    
-                    // 无论是否已有ETH，都确保清除STETH
-                    cryptoData = cryptoData.filter(coin => coin.symbol.toLowerCase() !== 'steth');
-                    
-                    if (!hasETH && stethCoin) {
-                        // 创建ETH条目，使用STETH的数据但显示为ETH
-                        const ethCoin = { ...stethCoin };
-                        ethCoin.symbol = 'eth';
-                        ethCoin.name = 'Ethereum';
-                        ethCoin.image = `https://gimg2.gateimg.com/coin_icon/64/eth.png`;
-                        ethCoin.image_backup = `https://static.coinpaper.com/coin/eth.png`;
-                        cryptoData.unshift(ethCoin);
-                    }
-                    
-                    // 再次确保ETH在列表中（即使有STETH转换也确保位置正确）
-                    const ethIndex = cryptoData.findIndex(coin => coin.symbol.toLowerCase() === 'eth');
-                    const btcIndex = cryptoData.findIndex(coin => coin.symbol.toLowerCase() === 'btc');
-                    
-                    if (ethIndex > -1 && btcIndex > -1) {
-                        // 确保ETH始终在BTC之后，即第二位
-                        const ethCoin = cryptoData.splice(ethIndex, 1)[0];
-                        cryptoData.splice(btcIndex + 1, 0, ethCoin);
-                    } else if (ethIndex > -1) {
-                        // 如果只有ETH没有BTC，将ETH放在第一位
-                        const ethCoin = cryptoData.splice(ethIndex, 1)[0];
-                        cryptoData.unshift(ethCoin);
-                    }
-                    
-                    if (statusDot) statusDot.style.color = '#10b981';
-                    if (statusText) statusText.innerText = 'Synced';
-                    localStorage.setItem(localStorageKey, JSON.stringify(cryptoData));
-                } else {
-                    throw new Error('All APIs failed');
-                }
-            } catch (e) {
-                const cached = localStorage.getItem(localStorageKey);
-                if (cached) {
-                    cryptoData = JSON.parse(cached);
-                    // 确保缓存数据中也有ETH处理
-                    const hasETH = cryptoData.some(coin => coin.symbol.toLowerCase() === 'eth');
-                    const stethCoin = cryptoData.find(coin => coin.symbol.toLowerCase() === 'steth');
-                    
-                    // 无论是否已有ETH，都确保清除STETH
-                    cryptoData = cryptoData.filter(coin => coin.symbol.toLowerCase() !== 'steth');
-                    
-                    if (!hasETH && stethCoin) {
-                        const ethCoin = { ...stethCoin };
-                        ethCoin.symbol = 'eth';
-                        ethCoin.name = 'Ethereum';
-                        ethCoin.image = `https://gimg2.gateimg.com/coin_icon/64/eth.png`;
-                        ethCoin.image_backup = `https://static.coinpaper.com/coin/eth.png`;
-                        cryptoData.unshift(ethCoin);
-                    }
-                    
-                    // 确保ETH在列表中（即使有STETH转换也确保位置正确）
-                    const ethIndex = cryptoData.findIndex(coin => coin.symbol.toLowerCase() === 'eth');
-                    const btcIndex = cryptoData.findIndex(coin => coin.symbol.toLowerCase() === 'btc');
-                    
-                    if (ethIndex > -1 && btcIndex > -1) {
-                        // 确保ETH始终在BTC之后，即第二位
-                        const ethCoin = cryptoData.splice(ethIndex, 1)[0];
-                        cryptoData.splice(btcIndex + 1, 0, ethCoin);
-                    } else if (ethIndex > -1) {
-                        // 如果只有ETH没有BTC，将ETH放在第一位
-                        const ethCoin = cryptoData.splice(ethIndex, 1)[0];
-                        cryptoData.unshift(ethCoin);
-                    }
-                }
-                if (statusDot) statusDot.style.color = '#ef4444';
-                if (statusText) statusText.innerText = 'Sync Off';
-            }
-            renderTable();
-        },
-
-        async updateRate() {
-            try {
-                const r = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY');
-                if (r.ok) {
-                    const d = await r.json();
-                    if (d[0]?.last) USD_CNY_RATE = parseFloat(d[0].last);
                 }
             } catch (e) { }
-        },
+        }
+        return prices;
+    }
 
-        toggleCurrency() {
-            currentCurrency = currentCurrency === 'USD' ? 'CNY' : 'USD';
-            const btn = document.getElementById('currency-toggle');
-            if (btn) {
-                btn.innerText = currentCurrency;
-                btn.className = currentCurrency === 'USD' ? 'btn btn-xs btn-primary' : 'btn btn-xs btn-warning';
-            }
-            renderTable();
-        },
+    try {
+        let prices = await tryFetch();
+        // Auto-retry once after 3 seconds if failed
+        if (!prices) {
+            await new Promise(r => setTimeout(r, 3000));
+            prices = await tryFetch();
+        }
 
-        toggleCoinDetail(symbol) {
-            const row = document.getElementById(`detail-${symbol}`);
-            if (!row) return;
-            const isOpen = expandedCoins.has(symbol);
-            if (isOpen) {
-                expandedCoins.delete(symbol);
-                row.style.opacity = '0';
-                setTimeout(() => { if (!expandedCoins.has(symbol)) row.style.display = 'none'; }, 300);
-            } else {
-                expandedCoins.add(symbol);
-                row.style.display = 'table-row';
-                setTimeout(() => { if (expandedCoins.has(symbol)) row.style.opacity = '1'; }, 10);
-            }
-            renderTable(); // 更新箭头旋转
-        },
-        
-        reloadSparkline(symbol) {
-            // 移除缓存，强制重新加载
-            delete sparklineCache[symbol];
-            // 找到对应的币种数据获取changePct
-            const coin = cryptoData.find(c => c.symbol === symbol);
-            if (coin) {
-                loadSparkline(symbol, coal(coin.price_change_percentage_24h));
-            }
+        // 3. Last Resort: CoinGecko (Backup)
+        if (!prices) {
+            try {
+                const geckoRes = await fetchWithTimeout(`https://api.coingecko.com/api/v3/coins/${finalId}/market_chart?vs_currency=usd&days=7&interval=daily`, { timeout: 5000 });
+                if (geckoRes.ok) {
+                    const json = await geckoRes.json();
+                    if (json.prices && json.prices.length > 0) {
+                        prices = json.prices.map(p => p[1]);
+                    }
+                }
+            } catch (e) { }
+        }
+
+        if (prices && prices.length > 2) {
+            sparklineCache[symbol] = prices;
+            document.querySelectorAll(`.graph-container-${symbol}`).forEach(target => {
+                const isDetail = target.id.startsWith('graph-detail-');
+                target.innerHTML = generateSparklineSvg(prices, changePct, isDetail ? 240 : 100);
+            });
+        } else {
+            throw new Error('No data');
+        }
+    } catch (e) {
+        document.querySelectorAll(`.graph-container-${symbol}`).forEach(target => {
+            target.innerHTML = `<a href="javascript:void(0)" onclick="loadSparkline(null, '${symbol}', ${changePct})" 
+                style="color:#888; font-size:10px; text-decoration:none; border:1px solid #444; padding:2px 6px; border-radius:10px; display:inline-block; transition:all 0.3s;"
+                onmouseover="this.style.borderColor='#10b981';this.style.color='#10b981'" 
+                onmouseout="this.style.borderColor='#444';this.style.color='#888'">
+                <i class="fa fa-refresh" style="margin-right:3px;"></i>补全趋势
+            </a>`;
+        });
+    } finally {
+        sparklineRequests.delete(symbol);
+    }
+}
+
+function generateSparklineSvg(prices, changePct, width = 100) {
+    if (!prices || prices.length < 2) return '-';
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    const height = 48;
+    const padding = 12;
+    const innerHeight = height - (padding * 2);
+    const range = max - min || 1;
+
+    let points = '';
+    let maxPoint = { x: 0, y: height };
+    let minPoint = { x: 0, y: 0 };
+
+    prices.forEach((p, i) => {
+        const x = (i / (prices.length - 1)) * width;
+        const y = padding + innerHeight - ((p - min) / range) * innerHeight;
+        points += `${x},${y} `;
+
+        if (p === max) maxPoint = { x, y, val: p };
+        if (p === min) minPoint = { x, y, val: p };
+    });
+
+    const color = changePct >= 0 ? '#ef4444' : '#10b981';
+    const gradId = `grad-${Math.random().toString(36).substr(2, 8)}`;
+    const fillPoints = `0,${height} ` + points + ` ${width},${height}`;
+    const formatPrice = (p) => p < 1 ? p.toFixed(4) : (p > 1000 ? p.toLocaleString(undefined, { maximumFractionDigits: 1 }) : p.toFixed(2));
+
+    return `<svg width="${width}" height="${height}" class="sparkline-svg" preserveAspectRatio="none">
+        <defs>
+            <linearGradient id="${gradId}" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" style="stop-color:${color};stop-opacity:0.25" />
+                <stop offset="100%" style="stop-color:${color};stop-opacity:0" />
+            </linearGradient>
+        </defs>
+        <polygon points="${fillPoints}" fill="url(#${gradId})" />
+        <polyline points="${points}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="${maxPoint.x}" cy="${maxPoint.y}" r="2.5" fill="#ef4444" />
+        <text x="${maxPoint.x}" y="${maxPoint.y - 4}" class="sparkline-point-label" text-anchor="${maxPoint.x > width * 0.7 ? 'end' : 'start'}" style="fill:#ef4444; font-size:10px;">${formatPrice(maxPoint.val)}</text>
+        <circle cx="${minPoint.x}" cy="${minPoint.y}" r="2.5" fill="#10b981" />
+        <text x="${minPoint.x}" y="${minPoint.y + 12}" class="sparkline-point-label" text-anchor="${minPoint.x > width * 0.7 ? 'end' : 'start'}" style="fill:#10b981; font-size:10px;">${formatPrice(minPoint.val)}</text>
+    </svg>`;
+}
+
+// Helper: Fetch with Timeout to prevent hanging
+async function fetchWithTimeout(resource, options = {}) {
+    // Reset timeout to 8s for slower proxies
+    const { timeout = 8000 } = options;
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    try {
+        const response = await fetch(resource, { ...options, signal: controller.signal });
+        clearTimeout(id);
+        return response;
+    } catch (error) {
+        clearTimeout(id);
+        throw error;
+    }
+}
+
+// Success Handler
+function onSuccess(dot, providerName, freshData) {
+    const label = document.getElementById('api-provider-name');
+    if (dot) dot.style.color = '#10b981';
+    if (label && !isSearching) label.innerText = providerName;
+
+    // Always update UI elements if they exist
+    if (freshData) updateCryptoUI(freshData);
+
+    // If NOT searching, handle table sync
+    if (!isSearching) {
+        const tbody = document.getElementById('crypto-table-body');
+        const rowCount = tbody ? tbody.querySelectorAll('.main-row').length : 0;
+
+        // Force re-render if coin count changed (e.g. from 12 to 50)
+        if (rowCount !== cryptoData.length) {
+            renderCryptoTable(cryptoData);
+        } else {
+            // Otherwise just update prices/changes
+            updateCryptoUI(freshData);
+        }
+    }
+}
+
+// Add this new function to help search results update too
+async function updateSearchPrices() {
+    const query = document.getElementById('crypto-search').value.trim();
+    if (!query || !isSearching) return;
+
+    try {
+        // For search results, we just update what's in cryptoData or do another search
+        // Better: just fetch standard data and let updateCryptoUI do its job
+        fetchCryptoData();
+    } catch (e) { }
+}
+
+function toggleCurrency() {
+    const btn = document.getElementById('currency-toggle');
+    if (currentCurrency === 'USD') {
+        currentCurrency = 'CNY';
+        btn.innerText = 'CNY';
+        btn.className = 'btn btn-xs btn-warning';
+    } else {
+        currentCurrency = 'USD';
+        btn.innerText = 'USD';
+        btn.className = 'btn btn-xs btn-primary';
+    }
+    renderCryptoTable(cryptoData);
+}
+
+// 1. Racing Engine with Local Cache fallback
+async function fetchCryptoData() {
+    const dot = document.getElementById('api-status-dot');
+    const label = document.getElementById('api-provider-name');
+    const tbody = document.getElementById('crypto-table-body');
+    const refreshIcon = document.querySelector('#refresh-crypto-btn i');
+
+    dot.style.color = '#f59e0b'; // Fetching state
+    if (refreshIcon) refreshIcon.classList.add('fa-spin');
+
+    // A. Try to load from Local Storage immediately for "Instant Load" feel
+    if (cryptoData.length === 0) {
+        const cached = localStorage.getItem('crypto_market_cache');
+        if (cached) {
+            try {
+                const parsed = JSON.parse(cached);
+                if (parsed && parsed.length > 0) {
+                    cryptoData = parsed;
+                    renderCryptoTable(cryptoData);
+                    if (label) label.innerText = 'Cached Source';
+                }
+            } catch (e) { }
+        }
+    }
+
+    // B. Sync Exchange Rate (Gate.io USDT_CNY) - background
+    const syncRate = async () => {
+        if (Date.now() - lastRateUpdate > 30000) {
+            try {
+                const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY', { timeout: 5000 });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data[0] && data[0].last) {
+                        USD_CNY_RATE = parseFloat(data[0].last);
+                        lastRateUpdate = Date.now();
+                    }
+                }
+            } catch (e) { }
         }
     };
-})();
+    syncRate();
 
-window.CryptoEngine = CryptoEngine;
-document.addEventListener('DOMContentLoaded', () => CryptoEngine.init());
+    // C. Parallel Racing Mode (The core optimization)
+    const fetchSource = async (apiObj) => {
+        const res = await fetchWithTimeout(apiObj.url, { timeout: 15000 });
+        if (!res.ok) throw new Error(`${apiObj.name} Failed`);
+        const data = await res.json();
+        return { name: apiObj.name, data: apiObj.handler(data) };
+    };
+
+    try {
+        // Priority Racing: Start all main sources at once
+        // We use Promise.any for speed, but Gate.io is still our accuracy target.
+        // However, stability first. We'll take the first one that responds.
+        const fastestResult = await Promise.any([
+            fetchSource(APIS.GATEIO),
+            fetchSource(APIS.CRYPTOCOMPARE),
+            fetchSource(APIS.COINCAP)
+        ]);
+
+        if (fastestResult && fastestResult.data) {
+            cryptoData = fastestResult.data;
+            onSuccess(dot, fastestResult.name, fastestResult.data);
+            // Persist to local storage for offline use
+            localStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
+            return;
+        }
+    } catch (e) {
+        // D. Fallback to CoinGecko if all initial racing fail
+        try {
+            if (label) label.innerText = 'Fallback (CG)...';
+            const geckoRes = await fetchSource(APIS.COINGECKO);
+            cryptoData = geckoRes.data;
+            onSuccess(dot, geckoRes.name, geckoRes.data);
+            localStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
+            return;
+        } catch (ge) {
+            // E. Final Fail: If we have cached data, don't show the red error box
+            if (cryptoData.length > 0) {
+                dot.style.color = '#ef4444'; // Signal failure silently
+                if (label) label.innerText = 'Sync Off (Local)';
+            } else {
+                // Full Failure UI
+                dot.style.color = '#ef4444';
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: #ef4444;">
+                    <i class="fa fa-exclamation-triangle"></i> 连接超时，请检查网络或代理。<br>
+                    <button class="btn btn-xs btn-primary" style="margin-top:10px" onclick="fetchCryptoData()">重试连接</button>
+                </td></tr>`;
+            }
+        }
+    } finally {
+        if (refreshIcon) refreshIcon.classList.remove('fa-spin');
+    }
+}
+
+function renderCryptoTable(data) {
+    if (!data || data.length === 0) return;
+    const tbody = document.getElementById('crypto-table-body');
+    const searchQuery = document.getElementById('crypto-search').value.toLowerCase();
+    tbody.innerHTML = '';
+
+    const isCNY = currentCurrency === 'CNY';
+    const rate = isCNY ? USD_CNY_RATE : 1;
+    const symbol = isCNY ? '¥' : '$';
+
+    const orderMap = { 'btc': 1, 'eth': 2, 'usdt': 3, 'bnb': 4, 'sol': 5, 'xrp': 6, 'etc': 7, 'doge': 8 };
+    data.sort((a, b) => {
+        const scoreA = orderMap[a.symbol] || 999;
+        const scoreB = orderMap[b.symbol] || 999;
+        if (scoreA !== scoreB) return scoreA - scoreB;
+        return (b.market_cap || 0) - (a.market_cap || 0);
+    });
+
+    data.forEach(coin => {
+        const searchName = coin.name || coin.symbol;
+        if (!searchName.toLowerCase().includes(searchQuery) && !coin.symbol.toLowerCase().includes(searchQuery))
+            return;
+
+        const rawPrice = coin.current_price;
+        const price = (rawPrice * rate).toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: (rawPrice < 1 ? 4 : 2)
+        });
+
+        const secondarySymbol = isCNY ? '$' : '¥';
+        const secondaryPrice = (rawPrice * (isCNY ? 1 : USD_CNY_RATE)).toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: (rawPrice < 1 ? 4 : 2)
+        });
+
+        const change = coin.price_change_percentage_24h;
+        const changeClass = change >= 0 ? 'change-up' : 'change-down';
+        const changeSign = change >= 0 ? '+' : '';
+
+        const mkVal = coal(coin.market_cap);
+        const marketCap = mkVal > 0 ? (mkVal * rate).toLocaleString(undefined, { maximumFractionDigits: 0, notation: "compact" }) : '-';
+
+        const volVal = coal(coin.total_volume || (mkVal / 100));
+        const volume = (volVal * rate).toLocaleString(undefined, { maximumFractionDigits: 0, notation: "compact" });
+
+        let sparklineContent = '';
+        let sparklineDetail = '';
+        const cached = sparklineCache[coin.symbol];
+        if (cached) {
+            sparklineContent = `<div style="display:flex; justify-content:center; width:100%;">${generateSparklineSvg(cached, change, 100)}</div>`;
+            sparklineDetail = `<div style="display:flex; justify-content:center; width:100%;">${generateSparklineSvg(cached, change, 240)}</div>`;
+        } else {
+            sparklineContent = `<div id="graph-${coin.symbol}" class="graph-container-${coin.symbol}" style="height:30px; display:flex; align-items:center; justify-content:center;">-</div>`;
+            sparklineDetail = `<div id="graph-detail-${coin.symbol}" class="graph-container-${coin.symbol}" style="height:60px; min-width:240px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.05); border-radius:6px; border: 1px dotted rgba(0,0,0,0.05);"></div>`;
+            setTimeout(() => loadSparkline(coin.id, coin.symbol, change), 0);
+        }
+
+        const isOpen = expandedCoins.has(coin.symbol);
+        const tr = `
+            <tr class="main-row" onclick="toggleCoinDetail('${coin.symbol}')">
+                <td>
+                    <div class="coin-info">
+                        <img src="${coin.image}" class="coin-icon" alt="${coin.symbol}" onerror="this.src='../assets/images/logos/btc.png'">
+                        <div class="coin-name-wrap">
+                            <div class="coin-name">${coin.symbol.toUpperCase()}<span style="color:#888;font-size:10px;font-weight:normal;margin-left:4px;">/USDT</span></div>
+                            <div class="coin-vol">${volume}</div>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <div class="price-wrap">
+                        <span id="price-${coin.symbol}" class="main-price price-update" data-val="${rawPrice * rate}">${symbol}${price}</span>
+                        <span class="converted-price">${secondarySymbol}${secondaryPrice}</span>
+                    </div>
+                </td>
+                <td>
+                    <div class="change-box ${changeClass} price-update" id="change-${coin.symbol}">
+                        ${changeSign}${change.toFixed(2)}%
+                    </div>
+                </td>
+                <td class="market_cap_cell">
+                    <span style="display:flex; align-items:center;">
+                        ${symbol}${marketCap}
+                        <i class="fa fa-angle-down" id="arrow-${coin.symbol}" style="margin-left:8px; color:#666; transition:transform 0.3s; ${isOpen ? 'transform:rotate(180deg)' : ''}"></i>
+                    </span>
+                </td>
+                <td style="text-align:center;">
+                    ${sparklineContent}
+                </td>
+            </tr>
+            <tr id="detail-${coin.symbol}" class="detail-row" style="${isOpen ? 'display:table-row' : ''}">
+                <td colspan="5" style="border-top:none; padding:0 !important;">
+                    <div class="detail-container">
+                        <div class="detail-info">
+                            <h5 style="margin-top:0; font-size:14px; font-weight:bold; color:#555; margin-bottom:15px;">市场详情</h5>
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; font-size:12px; color:#777;">
+                                <div><span style="color:#aaa">市值:</span> <br><b>${symbol}${mkVal > 0 ? (mkVal * rate).toLocaleString() : '-'}</b></div>
+                                <div><span style="color:#aaa">24h成交量:</span> <br><b>${symbol}${volVal > 0 ? (volVal * rate).toLocaleString() : '-'}</b></div>
+                                <div><span style="color:#aaa">24h涨跌幅:</span> <br><b class="${change >= 0 ? 'text-danger' : 'text-success'}">${changeSign}${change.toFixed(2)}%</b></div>
+                                <div><span style="color:#aaa">币种名称:</span> <br><b>${coin.name} (${coin.symbol.toUpperCase()})</b></div>
+                            </div>
+                        </div>
+                        <div class="detail-chart">
+                            <h5 style="margin-top:0; font-size:14px; font-weight:bold; color:#555; margin-bottom:15px; display:flex; justify-content:space-between;">
+                                <span>7日价格趋势曲线</span>
+                                <span style="font-weight:normal; font-size:11px; color:#aaa;">最近168小时数据</span>
+                            </h5>
+                            ${sparklineDetail}
+                        </div>
+                    </div>
+                </td>
+            </tr>
+            `;
+        tbody.innerHTML += tr;
+    });
+}
+
+function toggleCoinDetail(symbol) {
+    const row = document.getElementById(`detail-${symbol}`);
+    const arrow = document.getElementById(`arrow-${symbol}`);
+    if (row) {
+        const isNone = window.getComputedStyle(row).display === 'none';
+        if (isNone) {
+            row.style.display = 'table-row';
+            setTimeout(() => {
+                row.style.opacity = '1';
+                row.style.maxHeight = '200px'; // A value larger than expected content height
+            }, 10); // Small delay to allow display change to register
+            expandedCoins.add(symbol);
+        } else {
+            row.style.opacity = '0';
+            row.style.maxHeight = '0';
+            setTimeout(() => {
+                row.style.display = 'none';
+            }, 300); // Match transition duration
+            expandedCoins.delete(symbol);
+        }
+        if (arrow) arrow.style.transform = isNone ? 'rotate(180deg)' : 'rotate(0deg)';
+    }
+}
+
+function coal(val) {
+    return (val && !isNaN(val)) ? parseFloat(val) : 0;
+}
+
+function updateCryptoUI(data) {
+    if (!data) return;
+    const isCNY = currentCurrency === 'CNY';
+    const rate = isCNY ? USD_CNY_RATE : 1;
+    const symbol = isCNY ? '¥' : '$';
+
+    data.forEach(coin => {
+        const priceId = `price-${coin.symbol}`;
+        const priceEl = document.getElementById(priceId);
+        const changeEl = document.getElementById(`change-${coin.symbol}`);
+
+        if (priceEl) {
+            const rawPrice = coin.current_price;
+            const formattedPrice = (rawPrice * rate).toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: (rawPrice < 1 ? 4 : 2)
+            });
+            const oldText = priceEl.innerText;
+            const newText = `${symbol}${formattedPrice}`;
+
+            if (oldText !== newText) {
+                const oldVal = parseFloat(priceEl.dataset.val || 0);
+                const newVal = rawPrice * rate;
+
+                priceEl.innerText = newText;
+                priceEl.dataset.val = newVal;
+
+                const cell = priceEl.closest('td');
+                if (cell) {
+                    const pulseClass = newVal >= oldVal ? 'pulse-green' : 'pulse-red';
+                    cell.classList.remove('pulse-green', 'pulse-red');
+                    void cell.offsetWidth;
+                    cell.classList.add(pulseClass);
+                    setTimeout(() => cell.classList.remove(pulseClass), 1000);
+                }
+
+                const secondaryEl = priceEl.nextElementSibling;
+                if (secondaryEl && secondaryEl.classList.contains('converted-price')) {
+                    const secondarySymbol = isCNY ? '$' : '¥';
+                    const secondaryPrice = (rawPrice * (isCNY ? 1 : USD_CNY_RATE)).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: (rawPrice < 1 ? 4 : 2)
+                    });
+                    secondaryEl.innerText = `${secondarySymbol}${secondaryPrice}`;
+                }
+            }
+        }
+
+        if (changeEl) {
+            const change = coin.price_change_percentage_24h;
+            const changeSign = change >= 0 ? '+' : '';
+            const newText = `${changeSign}${change.toFixed(2)}%`;
+
+            if (changeEl.innerText.trim() !== newText) {
+                changeEl.innerText = newText;
+                // IMPORTANT: Apply pulse to the Change button container cell too
+                const cell = changeEl.closest('td');
+                if (cell) {
+                    const pulseClass = change >= 0 ? 'pulse-green' : 'pulse-red';
+                    cell.classList.remove('pulse-green', 'pulse-red');
+                    void cell.offsetWidth;
+                    cell.classList.add(pulseClass);
+                    setTimeout(() => cell.classList.remove(pulseClass), 1000);
+                }
+                changeEl.className = `change-box ${change >= 0 ? 'change-up' : 'change-down'} price-update`;
+            }
+        }
+    });
+}
+
+// Search Logic with Debounce
+function handleSearchInput() {
+    const input = document.getElementById('crypto-search');
+    if (!input) return;
+    const query = input.value.trim();
+    if (!query) {
+        isSearching = false;
+        fetchCryptoData(); // Revert to main list if search cleared
+        return;
+    }
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(searchCrypto, 1000);
+}
+
+async function handleSearchKey(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        clearTimeout(searchTimeout);
+        searchCrypto();
+    } else if (e.key === 'Escape') {
+        const input = document.getElementById('crypto-search');
+        if (input) input.value = '';
+        isSearching = false;
+        fetchCryptoData();
+    }
+}
+
+function clearCryptoSearch() {
+    const input = document.getElementById('crypto-search');
+    if (input) input.value = '';
+    isSearching = false;
+    const clearBtn = document.getElementById('crypto-search-clear');
+    if (clearBtn) clearBtn.style.display = 'none';
+    fetchCryptoData();
+}
+
+async function searchCrypto() {
+    const input = document.getElementById('crypto-search');
+    if (!input) return;
+    let query = input.value.trim().toLowerCase();
+    const dot = document.getElementById('api-status-dot');
+    const label = document.getElementById('api-provider-name');
+    const tbody = document.getElementById('crypto-table-body');
+    const clearBtn = document.getElementById('crypto-search-clear');
+
+    if (!query) {
+        clearCryptoSearch();
+        return;
+    }
+
+    if (clearBtn) clearBtn.style.display = 'block';
+    if (CN_COIN_MAP[query]) query = CN_COIN_MAP[query];
+
+    if (label) label.innerText = '正在全量搜索: ' + query;
+    if (dot) dot.style.color = '#f59e0b';
+    isSearching = true;
+
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color: #888;">
+        <i class="fa fa-circle-o-notch fa-spin"></i> 正在深度检索全网币种...
+    </td></tr>`;
+
+    try {
+        // 1. Efficient Global Search in allGateTickers (Synced with Gate.io)
+        const filtered = allGateTickers
+            .filter(item => {
+                const pair = item.currency_pair.toLowerCase();
+                const symbol = pair.split('_')[0];
+                return symbol.includes(query) && pair.endsWith('_usdt') && !pair.includes('3l_') && !pair.includes('3s_');
+            })
+            .sort((a, b) => parseFloat(b.quote_volume) - parseFloat(a.quote_volume))
+            .slice(0, 30); // Max 30 results for search
+
+        if (filtered.length > 0) {
+            const mapped = filtered.map(item => {
+                const symbol = item.currency_pair.split('_')[0].toLowerCase();
+                return {
+                    id: symbol,
+                    symbol: symbol,
+                    name: symbol.toUpperCase(),
+                    image: `https://gimg2.gateimg.com/coin_icon/64/${symbol}.png`,
+                    current_price: parseFloat(item.last),
+                    price_change_percentage_24h: parseFloat(item.change_percentage),
+                    market_cap: parseFloat(item.quote_volume) * 7.5,
+                    total_volume: parseFloat(item.quote_volume),
+                    sparkline_in_7d: null
+                };
+            });
+            cryptoData = mapped;
+            renderCryptoTable(mapped);
+            if (label) label.innerText = `[Gate] 已找到 ${mapped.length} 个结果`;
+            if (dot) dot.style.color = '#10b981';
+            return;
+        }
+
+        // 2. Fallback to CoinCap Search only if Gate data has no matches
+        const directUrl = `https://api.coincap.io/v2/assets?search=${query}&limit=20`;
+        const res = await fetchWithTimeout(directUrl, { timeout: 5000 });
+        if (res.ok) {
+            const json = await res.json();
+            if (json.data && json.data.length > 0) {
+                const mapped = json.data.map(item => ({
+                    id: item.id,
+                    symbol: item.symbol.toLowerCase(),
+                    name: item.name,
+                    image: `https://gimg2.gateimg.com/coin_icon/64/${item.symbol.toLowerCase()}.png`,
+                    current_price: parseFloat(item.priceUsd),
+                    price_change_percentage_24h: parseFloat(item.changePercent24Hr),
+                    market_cap: parseFloat(item.marketCapUsd),
+                    total_volume: parseFloat(item.volumeUsd24Hr),
+                    sparkline_in_7d: null
+                }));
+                cryptoData = mapped;
+                renderCryptoTable(mapped);
+                if (label) label.innerText = `[CoinCap] 已找到 ${mapped.length} 个结果`;
+                if (dot) dot.style.color = '#34d399';
+                return;
+            }
+        }
+
+        // 3. Not found
+        if (label) label.innerText = `未找到 "${query}"`;
+        if (dot) dot.style.color = '#ef4444';
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 60px; color: #888;">
+            <div style="font-size:32px; margin-bottom:15px;">🔍</div>
+            未找到 "${query}"<br>
+            <small style="color:#aaa">Gate.io 全网库中暂无此币种</small>
+        </td></tr>`;
+
+    } catch (e) {
+        console.error('Search error:', e);
+        if (label) label.innerText = 'Search Error';
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color: #ef4444;">搜索失败，请检查网络设置或稍后再试</td></tr>`;
+    }
+}
+
+// 初始化函数
+document.addEventListener('DOMContentLoaded', () => {
+    fetchCryptoData();
+
+    const searchInput = document.getElementById('crypto-search');
+    const searchTrigger = document.getElementById('crypto-search-trigger');
+
+    if (searchInput) {
+        searchInput.addEventListener('input', handleSearchInput);
+        searchInput.addEventListener('keydown', handleSearchKey);
+    }
+    if (searchTrigger) {
+        searchTrigger.addEventListener('click', (e) => {
+            e.preventDefault();
+            searchCrypto();
+        });
+    }
+
+    // Real-time polling
+    setInterval(() => {
+        if (!isSearching) fetchCryptoData();
+    }, 3000);
+
+    // Dedicated Full Ticker Refresh (Background)
+    setInterval(async () => {
+        try {
+            const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers', { timeout: 10000 });
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data.length > 500) {
+                    allGateTickers = data;
+                }
+            }
+        } catch (e) { }
+    }, 60000); // Refresh full list every minute
+
+    // Hover Logic - Optimized to hide all floating buttons
+    const cryptoContainer = document.querySelector('.crypto-table-container');
+    if (cryptoContainer) {
+        const cryptoSection = cryptoContainer.closest('.row');
+        const floatBtns = ['#showHiddenCards', '#resetOrder', '.xp-panel'];
+
+        const hideFloats = () => {
+            floatBtns.forEach(selector => {
+                document.querySelectorAll(selector).forEach(el => el.classList.add('fade-out'));
+            });
+        };
+        const showFloats = () => {
+            floatBtns.forEach(selector => {
+                document.querySelectorAll(selector).forEach(el => el.classList.remove('fade-out'));
+            });
+        };
+
+        if (cryptoSection) {
+            cryptoSection.addEventListener('mouseenter', hideFloats);
+            cryptoSection.addEventListener('mouseleave', showFloats);
+            cryptoSection.addEventListener('touchstart', hideFloats, { passive: true });
+        }
+    }
+});
+
+// CSS样式 - 可以选择保留在HTML中或移到单独的CSS文件
+const cryptoStyles = `
+.crypto-table-container {
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.crypto-table {
+    margin-bottom: 0;
+    width: 100%;
+}
+
+.crypto-table th {
+    background: #fcfcfc;
+    font-weight: 500;
+    color: #888;
+    border-bottom: 1px solid #f0f0f0;
+    padding: 12px 15px !important;
+    font-size: 13px;
+}
+
+.crypto-table td {
+    vertical-align: middle !important;
+    padding: 12px 15px !important;
+    border-top: 1px solid #f8f8f8;
+    color: #333;
+}
+
+.coin-info {
+    display: flex;
+    align-items: center;
+}
+
+.coin-icon {
+    width: 32px;
+    height: 32px;
+    margin-right: 12px;
+    border-radius: 50%;
+}
+
+.coin-name-wrap {
+    display: flex;
+    flex-direction: column;
+}
+
+.coin-name {
+    font-weight: bold;
+    font-size: 14px;
+    color: #1a1a1a;
+}
+
+.coin-symbol {
+    color: #999;
+    font-size: 11px;
+    margin-top: 2px;
+}
+
+.coin-vol {
+    color: #888;
+    font-size: 11px;
+    margin-top: 2px;
+}
+
+.price-wrap {
+    display: flex;
+    flex-direction: column;
+}
+
+.main-price {
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.converted-price {
+    color: #999;
+    font-size: 11px;
+    margin-top: 2px;
+}
+
+/* Gate.io style change buttons */
+.change-box {
+    display: inline-block;
+    min-width: 75px;
+    padding: 6px 4px;
+    border-radius: 4px;
+    text-align: center;
+    font-weight: bold;
+    color: #fff;
+    font-size: 12px;
+}
+
+.change-up {
+    background-color: #ef4444;
+}
+
+/* Red for up (China style) */
+.change-down {
+    background-color: #10b981;
+}
+
+/* Green for down */
+.change-neutral {
+    background-color: #9ca3af;
+}
+
+.market_cap_cell {
+    font-size: 12px;
+    color: #666;
+}
+
+/* Real-time Pulse Animation (Restored & Enhanced) */
+.price-update {
+    transition: background-color 0.8s ease;
+}
+
+.pulse-green {
+    background-color: rgba(239, 68, 68, 0.2) !important;
+    /* Red for up (China style) */
+}
+
+.pulse-red {
+    background-color: rgba(16, 185, 129, 0.2) !important;
+    /* Green for down */
+}
+
+body.dark-mode .pulse-green {
+    background-color: rgba(239, 68, 68, 0.15) !important;
+}
+
+body.dark-mode .pulse-red {
+    background-color: rgba(16, 185, 129, 0.15) !important;
+}
+
+/* Dark mode styles */
+body.dark-mode .crypto-table-container {
+    background: #1f2937;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .crypto-table th {
+    background: #374151;
+    color: #9ca3af;
+    border-bottom: 1px solid #4b5563;
+}
+
+body.dark-mode .crypto-table td {
+    border-top: 1px solid #374151;
+    color: #e5e7eb;
+}
+
+body.dark-mode .coin-name {
+    color: #fff;
+}
+
+body.dark-mode .coin-vol {
+    color: #9ca3af;
+}
+
+body.dark-mode #crypto-search {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: #4b5563;
+    color: #e5e7eb;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+    .crypto-table th,
+    .crypto-table td {
+        padding: 8px 10px !important;
+        font-size: 12px;
+    }
+    
+    .coin-icon {
+        width: 24px;
+        height: 24px;
+        margin-right: 8px;
+    }
+    
+    .main-price {
+        font-size: 13px;
+    }
+    
+    .change-box {
+        min-width: 60px;
+        padding: 4px 2px;
+        font-size: 11px;
+    }
+}
+
+/* Additional responsive adjustments */
+@media (max-width: 480px) {
+    .crypto-table th:nth-child(4),
+    .crypto-table td:nth-child(4),
+    .crypto-table th:nth-child(5),
+    .crypto-table td:nth-child(5) {
+        display: none;
+    }
+}
+`;
+
+// 动态注入CSS样式
+const styleSheet = document.createElement("style");
+styleSheet.innerText = cryptoStyles;
+document.head.appendChild(styleSheet);

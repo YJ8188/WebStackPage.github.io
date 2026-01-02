@@ -5143,7 +5143,7 @@
                                     <th>最新价</th>
                                     <th>24h涨跌</th>
                                     <th class="table-market-cap">市值</th>
-                                    <th style="text-align:right;">7日趋势</th>
+                                    <th style="text-align:center;">7日趋势</th>
                                 </tr>
                             </thead>
                             <tbody id="crypto-table-body">
@@ -5369,16 +5369,61 @@
                     .detail-row td {
                         padding: 15px !important;
                     }
+
+                    .detail-container {
+                        flex-direction: column;
+                        gap: 15px;
+                        padding: 15px;
+                        margin: 5px 10px 15px 10px;
+                    }
+
+                    .detail-info {
+                        border-right: none;
+                        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+                        padding-right: 0;
+                        padding-bottom: 15px;
+                    }
+
+                    body.dark-mode .detail-info {
+                        border-bottom-color: rgba(255, 255, 255, 0.1);
+                    }
                 }
 
                 /* Expandable row styling */
                 .detail-row {
                     display: none;
-                    background-color: rgba(0, 0, 0, 0.02);
+                    background-color: transparent;
                     opacity: 0;
                     max-height: 0;
                     overflow: hidden;
                     transition: opacity 0.3s ease, max-height 0.3s ease;
+                }
+
+                .detail-container {
+                    background: rgba(0, 0, 0, 0.03);
+                    border-radius: 8px;
+                    margin: 10px 15px 20px 15px;
+                    padding: 20px;
+                    display: flex;
+                    gap: 30px;
+                }
+
+                .detail-info {
+                    flex: 1;
+                    border-right: 1px solid rgba(0, 0, 0, 0.05);
+                    padding-right: 20px;
+                }
+
+                .detail-chart {
+                    flex: 2;
+                }
+
+                body.dark-mode .detail-container {
+                    background: rgba(255, 255, 255, 0.03);
+                }
+
+                body.dark-mode .detail-info {
+                    border-right-color: rgba(255, 255, 255, 0.1);
                 }
 
                 body.dark-mode .detail-row {
@@ -5404,7 +5449,8 @@
                 let currentCurrency = 'USD';
                 let cryptoData = [];
                 let isSearching = false;
-                const USD_CNY_RATE = 7.25;
+                let USD_CNY_RATE = 7.25; // Default, will be updated dynamically
+                let lastRateUpdate = 0;
 
                 // Sparkline Cache & Utils
                 const sparklineCache = {};
@@ -5414,11 +5460,15 @@
                     'xrp': 'ripple', 'sol': 'solana', 'doge': 'dogecoin', 'ada': 'cardano',
                     'trx': 'tron', 'ton': 'toncoin', 'shib': 'shiba-inu', 'ltc': 'litecoin',
                     'etc': 'ethereum-classic', 'link': 'chainlink', 'uni': 'uniswap', 'bch': 'bitcoin-cash',
-                    'near': 'near-protocol', 'pepe': 'pepe', 'apt': 'aptos', 'stx': 'stack', 'dot': 'polkadot',
-                    'arb': 'arbitrum', 'op': 'optimism', 'tia': 'celestia', 'sei': 'sei-network'
+                    'arb': 'arbitrum', 'op': 'optimism', 'tia': 'celestia', 'sei': 'sei-network',
+                    'pepe': 'pepe', 'stx': 'stacks', 'apt': 'aptos', 'floki': 'floki', 'fet': 'fetch-ai',
+                    'bonk': 'bonk', 'kas': 'kaspa', 'rndr': 'render-token', 'inj': 'injective',
+                    'near': 'near-protocol', 'bch': 'bitcoin-cash', 'uni': 'uniswap', 'ldo': 'lido-dao',
+                    'icp': 'internet-computer', 'apt': 'aptos', 'mnt': 'mantle', 'kas': 'kaspa'
                 };
 
-                // Track detail row states
+                // Data persistence & cache
+                let allGateTickers = []; // Master list from Gate.io for global search
                 const expandedCoins = new Set();
 
                 async function loadSparkline(id, symbol, changePct) {
@@ -5429,35 +5479,65 @@
                     sparklineRequests.add(symbol);
                     const containers = document.querySelectorAll(`.graph-container-${symbol}`);
                     containers.forEach(el => {
-                        if (el.innerHTML.length < 20) el.innerHTML = '<i class="fa fa-spinner fa-spin" style="opacity:0.3"></i>';
+                        // Better loading state
+                        el.innerHTML = `<div style="display:flex; align-items:center; justify-content:center; height:30px; opacity:0.6;">
+                            <i class="fa fa-spinner fa-spin" style="font-size:12px; margin-right:6px; color:#10b981;"></i>
+                            <span style="font-size:10px; color:#10b981;">数据同步中...</span>
+                        </div>`;
                     });
 
-                    try {
-                        const end = Date.now();
-                        const start = end - (7 * 24 * 60 * 60 * 1000);
+                    async function tryFetch() {
                         let prices = null;
-
-                        // Try CoinCap History
-                        const res = await fetchWithTimeout(`https://api.coincap.io/v2/assets/${finalId}/history?interval=h2&start=${start}&end=${end}`, { timeout: 8000 });
-                        if (res.ok) {
-                            const json = await res.json();
-                            if (json.data && json.data.length > 0) {
-                                prices = json.data.map(d => parseFloat(d.priceUsd));
-                            }
-                        }
-
-                        if (!prices) {
-                            // Fallback to CoinGecko
-                            const geckoRes = await fetchWithTimeout(`https://api.coingecko.com/api/v3/coins/${finalId}/market_chart?vs_currency=usd&days=7&interval=daily`, { timeout: 8000 });
-                            if (geckoRes.ok) {
-                                const json = await geckoRes.json();
-                                if (json.prices) {
-                                    prices = json.prices.map(p => p[1]);
+                        // 1. Try CryptoCompare (Fastest chart API)
+                        try {
+                            const res = await fetchWithTimeout(`https://min-api.cryptocompare.com/data/v2/histohour?fsym=${symbol.toUpperCase()}&tsym=USD&limit=168`, { timeout: 7000 });
+                            if (res.ok) {
+                                const json = await res.json();
+                                if (json.Data && json.Data.Data && json.Data.Data.length > 0) {
+                                    prices = json.Data.Data.map(d => d.close).filter(p => !isNaN(p));
                                 }
                             }
+                        } catch (e) { }
+
+                        // 2. Fallback to CoinCap
+                        if (!prices) {
+                            try {
+                                const end = Date.now();
+                                const start = end - (7 * 24 * 60 * 60 * 1000);
+                                const res = await fetchWithTimeout(`https://api.coincap.io/v2/assets/${finalId}/history?interval=h2&start=${start}&end=${end}`, { timeout: 5000 });
+                                if (res.ok) {
+                                    const json = await res.json();
+                                    if (json.data && json.data.length > 0) {
+                                        prices = json.data.map(d => parseFloat(d.priceUsd));
+                                    }
+                                }
+                            } catch (e) { }
+                        }
+                        return prices;
+                    }
+
+                    try {
+                        let prices = await tryFetch();
+                        // Auto-retry once after 3 seconds if failed
+                        if (!prices) {
+                            await new Promise(r => setTimeout(r, 3000));
+                            prices = await tryFetch();
                         }
 
-                        if (prices) {
+                        // 3. Last Resort: CoinGecko (Backup)
+                        if (!prices) {
+                            try {
+                                const geckoRes = await fetchWithTimeout(`https://api.coingecko.com/api/v3/coins/${finalId}/market_chart?vs_currency=usd&days=7&interval=daily`, { timeout: 5000 });
+                                if (geckoRes.ok) {
+                                    const json = await geckoRes.json();
+                                    if (json.prices && json.prices.length > 0) {
+                                        prices = json.prices.map(p => p[1]);
+                                    }
+                                }
+                            } catch (e) { }
+                        }
+
+                        if (prices && prices.length > 2) {
                             sparklineCache[symbol] = prices;
                             document.querySelectorAll(`.graph-container-${symbol}`).forEach(target => {
                                 const isDetail = target.id.startsWith('graph-detail-');
@@ -5467,9 +5547,13 @@
                             throw new Error('No data');
                         }
                     } catch (e) {
-                        console.warn('Sparkline fetch err', symbol, e);
                         document.querySelectorAll(`.graph-container-${symbol}`).forEach(target => {
-                            if (target.innerHTML.includes('fa-spin')) target.innerHTML = '<span style="color:#666">-</span>';
+                            target.innerHTML = `<a href="javascript:void(0)" onclick="loadSparkline(null, '${symbol}', ${changePct})" 
+                                style="color:#888; font-size:10px; text-decoration:none; border:1px solid #444; padding:2px 6px; border-radius:10px; display:inline-block; transition:all 0.3s;"
+                                onmouseover="this.style.borderColor='#10b981';this.style.color='#10b981'" 
+                                onmouseout="this.style.borderColor='#444';this.style.color='#888'">
+                                <i class="fa fa-refresh" style="margin-right:3px;"></i>补全趋势
+                            </a>`;
                         });
                     } finally {
                         sparklineRequests.delete(symbol);
@@ -5544,12 +5628,17 @@
                     // Always update UI elements if they exist
                     if (freshData) updateCryptoUI(freshData);
 
-                    // If NOT searching and table is empty or we need full refresh
+                    // If NOT searching, handle table sync
                     if (!isSearching) {
                         const tbody = document.getElementById('crypto-table-body');
-                        const hasData = tbody && tbody.querySelector('.main-row');
-                        if (!hasData) {
+                        const rowCount = tbody ? tbody.querySelectorAll('.main-row').length : 0;
+
+                        // Force re-render if coin count changed (e.g. from 12 to 50)
+                        if (rowCount !== cryptoData.length) {
                             renderCryptoTable(cryptoData);
+                        } else {
+                            // Otherwise just update prices/changes
+                            updateCryptoUI(freshData);
                         }
                     }
                 }
@@ -5572,22 +5661,40 @@
                         name: 'Gate.io (Official)',
                         url: 'https://api.gateio.ws/api/v4/spot/tickers', // Returns all tickers, need filtering
                         handler: (data) => {
-                            // Target pairs
-                            const targets = ['BTC_USDT', 'ETH_USDT', 'USDT_CNY', 'BNB_USDT', 'XRP_USDT', 'SOL_USDT', 'DOGE_USDT', 'ADA_USDT', 'TRX_USDT', 'TON_USDT', 'SHIB_USDT', 'LTC_USDT'];
-                            // Map for quick lookup
-                            const validPairs = new Set(targets);
+                            // 0. Backup all tickers for global search
+                            allGateTickers = data;
 
-                            return data.filter(item => validPairs.has(item.currency_pair)).map(item => {
+                            // 1. Sync Exchange Rate (Fixed issue with finding USDT_CNY accurately)
+                            const usdtCny = data.find(item => item.currency_pair === 'USDT_CNY');
+                            if (usdtCny && usdtCny.last) {
+                                USD_CNY_RATE = parseFloat(usdtCny.last);
+                                lastRateUpdate = Date.now();
+                            }
+
+                            // 2. Filter USDT pairs and sort by volume to get Top 50
+                            const sortedTickers = data
+                                .filter(item => item.currency_pair.endsWith('_USDT'))
+                                .filter(item => !item.currency_pair.includes('3L_') && !item.currency_pair.includes('3S_')) // Exclude leveraged
+                                .sort((a, b) => parseFloat(b.quote_volume) - parseFloat(a.quote_volume))
+                                .slice(0, 50);
+
+                            return sortedTickers.map(item => {
                                 const symbol = item.currency_pair.split('_')[0].toLowerCase();
-                                const nameMap = { 'btc': 'Bitcoin', 'eth': 'Ethereum', 'usdt': 'Tether', 'bnb': 'BNB', 'xrp': 'Ripple', 'sol': 'Solana', 'doge': 'Dogecoin', 'ada': 'Cardano', 'trx': 'Tron', 'ton': 'Toncoin', 'shib': 'Shiba Inu', 'ltc': 'Litecoin' };
+                                const nameMap = {
+                                    'btc': 'Bitcoin', 'eth': 'Ethereum', 'usdt': 'Tether', 'bnb': 'BNB',
+                                    'xrp': 'Ripple', 'sol': 'Solana', 'doge': 'Dogecoin', 'ada': 'Cardano',
+                                    'trx': 'Tron', 'ton': 'Toncoin', 'shib': 'Shiba Inu', 'ltc': 'Litecoin',
+                                    'pepe': 'PEPE', 'link': 'Chainlink', 'near': 'NEAR Protocol', 'apt': 'Aptos'
+                                };
                                 return {
                                     id: symbol,
                                     symbol: symbol,
                                     name: nameMap[symbol] || symbol.toUpperCase(),
-                                    image: `https://assets.coincap.io/assets/icons/${symbol}@2x.png`, // Fallback icon
+                                    image: `https://gimg2.gateimg.com/coin_icon/64/${symbol}.png`,
                                     current_price: parseFloat(item.last),
                                     price_change_percentage_24h: parseFloat(item.change_percentage),
-                                    market_cap: parseFloat(item.quote_volume) * 1000, // Gate doesn't return MC easily, use Vol as proxy or hide
+                                    market_cap: parseFloat(item.quote_volume) * 7.5, // Proxy for display
+                                    total_volume: parseFloat(item.quote_volume),
                                     sparkline_in_7d: null
                                 };
                             });
@@ -5595,16 +5702,16 @@
                     },
                     CRYPTOCOMPARE: {
                         name: 'CryptoCompare',
-                        url: 'https://min-api.cryptocompare.com/data/pricemultifull?fsyms=BTC,ETH,USDT,BNB,SOL,XRP,DOGE,ADA,TRX,TON,SHIB,LTC,ETC,LINK,UNI,BCH,NEAR,PEPE,STX&tsyms=USD',
+                        // Fetching top 50 by volume from CC
+                        url: 'https://min-api.cryptocompare.com/data/top/totalvolfull?limit=50&tsym=USD',
                         handler: (data) => {
-                            const raw = data.RAW;
-                            if (!raw) throw new Error("Invalid CC Data");
-                            return Object.keys(raw).map(key => {
-                                const coin = raw[key].USD;
+                            if (!data.Data) throw new Error("Invalid CC Data");
+                            return data.Data.map(item => {
+                                const coin = item.RAW.USD;
                                 return {
-                                    id: key.toLowerCase(),
-                                    symbol: coin.FROMSYMBOL.toLowerCase(),
-                                    name: key === 'USDT' ? 'Tether' : (key === 'BTC' ? 'Bitcoin' : key),
+                                    id: item.CoinInfo.Name.toLowerCase(),
+                                    symbol: item.CoinInfo.Name.toLowerCase(),
+                                    name: item.CoinInfo.FullName,
                                     image: 'https://www.cryptocompare.com' + coin.IMAGEURL,
                                     current_price: coin.PRICE,
                                     price_change_percentage_24h: coin.CHANGEPCT24HOUR,
@@ -5616,14 +5723,14 @@
                     },
                     COINCAP: {
                         name: 'CoinCap',
-                        url: 'https://api.coincap.io/v2/assets?ids=bitcoin,ethereum,tether,binance-coin,solana,xrp,dogecoin,cardano,tron,toncoin,shiba-inu,litecoin',
+                        // Fetching top 50 by market cap from CoinCap
+                        url: 'https://api.coincap.io/v2/assets?limit=50',
                         handler: (data) => {
-                            const idMapping = { 'binance-coin': 'binancecoin', 'xrp': 'ripple' };
                             return data.data.map(item => ({
                                 id: item.id,
                                 symbol: item.symbol.toLowerCase(),
                                 name: item.name,
-                                image: `https://assets.coincap.io/assets/icons/${item.symbol.toLowerCase()}@2x.png`,
+                                image: `https://gimg2.gateimg.com/coin_icon/64/${item.symbol.toLowerCase()}.png`, // Use gate icons as they are better
                                 current_price: parseFloat(item.priceUsd),
                                 price_change_percentage_24h: parseFloat(item.changePercent24Hr),
                                 market_cap: parseFloat(item.marketCapUsd),
@@ -5633,8 +5740,18 @@
                     },
                     COINGECKO: {
                         name: 'CoinGecko',
-                        url: 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,tether,binancecoin,solana,ripple,dogecoin,cardano,tron,toncoin,shiba-inu,litecoin&order=market_cap_desc&sparkline=true&price_change_percentage=24h',
-                        handler: (data) => data
+                        // Fetching top 50 by market cap from CoinGecko
+                        url: 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=50&page=1&sparkline=false&price_change_percentage=24h',
+                        handler: (data) => data.map(item => ({
+                            id: item.id,
+                            symbol: item.symbol.toLowerCase(),
+                            name: item.name,
+                            image: item.image,
+                            current_price: item.current_price,
+                            price_change_percentage_24h: item.price_change_percentage_24h,
+                            market_cap: item.market_cap,
+                            sparkline_in_7d: null
+                        }))
                     }
                 };
 
@@ -5652,89 +5769,98 @@
                     renderCryptoTable(cryptoData);
                 }
 
-                // Robust Fetch Logic: Gate (Proxy) -> CryptoCompare (Global) -> CoinCap (Fast) -> CoinGecko (Backup)
+                // 1. Racing Engine with Local Cache fallback
                 async function fetchCryptoData() {
                     const dot = document.getElementById('api-status-dot');
                     const label = document.getElementById('api-provider-name');
                     const tbody = document.getElementById('crypto-table-body');
                     const refreshIcon = document.querySelector('#refresh-crypto-btn i');
 
-                    dot.style.color = '#f59e0b'; // fetching
-                    if (refreshIcon) refreshIcon.classList.add('fa-spin'); // spin icon
+                    dot.style.color = '#f59e0b'; // Fetching state
+                    if (refreshIcon) refreshIcon.classList.add('fa-spin');
 
-                    // Show loading status if empty and first load
+                    // A. Try to load from Local Storage immediately for "Instant Load" feel
                     if (cryptoData.length === 0) {
-                        if (label) label.innerText = 'Connecting...';
+                        const cached = localStorage.getItem('crypto_market_cache');
+                        if (cached) {
+                            try {
+                                const parsed = JSON.parse(cached);
+                                if (parsed && parsed.length > 0) {
+                                    cryptoData = parsed;
+                                    renderCryptoTable(cryptoData);
+                                    if (label) label.innerText = 'Cached Source';
+                                }
+                            } catch (e) { }
+                        }
                     }
 
-                    let lastError = '';
+                    // B. Sync Exchange Rate (Gate.io USDT_CNY) - background
+                    const syncRate = async () => {
+                        if (Date.now() - lastRateUpdate > 30000) {
+                            try {
+                                const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY', { timeout: 5000 });
+                                if (res.ok) {
+                                    const data = await res.json();
+                                    if (data && data[0] && data[0].last) {
+                                        USD_CNY_RATE = parseFloat(data[0].last);
+                                        lastRateUpdate = Date.now();
+                                    }
+                                }
+                            } catch (e) { }
+                        }
+                    };
+                    syncRate();
+
+                    // C. Parallel Racing Mode (The core optimization)
+                    const fetchSource = async (apiObj) => {
+                        const res = await fetchWithTimeout(apiObj.url, { timeout: 15000 });
+                        if (!res.ok) throw new Error(`${apiObj.name} Failed`);
+                        const data = await res.json();
+                        return { name: apiObj.name, data: apiObj.handler(data) };
+                    };
 
                     try {
-                        // 1. Try CryptoCompare (Adjusted timeout)
+                        // Priority Racing: Start all main sources at once
+                        // We use Promise.any for speed, but Gate.io is still our accuracy target.
+                        // However, stability first. We'll take the first one that responds.
+                        const fastestResult = await Promise.any([
+                            fetchSource(APIS.GATEIO),
+                            fetchSource(APIS.CRYPTOCOMPARE),
+                            fetchSource(APIS.COINCAP)
+                        ]);
+
+                        if (fastestResult && fastestResult.data) {
+                            cryptoData = fastestResult.data;
+                            onSuccess(dot, fastestResult.name, fastestResult.data);
+                            // Persist to local storage for offline use
+                            localStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
+                            return;
+                        }
+                    } catch (e) {
+                        // D. Fallback to CoinGecko if all initial racing fail
                         try {
-                            if (label) label.innerText = '正在获取 (CC)...';
-                            const res = await fetchWithTimeout(APIS.CRYPTOCOMPARE.url, { timeout: 8000 });
-                            if (res.ok) {
-                                const data = await res.json();
-                                const fetched = APIS.CRYPTOCOMPARE.handler(data);
-                                if (!isSearching) cryptoData = fetched;
-                                onSuccess(dot, APIS.CRYPTOCOMPARE.name, fetched);
-                                return;
+                            if (label) label.innerText = 'Fallback (CG)...';
+                            const geckoRes = await fetchSource(APIS.COINGECKO);
+                            cryptoData = geckoRes.data;
+                            onSuccess(dot, geckoRes.name, geckoRes.data);
+                            localStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
+                            return;
+                        } catch (ge) {
+                            // E. Final Fail: If we have cached data, don't show the red error box
+                            if (cryptoData.length > 0) {
+                                dot.style.color = '#ef4444'; // Signal failure silently
+                                if (label) label.innerText = 'Sync Off (Local)';
+                            } else {
+                                // Full Failure UI
+                                dot.style.color = '#ef4444';
+                                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: #ef4444;">
+                                    <i class="fa fa-exclamation-triangle"></i> 连接超时，请检查网络或代理。<br>
+                                    <button class="btn btn-xs btn-primary" style="margin-top:10px" onclick="fetchCryptoData()">重试连接</button>
+                                </td></tr>`;
                             }
-                        } catch (e) { console.warn('CC Err', e); lastError = e.message; }
-
-                        // 2. Try Gate.io (Longer timeout for proxy)
-                        try {
-                            if (label) label.innerText = '正在获取 (Gate)...';
-                            const res = await fetchWithTimeout(APIS.GATEIO.url, { timeout: 10000 });
-                            if (res.ok) {
-                                const data = await res.json();
-                                const fetched = APIS.GATEIO.handler(data);
-                                if (!isSearching) cryptoData = fetched;
-                                onSuccess(dot, APIS.GATEIO.name, fetched);
-                                return;
-                            }
-                        } catch (e) { console.warn('Gate Err', e); lastError = e.message; }
-
-                        // 3. Try CoinCap
-                        try {
-                            if (label) label.innerText = '正在获取 (CoinCap)...';
-                            const res = await fetchWithTimeout(APIS.COINCAP.url, { timeout: 8000 });
-                            if (res.ok) {
-                                const data = await res.json();
-                                const fetched = APIS.COINCAP.handler(data);
-                                if (!isSearching) cryptoData = fetched;
-                                onSuccess(dot, APIS.COINCAP.name, fetched);
-                                return;
-                            }
-                        } catch (e) { console.warn('CoinCap Err', e); lastError = e.message; }
-
-                        // 4. Try CoinGecko (Last Resort)
-                        try {
-                            if (label) label.innerText = '正在获取 (CG)...';
-                            const res = await fetchWithTimeout(APIS.COINGECKO.url, { timeout: 8000 });
-                            if (res.ok) {
-                                const data = await res.json();
-                                const fetched = APIS.COINGECKO.handler(data);
-                                if (!isSearching) cryptoData = fetched;
-                                onSuccess(dot, APIS.COINGECKO.name, fetched);
-                                return;
-                            }
-                        } catch (e) { console.warn('CG Err', e); lastError = '所有接口均失效'; }
-
-                        // All failed
-                        if (label) label.innerText = 'Conn Failed';
-                        dot.style.color = '#ef4444';
-
-                        // Show detailed error in table
-                        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: #ef4444;">
-                                <i class="fa fa-exclamation-triangle"></i> 数据加载失败，请检查网络或代理。<br>
-                                <small>错误详情: ${lastError || '请求超时/网络错误'}</small><br>
-                                <button class="btn btn-xs btn-primary" style="margin-top:10px" onclick="fetchCryptoData()">重新重试</button>
-                            </td></tr>`;
-
+                        }
                     } finally {
-                        if (refreshIcon) refreshIcon.classList.remove('fa-spin'); // stop spin
+                        if (refreshIcon) refreshIcon.classList.remove('fa-spin');
                     }
                 }
 
@@ -5748,8 +5874,13 @@
                     const rate = isCNY ? USD_CNY_RATE : 1;
                     const symbol = isCNY ? '¥' : '$';
 
-                    const orderMap = { 'btc': 1, 'eth': 2, 'usdt': 3, 'bnb': 4, 'sol': 5, 'xrp': 6 };
-                    data.sort((a, b) => (orderMap[a.symbol] || 999) - (orderMap[b.symbol] || 999));
+                    const orderMap = { 'btc': 1, 'eth': 2, 'usdt': 3, 'bnb': 4, 'sol': 5, 'xrp': 6, 'etc': 7, 'doge': 8 };
+                    data.sort((a, b) => {
+                        const scoreA = orderMap[a.symbol] || 999;
+                        const scoreB = orderMap[b.symbol] || 999;
+                        if (scoreA !== scoreB) return scoreA - scoreB;
+                        return (b.market_cap || 0) - (a.market_cap || 0);
+                    });
 
                     data.forEach(coin => {
                         const searchName = coin.name || coin.symbol;
@@ -5782,10 +5913,10 @@
                         let sparklineDetail = '';
                         const cached = sparklineCache[coin.symbol];
                         if (cached) {
-                            sparklineContent = generateSparklineSvg(cached, change, 100);
-                            sparklineDetail = generateSparklineSvg(cached, change, 240);
+                            sparklineContent = `<div style="display:flex; justify-content:center; width:100%;">${generateSparklineSvg(cached, change, 100)}</div>`;
+                            sparklineDetail = `<div style="display:flex; justify-content:center; width:100%;">${generateSparklineSvg(cached, change, 240)}</div>`;
                         } else {
-                            sparklineContent = `<div id="graph-${coin.symbol}" class="graph-container-${coin.symbol}" style="height:30px; display:flex; align-items:center;">-</div>`;
+                            sparklineContent = `<div id="graph-${coin.symbol}" class="graph-container-${coin.symbol}" style="height:30px; display:flex; align-items:center; justify-content:center;">-</div>`;
                             sparklineDetail = `<div id="graph-detail-${coin.symbol}" class="graph-container-${coin.symbol}" style="height:60px; min-width:240px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.05); border-radius:6px; border: 1px dotted rgba(0,0,0,0.05);"></div>`;
                             setTimeout(() => loadSparkline(coin.id, coin.symbol, change), 0);
                         }
@@ -5819,14 +5950,14 @@
                                         <i class="fa fa-angle-down" id="arrow-${coin.symbol}" style="margin-left:8px; color:#666; transition:transform 0.3s; ${isOpen ? 'transform:rotate(180deg)' : ''}"></i>
                                     </span>
                                 </td>
-                                <td style="text-align:right;">
+                                <td style="text-align:center;">
                                     ${sparklineContent}
                                 </td>
                             </tr>
                             <tr id="detail-${coin.symbol}" class="detail-row" style="${isOpen ? 'display:table-row' : ''}">
                                 <td colspan="5" style="border-top:none; padding:0 !important;">
-                                    <div style="background:rgba(0,0,0,0.03); border-radius:8px; margin: 10px 15px 20px 15px; padding: 20px; display:flex; gap:30px;">
-                                        <div style="flex:1; border-right: 1px solid rgba(0,0,0,0.05); padding-right:20px;">
+                                    <div class="detail-container">
+                                        <div class="detail-info">
                                             <h5 style="margin-top:0; font-size:14px; font-weight:bold; color:#555; margin-bottom:15px;">市场详情</h5>
                                             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; font-size:12px; color:#777;">
                                                 <div><span style="color:#aaa">市值:</span> <br><b>${symbol}${mkVal > 0 ? (mkVal * rate).toLocaleString() : '-'}</b></div>
@@ -5834,11 +5965,8 @@
                                                 <div><span style="color:#aaa">24h涨跌幅:</span> <br><b class="${change >= 0 ? 'text-danger' : 'text-success'}">${changeSign}${change.toFixed(2)}%</b></div>
                                                 <div><span style="color:#aaa">币种名称:</span> <br><b>${coin.name} (${coin.symbol.toUpperCase()})</b></div>
                                             </div>
-                                            <button class="btn btn-xs btn-white" style="margin-top:20px; border-radius:20px; font-size:11px; padding: 4px 15px;" onclick="event.stopPropagation(); window.open('https://www.gate.io/zh/trade/${coin.symbol.toUpperCase()}_USDT', '_blank')">
-                                                去交易 <i class="fa fa-external-link"></i>
-                                            </button>
                                         </div>
-                                        <div style="flex:2;">
+                                        <div class="detail-chart">
                                             <h5 style="margin-top:0; font-size:14px; font-weight:bold; color:#555; margin-bottom:15px; display:flex; justify-content:space-between;">
                                                 <span>7日价格趋势曲线</span>
                                                 <span style="font-weight:normal; font-size:11px; color:#aaa;">最近168小时数据</span>
@@ -6016,89 +6144,85 @@
                     if (clearBtn) clearBtn.style.display = 'block';
                     if (CN_COIN_MAP[query]) query = CN_COIN_MAP[query];
 
-                    if (label) label.innerText = '正在搜索: ' + query;
+                    if (label) label.innerText = '正在全量搜索: ' + query;
                     if (dot) dot.style.color = '#f59e0b';
                     isSearching = true;
 
                     tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color: #888;">
-                        <i class="fa fa-circle-o-notch fa-spin"></i> 正在搜索 "${query}"...
+                        <i class="fa fa-circle-o-notch fa-spin"></i> 正在深度检索全网币种...
                     </td></tr>`;
 
                     try {
-                        let finalItems = [];
+                        // 1. Efficient Global Search in allGateTickers (Synced with Gate.io)
+                        const filtered = allGateTickers
+                            .filter(item => {
+                                const pair = item.currency_pair.toLowerCase();
+                                const symbol = pair.split('_')[0];
+                                return symbol.includes(query) && pair.endsWith('_usdt') && !pair.includes('3l_') && !pair.includes('3s_');
+                            })
+                            .sort((a, b) => parseFloat(b.quote_volume) - parseFloat(a.quote_volume))
+                            .slice(0, 30); // Max 30 results for search
 
-                        // 1. First, search locally in existing data
-                        const localResults = cryptoData.filter(c =>
-                            c.symbol.toLowerCase().includes(query) ||
-                            c.name.toLowerCase().includes(query)
-                        );
-
-                        // 2. Try CoinCap Direct Search (More robust approach)
-                        const directUrl = `https://api.coincap.io/v2/assets?search=${query}&limit=20`;
-                        try {
-                            const res = await fetch(directUrl);
-                            if (res.ok) {
-                                const json = await res.json();
-                                if (json.data && json.data.length > 0) {
-                                    finalItems = json.data;
-                                }
-                            } else {
-                                throw new Error('API Response Error');
-                            }
-                        } catch (directErr) {
-                            console.warn('Direct fetch failed:', directErr);
-                            // If local has something, use it as fallback
-                            if (localResults.length > 0) {
-                                finalItems = localResults;
-                            } else {
-                                // Last resort: try a different API or specific ID check
-                                const possibleId = COIN_ID_MAP[query] || query;
-                                const res3 = await fetch(`https://api.coincap.io/v2/assets/${possibleId}`);
-                                if (res3.ok) {
-                                    const json3 = await res3.json();
-                                    if (json3.data) finalItems = [json3.data];
-                                }
-                            }
-                        }
-
-                        if (finalItems.length === 0 && localResults.length > 0) {
-                            renderCryptoTable(localResults);
-                            if (label) label.innerText = `从本地找到 ${localResults.length} 个结果`;
+                        if (filtered.length > 0) {
+                            const mapped = filtered.map(item => {
+                                const symbol = item.currency_pair.split('_')[0].toLowerCase();
+                                return {
+                                    id: symbol,
+                                    symbol: symbol,
+                                    name: symbol.toUpperCase(),
+                                    image: `https://gimg2.gateimg.com/coin_icon/64/${symbol}.png`,
+                                    current_price: parseFloat(item.last),
+                                    price_change_percentage_24h: parseFloat(item.change_percentage),
+                                    market_cap: parseFloat(item.quote_volume) * 7.5,
+                                    total_volume: parseFloat(item.quote_volume),
+                                    sparkline_in_7d: null
+                                };
+                            });
+                            cryptoData = mapped;
+                            renderCryptoTable(mapped);
+                            if (label) label.innerText = `[Gate] 已找到 ${mapped.length} 个结果`;
                             if (dot) dot.style.color = '#10b981';
                             return;
                         }
 
-                        if (finalItems.length === 0) {
-                            if (label) label.innerText = `未找到 "${query}"`;
-                            if (dot) dot.style.color = '#ef4444';
-                            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 60px; color: #888;">
-                                <div style="font-size:32px; margin-bottom:15px;">🔍</div>
-                                未找到 "${query}"<br>
-                                <small style="color:#aaa">提示: 搜索 BTC, ETH, ETC 等</small>
-                            </td></tr>`;
-                            return;
+                        // 2. Fallback to CoinCap Search only if Gate data has no matches
+                        const directUrl = `https://api.coincap.io/v2/assets?search=${query}&limit=20`;
+                        const res = await fetchWithTimeout(directUrl, { timeout: 5000 });
+                        if (res.ok) {
+                            const json = await res.json();
+                            if (json.data && json.data.length > 0) {
+                                const mapped = json.data.map(item => ({
+                                    id: item.id,
+                                    symbol: item.symbol.toLowerCase(),
+                                    name: item.name,
+                                    image: `https://gimg2.gateimg.com/coin_icon/64/${item.symbol.toLowerCase()}.png`,
+                                    current_price: parseFloat(item.priceUsd),
+                                    price_change_percentage_24h: parseFloat(item.changePercent24Hr),
+                                    market_cap: parseFloat(item.marketCapUsd),
+                                    total_volume: parseFloat(item.volumeUsd24Hr),
+                                    sparkline_in_7d: null
+                                }));
+                                cryptoData = mapped;
+                                renderCryptoTable(mapped);
+                                if (label) label.innerText = `[CoinCap] 已找到 ${mapped.length} 个结果`;
+                                if (dot) dot.style.color = '#34d399';
+                                return;
+                            }
                         }
 
-                        const mapped = finalItems.map(item => ({
-                            id: item.id || item.symbol.toLowerCase(),
-                            symbol: item.symbol.toLowerCase(),
-                            name: item.name,
-                            image: `https://assets.coincap.io/assets/icons/${item.symbol.toLowerCase()}@2x.png`,
-                            current_price: item.priceUsd ? parseFloat(item.priceUsd) : (item.current_price || 0),
-                            price_change_percentage_24h: item.changePercent24Hr ? parseFloat(item.changePercent24Hr) : (item.price_change_percentage_24h || 0),
-                            market_cap: item.marketCapUsd ? parseFloat(item.marketCapUsd) : (item.market_cap || 0),
-                            total_volume: item.volumeUsd24Hr ? parseFloat(item.volumeUsd24Hr) : (item.total_volume || 0),
-                            sparkline_in_7d: item.sparkline_in_7d || null
-                        }));
+                        // 3. Not found
+                        if (label) label.innerText = `未找到 "${query}"`;
+                        if (dot) dot.style.color = '#ef4444';
+                        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 60px; color: #888;">
+                            <div style="font-size:32px; margin-bottom:15px;">🔍</div>
+                            未找到 "${query}"<br>
+                            <small style="color:#aaa">Gate.io 全网库中暂无此币种</small>
+                        </td></tr>`;
 
-                        cryptoData = mapped;
-                        renderCryptoTable(mapped);
-                        if (label) label.innerText = `已找到 ${finalItems.length} 个结果`;
-                        if (dot) dot.style.color = '#10b981';
                     } catch (e) {
                         console.error('Search error:', e);
                         if (label) label.innerText = 'Search Error';
-                        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color: #ef4444;">搜索失败，请检查网络设置</td></tr>`;
+                        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color: #ef4444;">搜索失败，请检查网络设置或稍后再试</td></tr>`;
                     }
                 }
 
@@ -6123,7 +6247,20 @@
                     // Real-time polling
                     setInterval(() => {
                         if (!isSearching) fetchCryptoData();
-                    }, 5000);
+                    }, 3000);
+
+                    // Dedicated Full Ticker Refresh (Background)
+                    setInterval(async () => {
+                        try {
+                            const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers', { timeout: 10000 });
+                            if (res.ok) {
+                                const data = await res.json();
+                                if (data && data.length > 500) {
+                                    allGateTickers = data;
+                                }
+                            }
+                        } catch (e) { }
+                    }, 60000); // Refresh full list every minute
 
                     // Hover Logic - Optimized to hide all floating buttons
                     const cryptoContainer = document.querySelector('.crypto-table-container');
@@ -7713,19 +7850,27 @@
                     margin-left: -5px;
                     margin-right: -5px;
                     width: calc(100% + 10px);
+                    overflow-x: auto !important;
+                    -webkit-overflow-scrolling: touch;
+                }
+
+                .crypto-table {
+                    min-width: 500px;
+                    /* Force minimum width to enable scrolling */
                 }
 
                 .crypto-table th,
                 .crypto-table td {
-                    padding: 8px 4px !important;
+                    padding: 8px 6px !important;
                     font-size: 11px !important;
                 }
 
+                /* Restore the hidden columns but keep them compact */
                 .crypto-table th:nth-child(4),
                 .crypto-table td:nth-child(4),
                 .crypto-table th:nth-child(5),
                 .crypto-table td:nth-child(5) {
-                    display: none !important;
+                    display: table-cell !important;
                 }
 
                 .coin-name {

@@ -54,6 +54,81 @@ const CryptoEngine = (() => {
                 });
             }
         },
+        BINANCE: {
+            name: 'Binance',
+            url: 'https://api.binance.com/api/v3/ticker/24hr',
+            handler: (data) => {
+                const results = data.filter(item => item.symbol.endsWith('USDT'))
+                    .filter(item => !item.symbol.includes('UP') && !item.symbol.includes('DOWN'))
+                    .sort((a, b) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume))
+                    .slice(0, 50);
+                return results.map(item => {
+                    const symbol = item.symbol.slice(0, -4).toLowerCase();
+                    return {
+                        symbol, name: symbol.toUpperCase(),
+                        image: `https://gimg2.gateimg.com/coin_icon/64/${symbol}.png`,
+                        image_backup: `https://static.coinpaper.com/coin/${symbol}.png`,
+                        current_price: parseFloat(item.lastPrice),
+                        price_change_percentage_24h: parseFloat(item.priceChangePercent),
+                        market_cap: parseFloat(item.quoteVolume) * parseFloat(item.lastPrice),
+                        total_volume: parseFloat(item.quoteVolume),
+                        high_24h: parseFloat(item.highPrice),
+                        low_24h: parseFloat(item.lowPrice),
+                        circulating_supply: 0
+                    };
+                });
+            }
+        },
+        HUOBI: {
+            name: 'Huobi',
+            url: 'https://api.huobi.pro/market/tickers',
+            handler: (data) => {
+                const results = data.data.filter(item => item.symbol.endsWith('usdt'))
+                    .filter(item => !item.symbol.includes('3l') && !item.symbol.includes('3s'))
+                    .sort((a, b) => parseFloat(b.vol) - parseFloat(a.vol))
+                    .slice(0, 50);
+                return results.map(item => {
+                    const symbol = item.symbol.slice(0, -4).toLowerCase();
+                    return {
+                        symbol, name: symbol.toUpperCase(),
+                        image: `https://gimg2.gateimg.com/coin_icon/64/${symbol}.png`,
+                        image_backup: `https://static.coinpaper.com/coin/${symbol}.png`,
+                        current_price: parseFloat(item.close),
+                        price_change_percentage_24h: parseFloat(item.change),
+                        market_cap: parseFloat(item.vol) * parseFloat(item.close),
+                        total_volume: parseFloat(item.vol),
+                        high_24h: parseFloat(item.high),
+                        low_24h: parseFloat(item.low),
+                        circulating_supply: 0
+                    };
+                });
+            }
+        },
+        OKX: {
+            name: 'OKX',
+            url: 'https://www.okx.com/api/v5/market/tickers?instType=SPOT',
+            handler: (data) => {
+                const results = data.data.filter(item => item.instId.endsWith('-USDT'))
+                    .filter(item => !item.instId.includes('-USDT-'))
+                    .sort((a, b) => parseFloat(b.vol24h) - parseFloat(a.vol24h))
+                    .slice(0, 50);
+                return results.map(item => {
+                    const symbol = item.instId.slice(0, -5).toLowerCase();
+                    return {
+                        symbol, name: symbol.toUpperCase(),
+                        image: `https://gimg2.gateimg.com/coin_icon/64/${symbol}.png`,
+                        image_backup: `https://static.coinpaper.com/coin/${symbol}.png`,
+                        current_price: parseFloat(item.last),
+                        price_change_percentage_24h: parseFloat(item.change24h),
+                        market_cap: parseFloat(item.vol24h) * parseFloat(item.last),
+                        total_volume: parseFloat(item.vol24h),
+                        high_24h: parseFloat(item.high24h),
+                        low_24h: parseFloat(item.low24h),
+                        circulating_supply: 0
+                    };
+                });
+            }
+        },
         COINCAP: {
             name: 'CoinCap',
             url: 'https://api.coincap.io/v2/assets?limit=50',
@@ -340,31 +415,42 @@ const CryptoEngine = (() => {
     window.handleIconError = function (img, symLower, symUpper) {
         if (!img.tried) img.tried = 1; else img.tried++;
         const sources = [
-            // 主要来源
+            // 国内来源（优先）
+            `https://gimg2.gateimg.com/coin_icon/64/${symLower}.png`, //  Gate.io 国内CDN
+            `https://static.coinpaper.com/coin/${symLower}.png`, // 国内服务
+            `https://cdn.coin98.net/coins/${symLower}.png`, // 国内CDN
+            `https://cdn.jsdelivr.net/gh/guoshijiang/cryptocurrency-icons@master/128/color/${symLower}.png`, // 国内开发者维护的CDN
+            
+            // 国内交易所图标源
+            `https://bin.bnbstatic.com/image2/binance/static/image/cryptocurrency/${symLower.toUpperCase()}.png`, // 币安国内CDN
+            `https://static.huobi.co.kr/static/client/images/coin/icon_${symLower.toLowerCase()}_64.png`, // 火币国内CDN
+            `https://cdn.okex.com/cdn/portal/c2c/images/coin/${symLower.toLowerCase()}.png`, // OKX国内CDN
+            
+            // 主要国际来源
             `https://assets.coincap.io/assets/icons/${symLower}@2x.png`,
             `https://s2.coinmarketcap.com/static/img/coins/64x64/${symLower}.png`,
             `https://www.cryptocompare.com/media/331246/${symLower}.png`,
-            `https://gimg2.gateimg.com/coin_icon/64/${symLower}.png`,
-            `https://static.coinpaper.com/coin/${symLower}.png`,
             
-            // CDN备份
+            // 可靠CDN备份
             `https://cdn.jsdelivr.net/gh/cjdowner/cryptocurrency-icons@latest/128/color/${symLower}.png`,
-            `https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${symLower}.png`,
-            `https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/${symLower}.svg`,
+            `https://fastly.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/${symLower}.png`,
+            `https://unpkg.com/cryptocurrency-icons@0.18.1/svg/color/${symLower}.svg`,
+            `https://cdnjs.cloudflare.com/ajax/libs/cryptocurrency-icons/0.18.1/svg/color/${symLower}.svg`,
             
             // 其他API
             `https://cryptoicons.org/api/color/${symLower}/128`,
             `https://coinicons-api.vercel.app/api/icon/${symLower}`,
             `https://cryptologos.cc/logos/${symLower}-${symUpper.toLowerCase()}-logo.png`,
             
-            // 特定币种的可靠来源
-            symLower === 'btc' ? 'https://assets.coincap.io/assets/icons/btc@2x.png' : null,
-            symLower === 'eth' ? 'https://assets.coincap.io/assets/icons/eth@2x.png' : null,
-            symLower === 'usdt' ? 'https://assets.coincap.io/assets/icons/usdt@2x.png' : null,
-            symLower === 'bnb' ? 'https://assets.coincap.io/assets/icons/bnb@2x.png' : null,
-            symLower === 'xrp' ? 'https://assets.coincap.io/assets/icons/xrp@2x.png' : null,
+            // 特定币种的可靠来源（国内优先）
+            symLower === 'btc' ? 'https://gimg2.gateimg.com/coin_icon/64/btc.png' : null,
+            symLower === 'eth' ? 'https://gimg2.gateimg.com/coin_icon/64/eth.png' : null,
+            symLower === 'usdt' ? 'https://gimg2.gateimg.com/coin_icon/64/usdt.png' : null,
+            symLower === 'bnb' ? 'https://bin.bnbstatic.com/image2/binance/static/image/cryptocurrency/BNB.png' : null,
+            symLower === 'xrp' ? 'https://gimg2.gateimg.com/coin_icon/64/xrp.png' : null,
             
-            // 最后使用占位符
+            // 最后使用国内可访问的占位符
+            `https://cdn.iconscout.com/icon/free/png-256/free-${symLower}-3629635-3030178.png`,
             `https://via.placeholder.com/32?text=${symUpper}`
         ].filter(Boolean); // 过滤掉null值
         
@@ -517,6 +603,45 @@ const CryptoEngine = (() => {
                     .crypto-table { min-width: 750px !important; }
                     .search-box-crypto { width: 100% !important; margin-top: 15px; }
                     .crypto-header-right { width: 100% !important; flex-direction: column !important; align-items: stretch !important; }
+                    
+                    /* 移动端表格优化 */
+                    .crypto-table th { padding: 12px 8px !important; font-size: 11px !important; }
+                    .crypto-table td { padding: 10px 8px !important; font-size: 13px !important; }
+                    
+                    /* 移动端价格和涨跌幅优化 */
+                    .price-primary { font-size: 14px !important; }
+                    .price-secondary { font-size: 11px !important; }
+                    .change-pill { min-width: 70px !important; padding: 4px 8px !important; font-size: 12px !important; }
+                    
+                    /* 移动端图标和名称布局优化 */
+                    .coin-icon-wrapper { width: 32px !important; height: 32px !important; margin-right: 8px !important; }
+                    .coin-icon { width: 24px !important; height: 24px !important; }
+                    .coin-name-wrap .sym { font-size: 14px !important; }
+                    .coin-vol-text { font-size: 10px !important; }
+                    
+                    /* 移动端详情面板优化 */
+                    .pro-panel { padding: 20px !important; }
+                    .pro-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 20px !important; }
+                    .pro-stat { padding-left: 15px !important; }
+                    .pro-stat label { font-size: 11px !important; margin-bottom: 5px !important; }
+                    .pro-stat .v { font-size: 14px !important; }
+                }
+                
+                /* 针对小屏幕设备的进一步优化 */
+                @media screen and (max-width: 480px) {
+                    .crypto-header-left { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
+                    .api-status-wrap { margin-top: 5px !important; }
+                    
+                    /* 进一步减小表格内边距 */
+                    .crypto-table th { padding: 8px 6px !important; font-size: 10px !important; }
+                    .crypto-table td { padding: 8px 6px !important; font-size: 12px !important; }
+                    
+                    /* 简化涨跌幅显示 */
+                    .change-pill { min-width: 60px !important; font-size: 11px !important; }
+                    
+                    /* 简化详情面板布局 */
+                    .pro-panel { padding: 15px !important; }
+                    .pro-grid { grid-template-columns: 1fr !important; gap: 15px !important; }
                 }
                 
                 .crypto-table th { 
@@ -736,9 +861,36 @@ const CryptoEngine = (() => {
                     });
                     
                     // 转换为数组并排序
-                    cryptoData = Object.values(mergedData).sort((a, b) => 
+                    let sortedData = Object.values(mergedData).sort((a, b) => 
                         parseFloat(b.market_cap || 0) - parseFloat(a.market_cap || 0)
                     ).slice(0, 50);
+                    
+                    // 确保BTC始终在第一位，ETH始终在第二位
+                    const btc = sortedData.find(coin => coin.symbol.toLowerCase() === 'btc');
+                    const eth = sortedData.find(coin => coin.symbol.toLowerCase() === 'eth');
+                    
+                    // 移除BTC和ETH
+                    sortedData = sortedData.filter(coin => 
+                        coin.symbol.toLowerCase() !== 'btc' && coin.symbol.toLowerCase() !== 'eth'
+                    );
+                    
+                    // 构建最终排序：BTC, ETH, 其他币种
+                    cryptoData = [];
+                    if (btc) cryptoData.push(btc);
+                    if (eth) cryptoData.push(eth);
+                    cryptoData = cryptoData.concat(sortedData);
+                    
+                    // 确保至少有50个币种
+                    if (cryptoData.length < 50) {
+                        const remaining = 50 - cryptoData.length;
+                        const allCoins = Object.values(mergedData);
+                        const additionalCoins = allCoins.filter(coin => 
+                            !cryptoData.some(c => c.symbol === coin.symbol)
+                        ).sort((a, b) => 
+                            parseFloat(b.market_cap || 0) - parseFloat(a.market_cap || 0)
+                        ).slice(0, remaining);
+                        cryptoData = cryptoData.concat(additionalCoins);
+                    }
                     
                     // 确保ETH存在，如果没有，检查是否有STETH可以替代
                     const hasETH = cryptoData.some(coin => coin.symbol.toLowerCase() === 'eth');

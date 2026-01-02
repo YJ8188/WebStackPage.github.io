@@ -5755,102 +5755,98 @@
                     renderCryptoTable(cryptoData);
                 }
 
-                // Robust Fetch Logic: Gate (Proxy) -> CryptoCompare (Global) -> CoinCap (Fast) -> CoinGecko (Backup)
+                // 1. Racing Engine with Local Cache fallback
                 async function fetchCryptoData() {
                     const dot = document.getElementById('api-status-dot');
                     const label = document.getElementById('api-provider-name');
                     const tbody = document.getElementById('crypto-table-body');
                     const refreshIcon = document.querySelector('#refresh-crypto-btn i');
 
-                    dot.style.color = '#f59e0b'; // fetching
-                    if (refreshIcon) refreshIcon.classList.add('fa-spin'); // spin icon
+                    dot.style.color = '#f59e0b'; // Fetching state
+                    if (refreshIcon) refreshIcon.classList.add('fa-spin');
 
-                    // 1. Sync Exchange Rate (Gate.io USDT_CNY) - only once, synced every 30s
-                    if (Date.now() - lastRateUpdate > 30000) {
-                        try {
-                            const rateRes = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY', { timeout: 5000 });
-                            if (rateRes.ok) {
-                                const rateData = await rateRes.json();
-                                if (rateData && rateData[0] && rateData[0].last) {
-                                    USD_CNY_RATE = parseFloat(rateData[0].last);
-                                    lastRateUpdate = Date.now();
+                    // A. Try to load from Local Storage immediately for "Instant Load" feel
+                    if (cryptoData.length === 0) {
+                        const cached = localStorage.getItem('crypto_market_cache');
+                        if (cached) {
+                            try {
+                                const parsed = JSON.parse(cached);
+                                if (parsed && parsed.length > 0) {
+                                    cryptoData = parsed;
+                                    renderCryptoTable(cryptoData);
+                                    if (label) label.innerText = 'Cached Source';
                                 }
-                            }
-                        } catch (e) { }
+                            } catch (e) { }
+                        }
                     }
 
-                    let lastError = '';
+                    // B. Sync Exchange Rate (Gate.io USDT_CNY) - background
+                    const syncRate = async () => {
+                        if (Date.now() - lastRateUpdate > 30000) {
+                            try {
+                                const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY', { timeout: 5000 });
+                                if (res.ok) {
+                                    const data = await res.json();
+                                    if (data && data[0] && data[0].last) {
+                                        USD_CNY_RATE = parseFloat(data[0].last);
+                                        lastRateUpdate = Date.now();
+                                    }
+                                }
+                            } catch (e) { }
+                        }
+                    };
+                    syncRate();
+
+                    // C. Parallel Racing Mode (The core optimization)
+                    const fetchSource = async (apiObj) => {
+                        const res = await fetchWithTimeout(apiObj.url, { timeout: 15000 });
+                        if (!res.ok) throw new Error(`${apiObj.name} Failed`);
+                        const data = await res.json();
+                        return { name: apiObj.name, data: apiObj.handler(data) };
+                    };
 
                     try {
-                        // 1. Try Gate.io (Priority for user as it matches their reference)
+                        // Priority Racing: Start all main sources at once
+                        // We use Promise.any for speed, but Gate.io is still our accuracy target.
+                        // However, stability first. We'll take the first one that responds.
+                        const fastestResult = await Promise.any([
+                            fetchSource(APIS.GATEIO),
+                            fetchSource(APIS.CRYPTOCOMPARE),
+                            fetchSource(APIS.COINCAP)
+                        ]);
+
+                        if (fastestResult && fastestResult.data) {
+                            cryptoData = fastestResult.data;
+                            onSuccess(dot, fastestResult.name, fastestResult.data);
+                            // Persist to local storage for offline use
+                            localStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
+                            return;
+                        }
+                    } catch (e) {
+                        // D. Fallback to CoinGecko if all initial racing fail
                         try {
-                            if (label) label.innerText = '正在同步价格 (Gate)...';
-                            const res = await fetchWithTimeout(APIS.GATEIO.url, { timeout: 15000 });
-                            if (res.ok) {
-                                const data = await res.json();
-                                const fetched = APIS.GATEIO.handler(data);
-                                if (!isSearching) cryptoData = fetched;
-                                onSuccess(dot, APIS.GATEIO.name, fetched);
-                                return;
+                            if (label) label.innerText = 'Fallback (CG)...';
+                            const geckoRes = await fetchSource(APIS.COINGECKO);
+                            cryptoData = geckoRes.data;
+                            onSuccess(dot, geckoRes.name, geckoRes.data);
+                            localStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
+                            return;
+                        } catch (ge) {
+                            // E. Final Fail: If we have cached data, don't show the red error box
+                            if (cryptoData.length > 0) {
+                                dot.style.color = '#ef4444'; // Signal failure silently
+                                if (label) label.innerText = 'Sync Off (Local)';
+                            } else {
+                                // Full Failure UI
+                                dot.style.color = '#ef4444';
+                                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: #ef4444;">
+                                    <i class="fa fa-exclamation-triangle"></i> 连接超时，请检查网络或代理。<br>
+                                    <button class="btn btn-xs btn-primary" style="margin-top:10px" onclick="fetchCryptoData()">重试连接</button>
+                                </td></tr>`;
                             }
-                        } catch (e) { lastError = e.message; }
-
-                        await new Promise(r => setTimeout(r, 1000)); // Small delay between fallbacks
-
-                        // 2. Try CryptoCompare 
-                        try {
-                            if (label) label.innerText = '正在同步价格 (CC)...';
-                            const res = await fetchWithTimeout(APIS.CRYPTOCOMPARE.url, { timeout: 10000 });
-                            if (res.ok) {
-                                const data = await res.json();
-                                const fetched = APIS.CRYPTOCOMPARE.handler(data);
-                                if (!isSearching) cryptoData = fetched;
-                                onSuccess(dot, APIS.CRYPTOCOMPARE.name, fetched);
-                                return;
-                            }
-                        } catch (e) { lastError = e.message; }
-
-                        await new Promise(r => setTimeout(r, 1000));
-
-                        // 3. Try CoinCap
-                        try {
-                            if (label) label.innerText = '正在获取 (CoinCap)...';
-                            const res = await fetchWithTimeout(APIS.COINCAP.url, { timeout: 8000 });
-                            if (res.ok) {
-                                const data = await res.json();
-                                const fetched = APIS.COINCAP.handler(data);
-                                if (!isSearching) cryptoData = fetched;
-                                onSuccess(dot, APIS.COINCAP.name, fetched);
-                                return;
-                            }
-                        } catch (e) { console.warn('CoinCap Err', e); lastError = e.message; }
-
-                        // 4. Try CoinGecko (Last Resort)
-                        try {
-                            if (label) label.innerText = '正在获取 (CG)...';
-                            const res = await fetchWithTimeout(APIS.COINGECKO.url, { timeout: 8000 });
-                            if (res.ok) {
-                                const data = await res.json();
-                                const fetched = APIS.COINGECKO.handler(data);
-                                if (!isSearching) cryptoData = fetched;
-                                onSuccess(dot, APIS.COINGECKO.name, fetched);
-                                return;
-                            }
-                        } catch (e) { console.warn('CG Err', e); lastError = '所有接口均失效'; }
-
-                        // All failed
-                        if (label) label.innerText = 'Conn Failed';
-                        dot.style.color = '#ef4444';
-
-                        // Show detailed error in table
-                        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: #ef4444;">
-                                <i class="fa fa-exclamation-triangle"></i> 数据加载失败，请检查网络或代理。<br>
-                                <small>错误详情: ${lastError || '请求超时/网络错误'}</small><br>
-                                <button class="btn btn-xs btn-primary" style="margin-top:10px" onclick="fetchCryptoData()">重新重试</button>
-                            </td></tr>`;
-
+                        }
                     } finally {
-                        if (refreshIcon) refreshIcon.classList.remove('fa-spin'); // stop spin
+                        if (refreshIcon) refreshIcon.classList.remove('fa-spin');
                     }
                 }
 

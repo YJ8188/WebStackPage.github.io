@@ -725,7 +725,7 @@
                     </li>
                     <li>
                         <a href="#数字货币" class="smooth">
-                            <i class="linecons-user"></i>
+                            <i class="linecons-money"></i>
                             <span class="title">数字货币</span>
                         </a>
                     </li>
@@ -808,7 +808,7 @@
             </div>
             <br />
             <!-- 工作常用 -->
-            <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="工作常用"></i>工作常用</h4>
+            <h4 class="text-gray"><i class="linecons-star" style="margin-right: 7px;" id="工作常用"></i>工作常用</h4>
 
             <!-- 第一行：4个 -->
             <div class="row">
@@ -6014,7 +6014,6 @@
                     }
 
                     if (clearBtn) clearBtn.style.display = 'block';
-                    console.log('Searching for:', query);
                     if (CN_COIN_MAP[query]) query = CN_COIN_MAP[query];
 
                     if (label) label.innerText = '正在搜索: ' + query;
@@ -6028,23 +6027,45 @@
                     try {
                         let finalItems = [];
 
-                        // Try CoinCap
-                        const res = await fetchWithTimeout(`https://api.coincap.io/v2/assets?search=${query}&limit=20`, { timeout: 10000 });
-                        if (res.ok) {
-                            const json = await res.json();
-                            if (json.data && json.data.length > 0) {
-                                finalItems = json.data;
+                        // 1. First, search locally in existing data
+                        const localResults = cryptoData.filter(c =>
+                            c.symbol.toLowerCase().includes(query) ||
+                            c.name.toLowerCase().includes(query)
+                        );
+
+                        // 2. Try CoinCap Direct Search (More robust approach)
+                        const directUrl = `https://api.coincap.io/v2/assets?search=${query}&limit=20`;
+                        try {
+                            const res = await fetch(directUrl);
+                            if (res.ok) {
+                                const json = await res.json();
+                                if (json.data && json.data.length > 0) {
+                                    finalItems = json.data;
+                                }
+                            } else {
+                                throw new Error('API Response Error');
+                            }
+                        } catch (directErr) {
+                            console.warn('Direct fetch failed:', directErr);
+                            // If local has something, use it as fallback
+                            if (localResults.length > 0) {
+                                finalItems = localResults;
+                            } else {
+                                // Last resort: try a different API or specific ID check
+                                const possibleId = COIN_ID_MAP[query] || query;
+                                const res3 = await fetch(`https://api.coincap.io/v2/assets/${possibleId}`);
+                                if (res3.ok) {
+                                    const json3 = await res3.json();
+                                    if (json3.data) finalItems = [json3.data];
+                                }
                             }
                         }
 
-                        // If CoinCap found nothing, try checking our map or fallback
-                        if (finalItems.length === 0) {
-                            const possibleId = COIN_ID_MAP[query] || query;
-                            const res2 = await fetchWithTimeout(`https://api.coincap.io/v2/assets/${possibleId}`, { timeout: 8000 });
-                            if (res2.ok) {
-                                const json2 = await res2.json();
-                                if (json2.data) finalItems = [json2.data];
-                            }
+                        if (finalItems.length === 0 && localResults.length > 0) {
+                            renderCryptoTable(localResults);
+                            if (label) label.innerText = `从本地找到 ${localResults.length} 个结果`;
+                            if (dot) dot.style.color = '#10b981';
+                            return;
                         }
 
                         if (finalItems.length === 0) {
@@ -6059,15 +6080,15 @@
                         }
 
                         const mapped = finalItems.map(item => ({
-                            id: item.id,
+                            id: item.id || item.symbol.toLowerCase(),
                             symbol: item.symbol.toLowerCase(),
                             name: item.name,
                             image: `https://assets.coincap.io/assets/icons/${item.symbol.toLowerCase()}@2x.png`,
-                            current_price: item.priceUsd ? parseFloat(item.priceUsd) : 0,
-                            price_change_percentage_24h: item.changePercent24Hr ? parseFloat(item.changePercent24Hr) : 0,
-                            market_cap: item.marketCapUsd ? parseFloat(item.marketCapUsd) : 0,
-                            total_volume: item.volumeUsd24Hr ? parseFloat(item.volumeUsd24Hr) : 0,
-                            sparkline_in_7d: null
+                            current_price: item.priceUsd ? parseFloat(item.priceUsd) : (item.current_price || 0),
+                            price_change_percentage_24h: item.changePercent24Hr ? parseFloat(item.changePercent24Hr) : (item.price_change_percentage_24h || 0),
+                            market_cap: item.marketCapUsd ? parseFloat(item.marketCapUsd) : (item.market_cap || 0),
+                            total_volume: item.volumeUsd24Hr ? parseFloat(item.volumeUsd24Hr) : (item.total_volume || 0),
+                            sparkline_in_7d: item.sparkline_in_7d || null
                         }));
 
                         cryptoData = mapped;
@@ -6077,16 +6098,14 @@
                     } catch (e) {
                         console.error('Search error:', e);
                         if (label) label.innerText = 'Search Error';
-                        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color: #ef4444;">搜索出错: ${e.message}</td></tr>`;
+                        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color: #ef4444;">搜索失败，请检查网络设置</td></tr>`;
                     }
                 }
 
-                // Hover to hide floating buttons logic (Added)
+                // Hover to hide floating buttons logic
                 document.addEventListener('DOMContentLoaded', () => {
-                    // Initial Fetch
                     fetchCryptoData();
 
-                    // Search Listeners
                     const searchInput = document.getElementById('crypto-search');
                     const searchTrigger = document.getElementById('crypto-search-trigger');
 
@@ -6097,33 +6116,37 @@
                     if (searchTrigger) {
                         searchTrigger.addEventListener('click', (e) => {
                             e.preventDefault();
-                            console.log('Search trigger clicked');
                             searchCrypto();
                         });
                     }
 
-                    // Real-time polling (3s)
+                    // Real-time polling
                     setInterval(() => {
-                        fetchCryptoData();
-                    }, 3000);
+                        if (!isSearching) fetchCryptoData();
+                    }, 5000);
 
-                    // Hover Logic
-                    const cryptoArea = document.querySelector('.crypto-table-container').parentElement.parentElement; // .row for crypto
-                    const floatBtns = ['.go-top', '#showHiddenCards', '#resetOrder', '.xp-panel'];
+                    // Hover Logic - Optimized to hide all floating buttons
+                    const cryptoContainer = document.querySelector('.crypto-table-container');
+                    if (cryptoContainer) {
+                        const cryptoSection = cryptoContainer.closest('.row');
+                        const floatBtns = ['.go-top', '#showHiddenCards', '#resetOrder', '.xp-panel', '.go-up', '.back-to-top'];
 
-                    if (cryptoArea) {
-                        cryptoArea.addEventListener('mouseenter', () => {
+                        const hideFloats = () => {
                             floatBtns.forEach(selector => {
-                                const els = document.querySelectorAll(selector);
-                                els.forEach(el => el.classList.add('fade-out'));
+                                document.querySelectorAll(selector).forEach(el => el.classList.add('fade-out'));
                             });
-                        });
-                        cryptoArea.addEventListener('mouseleave', () => {
+                        };
+                        const showFloats = () => {
                             floatBtns.forEach(selector => {
-                                const els = document.querySelectorAll(selector);
-                                els.forEach(el => el.classList.remove('fade-out'));
+                                document.querySelectorAll(selector).forEach(el => el.classList.remove('fade-out'));
                             });
-                        });
+                        };
+
+                        if (cryptoSection) {
+                            cryptoSection.addEventListener('mouseenter', hideFloats);
+                            cryptoSection.addEventListener('mouseleave', showFloats);
+                            cryptoSection.addEventListener('touchstart', hideFloats, { passive: true });
+                        }
                     }
                 });
             </script>
@@ -7495,6 +7518,22 @@
         body.dark-mode .sidebar-menu li ul {
             background-color: #222;
         }
+
+        /* 页脚暗黑模式强化补丁 */
+        body.dark-mode .main-footer {
+            background-color: #1a1a1a !important;
+            color: #666 !important;
+            border-top: 1px solid #333 !important;
+        }
+
+        body.dark-mode .main-footer a,
+        body.dark-mode .main-footer strong {
+            color: #888 !important;
+        }
+
+        body.dark-mode .footer-inner {
+            background: transparent !important;
+        }
     </style>
 
     <script>
@@ -7641,6 +7680,85 @@
             .crypto-table-container {
                 margin-bottom: 30px;
             }
+
+            /* 移动端币种表格竖屏展示优化 */
+            @media screen and (max-width: 600px) {
+
+                .crypto-table th:nth-child(4),
+                .crypto-table td:nth-child(4),
+                .crypto-table th:nth-child(5),
+                .crypto-table td:nth-child(5) {
+                    display: none !important;
+                }
+
+                .coin-name {
+                    font-size: 11px !important;
+                }
+
+                .main-price {
+                    font-size: 13px !important;
+                }
+
+                .crypto-table-container {
+                    padding: 0 5px !important;
+                }
+
+                /* 确保移动端侧边栏切换按钮可见 */
+                .mobile-menu-toggle {
+                    display: block !important;
+                }
+
+                /* 强制隐藏移动端的收缩栏(防遮挡) */
+                .sidebar-menu.collapsed,
+                .sidebar-menu {
+                    width: 0 !important;
+                    display: none !important;
+                }
+
+                .sidebar-menu.mobile-is-visible {
+                    width: 280px !important;
+                    display: block !important;
+                }
+
+                .main-content {
+                    margin-left: 0 !important;
+                }
+            }
+        }
+
+        /* 浮动按钮淡出效果 */
+        .fade-out {
+            opacity: 0 !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+            transition: opacity 0.4s ease, visibility 0.4s ease !important;
+        }
+
+        /* 回到顶部按钮移动端位置微调 */
+        @media screen and (max-width: 768px) {
+
+            .go-top,
+            .back-to-top {
+                right: 20px !important;
+                bottom: 24px !important;
+                z-index: 9999 !important;
+            }
+        }
+
+        /* 页脚暗黑模式补丁 */
+        body.dark-mode .main-footer {
+            background-color: #1a1a1a !important;
+            color: #666 !important;
+            border-top: 1px solid #333 !important;
+        }
+
+        body.dark-mode .main-footer a,
+        body.dark-mode .main-footer strong {
+            color: #888 !important;
+        }
+
+        body.dark-mode .footer-inner {
+            background: transparent !important;
         }
     </style>
 </body>

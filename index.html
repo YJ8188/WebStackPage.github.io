@@ -5369,16 +5369,61 @@
                     .detail-row td {
                         padding: 15px !important;
                     }
+
+                    .detail-container {
+                        flex-direction: column;
+                        gap: 15px;
+                        padding: 15px;
+                        margin: 5px 10px 15px 10px;
+                    }
+
+                    .detail-info {
+                        border-right: none;
+                        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+                        padding-right: 0;
+                        padding-bottom: 15px;
+                    }
+
+                    body.dark-mode .detail-info {
+                        border-bottom-color: rgba(255, 255, 255, 0.1);
+                    }
                 }
 
                 /* Expandable row styling */
                 .detail-row {
                     display: none;
-                    background-color: rgba(0, 0, 0, 0.02);
+                    background-color: transparent;
                     opacity: 0;
                     max-height: 0;
                     overflow: hidden;
                     transition: opacity 0.3s ease, max-height 0.3s ease;
+                }
+
+                .detail-container {
+                    background: rgba(0, 0, 0, 0.03);
+                    border-radius: 8px;
+                    margin: 10px 15px 20px 15px;
+                    padding: 20px;
+                    display: flex;
+                    gap: 30px;
+                }
+
+                .detail-info {
+                    flex: 1;
+                    border-right: 1px solid rgba(0, 0, 0, 0.05);
+                    padding-right: 20px;
+                }
+
+                .detail-chart {
+                    flex: 2;
+                }
+
+                body.dark-mode .detail-container {
+                    background: rgba(255, 255, 255, 0.03);
+                }
+
+                body.dark-mode .detail-info {
+                    border-right-color: rgba(255, 255, 255, 0.1);
                 }
 
                 body.dark-mode .detail-row {
@@ -5829,8 +5874,8 @@
                             </tr>
                             <tr id="detail-${coin.symbol}" class="detail-row" style="${isOpen ? 'display:table-row' : ''}">
                                 <td colspan="5" style="border-top:none; padding:0 !important;">
-                                    <div style="background:rgba(0,0,0,0.03); border-radius:8px; margin: 10px 15px 20px 15px; padding: 20px; display:flex; gap:30px;">
-                                        <div style="flex:1; border-right: 1px solid rgba(0,0,0,0.05); padding-right:20px;">
+                                    <div class="detail-container">
+                                        <div class="detail-info">
                                             <h5 style="margin-top:0; font-size:14px; font-weight:bold; color:#555; margin-bottom:15px;">市场详情</h5>
                                             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; font-size:12px; color:#777;">
                                                 <div><span style="color:#aaa">市值:</span> <br><b>${symbol}${mkVal > 0 ? (mkVal * rate).toLocaleString() : '-'}</b></div>
@@ -5839,7 +5884,7 @@
                                                 <div><span style="color:#aaa">币种名称:</span> <br><b>${coin.name} (${coin.symbol.toUpperCase()})</b></div>
                                             </div>
                                         </div>
-                                        <div style="flex:2;">
+                                        <div class="detail-chart">
                                             <h5 style="margin-top:0; font-size:14px; font-weight:bold; color:#555; margin-bottom:15px; display:flex; justify-content:space-between;">
                                                 <span>7日价格趋势曲线</span>
                                                 <span style="font-weight:normal; font-size:11px; color:#aaa;">最近168小时数据</span>

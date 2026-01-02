@@ -340,23 +340,43 @@ const CryptoEngine = (() => {
     window.handleIconError = function (img, symLower, symUpper) {
         if (!img.tried) img.tried = 1; else img.tried++;
         const sources = [
+            // 主要来源
             `https://assets.coincap.io/assets/icons/${symLower}@2x.png`,
-            `https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${symLower}.png`,
-            `https://cryptoicons.org/api/color/${symLower}/128`,
-            `https://static.coinpaper.com/coin/${symLower}.png`,
-            `https://api.gateio.ws/api/v4/spot/currencies/${symUpper}/icon`,
-            `https://cryptologos.cc/logos/${symLower}-${symUpper}-logo.png`,
-            `https://cdn.jsdelivr.net/gh/cjdowner/cryptocurrency-icons@latest/128/color/${symLower}.png`,
-            `https://www.cryptocompare.com/media/331246/${symLower}.png`,
             `https://s2.coinmarketcap.com/static/img/coins/64x64/${symLower}.png`,
+            `https://www.cryptocompare.com/media/331246/${symLower}.png`,
+            `https://gimg2.gateimg.com/coin_icon/64/${symLower}.png`,
+            `https://static.coinpaper.com/coin/${symLower}.png`,
+            
+            // CDN备份
+            `https://cdn.jsdelivr.net/gh/cjdowner/cryptocurrency-icons@latest/128/color/${symLower}.png`,
+            `https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${symLower}.png`,
+            `https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/${symLower}.svg`,
+            
+            // 其他API
+            `https://cryptoicons.org/api/color/${symLower}/128`,
             `https://coinicons-api.vercel.app/api/icon/${symLower}`,
+            `https://cryptologos.cc/logos/${symLower}-${symUpper.toLowerCase()}-logo.png`,
+            
+            // 特定币种的可靠来源
+            symLower === 'btc' ? 'https://assets.coincap.io/assets/icons/btc@2x.png' : null,
+            symLower === 'eth' ? 'https://assets.coincap.io/assets/icons/eth@2x.png' : null,
+            symLower === 'usdt' ? 'https://assets.coincap.io/assets/icons/usdt@2x.png' : null,
+            symLower === 'bnb' ? 'https://assets.coincap.io/assets/icons/bnb@2x.png' : null,
+            symLower === 'xrp' ? 'https://assets.coincap.io/assets/icons/xrp@2x.png' : null,
+            
+            // 最后使用占位符
             `https://via.placeholder.com/32?text=${symUpper}`
-        ];
+        ].filter(Boolean); // 过滤掉null值
+        
         if (img.tried <= sources.length) {
             const nextSrc = sources[img.tried - 1];
             img.src = nextSrc;
             // 如果加载成功，缓存该路径
-            img.onload = () => { if (img.tried > 0) iconCache[symLower] = nextSrc; };
+            img.onload = () => {
+                if (img.tried > 0) {
+                    iconCache[symLower] = nextSrc;
+                }
+            };
         }
     };
 
@@ -651,24 +671,137 @@ const CryptoEngine = (() => {
             if (statusDot) statusDot.style.color = '#f59e0b';
             if (statusText) statusText.innerText = 'Syncing...';
             try {
-                const fastest = await Promise.any(Object.values(APIS).map(async api => {
-                    const r = await fetchWithTimeout(api.url);
-                    if (!r.ok) throw new Error();
-                    const d = await r.json();
-                    return { data: api.handler(d), name: api.name };
+                // 并行请求所有API，获取最完整的数据
+                const apiResponses = await Promise.allSettled(Object.values(APIS).map(async api => {
+                    try {
+                        const r = await fetchWithTimeout(api.url);
+                        if (!r.ok) throw new Error();
+                        const d = await r.json();
+                        return { data: api.handler(d), name: api.name, success: true };
+                    } catch (e) {
+                        return { success: false };
+                    }
                 }));
-                cryptoData = fastest.data;
-                if (statusDot) statusDot.style.color = '#10b981';
-                if (statusText) statusText.innerText = 'Synced';
-                renderTable();
-                localStorage.setItem(localStorageKey, JSON.stringify(cryptoData));
+                
+                // 过滤成功的响应
+                const successfulResponses = apiResponses.filter(r => r.success);
+                
+                if (successfulResponses.length > 0) {
+                    // 合并所有API数据，优先使用更完整的数据源
+                    const mergedData = {};
+                    
+                    // 首先收集所有数据
+                    successfulResponses.forEach(response => {
+                        response.data.forEach(coin => {
+                            if (!mergedData[coin.symbol]) {
+                                mergedData[coin.symbol] = coin;
+                            } else {
+                                // 合并字段，优先使用更完整、更准确的数据
+                                const existingCoin = mergedData[coin.symbol];
+                                Object.keys(coin).forEach(key => {
+                                    // 对于关键指标（市值、流通量、24h高/低、价格），更智能地选择数据
+                                    const isKeyMetric = ['market_cap', 'circulating_supply', 'high_24h', 'low_24h', 'current_price'].includes(key);
+                                    
+                                    if (key !== 'symbol' && key !== 'name') {
+                                        const coinValue = parseFloat(coin[key]);
+                                        const existingValue = parseFloat(existingCoin[key]);
+                                        
+                                        // 检查是否为有效数字
+                                        const isValidCoinValue = !isNaN(coinValue) && coinValue > 0;
+                                        const isValidExistingValue = !isNaN(existingValue) && existingValue > 0;
+                                        
+                                        if (isKeyMetric) {
+                                            // 对于关键指标，总是使用更大的有效数值（通常更准确）
+                                            if (isValidCoinValue) {
+                                                if (!isValidExistingValue || coinValue > existingValue) {
+                                                    existingCoin[key] = coinValue;
+                                                }
+                                            }
+                                        } else {
+                                            // 对于非关键指标，只在现有值为空或0时更新
+                                            if ((existingCoin[key] === undefined || existingCoin[key] === null || existingCoin[key] === 0) &&
+                                                coin[key] !== undefined && coin[key] !== null && coin[key] !== 0) {
+                                                existingCoin[key] = coin[key];
+                                            }
+                                        }
+                                    }
+                                });
+                            }
+                        });
+                    });
+                    
+                    // 转换为数组并排序
+                    cryptoData = Object.values(mergedData).sort((a, b) => 
+                        parseFloat(b.market_cap || 0) - parseFloat(a.market_cap || 0)
+                    ).slice(0, 50);
+                    
+                    // 确保ETH存在，如果没有，检查是否有STETH可以替代
+                    const hasETH = cryptoData.some(coin => coin.symbol.toLowerCase() === 'eth');
+                    const stethCoin = cryptoData.find(coin => coin.symbol.toLowerCase() === 'steth');
+                    
+                    // 无论是否已有ETH，都确保清除STETH
+                    cryptoData = cryptoData.filter(coin => coin.symbol.toLowerCase() !== 'steth');
+                    
+                    if (!hasETH && stethCoin) {
+                        // 创建ETH条目，使用STETH的数据但显示为ETH
+                        const ethCoin = { ...stethCoin };
+                        ethCoin.symbol = 'eth';
+                        ethCoin.name = 'Ethereum';
+                        ethCoin.image = `https://gimg2.gateimg.com/coin_icon/64/eth.png`;
+                        ethCoin.image_backup = `https://static.coinpaper.com/coin/eth.png`;
+                        cryptoData.unshift(ethCoin);
+                    }
+                    
+                    // 再次确保ETH在列表中（即使有STETH转换也确保位置正确）
+                    const ethIndex = cryptoData.findIndex(coin => coin.symbol.toLowerCase() === 'eth');
+                    if (ethIndex > -1) {
+                        // 确保ETH位于前5位
+                        if (ethIndex >= 5) {
+                            const ethCoin = cryptoData.splice(ethIndex, 1)[0];
+                            cryptoData.unshift(ethCoin);
+                        }
+                    }
+                    
+                    if (statusDot) statusDot.style.color = '#10b981';
+                    if (statusText) statusText.innerText = 'Synced';
+                    localStorage.setItem(localStorageKey, JSON.stringify(cryptoData));
+                } else {
+                    throw new Error('All APIs failed');
+                }
             } catch (e) {
                 const cached = localStorage.getItem(localStorageKey);
-                if (cached) cryptoData = JSON.parse(cached);
+                if (cached) {
+                    cryptoData = JSON.parse(cached);
+                    // 确保缓存数据中也有ETH处理
+                    const hasETH = cryptoData.some(coin => coin.symbol.toLowerCase() === 'eth');
+                    const stethCoin = cryptoData.find(coin => coin.symbol.toLowerCase() === 'steth');
+                    
+                    // 无论是否已有ETH，都确保清除STETH
+                    cryptoData = cryptoData.filter(coin => coin.symbol.toLowerCase() !== 'steth');
+                    
+                    if (!hasETH && stethCoin) {
+                        const ethCoin = { ...stethCoin };
+                        ethCoin.symbol = 'eth';
+                        ethCoin.name = 'Ethereum';
+                        ethCoin.image = `https://gimg2.gateimg.com/coin_icon/64/eth.png`;
+                        ethCoin.image_backup = `https://static.coinpaper.com/coin/eth.png`;
+                        cryptoData.unshift(ethCoin);
+                    }
+                    
+                    // 确保ETH在列表中（即使有STETH转换也确保位置正确）
+                    const ethIndex = cryptoData.findIndex(coin => coin.symbol.toLowerCase() === 'eth');
+                    if (ethIndex > -1) {
+                        // 确保ETH位于前5位
+                        if (ethIndex >= 5) {
+                            const ethCoin = cryptoData.splice(ethIndex, 1)[0];
+                            cryptoData.unshift(ethCoin);
+                        }
+                    }
+                }
                 if (statusDot) statusDot.style.color = '#ef4444';
                 if (statusText) statusText.innerText = 'Sync Off';
-                renderTable();
             }
+            renderTable();
         },
 
         async updateRate() {

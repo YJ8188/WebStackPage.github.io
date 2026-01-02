@@ -5874,8 +5874,13 @@
                     const rate = isCNY ? USD_CNY_RATE : 1;
                     const symbol = isCNY ? '¥' : '$';
 
-                    const orderMap = { 'btc': 1, 'eth': 2, 'usdt': 3, 'bnb': 4, 'sol': 5, 'xrp': 6 };
-                    data.sort((a, b) => (orderMap[a.symbol] || 999) - (orderMap[b.symbol] || 999));
+                    const orderMap = { 'btc': 1, 'eth': 2, 'usdt': 3, 'bnb': 4, 'sol': 5, 'xrp': 6, 'etc': 7, 'doge': 8 };
+                    data.sort((a, b) => {
+                        const scoreA = orderMap[a.symbol] || 999;
+                        const scoreB = orderMap[b.symbol] || 999;
+                        if (scoreA !== scoreB) return scoreA - scoreB;
+                        return (b.market_cap || 0) - (a.market_cap || 0);
+                    });
 
                     data.forEach(coin => {
                         const searchName = coin.name || coin.symbol;
@@ -5908,10 +5913,10 @@
                         let sparklineDetail = '';
                         const cached = sparklineCache[coin.symbol];
                         if (cached) {
-                            sparklineContent = generateSparklineSvg(cached, change, 100);
-                            sparklineDetail = generateSparklineSvg(cached, change, 240);
+                            sparklineContent = `<div style="display:flex; justify-content:center; width:100%;">${generateSparklineSvg(cached, change, 100)}</div>`;
+                            sparklineDetail = `<div style="display:flex; justify-content:center; width:100%;">${generateSparklineSvg(cached, change, 240)}</div>`;
                         } else {
-                            sparklineContent = `<div id="graph-${coin.symbol}" class="graph-container-${coin.symbol}" style="height:30px; display:flex; align-items:center;">-</div>`;
+                            sparklineContent = `<div id="graph-${coin.symbol}" class="graph-container-${coin.symbol}" style="height:30px; display:flex; align-items:center; justify-content:center;">-</div>`;
                             sparklineDetail = `<div id="graph-detail-${coin.symbol}" class="graph-container-${coin.symbol}" style="height:60px; min-width:240px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.05); border-radius:6px; border: 1px dotted rgba(0,0,0,0.05);"></div>`;
                             setTimeout(() => loadSparkline(coin.id, coin.symbol, change), 0);
                         }
@@ -6243,6 +6248,19 @@
                     setInterval(() => {
                         if (!isSearching) fetchCryptoData();
                     }, 3000);
+
+                    // Dedicated Full Ticker Refresh (Background)
+                    setInterval(async () => {
+                        try {
+                            const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers', { timeout: 10000 });
+                            if (res.ok) {
+                                const data = await res.json();
+                                if (data && data.length > 500) {
+                                    allGateTickers = data;
+                                }
+                            }
+                        } catch (e) { }
+                    }, 60000); // Refresh full list every minute
 
                     // Hover Logic - Optimized to hide all floating buttons
                     const cryptoContainer = document.querySelector('.crypto-table-container');

@@ -5683,16 +5683,16 @@
                     },
                     CRYPTOCOMPARE: {
                         name: 'CryptoCompare',
-                        url: 'https://min-api.cryptocompare.com/data/pricemultifull?fsyms=BTC,ETH,USDT,BNB,SOL,XRP,DOGE,ADA,TRX,TON,SHIB,LTC,ETC,LINK,UNI,BCH,NEAR,PEPE,STX&tsyms=USD',
+                        // Fetching top 50 by volume from CC
+                        url: 'https://min-api.cryptocompare.com/data/top/totalvolfull?limit=50&tsym=USD',
                         handler: (data) => {
-                            const raw = data.RAW;
-                            if (!raw) throw new Error("Invalid CC Data");
-                            return Object.keys(raw).map(key => {
-                                const coin = raw[key].USD;
+                            if (!data.Data) throw new Error("Invalid CC Data");
+                            return data.Data.map(item => {
+                                const coin = item.RAW.USD;
                                 return {
-                                    id: key.toLowerCase(),
-                                    symbol: coin.FROMSYMBOL.toLowerCase(),
-                                    name: key === 'USDT' ? 'Tether' : (key === 'BTC' ? 'Bitcoin' : key),
+                                    id: item.CoinInfo.Name.toLowerCase(),
+                                    symbol: item.CoinInfo.Name.toLowerCase(),
+                                    name: item.CoinInfo.FullName,
                                     image: 'https://www.cryptocompare.com' + coin.IMAGEURL,
                                     current_price: coin.PRICE,
                                     price_change_percentage_24h: coin.CHANGEPCT24HOUR,
@@ -5704,14 +5704,14 @@
                     },
                     COINCAP: {
                         name: 'CoinCap',
-                        url: 'https://api.coincap.io/v2/assets?ids=bitcoin,ethereum,tether,binance-coin,solana,xrp,dogecoin,cardano,tron,toncoin,shiba-inu,litecoin',
+                        // Fetching top 50 by market cap from CoinCap
+                        url: 'https://api.coincap.io/v2/assets?limit=50',
                         handler: (data) => {
-                            const idMapping = { 'binance-coin': 'binancecoin', 'xrp': 'ripple' };
                             return data.data.map(item => ({
                                 id: item.id,
                                 symbol: item.symbol.toLowerCase(),
                                 name: item.name,
-                                image: `https://assets.coincap.io/assets/icons/${item.symbol.toLowerCase()}@2x.png`,
+                                image: `https://gimg2.gateimg.com/coin_icon/64/${item.symbol.toLowerCase()}.png`, // Use gate icons as they are better
                                 current_price: parseFloat(item.priceUsd),
                                 price_change_percentage_24h: parseFloat(item.changePercent24Hr),
                                 market_cap: parseFloat(item.marketCapUsd),
@@ -5721,8 +5721,18 @@
                     },
                     COINGECKO: {
                         name: 'CoinGecko',
-                        url: 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,tether,binancecoin,solana,ripple,dogecoin,cardano,tron,toncoin,shiba-inu,litecoin&order=market_cap_desc&sparkline=true&price_change_percentage=24h',
-                        handler: (data) => data
+                        // Fetching top 50 by market cap from CoinGecko
+                        url: 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=50&page=1&sparkline=false&price_change_percentage=24h',
+                        handler: (data) => data.map(item => ({
+                            id: item.id,
+                            symbol: item.symbol.toLowerCase(),
+                            name: item.name,
+                            image: item.image,
+                            current_price: item.current_price,
+                            price_change_percentage_24h: item.price_change_percentage_24h,
+                            market_cap: item.market_cap,
+                            sparkline_in_7d: null
+                        }))
                     }
                 };
 

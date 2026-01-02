@@ -5449,7 +5449,8 @@
                 let currentCurrency = 'USD';
                 let cryptoData = [];
                 let isSearching = false;
-                const USD_CNY_RATE = 7.25;
+                let USD_CNY_RATE = 7.25; // Default, will be updated dynamically
+                let lastRateUpdate = 0;
 
                 // Sparkline Cache & Utils
                 const sparklineCache = {};
@@ -5623,8 +5624,14 @@
                         handler: (data) => {
                             // Target pairs
                             const targets = ['BTC_USDT', 'ETH_USDT', 'USDT_CNY', 'BNB_USDT', 'XRP_USDT', 'SOL_USDT', 'DOGE_USDT', 'ADA_USDT', 'TRX_USDT', 'TON_USDT', 'SHIB_USDT', 'LTC_USDT'];
-                            // Map for quick lookup
                             const validPairs = new Set(targets);
+
+                            // Detect USDT_CNY for dynamic exchange rate
+                            const usdtCny = data.find(item => item.currency_pair === 'USDT_CNY');
+                            if (usdtCny) {
+                                USD_CNY_RATE = parseFloat(usdtCny.last);
+                                lastRateUpdate = Date.now();
+                            }
 
                             return data.filter(item => validPairs.has(item.currency_pair)).map(item => {
                                 const symbol = item.currency_pair.split('_')[0].toLowerCase();
@@ -5710,6 +5717,21 @@
 
                     dot.style.color = '#f59e0b'; // fetching
                     if (refreshIcon) refreshIcon.classList.add('fa-spin'); // spin icon
+
+                    // 0. Sync Exchange Rate if needed (Gate.io USDT_CNY)
+                    if (Date.now() - lastRateUpdate > 60000) { // Sync every 1 minute
+                        try {
+                            const rateRes = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY', { timeout: 3000 });
+                            if (rateRes.ok) {
+                                const rateData = await rateRes.json();
+                                if (rateData && rateData[0] && rateData[0].last) {
+                                    USD_CNY_RATE = parseFloat(rateData[0].last);
+                                    lastRateUpdate = Date.now();
+                                    console.log('Dynamic Rate Sync:', USD_CNY_RATE);
+                                }
+                            }
+                        } catch (e) { console.warn('Rate sync failed', e); }
+                    }
 
                     // Show loading status if empty and first load
                     if (cryptoData.length === 0) {

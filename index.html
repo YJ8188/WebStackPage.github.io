@@ -6288,6 +6288,246 @@
                 });
             </script>
             <!--END 数字货币 -->
+
+            <!--START 金银行情 -->
+            <div class="panel panel-default">
+                <div class="panel-body">
+                    <h4 class="text-gray">
+                        <i class="linecons-diamond" style="margin-right: 7px;"></i>金银行情 (Live Market)
+                        <span style="float: right; display: flex; align-items: center; font-size: 13px;">
+                            <button id="refresh-precious-btn" class="btn btn-xs btn-white" onclick="fetchPreciousData()"
+                                style="margin-right: 10px; padding: 2px 6px;" title="刷新数据">
+                                <i class="fa fa-refresh"></i>
+                            </button>
+                            <span style="margin-right: 10px; color: #888;">计价:</span>
+                            <button id="precious-currency-toggle" class="btn btn-xs btn-primary" onclick="togglePreciousCurrency()"
+                                style="padding: 2px 8px;">USD</button>
+                            <span style="margin: 0 10px; color: #333;">|</span>
+                            <div class="search-box-precious"
+                                style="position: relative; display: inline-block; vertical-align: middle; z-index: 100;">
+                                <input type="text" id="precious-search" placeholder="搜索贵金属..."
+                                    style="background:rgba(255,255,255,0.05); border: 1px solid #444; border-radius: 4px; padding: 2px 50px 2px 10px; color: inherit; width: 150px; height: 26px; font-size: 12px; transition: border-color 0.3s;">
+                                <i class="fa fa-times" id="precious-search-clear" onclick="clearPreciousSearch()"
+                                    style="position: absolute; right: 28px; top: 50%; transform: translateY(-50%); color: #666; font-size: 12px; cursor: pointer; display: none; padding: 5px;"></i>
+                                <i class="fa fa-search" id="precious-search-trigger" onclick="searchPrecious()"
+                                    style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); color: #999; font-size: 14px; cursor: pointer; padding: 5px;"></i>
+                            </div>
+                        </span>
+                    </h4>
+
+                    <div class="row">
+                        <div class="col-sm-12">
+                            <div class="precious-table-container">
+                                <table class="table precious-table">
+                                    <thead>
+                                        <tr>
+                                            <th>品种</th>
+                                            <th>回购价</th>
+                                            <th>销售价</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="precious-table-body">
+                                        <tr>
+                                            <td colspan="3" style="text-align:center; padding: 20px;">正在加载实时行情...
+                                                <i class="fa fa-spinner fa-spin"></i>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div style="font-size: 12px; color: #888; text-align: right; margin-top: 5px;">
+                                Data provided by <span id="precious-api-provider-name">Precious Metals API</span> <span id="precious-api-status-dot"
+                                    style="color: #10b981;">●</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <style>
+                        .precious-table-container {
+                            background: #fff;
+                            border-radius: 12px;
+                            overflow: hidden;
+                            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+                        }
+
+                        .precious-table {
+                            margin-bottom: 0;
+                            width: 100%;
+                        }
+
+                        .precious-table th {
+                            background: #fcfcfc;
+                            font-weight: 500;
+                            color: #888;
+                            border-bottom: 1px solid #f0f0f0;
+                            padding: 12px 15px !important;
+                            font-size: 13px;
+                        }
+
+                        .precious-table td {
+                            vertical-align: middle !important;
+                            padding: 12px 15px !important;
+                            border-top: 1px solid #f8f8f8;
+                            color: #333;
+                            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+                        }
+
+                        .metal-info {
+                            display: flex;
+                            align-items: center;
+                        }
+
+                        .metal-name {
+                            font-weight: bold;
+                            font-size: 14px;
+                            color: #1a1a1a;
+                        }
+
+                        .metal-symbol {
+                            color: #999;
+                            font-size: 11px;
+                            margin-top: 2px;
+                        }
+
+                        .price-wrap {
+                            display: flex;
+                            flex-direction: column;
+                        }
+
+                        .main-price {
+                            font-weight: 600;
+                            font-size: 14px;
+                        }
+
+                        .converted-price {
+                            color: #999;
+                            font-size: 11px;
+                            margin-top: 2px;
+                        }
+
+                        /* Price change styles */
+                        .change-box {
+                            display: inline-block;
+                            min-width: 80px;
+                            padding: 4px 8px;
+                            border-radius: 4px;
+                            text-align: center;
+                            font-weight: bold;
+                            color: #fff;
+                            font-size: 12px;
+                        }
+
+                        .change-up {
+                            background-color: #ef4444;
+                        }
+
+                        /* Red for up (China style) */
+                        .change-down {
+                            background-color: #10b981;
+                        }
+
+                        /* Green for down */
+                        .change-neutral {
+                            background-color: #9ca3af;
+                        }
+
+                        .change-amount {
+                            font-size: 12px;
+                            margin-right: 8px;
+                        }
+
+                        .change-percentage {
+                            font-size: 12px;
+                        }
+
+                        /* Real-time Pulse Animation */
+                        .price-update {
+                            transition: background-color 0.8s ease;
+                        }
+
+                        .pulse-green {
+                            background-color: rgba(239, 68, 68, 0.2) !important;
+                            /* Red for up (China style) */
+                        }
+
+                        .pulse-red {
+                            background-color: rgba(16, 185, 129, 0.2) !important;
+                            /* Green for down */
+                        }
+
+                        .pulse-green {
+                            background-color: rgba(239, 68, 68, 0.15) !important;
+                        }
+
+                        .pulse-red {
+                            background-color: rgba(16, 185, 129, 0.15) !important;
+                        }
+
+                        /* Dark Mode Adaptation */
+                        body.dark-mode .precious-table-container {
+                            background: #1e1e1e;
+                            box-shadow: none;
+                        }
+
+                        body.dark-mode .precious-table th {
+                            background: #252525;
+                            color: #777;
+                            border-bottom-color: #333;
+                        }
+
+                        body.dark-mode .precious-table td {
+                            border-top-color: #2a2a2a;
+                            color: #ccc;
+                        }
+
+                        body.dark-mode .metal-name {
+                            color: #eee;
+                        }
+
+                        body.dark-mode .main-price {
+                            color: #fff;
+                        }
+
+                        body.dark-mode #precious-search {
+                            border-color: #444;
+                            color: #ddd;
+                        }
+
+                        /* Sparkline enhancements */
+                        .sparkline-svg {
+                            overflow: visible;
+                        }
+
+                        @media screen and (max-width: 1024px) {
+                            .precious-table th,
+                            .precious-table td {
+                                padding: 10px 8px !important;
+                                font-size: 12px;
+                            }
+
+                            .metal-icon {
+                                width: 24px;
+                                height: 24px;
+                                margin-right: 8px;
+                            }
+
+                            .change-box {
+                                min-width: 70px;
+                                font-size: 11px;
+                                padding: 3px 6px;
+                            }
+                        }
+
+                        @media screen and (max-width: 768px) {
+                            .precious-table th:nth-child(n+5),
+                            .precious-table td:nth-child(n+5) {
+                                display: none;
+                            }
+                        }
+                    </style>
+                </div>
+            </div>
+            <!--END 金银行情 -->
             <!-- Main Footer -->
             <!-- Choose between footer styles: "footer-type-1" or "footer-type-2" -->
             <!-- Add class "sticky" to  always stick the footer to the end of page (if page contents is small) -->
@@ -7918,6 +8158,20 @@
             background: transparent !important;
         }
     </style>
+    <!-- 行情功能模块 -->
+    <script src="../assets/js/crypto.js"></script>
+    <script src="../assets/js/precious.js"></script>
+    <script>
+        // 初始化行情模块
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof initCrypto === 'function') {
+                initCrypto();
+            }
+            if (typeof initPrecious === 'function') {
+                initPrecious();
+            }
+        });
+    </script>
 </body>
 
 </html>

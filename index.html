@@ -5111,13 +5111,14 @@
             <!--END 交互设计 -->
 
             <!-- 数字货币行情 (动态渲染) -->
-            <div id="crypto-section-wrapper">
-                <h4 class="text-gray crypto-header">
+            <div id="crypto-section-wrapper" style="margin-top: 25px;">
+                <div class="crypto-header">
                     <div class="crypto-header-left">
-                        <i class="linecons-money" style="margin-right: 7px;" id="数字货币"></i>数字货币行情 (Live Market)
-                        <div class="api-status-mobile">
-                            <span id="api-status-dot-mobile">●</span>
-                            <span id="api-provider-name-mobile">Synced</span>
+                        <i class="linecons-money" style="margin-right: 7px;" id="数字货币"></i>
+                        <span class="crypto-title">数字货币行情 (Live Market)</span>
+                        <div class="api-status-wrap">
+                            <span id="api-status-dot">●</span>
+                            <span id="api-status-text">Synced</span>
                         </div>
                     </div>
                     <div class="crypto-header-right">
@@ -5130,14 +5131,12 @@
                             <button id="currency-toggle" class="btn btn-xs btn-primary"
                                 onclick="CryptoEngine.toggleCurrency()">USD</button>
                         </div>
-                        <span class="control-divider">|</span>
                         <div class="search-box-crypto">
-                            <input type="text" id="crypto-search" placeholder="输入币种 (如 ETC, PEPE)...">
-                            <i class="fa fa-times" id="crypto-search-clear"></i>
-                            <i class="fa fa-search" id="crypto-search-trigger"></i>
+                            <i class="fa fa-search"></i>
+                            <input type="text" id="crypto-search" placeholder="输入币种 (如 BTC, ETH)...">
                         </div>
                     </div>
-                </h4>
+                </div>
 
                 <div class="row">
                     <div class="col-sm-12">

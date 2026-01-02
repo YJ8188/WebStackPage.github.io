@@ -119,51 +119,63 @@ function handlePreciousSearchKey(e) {
 
 // 获取贵金属数据
 async function fetchPreciousData() {
-    const tbody = document.getElementById('precious-table-body');
-    const apiProviderName = document.getElementById('precious-api-provider-name');
-    const apiStatusDot = document.getElementById('precious-api-status-dot');
-
-    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding: 20px;">正在加载实时行情...<i class="fa fa-spinner fa-spin"></i></td></tr>`;
-
     try {
-        // 尝试从Metals API获取真实数据
-        const res = await fetchWithTimeout('https://api.metalpriceapi.com/v1/latest?api_key=demo&base=USD&currencies=XAU,XAG,XPT,XPD,XCU', { timeout: 10000 });
-        
-        if (res.ok) {
-            const data = await res.json();
-            if (data.rates) {
-                // 将API数据映射到现货行情格式
-                preciousData = Object.keys(data.rates).map(symbol => {
-                    const basePrice = data.rates[symbol];
-                    // 计算回购价和销售价（基于基准价格的合理价差）
-                    const buybackPrice = basePrice * 0.995;
-                    const sellingPrice = basePrice * 1.005;
+        const tbody = document.getElementById('precious-table-body');
+        const apiProviderName = document.getElementById('precious-api-provider-name');
+        const apiStatusDot = document.getElementById('precious-api-status-dot');
 
-                    return {
-                        name: getMetalName(symbol),
-                        symbol: symbol,
-                        buybackPrice: buybackPrice,
-                        sellingPrice: sellingPrice
-                    };
-                });
-                
-                renderPreciousTable(preciousData);
-                apiProviderName.innerText = 'Metal Price API';
-                apiStatusDot.style.color = '#34d399';
-                return;
-            }
+        // 确保DOM元素存在
+        if (!tbody || !apiProviderName || !apiStatusDot) {
+            console.error('无法找到金银行情所需的DOM元素');
+            return;
         }
 
-        // 回退到模拟数据
-        throw new Error('API失败，使用模拟数据');
-    } catch (error) {
-        console.error('获取贵金属数据错误:', error);
-        
-        // 使用模拟数据
+        tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding: 20px;">正在加载实时行情...<i class="fa fa-spinner fa-spin"></i></td></tr>`;
+
+        try {
+            // 尝试从Metals API获取真实数据
+            const res = await fetchWithTimeout('https://api.metalpriceapi.com/v1/latest?api_key=demo&base=USD&currencies=XAU,XAG,XPT,XPD,XCU', { timeout: 5000 });
+            
+            if (res.ok) {
+                const data = await res.json();
+                if (data.rates) {
+                    // 将API数据映射到现货行情格式
+                    preciousData = Object.keys(data.rates).map(symbol => {
+                        const basePrice = data.rates[symbol];
+                        // 计算回购价和销售价（基于基准价格的合理价差）
+                        const buybackPrice = basePrice * 0.995;
+                        const sellingPrice = basePrice * 1.005;
+
+                        return {
+                            name: getMetalName(symbol),
+                            symbol: symbol,
+                            buybackPrice: buybackPrice,
+                            sellingPrice: sellingPrice
+                        };
+                    });
+                    
+                    renderPreciousTable(preciousData);
+                    apiProviderName.innerText = 'Metal Price API';
+                    apiStatusDot.style.color = '#34d399';
+                    return;
+                }
+            }
+        } catch (apiError) {
+            console.error('API调用失败:', apiError);
+        }
+
+        // 回退到模拟数据（无论API是否成功，只要没有有效数据就使用模拟数据）
+        console.log('使用模拟数据');
         preciousData = generateMockPreciousData();
         renderPreciousTable(preciousData);
         apiProviderName.innerText = '模拟数据';
         apiStatusDot.style.color = '#f59e0b'; // 警告颜色
+    } catch (error) {
+        console.error('获取贵金属数据时发生严重错误:', error);
+        const tbody = document.getElementById('precious-table-body');
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding: 20px; color: #ef4444;">加载失败，请刷新页面重试</td></tr>`;
+        }
     }
 }
 

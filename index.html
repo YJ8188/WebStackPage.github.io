@@ -5122,16 +5122,13 @@
                         style="padding: 2px 8px;">USD</button>
                     <span style="margin: 0 10px; color: #333;">|</span>
                     <div class="search-box-crypto"
-                        style="position: relative; display: inline-block; vertical-align: middle;">
-                        <div class="input-group" style="width: 260px; display: flex;">
-                            <input type="text" id="crypto-search" class="form-control"
-                                placeholder="搜索币种 (如 BTC, ETC)..."
-                                style="border-radius: 4px 0 0 4px; border-right: none; height: 28px; padding: 2px 10px; font-size: 13px;">
-                            <button class="btn btn-primary" id="crypto-search-btn"
-                                style="border-radius: 0 4px 4px 0; padding: 0 10px; height: 28px; line-height: 28px;">
-                                <i class="fa fa-search"></i>
-                            </button>
-                        </div>
+                        style="position: relative; display: inline-block; vertical-align: middle; z-index: 100;">
+                        <input type="text" id="crypto-search" placeholder="输入币种 (如 ETC, PEPE)..."
+                            style="background:rgba(255,255,255,0.05); border: 1px solid #444; border-radius: 4px; padding: 2px 50px 2px 10px; color: inherit; width: 190px; height: 26px; font-size: 12px; transition: border-color 0.3s;">
+                        <i class="fa fa-times" id="crypto-search-clear" onclick="clearCryptoSearch()"
+                            style="position: absolute; right: 28px; top: 50%; transform: translateY(-50%); color: #666; font-size: 12px; cursor: pointer; display: none; padding: 5px;"></i>
+                        <i class="fa fa-search" id="crypto-search-trigger" onclick="searchCrypto()"
+                            style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); color: #999; font-size: 14px; cursor: pointer; padding: 5px;"></i>
                     </div>
                 </span>
             </h4>
@@ -5378,6 +5375,10 @@
                 .detail-row {
                     display: none;
                     background-color: rgba(0, 0, 0, 0.02);
+                    opacity: 0;
+                    max-height: 0;
+                    overflow: hidden;
+                    transition: opacity 0.3s ease, max-height 0.3s ease;
                 }
 
                 body.dark-mode .detail-row {
@@ -5410,10 +5411,11 @@
                 const sparklineRequests = new Set();
                 const COIN_ID_MAP = {
                     'btc': 'bitcoin', 'eth': 'ethereum', 'usdt': 'tether', 'bnb': 'binance-coin',
-                    'xrp': 'xrp', 'sol': 'solana', 'doge': 'dogecoin', 'ada': 'cardano',
+                    'xrp': 'ripple', 'sol': 'solana', 'doge': 'dogecoin', 'ada': 'cardano',
                     'trx': 'tron', 'ton': 'toncoin', 'shib': 'shiba-inu', 'ltc': 'litecoin',
                     'etc': 'ethereum-classic', 'link': 'chainlink', 'uni': 'uniswap', 'bch': 'bitcoin-cash',
-                    'near': 'near-protocol', 'pepe': 'pepe', 'apt': 'aptos', 'stx': 'stack'
+                    'near': 'near-protocol', 'pepe': 'pepe', 'apt': 'aptos', 'stx': 'stack', 'dot': 'polkadot',
+                    'arb': 'arbitrum', 'op': 'optimism', 'tia': 'celestia', 'sei': 'sei-network'
                 };
 
                 // Track detail row states
@@ -5421,36 +5423,53 @@
 
                 async function loadSparkline(id, symbol, changePct) {
                     if (sparklineCache[symbol] || sparklineRequests.has(symbol)) return;
-                    const finalId = id || COIN_ID_MAP[symbol] || symbol;
+                    const finalId = id || COIN_ID_MAP[symbol] || symbol.toLowerCase();
                     if (!finalId) return;
 
                     sparklineRequests.add(symbol);
                     const containers = document.querySelectorAll(`.graph-container-${symbol}`);
-                    containers.forEach(el => el.innerHTML = '<span class="loading-chart" style="color:#888; font-size:10px;"><i class="fa fa-spinner fa-spin"></i></span>');
+                    containers.forEach(el => {
+                        if (el.innerHTML.length < 20) el.innerHTML = '<i class="fa fa-spinner fa-spin" style="opacity:0.3"></i>';
+                    });
 
                     try {
                         const end = Date.now();
                         const start = end - (7 * 24 * 60 * 60 * 1000);
-                        const res = await fetchWithTimeout(`https://api.coincap.io/v2/assets/${finalId}/history?interval=h2&start=${start}&end=${end}`, { timeout: 10000 });
+                        let prices = null;
+
+                        // Try CoinCap History
+                        const res = await fetchWithTimeout(`https://api.coincap.io/v2/assets/${finalId}/history?interval=h2&start=${start}&end=${end}`, { timeout: 8000 });
                         if (res.ok) {
                             const json = await res.json();
                             if (json.data && json.data.length > 0) {
-                                const prices = json.data.map(d => parseFloat(d.priceUsd));
-                                sparklineCache[symbol] = prices;
-
-                                // Update all graph containers for this coin
-                                document.querySelectorAll(`.graph-container-${symbol}`).forEach(target => {
-                                    const isDetail = target.id.startsWith('graph-detail-');
-                                    target.innerHTML = generateSparklineSvg(prices, changePct, isDetail ? 200 : 100);
-                                });
+                                prices = json.data.map(d => parseFloat(d.priceUsd));
                             }
+                        }
+
+                        if (!prices) {
+                            // Fallback to CoinGecko
+                            const geckoRes = await fetchWithTimeout(`https://api.coingecko.com/api/v3/coins/${finalId}/market_chart?vs_currency=usd&days=7&interval=daily`, { timeout: 8000 });
+                            if (geckoRes.ok) {
+                                const json = await geckoRes.json();
+                                if (json.prices) {
+                                    prices = json.prices.map(p => p[1]);
+                                }
+                            }
+                        }
+
+                        if (prices) {
+                            sparklineCache[symbol] = prices;
+                            document.querySelectorAll(`.graph-container-${symbol}`).forEach(target => {
+                                const isDetail = target.id.startsWith('graph-detail-');
+                                target.innerHTML = generateSparklineSvg(prices, changePct, isDetail ? 240 : 100);
+                            });
                         } else {
-                            throw new Error('Load failed');
+                            throw new Error('No data');
                         }
                     } catch (e) {
                         console.warn('Sparkline fetch err', symbol, e);
                         document.querySelectorAll(`.graph-container-${symbol}`).forEach(target => {
-                            target.innerHTML = '<span style="color:#ccc; font-size:10px;">-</span>';
+                            if (target.innerHTML.includes('fa-spin')) target.innerHTML = '<span style="color:#666">-</span>';
                         });
                     } finally {
                         sparklineRequests.delete(symbol);
@@ -5461,7 +5480,7 @@
                     if (!prices || prices.length < 2) return '-';
                     const min = Math.min(...prices);
                     const max = Math.max(...prices);
-                    const height = 46;
+                    const height = 48;
                     const padding = 12;
                     const innerHeight = height - (padding * 2);
                     const range = max - min || 1;
@@ -5480,23 +5499,23 @@
                     });
 
                     const color = changePct >= 0 ? '#ef4444' : '#10b981';
-                    const gradId = `grad-${Math.random().toString(36).substr(2, 6)}`;
+                    const gradId = `grad-${Math.random().toString(36).substr(2, 8)}`;
                     const fillPoints = `0,${height} ` + points + ` ${width},${height}`;
-                    const formatPrice = (p) => p < 1 ? p.toFixed(4) : p.toFixed(2);
+                    const formatPrice = (p) => p < 1 ? p.toFixed(4) : (p > 1000 ? p.toLocaleString(undefined, { maximumFractionDigits: 1 }) : p.toFixed(2));
 
-                    return `<svg width="${width}" height="${height}" class="sparkline-svg" style="overflow:visible">
+                    return `<svg width="${width}" height="${height}" class="sparkline-svg" preserveAspectRatio="none">
                         <defs>
                             <linearGradient id="${gradId}" x1="0%" y1="0%" x2="0%" y2="100%">
-                                <stop offset="0%" style="stop-color:${color};stop-opacity:0.15" />
+                                <stop offset="0%" style="stop-color:${color};stop-opacity:0.25" />
                                 <stop offset="100%" style="stop-color:${color};stop-opacity:0" />
                             </linearGradient>
                         </defs>
                         <polygon points="${fillPoints}" fill="url(#${gradId})" />
-                        <polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                        <circle cx="${maxPoint.x}" cy="${maxPoint.y}" r="2" fill="#ef4444" />
-                        <text x="${maxPoint.x}" y="${maxPoint.y - 3}" class="sparkline-point-label" text-anchor="${maxPoint.x > width * 0.8 ? 'end' : 'start'}" style="fill:#ef4444">${formatPrice(maxPoint.val)}</text>
-                        <circle cx="${minPoint.x}" cy="${minPoint.y}" r="2" fill="#10b981" />
-                        <text x="${minPoint.x}" y="${minPoint.y + 10}" class="sparkline-point-label" text-anchor="${minPoint.x > width * 0.8 ? 'end' : 'start'}" style="fill:#10b981">${formatPrice(minPoint.val)}</text>
+                        <polyline points="${points}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <circle cx="${maxPoint.x}" cy="${maxPoint.y}" r="2.5" fill="#ef4444" />
+                        <text x="${maxPoint.x}" y="${maxPoint.y - 4}" class="sparkline-point-label" text-anchor="${maxPoint.x > width * 0.7 ? 'end' : 'start'}" style="fill:#ef4444; font-size:10px;">${formatPrice(maxPoint.val)}</text>
+                        <circle cx="${minPoint.x}" cy="${minPoint.y}" r="2.5" fill="#10b981" />
+                        <text x="${minPoint.x}" y="${minPoint.y + 12}" class="sparkline-point-label" text-anchor="${minPoint.x > width * 0.7 ? 'end' : 'start'}" style="fill:#10b981; font-size:10px;">${formatPrice(minPoint.val)}</text>
                     </svg>`;
                 }
 
@@ -5764,10 +5783,10 @@
                         const cached = sparklineCache[coin.symbol];
                         if (cached) {
                             sparklineContent = generateSparklineSvg(cached, change, 100);
-                            sparklineDetail = generateSparklineSvg(cached, change, 200);
+                            sparklineDetail = generateSparklineSvg(cached, change, 240);
                         } else {
                             sparklineContent = `<div id="graph-${coin.symbol}" class="graph-container-${coin.symbol}" style="height:30px; display:flex; align-items:center;">-</div>`;
-                            sparklineDetail = `<div id="graph-detail-${coin.symbol}" class="graph-container-${coin.symbol}" style="height:30px; display:flex; align-items:center;">-</div>`;
+                            sparklineDetail = `<div id="graph-detail-${coin.symbol}" class="graph-container-${coin.symbol}" style="height:60px; min-width:240px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.05); border-radius:6px; border: 1px dotted rgba(0,0,0,0.05);"></div>`;
                             setTimeout(() => loadSparkline(coin.id, coin.symbol, change), 0);
                         }
 
@@ -5795,23 +5814,36 @@
                                     </div>
                                 </td>
                                 <td class="market_cap_cell">
-                                    ${symbol}${marketCap}
-                                    <i class="fa fa-angle-down" id="arrow-${coin.symbol}" style="margin-left:5px; color:#ccc; transition:transform 0.3s; ${isOpen ? 'transform:rotate(180deg)' : ''}"></i>
+                                    <span style="display:flex; align-items:center;">
+                                        ${symbol}${marketCap}
+                                        <i class="fa fa-angle-down" id="arrow-${coin.symbol}" style="margin-left:8px; color:#666; transition:transform 0.3s; ${isOpen ? 'transform:rotate(180deg)' : ''}"></i>
+                                    </span>
                                 </td>
                                 <td style="text-align:right;">
                                     ${sparklineContent}
                                 </td>
                             </tr>
                             <tr id="detail-${coin.symbol}" class="detail-row" style="${isOpen ? 'display:table-row' : ''}">
-                                <td colspan="5">
-                                    <div style="display:flex; justify-content:space-between; align-items:center; padding: 10px 0;">
-                                        <div style="font-size:12px; color:#888;">
-                                            <div>市值: ${symbol}${mkVal > 0 ? (mkVal * rate).toLocaleString() : '-'}</div>
-                                            <div style="margin-top:5px;">24h成交额: ${symbol}${volVal > 0 ? (volVal * rate).toLocaleString() : '-'}</div>
+                                <td colspan="5" style="border-top:none; padding:0 !important;">
+                                    <div style="background:rgba(0,0,0,0.03); border-radius:8px; margin: 10px 15px 20px 15px; padding: 20px; display:flex; gap:30px;">
+                                        <div style="flex:1; border-right: 1px solid rgba(0,0,0,0.05); padding-right:20px;">
+                                            <h5 style="margin-top:0; font-size:14px; font-weight:bold; color:#555; margin-bottom:15px;">市场详情</h5>
+                                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; font-size:12px; color:#777;">
+                                                <div><span style="color:#aaa">市值:</span> <br><b>${symbol}${mkVal > 0 ? (mkVal * rate).toLocaleString() : '-'}</b></div>
+                                                <div><span style="color:#aaa">24h成交量:</span> <br><b>${symbol}${volVal > 0 ? (volVal * rate).toLocaleString() : '-'}</b></div>
+                                                <div><span style="color:#aaa">24h涨跌幅:</span> <br><b class="${change >= 0 ? 'text-danger' : 'text-success'}">${changeSign}${change.toFixed(2)}%</b></div>
+                                                <div><span style="color:#aaa">币种名称:</span> <br><b>${coin.name} (${coin.symbol.toUpperCase()})</b></div>
+                                            </div>
+                                            <button class="btn btn-xs btn-white" style="margin-top:20px; border-radius:20px; font-size:11px; padding: 4px 15px;" onclick="event.stopPropagation(); window.open('https://www.gate.io/zh/trade/${coin.symbol.toUpperCase()}_USDT', '_blank')">
+                                                去交易 <i class="fa fa-external-link"></i>
+                                            </button>
                                         </div>
-                                        <div style="text-align:right;">
-                                            <div style="font-size:11px; color:#999; margin-bottom:5px;">7日价格趋势明细:</div>
-                                            <div id="graph-detail-${coin.symbol}" class="graph-container-${coin.symbol}">${sparklineDetail}</div>
+                                        <div style="flex:2;">
+                                            <h5 style="margin-top:0; font-size:14px; font-weight:bold; color:#555; margin-bottom:15px; display:flex; justify-content:space-between;">
+                                                <span>7日价格趋势曲线</span>
+                                                <span style="font-weight:normal; font-size:11px; color:#aaa;">最近168小时数据</span>
+                                            </h5>
+                                            ${sparklineDetail}
                                         </div>
                                     </div>
                                 </td>
@@ -5826,14 +5858,22 @@
                     const arrow = document.getElementById(`arrow-${symbol}`);
                     if (row) {
                         const isNone = window.getComputedStyle(row).display === 'none';
-                        row.style.display = isNone ? 'table-row' : 'none';
-                        if (arrow) arrow.style.transform = isNone ? 'rotate(180deg)' : 'rotate(0deg)';
-
                         if (isNone) {
+                            row.style.display = 'table-row';
+                            setTimeout(() => {
+                                row.style.opacity = '1';
+                                row.style.maxHeight = '200px'; // A value larger than expected content height
+                            }, 10); // Small delay to allow display change to register
                             expandedCoins.add(symbol);
                         } else {
+                            row.style.opacity = '0';
+                            row.style.maxHeight = '0';
+                            setTimeout(() => {
+                                row.style.display = 'none';
+                            }, 300); // Match transition duration
                             expandedCoins.delete(symbol);
                         }
+                        if (arrow) arrow.style.transform = isNone ? 'rotate(180deg)' : 'rotate(0deg)';
                     }
                 }
 
@@ -5868,7 +5908,6 @@
                                 priceEl.innerText = newText;
                                 priceEl.dataset.val = newVal;
 
-                                // IMPORTANT: Restore pulse to the PARENT cell (TD)
                                 const cell = priceEl.closest('td');
                                 if (cell) {
                                     const pulseClass = newVal >= oldVal ? 'pulse-green' : 'pulse-red';
@@ -5921,7 +5960,7 @@
                     const query = input.value.trim();
                     if (!query) {
                         isSearching = false;
-                        fetchCryptoData();
+                        fetchCryptoData(); // Revert to main list if search cleared
                         return;
                     }
                     clearTimeout(searchTimeout);
@@ -5945,8 +5984,20 @@
                 const CN_COIN_MAP = {
                     '比特币': 'bitcoin', '以太坊': 'ethereum', '泰达币': 'tether', '狗狗币': 'dogecoin',
                     '波卡': 'polkadot', '币安': 'binance', '瑞波': 'ripple', '索拉纳': 'solana',
-                    '莱特币': 'litecoin', '艾达币': 'cardano', '波场': 'tron', '以太经典': 'ethereum-classic'
+                    '莱特币': 'litecoin', '艾达币': 'cardano', '波场': 'tron', '以太经典': 'ethereum-classic',
+                    '佩佩': 'pepe', '链克': 'chainlink', '优尼': 'uniswap', '近': 'near-protocol',
+                    '艾普特': 'aptos', '堆栈': 'stack', '奥普': 'optimism', '阿比特': 'arbitrum',
+                    '天体': 'celestia', '赛伊': 'sei-network'
                 };
+
+                function clearCryptoSearch() {
+                    const input = document.getElementById('crypto-search');
+                    if (input) input.value = '';
+                    isSearching = false;
+                    const clearBtn = document.getElementById('crypto-search-clear');
+                    if (clearBtn) clearBtn.style.display = 'none';
+                    fetchCryptoData();
+                }
 
                 async function searchCrypto() {
                     const input = document.getElementById('crypto-search');
@@ -5955,63 +6006,78 @@
                     const dot = document.getElementById('api-status-dot');
                     const label = document.getElementById('api-provider-name');
                     const tbody = document.getElementById('crypto-table-body');
+                    const clearBtn = document.getElementById('crypto-search-clear');
 
                     if (!query) {
-                        isSearching = false;
-                        fetchCryptoData();
+                        clearCryptoSearch();
                         return;
                     }
 
+                    if (clearBtn) clearBtn.style.display = 'block';
                     console.log('Searching for:', query);
-                    // Translate Chinese query if necessary
                     if (CN_COIN_MAP[query]) query = CN_COIN_MAP[query];
 
                     if (label) label.innerText = '正在搜索: ' + query;
                     if (dot) dot.style.color = '#f59e0b';
                     isSearching = true;
 
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color: #888;">
+                        <i class="fa fa-circle-o-notch fa-spin"></i> 正在搜索 "${query}"...
+                    </td></tr>`;
+
                     try {
-                        // Use a wider search limit and better feedback
+                        let finalItems = [];
+
+                        // Try CoinCap
                         const res = await fetchWithTimeout(`https://api.coincap.io/v2/assets?search=${query}&limit=20`, { timeout: 10000 });
                         if (res.ok) {
                             const json = await res.json();
-                            const items = json.data;
-
-                            if (!items || items.length === 0) {
-                                if (label) label.innerText = `未找到 "${query}"`;
-                                if (dot) dot.style.color = '#ef4444';
-                                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color: #888;">
-                                    <div style="font-size:32px; margin-bottom:15px;">🔍</div>
-                                    未找到匹配 "${query}" 的币种<br>
-                                    <small style="color:#aaa">请尝试使用英文简称 (如 BTC, ETC)</small>
-                                </td></tr>`;
-                                return;
+                            if (json.data && json.data.length > 0) {
+                                finalItems = json.data;
                             }
-
-                            const mapped = items.map(item => ({
-                                id: item.id,
-                                symbol: item.symbol.toLowerCase(),
-                                name: item.name,
-                                image: `https://assets.coincap.io/assets/icons/${item.symbol.toLowerCase()}@2x.png`,
-                                current_price: item.priceUsd ? parseFloat(item.priceUsd) : 0,
-                                price_change_percentage_24h: item.changePercent24Hr ? parseFloat(item.changePercent24Hr) : 0,
-                                market_cap: item.marketCapUsd ? parseFloat(item.marketCapUsd) : 0,
-                                total_volume: item.volumeUsd24Hr ? parseFloat(item.volumeUsd24Hr) : 0,
-                                sparkline_in_7d: null
-                            }));
-
-                            // Save search results to global data so they can be updated
-                            cryptoData = mapped;
-                            renderCryptoTable(mapped);
-                            if (label) label.innerText = `已找到 ${items.length} 个关于 "${query}" 的结果`;
-                            if (dot) dot.style.color = '#10b981';
-                        } else {
-                            throw new Error('Search failed');
                         }
+
+                        // If CoinCap found nothing, try checking our map or fallback
+                        if (finalItems.length === 0) {
+                            const possibleId = COIN_ID_MAP[query] || query;
+                            const res2 = await fetchWithTimeout(`https://api.coincap.io/v2/assets/${possibleId}`, { timeout: 8000 });
+                            if (res2.ok) {
+                                const json2 = await res2.json();
+                                if (json2.data) finalItems = [json2.data];
+                            }
+                        }
+
+                        if (finalItems.length === 0) {
+                            if (label) label.innerText = `未找到 "${query}"`;
+                            if (dot) dot.style.color = '#ef4444';
+                            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 60px; color: #888;">
+                                <div style="font-size:32px; margin-bottom:15px;">🔍</div>
+                                未找到 "${query}"<br>
+                                <small style="color:#aaa">提示: 搜索 BTC, ETH, ETC 等</small>
+                            </td></tr>`;
+                            return;
+                        }
+
+                        const mapped = finalItems.map(item => ({
+                            id: item.id,
+                            symbol: item.symbol.toLowerCase(),
+                            name: item.name,
+                            image: `https://assets.coincap.io/assets/icons/${item.symbol.toLowerCase()}@2x.png`,
+                            current_price: item.priceUsd ? parseFloat(item.priceUsd) : 0,
+                            price_change_percentage_24h: item.changePercent24Hr ? parseFloat(item.changePercent24Hr) : 0,
+                            market_cap: item.marketCapUsd ? parseFloat(item.marketCapUsd) : 0,
+                            total_volume: item.volumeUsd24Hr ? parseFloat(item.volumeUsd24Hr) : 0,
+                            sparkline_in_7d: null
+                        }));
+
+                        cryptoData = mapped;
+                        renderCryptoTable(mapped);
+                        if (label) label.innerText = `已找到 ${finalItems.length} 个结果`;
+                        if (dot) dot.style.color = '#10b981';
                     } catch (e) {
-                        console.error(e);
+                        console.error('Search error:', e);
                         if (label) label.innerText = 'Search Error';
-                        if (dot) dot.style.color = '#ef4444';
+                        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color: #ef4444;">搜索出错: ${e.message}</td></tr>`;
                     }
                 }
 
@@ -6022,15 +6088,16 @@
 
                     // Search Listeners
                     const searchInput = document.getElementById('crypto-search');
-                    const searchBtn = document.getElementById('crypto-search-btn');
+                    const searchTrigger = document.getElementById('crypto-search-trigger');
 
                     if (searchInput) {
                         searchInput.addEventListener('input', handleSearchInput);
                         searchInput.addEventListener('keydown', handleSearchKey);
                     }
-                    if (searchBtn) {
-                        searchBtn.addEventListener('click', (e) => {
+                    if (searchTrigger) {
+                        searchTrigger.addEventListener('click', (e) => {
                             e.preventDefault();
+                            console.log('Search trigger clicked');
                             searchCrypto();
                         });
                     }

@@ -435,6 +435,11 @@ const CryptoEngine = (() => {
                     flex-wrap: wrap !important; 
                     padding: 0 5px 25px 5px !important; 
                 }
+                .crypto-header-left { 
+                    display: flex !important; 
+                    align-items: center !important; 
+                    gap: 15px !important; 
+                }
                 .crypto-header-right { display: flex !important; gap: 15px !important; align-items: center !important; }
                 .crypto-controls { display: flex !important; gap: 10px !important; align-items: center !important; }
                 .crypto-title { 

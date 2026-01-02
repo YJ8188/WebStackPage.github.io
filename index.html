@@ -5467,7 +5467,8 @@
                     'icp': 'internet-computer', 'apt': 'aptos', 'mnt': 'mantle', 'kas': 'kaspa'
                 };
 
-                // Track detail row states
+                // Data persistence & cache
+                let allGateTickers = []; // Master list from Gate.io for global search
                 const expandedCoins = new Set();
 
                 async function loadSparkline(id, symbol, changePct) {
@@ -5660,6 +5661,9 @@
                         name: 'Gate.io (Official)',
                         url: 'https://api.gateio.ws/api/v4/spot/tickers', // Returns all tickers, need filtering
                         handler: (data) => {
+                            // 0. Backup all tickers for global search
+                            allGateTickers = data;
+
                             // 1. Sync Exchange Rate (Fixed issue with finding USDT_CNY accurately)
                             const usdtCny = data.find(item => item.currency_pair === 'USDT_CNY');
                             if (usdtCny && usdtCny.last) {
@@ -5690,6 +5694,7 @@
                                     current_price: parseFloat(item.last),
                                     price_change_percentage_24h: parseFloat(item.change_percentage),
                                     market_cap: parseFloat(item.quote_volume) * 7.5, // Proxy for display
+                                    total_volume: parseFloat(item.quote_volume),
                                     sparkline_in_7d: null
                                 };
                             });
@@ -6134,89 +6139,85 @@
                     if (clearBtn) clearBtn.style.display = 'block';
                     if (CN_COIN_MAP[query]) query = CN_COIN_MAP[query];
 
-                    if (label) label.innerText = '正在搜索: ' + query;
+                    if (label) label.innerText = '正在全量搜索: ' + query;
                     if (dot) dot.style.color = '#f59e0b';
                     isSearching = true;
 
                     tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color: #888;">
-                        <i class="fa fa-circle-o-notch fa-spin"></i> 正在搜索 "${query}"...
+                        <i class="fa fa-circle-o-notch fa-spin"></i> 正在深度检索全网币种...
                     </td></tr>`;
 
                     try {
-                        let finalItems = [];
+                        // 1. Efficient Global Search in allGateTickers (Synced with Gate.io)
+                        const filtered = allGateTickers
+                            .filter(item => {
+                                const pair = item.currency_pair.toLowerCase();
+                                const symbol = pair.split('_')[0];
+                                return symbol.includes(query) && pair.endsWith('_usdt') && !pair.includes('3l_') && !pair.includes('3s_');
+                            })
+                            .sort((a, b) => parseFloat(b.quote_volume) - parseFloat(a.quote_volume))
+                            .slice(0, 30); // Max 30 results for search
 
-                        // 1. First, search locally in existing data
-                        const localResults = cryptoData.filter(c =>
-                            c.symbol.toLowerCase().includes(query) ||
-                            c.name.toLowerCase().includes(query)
-                        );
-
-                        // 2. Try CoinCap Direct Search (More robust approach)
-                        const directUrl = `https://api.coincap.io/v2/assets?search=${query}&limit=20`;
-                        try {
-                            const res = await fetch(directUrl);
-                            if (res.ok) {
-                                const json = await res.json();
-                                if (json.data && json.data.length > 0) {
-                                    finalItems = json.data;
-                                }
-                            } else {
-                                throw new Error('API Response Error');
-                            }
-                        } catch (directErr) {
-                            console.warn('Direct fetch failed:', directErr);
-                            // If local has something, use it as fallback
-                            if (localResults.length > 0) {
-                                finalItems = localResults;
-                            } else {
-                                // Last resort: try a different API or specific ID check
-                                const possibleId = COIN_ID_MAP[query] || query;
-                                const res3 = await fetch(`https://api.coincap.io/v2/assets/${possibleId}`);
-                                if (res3.ok) {
-                                    const json3 = await res3.json();
-                                    if (json3.data) finalItems = [json3.data];
-                                }
-                            }
-                        }
-
-                        if (finalItems.length === 0 && localResults.length > 0) {
-                            renderCryptoTable(localResults);
-                            if (label) label.innerText = `从本地找到 ${localResults.length} 个结果`;
+                        if (filtered.length > 0) {
+                            const mapped = filtered.map(item => {
+                                const symbol = item.currency_pair.split('_')[0].toLowerCase();
+                                return {
+                                    id: symbol,
+                                    symbol: symbol,
+                                    name: symbol.toUpperCase(),
+                                    image: `https://gimg2.gateimg.com/coin_icon/64/${symbol}.png`,
+                                    current_price: parseFloat(item.last),
+                                    price_change_percentage_24h: parseFloat(item.change_percentage),
+                                    market_cap: parseFloat(item.quote_volume) * 7.5,
+                                    total_volume: parseFloat(item.quote_volume),
+                                    sparkline_in_7d: null
+                                };
+                            });
+                            cryptoData = mapped;
+                            renderCryptoTable(mapped);
+                            if (label) label.innerText = `[Gate] 已找到 ${mapped.length} 个结果`;
                             if (dot) dot.style.color = '#10b981';
                             return;
                         }
 
-                        if (finalItems.length === 0) {
-                            if (label) label.innerText = `未找到 "${query}"`;
-                            if (dot) dot.style.color = '#ef4444';
-                            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 60px; color: #888;">
-                                <div style="font-size:32px; margin-bottom:15px;">🔍</div>
-                                未找到 "${query}"<br>
-                                <small style="color:#aaa">提示: 搜索 BTC, ETH, ETC 等</small>
-                            </td></tr>`;
-                            return;
+                        // 2. Fallback to CoinCap Search only if Gate data has no matches
+                        const directUrl = `https://api.coincap.io/v2/assets?search=${query}&limit=20`;
+                        const res = await fetchWithTimeout(directUrl, { timeout: 5000 });
+                        if (res.ok) {
+                            const json = await res.json();
+                            if (json.data && json.data.length > 0) {
+                                const mapped = json.data.map(item => ({
+                                    id: item.id,
+                                    symbol: item.symbol.toLowerCase(),
+                                    name: item.name,
+                                    image: `https://gimg2.gateimg.com/coin_icon/64/${item.symbol.toLowerCase()}.png`,
+                                    current_price: parseFloat(item.priceUsd),
+                                    price_change_percentage_24h: parseFloat(item.changePercent24Hr),
+                                    market_cap: parseFloat(item.marketCapUsd),
+                                    total_volume: parseFloat(item.volumeUsd24Hr),
+                                    sparkline_in_7d: null
+                                }));
+                                cryptoData = mapped;
+                                renderCryptoTable(mapped);
+                                if (label) label.innerText = `[CoinCap] 已找到 ${mapped.length} 个结果`;
+                                if (dot) dot.style.color = '#34d399';
+                                return;
+                            }
                         }
 
-                        const mapped = finalItems.map(item => ({
-                            id: item.id || item.symbol.toLowerCase(),
-                            symbol: item.symbol.toLowerCase(),
-                            name: item.name,
-                            image: `https://assets.coincap.io/assets/icons/${item.symbol.toLowerCase()}@2x.png`,
-                            current_price: item.priceUsd ? parseFloat(item.priceUsd) : (item.current_price || 0),
-                            price_change_percentage_24h: item.changePercent24Hr ? parseFloat(item.changePercent24Hr) : (item.price_change_percentage_24h || 0),
-                            market_cap: item.marketCapUsd ? parseFloat(item.marketCapUsd) : (item.market_cap || 0),
-                            total_volume: item.volumeUsd24Hr ? parseFloat(item.volumeUsd24Hr) : (item.total_volume || 0),
-                            sparkline_in_7d: item.sparkline_in_7d || null
-                        }));
+                        // 3. Not found
+                        if (label) label.innerText = `未找到 "${query}"`;
+                        if (dot) dot.style.color = '#ef4444';
+                        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 60px; color: #888;">
+                            <div style="font-size:32px; margin-bottom:15px;">🔍</div>
+                            未找到 "${query}"<br>
+                            <small style="color:#aaa">Gate.io 全网库中暂无此币种</small>
+                        </td></tr>`;
 
-                        cryptoData = mapped;
-                        renderCryptoTable(mapped);
-                        if (label) label.innerText = `已找到 ${finalItems.length} 个结果`;
-                        if (dot) dot.style.color = '#10b981';
                     } catch (e) {
                         console.error('Search error:', e);
                         if (label) label.innerText = 'Search Error';
-                        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color: #ef4444;">搜索失败，请检查网络设置</td></tr>`;
+                        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color: #ef4444;">搜索失败，请检查网络设置或稍后再试</td></tr>`;
                     }
                 }
 

@@ -8165,19 +8165,25 @@
         }
     </style>
     <!-- 行情功能模块 -->
-    <script src="../assets/js/crypto.js"></script>
-    <script src="../assets/js/precious.js"></script>
-    <script>
-        // 初始化行情模块
-        document.addEventListener('DOMContentLoaded', function() {
-            if (typeof initCrypto === 'function') {
-                initCrypto();
-            }
-            if (typeof initPrecious === 'function') {
-                initPrecious();
-            }
-        });
-    </script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+
+<script src="../assets/js/ws-client.js"></script>
+
+<script src="../assets/js/crypto.js"></script>
+<script src="../assets/js/precious.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        
+        if (typeof initCrypto === 'function') {
+            initCrypto();
+        }
+        if (typeof initPrecious === 'function') {
+            initPrecious();
+        }
+    });
+</script>
 </body>
 
 </html>

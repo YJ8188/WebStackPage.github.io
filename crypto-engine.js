@@ -11,6 +11,7 @@ const CryptoEngine = (() => {
     let lastRateUpdate = 0;
     const expandedCoins = new Set();
     const sparklineCache = {};
+    const iconCache = {}; // 缓存加载成功的图标源防止闪烁
     const sparklineRequests = new Set();
     const localStorageKey = 'crypto_market_cache_v3';
 
@@ -131,8 +132,15 @@ const CryptoEngine = (() => {
             if (res.ok) {
                 const json = await res.json();
                 if (json.Data && json.Data.Data) {
-                    sparklineCache[symbol] = json.Data.Data.map(d => d.close);
-                    renderTable();
+                    const prices = json.Data.Data.map(d => d.close);
+                    sparklineCache[symbol] = prices;
+
+                    // 核心优化：局部更新 DOM，防止整表刷新导致的图标闪烁
+                    const sparkContainer = document.querySelector(`.spark-box[data-symbol="${symbol}"]`);
+                    if (sparkContainer) sparkContainer.innerHTML = generateSparklineSvg(prices, changePct);
+
+                    const detailContainer = document.getElementById(`graph-detail-${symbol}`);
+                    if (detailContainer) detailContainer.innerHTML = generateSparklineSvg(prices, changePct, 450);
                 }
             }
         } catch (e) { } finally { sparklineRequests.delete(symbol); }
@@ -141,66 +149,150 @@ const CryptoEngine = (() => {
     function renderTable() {
         const tbody = document.getElementById('crypto-table-body');
         if (!tbody) return;
+
         const query = (document.getElementById('crypto-search')?.value || '').toLowerCase().trim();
         const mappedQuery = CN_COIN_MAP[query] || query;
-        const isCNY = currentCurrency === 'CNY';
-        const rate = isCNY ? USD_CNY_RATE : 1;
-        const sym = isCNY ? '¥' : '$';
 
-        let html = '';
+        // --- 核心优化：局部更新逻辑 (彻底解决图标闪烁) ---
         cryptoData.forEach(coin => {
-            if (mappedQuery && !coin.symbol.includes(mappedQuery) && !coin.name.toLowerCase().includes(mappedQuery)) return;
+            const isMatch = !mappedQuery || coin.symbol.includes(mappedQuery) || coin.name.toLowerCase().includes(mappedQuery);
+            let row = document.querySelector(`.main-row[data-symbol="${coin.symbol}"]`);
+            let detailRow = document.getElementById(`detail-${coin.symbol}`);
 
-            const p_raw = coin.current_price;
-            const price = (p_raw * rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: p_raw < 1 ? 4 : 2 });
+            if (!isMatch) {
+                if (row) row.style.display = 'none';
+                if (detailRow) detailRow.style.display = 'none';
+                return;
+            }
+
+            const p_raw = coal(coin.current_price);
+            // 格式化美元价格 (使用 Roboto Mono 加强金融感)
+            const priceUSD = p_raw.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: p_raw < 0.1 ? 6 : (p_raw < 1 ? 4 : 2) });
+            // 格式化人民币价格
+            const priceCNY = (p_raw * USD_CNY_RATE).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY', minimumFractionDigits: 2 });
             const change = coal(coin.price_change_percentage_24h);
-            const mcap = (coal(coin.market_cap) * rate).toLocaleString(undefined, { notation: 'compact' });
-            const vol = (coal(coin.total_volume) * rate).toLocaleString(undefined, { notation: 'compact' });
+            const mcap = (p_raw * coal(coin.circulating_supply || 0) * USD_CNY_RATE).toLocaleString('zh-CN', { notation: 'compact' });
+            const vol = coal(coin.total_volume).toLocaleString('zh-CN', { notation: 'compact' });
             const isOpen = expandedCoins.has(coin.symbol);
 
-            html += `
-                <tr class="main-row" onclick="CryptoEngine.toggleCoinDetail('${coin.symbol}')">
-                    <td>
+            // 如果行不存在，则创建骨架
+            if (!row) {
+                const displayIcon = iconCache[coin.symbol] || coin.image;
+                const tr = document.createElement('tr');
+                tr.className = 'main-row';
+                tr.setAttribute('data-symbol', coin.symbol);
+                tr.onclick = (e) => {
+                    // 排除点击特定交互元素
+                    if (e.target.closest('button') || e.target.closest('input')) return;
+                    CryptoEngine.toggleCoinDetail(coin.symbol);
+                };
+                tr.innerHTML = `
+                    <td class="coin-cell">
                         <div class="coin-info">
-                            <img src="${coin.image}" class="coin-icon" 
-                                 onerror="if(!this.tried){this.tried=1; this.src='https://assets.coincap.io/assets/icons/${coin.symbol.toLowerCase()}@2x.png';}else if(this.tried==1){this.tried=2; this.src='https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${coin.symbol.toLowerCase()}.png';}else if(this.tried==2){this.tried=3; this.src='https://cryptoicons.org/api/color/${coin.symbol.toLowerCase()}/64';}else if(this.tried==3){this.tried=4; this.src='https://static.coinpaper.com/coin/${coin.symbol.toLowerCase()}.png';}else if(this.tried==4){this.tried=5; this.src='https://api.gateio.ws/api/v4/spot/currencies/${coin.symbol.toUpperCase()}/icon';}else if(this.tried==5){this.tried=6; this.src='https://assets.coingecko.com/coins/images/placeholder/small/missing.png';}else{this.src='../assets/images/logos/btc.png';}">
+                            <div class="coin-icon-wrapper">
+                                <img src="${displayIcon}" class="coin-icon" 
+                                     onerror="handleIconError(this, '${coin.symbol.toLowerCase()}', '${coin.symbol.toUpperCase()}')">
+                            </div>
                             <div class="coin-name-wrap">
-                                <strong>${coin.symbol.toUpperCase()}</strong>
-                                <span class="coin-vol">${vol}</span>
+                                <strong class="sym">${coin.symbol.toUpperCase()}</strong>
+                                <span class="coin-vol-text">24h: ${vol} USDT</span>
                             </div>
                         </div>
                     </td>
-                    <td><div class="price-wrap"><span class="main-price">${sym}${price}</span></div></td>
-                    <td><div class="change-box ${change >= 0 ? 'change-up' : 'change-down'}">${change >= 0 ? '+' : ''}${change.toFixed(2)}%</div></td>
-                    <td class="market_cap_cell">
-                        <span style="display:flex; align-items:center;">
-                            ${sym}${mcap} 
-                            <i class="fa fa-angle-down" style="margin-left:8px; transition:0.3s; ${isOpen ? 'transform:rotate(180deg)' : ''}"></i>
-                        </span>
-                    </td>
-                    <td style="text-align:center;"><div class="spark-box">${sparklineCache[coin.symbol] ? generateSparklineSvg(sparklineCache[coin.symbol], change) : '-'}</div></td>
-                </tr>
-                <tr id="detail-${coin.symbol}" class="detail-row" style="${isOpen ? 'display:table-row; opacity:1;' : 'display:none;'}">
-                    <td colspan="5" style="padding:0 !important; background:rgba(0,0,0,0.015);">
-                        <div class="detail-container">
-                            <div class="detail-info">
-                                <h5>行情概览</h5>
-                                <p>市值: ${sym}${(coal(coin.market_cap) * rate).toLocaleString()}</p>
-                                <p>24h成交量: ${sym}${(coal(coin.total_volume) * rate).toLocaleString()}</p>
-                                <p>全称: ${coin.name}</p>
-                            </div>
-                            <div class="detail-chart">
-                                <h5>7日趋势 (最近168小时)</h5>
-                                <div id="graph-detail-${coin.symbol}">${sparklineCache[coin.symbol] ? generateSparklineSvg(sparklineCache[coin.symbol], change, 240) : '数据同步中...'}</div>
-                            </div>
+                    <td class="price-cell">
+                        <div class="price-stack">
+                            <span class="price-primary">${priceUSD}</span>
+                            <span class="price-secondary">≈ ${priceCNY}</span>
                         </div>
                     </td>
-                </tr>
-            `;
+                    <td class="change-cell"><div class="change-pill"></div></td>
+                    <td class="market-cap-cell table-market-cap"><div class="mcap-val-wrap"><span class="mcap-text">¥${mcap}</span><i class="fa fa-angle-right"></i></div></td>
+                    <td class="trend-cell" style="text-align:center;"><div class="spark-box" data-symbol="${coin.symbol}">${sparklineCache[coin.symbol] ? generateSparklineSvg(sparklineCache[coin.symbol], change) : '<div class="pulse-loader"></div>'}</div></td>
+                `;
+                tbody.appendChild(tr);
+
+                // 创建详情行备份
+                const dtr = document.createElement('tr');
+                dtr.id = `detail-${coin.symbol}`;
+                dtr.className = 'detail-row';
+                dtr.style.display = 'none';
+                dtr.innerHTML = `<td colspan="5"><div class="pro-panel"></div></td>`;
+                tbody.appendChild(dtr);
+
+                row = tr;
+                detailRow = dtr;
+            }
+
+            // --- 动态更新具体数值 (不重载行，根绝闪烁) ---
+            row.style.display = 'table-row';
+            row.querySelector('.price-primary').innerText = priceUSD;
+            row.querySelector('.price-secondary').innerText = `≈ ${priceCNY}`;
+            row.querySelector('.coin-vol-text').innerText = `24h: ${vol} USDT`;
+
+            const pill = row.querySelector('.change-pill');
+            pill.innerText = `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
+            pill.className = `change-pill ${change >= 0 ? 'up' : 'down'}`;
+
+            row.querySelector('.mcap-text').innerText = `¥${mcap}`;
+            const angle = row.querySelector('.fa-angle-right');
+            angle.className = `fa fa-angle-right ${isOpen ? 'rotate-down' : ''}`;
+
+            // 更新详情面板内容 (仅开启时更新，极致性能)
+            if (isOpen) {
+                detailRow.style.display = 'table-row';
+                const panel = detailRow.querySelector('.pro-panel');
+                // 仅在内容为空时或强制刷新内容
+                if (!panel.innerHTML || row.dataset.needsUpdate === 'true') {
+                    panel.innerHTML = `
+                        <div class="pro-grid">
+                            <div class="pro-stat"><label>估算市值(CNY)</label><div class="v">¥${(p_raw * coal(coin.circulating_supply || 0) * USD_CNY_RATE).toLocaleString()}</div></div>
+                            <div class="pro-stat"><label>24h 成交额(USD)</label><div class="v">$${coal(coin.total_volume).toLocaleString()}</div></div>
+                            <div class="pro-stat"><label>流通供应量</label><div class="v">${coal(coin.circulating_supply).toLocaleString()} ${coin.symbol.toUpperCase()}</div></div>
+                            <div class="pro-stat"><label>24h 高/低</label><div class="v">$${coal(coin.high_24h || 0).toLocaleString()} / $${coal(coin.low_24h || 0).toLocaleString()}</div></div>
+                        </div>
+                        <div class="pro-chart">
+                            <div class="chart-header"><h6>7D 趋势图谱 (CryptoCompare)</h6><span class="time-label">数据采样自最近168小时</span></div>
+                            <div id="graph-detail-${coin.symbol}" class="expanded-spark">
+                                ${sparklineCache[coin.symbol] ? generateSparklineSvg(sparklineCache[coin.symbol], change, 500) : '<div class="sync-text">聚合趋势计算中...</div>'}
+                            </div>
+                        </div>
+                    `;
+                }
+            } else {
+                detailRow.style.display = 'none';
+            }
+
             if (!sparklineCache[coin.symbol]) setTimeout(() => loadSparkline(coin.symbol, change), 0);
         });
-        tbody.innerHTML = html || '<tr><td colspan="5" style="text-align:center;padding:40px;color:#999;">无匹配行情数据</td></tr>';
+
+        // 维持列表顺序 (如果需要重排)
+        const sortedCoins = cryptoData.filter(c => !mappedQuery || c.symbol.includes(mappedQuery) || c.name.toLowerCase().includes(mappedQuery));
+        sortedCoins.forEach(coin => {
+            const r = document.querySelector(`.main-row[data-symbol="${coin.symbol}"]`);
+            const d = document.getElementById(`detail-${coin.symbol}`);
+            if (r) tbody.appendChild(r);
+            if (d) tbody.appendChild(d);
+        });
     }
+
+    // 独立图标错误处理，带路径缓存
+    window.handleIconError = function (img, symLower, symUpper) {
+        if (!img.tried) img.tried = 1; else img.tried++;
+        const sources = [
+            `https://assets.coincap.io/assets/icons/${symLower}@2x.png`,
+            `https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${symLower}.png`,
+            `https://cryptoicons.org/api/color/${symLower}/128`,
+            `https://static.coinpaper.com/coin/${symLower}.png`,
+            `https://api.gateio.ws/api/v4/spot/currencies/${symUpper}/icon`,
+            '../assets/images/logos/btc.png'
+        ];
+        if (img.tried <= sources.length) {
+            const nextSrc = sources[img.tried - 1];
+            img.src = nextSrc;
+            // 如果加载成功，缓存该路径
+            img.onload = () => { if (img.tried > 0) iconCache[symUpper] = nextSrc; };
+        }
+    };
 
     // --- 外部接口 ---
     return {
@@ -209,56 +301,195 @@ const CryptoEngine = (() => {
             const style = document.createElement('style');
             style.id = 'crypto-engine-styles';
             style.innerHTML = `
-                .crypto-header { display: flex !important; justify-content: space-between !important; align-items: center !important; flex-wrap: wrap !important; gap: 15px !important; margin-bottom: 20px !important; border-bottom: 1px solid rgba(0,0,0,0.05) !important; padding-bottom: 15px !important; }
-                .crypto-header-left { display: flex !important; align-items: center !important; gap: 10px !important; font-weight: 600 !important; font-size: 16px !important; color: #555 !important; }
-                .crypto-header-right { display: flex !important; align-items: center !important; gap: 15px !important; flex-wrap: nowrap !important; white-space: nowrap !important; }
-                .crypto-controls { display: flex !important; align-items: center !important; gap: 10px !important; }
-                .control-label { font-size: 12px !important; color: #999 !important; }
-                .api-status-wrap { display: flex !important; align-items: center !important; gap: 5px !important; background: rgba(0,0,0,0.03) !important; padding: 2px 8px !important; border-radius: 12px !important; margin-left:10px !important;}
-                #api-status-dot { font-size: 10px !important; line-height: 1 !important; color: #f59e0b; }
-                #api-status-text { font-size: 11px !important; color: #888 !important; }
-
-                .search-box-crypto { position: relative !important; display: flex !important; align-items: center !important; background: #fff !important; border: 1px solid #e0e0e0 !important; border-radius: 6px !important; padding: 4px 12px !important; width: 220px !important; box-shadow: 0 2px 5px rgba(0,0,0,0.02) !important; transition: all 0.2s !important; }
-                .search-box-crypto:focus-within { border-color: #10b981 !important; box-shadow: 0 0 0 3px rgba(16,185,129,0.1) !important; }
-                .search-box-crypto i { color: #aaa !important; font-size: 13px !important; margin-right: 8px !important; }
-                .search-box-crypto input { background: transparent !important; border: none !important; outline: none !important; padding: 0 !important; width: 100% !important; font-size: 13px !important; color: #333 !important; height: 26px !important; }
-                
-                .crypto-table-container { background: #fff !important; border-radius: 12px !important; overflow: hidden !important; box-shadow: 0 5px 25px rgba(0,0,0,0.05) !important; border: 1px solid #f0f0f0 !important; }
-                .crypto-table { width: 100% !important; border-collapse: collapse !important; }
-                .crypto-table th { background: #fafafa !important; padding: 14px 15px !important; color: #888 !important; font-size: 13px !important; font-weight: 500 !important; border-bottom: 2px solid #f5f5f5 !important; text-align: left !important; }
-                .crypto-table td { padding: 14px 15px !important; vertical-align: middle !important; border-top: 1px solid #f8f8f8 !important; color: #333 !important; }
-                .main-row { cursor: pointer !important; transition: background 0.2s !important; } .main-row:hover { background: #fbfbfb !important; }
-                
-                .coin-info { display: flex !important; align-items: center !important; gap: 12px !important; } 
-                .coin-icon { width: 34px !important; height: 34px !important; border-radius: 50% !important; background: #fff !important; object-fit: contain !important; flex-shrink: 0 !important; box-shadow: 0 2px 6px rgba(0,0,0,0.05) !important; }
-                .coin-name-wrap { display: flex !important; flex-direction: column !important; line-height: 1.2 !important; } 
-                .coin-name-wrap strong { font-size: 15px !important; color: #111 !important; } .coin-vol { font-size: 11px !important; color: #aaa !important; margin-top: 2px !important; }
-                .main-price { font-weight: 700 !important; font-size: 15px !important; font-family: "JetBrains Mono", monospace !important; }
-                
-                .change-box { display: inline-block !important; min-width: 80px !important; padding: 6px !important; border-radius: 4px !important; color: #fff !important; text-align: center !important; font-weight: bold !important; font-size: 12px !important; }
-                .change-up { background: #ef4444 !important; } .change-down { background: #10b981 !important; }
-
-                /* Dark Mode Fixes */
-                body.dark-mode .crypto-header { border-bottom-color: rgba(255,255,255,0.08) !important; }
-                body.dark-mode .crypto-header-left { color: #ccc !important; }
-                body.dark-mode .api-status-wrap { background: rgba(255,255,255,0.05) !important; }
-                body.dark-mode .search-box-crypto { background: #2a2a2a !important; border-color: #3a3a3a !important; }
-                body.dark-mode .search-box-crypto input { color: #eee !important; }
-                body.dark-mode .search-box-crypto i { color: #888 !important; }
-                body.dark-mode .crypto-table-container { background: #1e1e1e !important; border-color: #2a2a2a !important; box-shadow: none !important; }
-                body.dark-mode .crypto-table th { background: #252525 !important; border-bottom-color: #2a2a2a !important; color: #777 !important; }
-                body.dark-mode .crypto-table td { border-top-color: #2a2a2a !important; color: #ccc !important; }
-                body.dark-mode .main-row:hover { background: #252525 !important; }
-                body.dark-mode .coin-name-wrap strong { color: #eee !important; }
-                body.dark-mode .search-box-crypto i { color: #888 !important; }
-                body.dark-mode .coin-icon { background: #333 !important; }
-
-                @media screen and (max-width: 768px) {
-                    .crypto-header { flex-direction: column !important; align-items: flex-start !important; gap: 15px !important; }
-                    .crypto-header-right { width: 100% !important; justify-content: space-between !important; flex-wrap: wrap !important; }
-                    .search-box-crypto { width: 100% !important; margin-top: 5px !important; }
-                    .table-market-cap { display: none !important; } .market_cap_cell { display: none !important; }
+                /* --- Gate.io 风格极致美化 --- */
+                #crypto-section-wrapper { 
+                    font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif !important; 
+                    margin-top: 35px !important;
+                    padding-bottom: 30px;
                 }
+                
+                .crypto-header { 
+                    display: flex !important; 
+                    justify-content: space-between !important; 
+                    align-items: center !important; 
+                    flex-wrap: wrap !important; 
+                    padding: 0 5px 25px 5px !important; 
+                }
+                .crypto-title { 
+                    font-size: 22px !important; 
+                    font-weight: 800 !important; 
+                    color: #1e2329 !important; 
+                    letter-spacing: -0.8px; 
+                    display: flex;
+                    align-items: center;
+                }
+                
+                /* API 状态指示灯呼吸效 */
+                .api-status-wrap { 
+                    display: inline-flex; 
+                    align-items: center; 
+                    background: rgba(0,0,0,0.03); 
+                    padding: 4px 10px; 
+                    border-radius: 20px; 
+                    margin-left: 15px;
+                    font-size: 11px;
+                    font-weight: 600;
+                    color: #707a8a;
+                    border: 1px solid rgba(0,0,0,0.05);
+                }
+                #api-status-dot { 
+                    margin-right: 6px; 
+                    font-size: 8px; 
+                    animation: status-pulse 2s infinite; 
+                }
+                @keyframes status-pulse {
+                    0% { opacity: 1; transform: scale(1); }
+                    50% { opacity: 0.5; transform: scale(1.2); }
+                    100% { opacity: 1; transform: scale(1); }
+                }
+
+                /* 搜索盒优化 */
+                .search-box-crypto {
+                    position: relative;
+                    background: #f1f3f6 !important;
+                    border-radius: 10px !important;
+                    padding: 0 15px !important;
+                    display: flex;
+                    align-items: center;
+                    width: 260px;
+                    height: 40px;
+                    transition: all 0.3s;
+                    border: 1px solid transparent;
+                }
+                .search-box-crypto:focus-within {
+                    background: #fff !important;
+                    border-color: #f0b90b !important;
+                    box-shadow: 0 0 0 3px rgba(240, 185, 11, 0.1);
+                }
+                .search-box-crypto i { color: #848e9c; margin-right: 10px; font-size: 14px; }
+                .search-box-crypto input {
+                    border: none !important;
+                    background: transparent !important;
+                    color: #1e2329 !important;
+                    font-size: 14px !important;
+                    outline: none !important;
+                    width: 100%;
+                }
+
+                /* 表格容器高级阴影 */
+                .crypto-table-container { 
+                    background: #fff !important; 
+                    border-radius: 20px !important; 
+                    box-shadow: 0 20px 60px rgba(0,0,0,0.06) !important; 
+                    border: 1px solid #ebedf0 !important; 
+                    overflow: hidden !important;
+                }
+                
+                @media screen and (max-width: 768px) {
+                    .crypto-table-container { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+                    .crypto-table { min-width: 750px !important; }
+                    .search-box-crypto { width: 100% !important; margin-top: 15px; }
+                    .crypto-header-right { width: 100% !important; flex-direction: column !important; align-items: stretch !important; }
+                }
+                
+                .crypto-table th { 
+                    background: #f8faff !important; 
+                    padding: 18px 20px !important; 
+                    color: #707a8a !important; 
+                    font-size: 12px !important; 
+                    font-weight: 700 !important; 
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    border-bottom: 1px solid #f1f3f6 !important; 
+                }
+                .crypto-table td { 
+                    padding: 16px 20px !important; 
+                    border-bottom: 1px solid #f8f9fb !important; 
+                    transition: all 0.2s; 
+                }
+                .main-row:hover td { background-color: #f9fbff !important; cursor: pointer; }
+
+                /* 价格双叠架构 */
+                .price-stack { display: flex; flex-direction: column; gap: 4px; }
+                .price-primary { 
+                    font-family: 'Roboto Mono', monospace !important; 
+                    font-weight: 700 !important; 
+                    font-size: 17px !important; 
+                    color: #1e2329 !important; 
+                }
+                .price-secondary { 
+                    font-size: 12px !important; 
+                    color: #848e9c !important; 
+                    font-weight: 500; 
+                }
+                
+                /* 涨跌幅药丸效果 */
+                .change-pill { 
+                    display: inline-flex !important; 
+                    align-items: center; 
+                    justify-content: center; 
+                    min-width: 88px; 
+                    padding: 6px 0 !important; 
+                    border-radius: 6px !important; 
+                    color: #fff !important; 
+                    font-weight: 700 !important; 
+                    font-size: 14px !important; 
+                    transition: transform 0.2s;
+                }
+                .change-pill:hover { transform: scale(1.05); }
+                .change-pill.up { background: #0ecb81 !important; box-shadow: 0 4px 12px rgba(14,203,129,0.25); }
+                .change-pill.down { background: #f6465d !important; box-shadow: 0 4px 12px rgba(246,70,93,0.25); }
+                
+                .coin-icon-wrapper { 
+                    width: 40px; 
+                    height: 40px; 
+                    border-radius: 50%; 
+                    background: #f1f3f6; 
+                    display: flex; 
+                    align-items: center; 
+                    justify-content: center; 
+                    margin-right: 12px;
+                }
+                .coin-icon { width: 32px !important; height: 32px !important; object-fit: contain !important; }
+                .coin-name-wrap .sym { font-size: 16px !important; color: #1e2329 !important; font-weight: 700 !important; letter-spacing: -0.2px; }
+                .coin-vol-text { font-size: 11px !important; color: #848e9c !important; font-weight: 500; margin-top: 2px; }
+
+                /* 详情展示区面板 */
+                .pro-panel { 
+                    background: #fbfcfd !important; 
+                    padding: 35px !important; 
+                    border-top: 1px solid #eff2f5; 
+                    box-shadow: inset 0 10px 30px rgba(0,0,0,0.02);
+                }
+                .pro-grid { display: grid !important; grid-template-columns: repeat(4, 1fr) !important; gap: 30px !important; }
+                .pro-stat { border-left: 4px solid #f0b90b; padding-left: 20px; }
+                .pro-stat label { font-size: 12px !important; color: #848e9c !important; font-weight: 600; margin-bottom: 10px; display: block; }
+                .pro-stat .v { 
+                    font-family: 'Roboto Mono', monospace !important; 
+                    font-size: 16px !important; 
+                    font-weight: 700 !important; 
+                    color: #1e2329 !important; 
+                }
+                
+                .chart-header { border-bottom: 1px solid #f0f2f5; padding-bottom: 15px; margin-bottom: 25px; }
+
+                /* 暗黑模式深度定制 */
+                body.dark-mode #crypto-section-wrapper { background: #0b0e11 !important; }
+                body.dark-mode .crypto-title { color: #eaecef !important; }
+                body.dark-mode .api-status-wrap { background: rgba(255,255,255,0.05); color: #848e9c; }
+                body.dark-mode .search-box-crypto { background: #1e2329 !important; }
+                body.dark-mode .search-box-crypto input { color: #eaecef !important; }
+                body.dark-mode .crypto-table-container { background: #181a20 !important; border-color: #2b3139 !important; box-shadow: none !important; }
+                body.dark-mode .crypto-table th { background: #1e2329 !important; color: #848e9c !important; }
+                body.dark-mode .crypto-table td { border-bottom-color: #2b3139 !important; }
+                body.dark-mode .main-row:hover td { background-color: #2b3139 !important; }
+                body.dark-mode .price-primary, body.dark-mode .coin-name-wrap .sym, body.dark-mode .pro-stat .v { color: #eaecef !important; }
+                body.dark-mode .pro-panel { background: #181a20 !important; border-top-color: #2b3139; }
+                body.dark-mode .coin-icon-wrapper { background: #2b3139; }
+                body.dark-mode .pro-stat { border-left-color: #f0b90b; }
+                
+                .pulse-loader { width: 20px; height: 2px; background: #eee; animation: pulse 1.5s infinite; }
+                @keyframes pulse { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
                 .fade-out { opacity: 0 !important; pointer-events: none !important; transition: opacity 0.3s !important; }
             `;
             document.head.appendChild(style);

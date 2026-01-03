@@ -490,7 +490,7 @@ function renderPreciousTable(data) {
         const formattedSellingPrice = formatPreciousPrice(sellingPrice);
 
         return `
-            <tr class="main-row">
+            <tr class="main-row" onclick="togglePreciousDetail('${item.symbol}')">
                 <td>
                     <div class="metal-info">
                         <div class="metal-name">${item.name}</div>
@@ -511,8 +511,93 @@ function renderPreciousTable(data) {
         `;
     }).join('');
 
-    tbody.innerHTML = rows;
+    // 隐藏显示/隐藏和恢复默认排序按钮
+    const controlButtonsHTML = `
+        <tr id="precious-controls" style="display:none;">
+            <td colspan="3" style="padding: 10px; text-align: right; background: #fafafa;">
+                <button type="button" id="precious-toggle-display" class="btn btn-xs btn-white" style="margin-right: 10px;">
+                    <i class="fa fa-eye"></i> 显示/隐藏
+                </button>
+                <button type="button" id="precious-reset-sort" class="btn btn-xs btn-white">
+                    <i class="fa fa-refresh"></i> 恢复默认排序
+                </button>
+            </td>
+        </tr>
+    `;
+
+    tbody.innerHTML = rows + controlButtonsHTML;
 }
+
+// 切换贵金属详情展开
+function togglePreciousDetail(symbol) {
+    const detailRow = document.getElementById(`precious-detail-${symbol}`);
+    if (detailRow) {
+        // 收起详情
+        detailRow.remove();
+    } else {
+        // 展开详情
+        const mainRow = Array.from(document.querySelectorAll('.main-row')).find(row => {
+            return row.querySelector('.metal-symbol').textContent === symbol;
+        });
+        
+        if (mainRow) {
+            const detailHTML = `
+                <tr id="precious-detail-${symbol}" class="precious-detail-row">
+                    <td colspan="3" style="padding: 10px 15px; background: #fafafa;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="color: #666; font-size: 12px;">
+                                <strong>${symbol}</strong> 详细信息
+                            </div>
+                            <button class="btn btn-xs btn-white" onclick="document.getElementById('precious-detail-${symbol}').remove();"
+                                style="padding: 2px 6px;">
+                                <i class="fa fa-times"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            
+            // 使用insertAdjacentHTML添加到主行之后
+            mainRow.insertAdjacentHTML('afterend', detailHTML);
+        }
+    }
+}
+
+// 初始化贵金属行情功能
+function initPrecious() {
+    // 实时轮询
+    setInterval(() => {
+        if (!isPreciousSearching) fetchPreciousData();
+    }, 3000);
+    
+    // 初始化WebSocket连接
+    initRealtimeConnectionWithDelay();
+    
+    // 添加搜索框事件监听
+    const searchInput = document.getElementById('precious-search');
+    const searchClear = document.getElementById('precious-search-clear');
+    
+    if (searchInput) {
+        searchInput.addEventListener('input', handlePreciousSearchInput);
+        searchInput.addEventListener('keydown', handlePreciousSearchKey);
+    }
+    
+    if (searchClear) {
+        searchClear.addEventListener('click', clearPreciousSearch);
+    }
+    
+    // 添加货币切换按钮事件
+    const currencyToggle = document.getElementById('precious-currency-toggle');
+    if (currencyToggle) {
+        currencyToggle.addEventListener('click', togglePreciousCurrency);
+    }
+}
+
+// 当DOM加载完成后初始化
+document.addEventListener('DOMContentLoaded', initPrecious);
+
+// 页面加载完成后立即获取数据
+window.addEventListener('load', fetchPreciousData);
 
 // 调试函数：检查WebSocket连接状态
 function checkPreciousWebSocketStatus() {

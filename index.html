@@ -8168,91 +8168,10 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 
-<!-- 使用增强版WebSocket客户端 -->
-<script src="../assets/js/ws-client-enhanced.js"></script>
 
-<script src="../assets/js/crypto.js"></script>
-<script src="../assets/js/precious.js"></script>
+<script src="assets/js/Utilss.js"></script>
+<script src="assets/js/sockets.js"></script>
 
-<!-- WebSocket调试和状态监控 -->
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // 监控WebSocket状态
-    if (typeof WSClient !== 'undefined') {
-        WSClient.onStatusChange(function(status) {
-            console.log('[Debug] WebSocket状态更新:', status);
-            
-            // 更新页面上的状态指示器
-            const statusDot = document.getElementById('precious-api-status-dot');
-            const providerName = document.getElementById('precious-api-provider-name');
-            
-            if (statusDot && providerName) {
-                switch (status.status) {
-                    case 'connected':
-                        statusDot.style.color = '#10b981';
-                        providerName.innerText = 'WebSocket 实时数据 (已连接)';
-                        break;
-                    case 'reconnecting':
-                        statusDot.style.color = '#f59e0b';
-                        providerName.innerText = 'WebSocket 重连中...';
-                        break;
-                    case 'error':
-                    case 'failed':
-                        statusDot.style.color = '#ef4444';
-                        providerName.innerText = 'WebSocket 连接失败';
-                        break;
-                    default:
-                        statusDot.style.color = '#6b7280';
-                        providerName.innerText = 'WebSocket 连接中...';
-                }
-            }
-        });
-    }
-    
-    // 添加手动重连功能
-    window.reconnectWebSocket = function() {
-        if (typeof WSClient !== 'undefined') {
-            console.log('[Debug] 手动重连WebSocket');
-            WSClient.disconnect();
-            setTimeout(() => {
-                WSClient.init();
-            }, 1000);
-        }
-    };
-    
-    // 添加调试信息显示
-    window.showWebSocketDebug = function() {
-        if (typeof WSClient !== 'undefined') {
-            const status = WSClient.getStatus();
-            alert('WebSocket调试信息:\n\n' + 
-                  '连接状态: ' + (status.connected ? '已连接' : '未连接') + '\n' +
-                  '当前状态: ' + status.status + '\n' +
-                  '重连次数: ' + status.reconnectAttempts + '\n' +
-                  '连接地址: ' + status.url + '\n' +
-                  '用户ID: ' + status.uid);
-        } else {
-            alert('WSClient未定义');
-        }
-    };
-    
-    console.log('[Debug] WebSocket调试功能已启用');
-    console.log('[Debug] 可用命令:');
-    console.log('- reconnectWebSocket() : 手动重连WebSocket');
-    console.log('- showWebSocketDebug() : 显示WebSocket状态');
-});
-</script>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        
-        if (typeof initCrypto === 'function') {
-            initCrypto();
-        }
-        if (typeof initPrecious === 'function') {
-            initPrecious();
-        }
-    });
-</script>
 </body>
 
 </html>

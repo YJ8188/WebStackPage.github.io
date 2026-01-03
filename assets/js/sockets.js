@@ -1,26 +1,49 @@
+// assets/js/sockets.js
 
-// Utilss.js
-var Utilss = {
+var ws = null;
 
-  getUUID: function () {
-    return 'xxxxxx'.replace(/[x]/g, function () {
-      return Math.floor(Math.random() * 16).toString(16);
-    });
-  },
+function startWS() {
+  var url = Utilss.getWsURL();
+  console.log("行情 WS 连接：", url);
 
-  // ⚠️ 关键在这里
-  getWsURL: function () {
-    var ip = Plaintext.ipStr();
+  ws = new WebSocket(url);
 
-    // ⚠️ 端口和路径下一步抓
-    return "ws://" + ip + ":端口/路径";
-  },
+  ws.onopen = function () {
+    console.log("✅ 行情 WebSocket 已连接");
+  };
 
-  getSendData: function (uid) {
-    return JSON.stringify({
-      type: "ping",
-      time: Date.now()
-    });
-  }
+  ws.onmessage = function (e) {
+    try {
+      var data = JSON.parse(e.data);
+      console.log("📈 收到行情数据：", data);
+      renderData(data);
+    } catch (err) {
+      // 非 JSON 数据忽略
+    }
+  };
 
-};
+  ws.onclose = function () {
+    console.log("❌ WS 断开，3 秒后重连");
+    setTimeout(startWS, 3000);
+  };
+
+  ws.onerror = function () {
+    ws.close();
+  };
+}
+
+// 简单渲染（后续我会帮你对齐原站字段）
+function renderData(data) {
+  if (!data || !data.code) return;
+
+  var buyEl = document.getElementById(data.code + "_B");
+  var sellEl = document.getElementById(data.code + "_A");
+
+  if (buyEl && data.buy) buyEl.innerText = data.buy;
+  if (sellEl && data.sell) sellEl.innerText = data.sell;
+}
+
+// 页面加载完成后自动启动行情
+document.addEventListener("DOMContentLoaded", function () {
+  startWS();
+});

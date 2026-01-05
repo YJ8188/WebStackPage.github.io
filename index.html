@@ -5645,7 +5645,7 @@
                 let allGateTickers = []; // Master list from Gate.io for global search
                 const expandedCoins = new Set();
                 
-                // 汇率同步函数 - 优化版
+                // 汇率同步函数 - 优化版（从加密货币数据中获取USDT价格）
                 async function syncExchangeRate(showNotification = false) {
                     // 如果距离上次更新不足60秒,跳过(除非强制更新)
                     if (!showNotification && Date.now() - lastRateUpdate < 60000) {
@@ -5673,8 +5673,8 @@
                                 const oldRate = USD_CNY_RATE;
                                 const rateDiff = Math.abs(newRate - oldRate);
 
-                                // 只有汇率变化超过0.01才更新(避免微小波动)
-                                if (rateDiff > 0.01) {
+                                // 只要有变化就更新（确保与USDT价格完全一致）
+                                if (rateDiff > 0.0001) {
                                     USD_CNY_RATE = newRate;
                                     lastRateUpdate = Date.now();
 
@@ -5687,12 +5687,17 @@
                                     // 更新汇率显示
                                     updateRateDisplay();
 
+                                    // 如果当前显示的是CNY，立即更新表格中的价格
+                                    if (currentCurrency === 'CNY' && cryptoData.length > 0) {
+                                        renderCryptoTable(cryptoData);
+                                    }
+
                                     // 显示通知
                                     if (showNotification) {
                                         showRateUpdateNotification(oldRate, newRate);
                                     }
                                 } else {
-                                    console.log('汇率变化微小,保持当前值:', USD_CNY_RATE);
+                                    console.log('汇率无变化,保持当前值:', USD_CNY_RATE);
                                 }
                             }
                         } else {
@@ -6050,11 +6055,27 @@
                             // 0. Backup all tickers for global search
                             allGateTickers = data;
 
-                            // 1. Sync Exchange Rate (Fixed issue with finding USDT_CNY accurately)
+                            // 1. Sync Exchange Rate - 只在汇率未设置或过期时更新
                             const usdtCny = data.find(item => item.currency_pair === 'USDT_CNY');
                             if (usdtCny && usdtCny.last) {
-                                USD_CNY_RATE = parseFloat(usdtCny.last);
-                                lastRateUpdate = Date.now();
+                                const newRate = parseFloat(usdtCny.last);
+                                const rateAge = lastRateUpdate ? (Date.now() - lastRateUpdate) : Infinity;
+
+                                // 只有当汇率未设置或超过5分钟未更新时，才从Gate.io数据中更新汇率
+                                if (rateAge > 300000 || !USD_CNY_RATE) {
+                                    const oldRate = USD_CNY_RATE;
+                                    USD_CNY_RATE = newRate;
+                                    lastRateUpdate = Date.now();
+
+                                    console.log('从Gate.io数据更新汇率:', oldRate, '→', USD_CNY_RATE);
+
+                                    // 保存到localStorage
+                                    safeStorage.setItem('usd_cny_rate', USD_CNY_RATE.toString());
+                                    safeStorage.setItem('usd_cny_rate_time', lastRateUpdate.toString());
+
+                                    // 更新汇率显示
+                                    updateRateDisplay();
+                                }
                             }
 
                             // 2. Filter USDT pairs and sort by volume to get Top 50
@@ -6238,6 +6259,13 @@
                         currentCurrency = 'CNY';
                         btn.innerText = 'CNY';
                         btn.className = 'btn btn-xs btn-warning';
+
+                        // 切换到CNY时，确保汇率是最新的
+                        const rateAge = lastRateUpdate ? (Date.now() - lastRateUpdate) : Infinity;
+                        if (rateAge > 60000) { // 如果超过1分钟未更新，触发同步
+                            console.log('切换到CNY，同步汇率...');
+                            syncExchangeRate(false);
+                        }
                     } else {
                         currentCurrency = 'USD';
                         btn.innerText = 'USD';
@@ -6333,6 +6361,10 @@
                             console.log('API返回数据数量:', cryptoData.length);
                             console.log('API数据来源:', fastestResult.name);
                             onSuccess(dot, fastestResult.name, fastestResult.data);
+
+                            // 确保汇率显示已更新（特别是当从Gate.io获取数据时）
+                            updateRateDisplay();
+
                             // Persist to local storage for offline use
                             safeStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
                             safeStorage.setItem('crypto_market_cache_time', Date.now().toString());

@@ -5079,7 +5079,7 @@
                     <span style="margin: 0 10px; color: #333;">|</span>
                     <!-- 汇率显示 -->
                     <span style="margin-right: 10px; color: #888; font-size: 12px;">
-                        汇率: <span id="exchange-rate-display" style="color: #10b981; font-weight: 600;">1 USD ≈ ¥${USD_CNY_RATE.toFixed(4)}</span>
+                        汇率: <span id="exchange-rate-display" style="color: #10b981; font-weight: 600;">1 USD ≈ ¥7.25</span>
                         <i class="fa fa-sync" id="rate-sync-icon" style="margin-left: 5px; cursor: pointer; color: #999; transition: transform 0.3s;" onclick="syncExchangeRate(true)" title="立即同步汇率"></i>
                     </span>
                 </span>
@@ -5663,7 +5663,7 @@
                         console.log('开始同步汇率...');
                         const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY', {
                             timeout: 10000,
-                            useProxy: true
+                            useProxy: false
                         });
 
                         if (res.ok) {
@@ -6673,8 +6673,9 @@
                 // Hover to hide floating buttons logic
                 document.addEventListener('DOMContentLoaded', () => {
                     // 初始化汇率显示
+                    console.log('初始化汇率显示，当前汇率:', USD_CNY_RATE);
                     updateRateDisplay();
-                    
+
                     fetchCryptoData();
 
                     // 智能实时同步机制 - 根据网络状况动态调整

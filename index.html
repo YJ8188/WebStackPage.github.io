@@ -5188,12 +5188,12 @@
 
                 /* 涨价时的价格颜色 - 红色 */
                 .main-price.price-up {
-                    color: #ef4444;
+                    color: #ef4444 !important;
                 }
 
                 /* 跌价时的价格颜色 - 绿色 */
                 .main-price.price-down {
-                    color: #10b981;
+                    color: #10b981 !important;
                 }
 
                 .converted-price {
@@ -5357,6 +5357,15 @@
 
                 body.dark-mode .main-price {
                     color: #fff;
+                }
+
+                /* 暗黑模式下的涨跌价格颜色 */
+                body.dark-mode .main-price.price-up {
+                    color: #ef4444 !important;
+                }
+
+                body.dark-mode .main-price.price-down {
+                    color: #10b981 !important;
                 }
 
                 body.dark-mode .market_cap_cell {

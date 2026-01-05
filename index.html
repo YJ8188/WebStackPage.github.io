@@ -14,9 +14,8 @@
     <meta name="msvalidate.01" content="B5E4CFF733488FD189098A7AC19D4EAF" />
 
     <!-- 字体预加载，提升性能 -->
-    <link rel="preload" href="https://cdn.jsdelivr.net/npm/harmonyos-sans@1.0.6/css/harmonyos-sans.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/harmonyos-sans@1.0.6/css/harmonyos-sans.min.css"></noscript>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/harmonyos-sans@1.0.6/css/harmonyos-sans.min.css" media="print" onload="this.media='all'">
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/harmonyos-sans@1.0.6/css/harmonyos-sans.min.css" as="style">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/harmonyos-sans@1.0.6/css/harmonyos-sans.min.css">
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js">
     </script>
     <script>
@@ -46,7 +45,7 @@
     <link rel="shortcut icon" href="../assets/images/favicon.png">
     <link rel="apple-touch-icon" href="../assets/images/favicon.png">
 
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Arimo:400,700,400italic&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Arimo:400,700,400italic">
     <link rel="stylesheet" href="../assets/css/fonts/linecons/css/linecons.css">
     <link rel="stylesheet" href="../assets/css/fonts/fontawesome/css/font-awesome.min.css">
     <link rel="stylesheet" href="../assets/css/bootstrap.css">
@@ -170,6 +169,61 @@
             box-shadow: 0 14px 32px rgba(0, 0, 0, 0.55);
             z-index: 2;
         }
+
+        /* ---------- 卡片状态指示器 ---------- */
+        .card-status-indicator {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #6b7280;
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+            z-index: 5;
+        }
+
+        .card-status-indicator.online {
+            background: #10b981;
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3), 0 0 8px rgba(16, 185, 129, 0.5);
+            animation: pulse-green 2s infinite;
+        }
+
+        .card-status-indicator.offline {
+            background: #ef4444;
+            box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3);
+        }
+
+        .card-status-indicator.checking {
+            background: #6b7280;
+            animation: pulse-gray 1.5s infinite;
+        }
+
+        @keyframes pulse-green {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.6;
+            }
+        }
+
+        @keyframes pulse-gray {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.2);
+            }
+        }
+
 
         /* ---------- 卡片隐藏按钮 ---------- */
         .card-hide-btn {
@@ -442,32 +496,6 @@
             }
         }
 
-        @media (max-width: 480px) {
-            .global-search {
-                top: 60px;
-                left: 10px;
-                right: 10px;
-                transform: none;
-                width: auto;
-            }
-
-            .global-search-box {
-                padding: 6px 10px;
-                gap: 6px;
-                width: 100%;
-                justify-content: space-between;
-            }
-
-            .global-search-box i {
-                font-size: 14px;
-            }
-
-            .global-search-box input {
-                width: calc(100% - 80px);
-                font-size: 13px;
-            }
-        }
-
         /* 搜索引擎切换按钮 */
         .search-engine-btn {
             background: rgba(59, 130, 246, 0.2);
@@ -496,21 +524,6 @@
             .search-engine-btn {
                 font-size: 10px;
                 padding: 3px 8px;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .search-engine-btn {
-                font-size: 9px;
-                padding: 2px 6px;
-                min-width: 30px;
-            }
-        }
-
-        /* 移动端隐藏搜索框 */
-        @media screen and (max-width: 768px) {
-            .global-search {
-                display: none !important;
             }
         }
     </style>
@@ -737,12 +750,6 @@
                 <!-- User Info, Notifications and Menu Bar -->
                 <!-- Left links for user info navbar -->
                 <ul class="user-info-menu left-links list-inline list-unstyled">
-                    <!-- 移动端菜单按钮 -->
-                    <li class="visible-xs">
-                        <a href="javascript:void(0)" onclick="toggleSidebar()" title="菜单">
-                            <i class="fa fa-bars"></i>
-                        </a>
-                    </li>
                     <li class="hidden-sm hidden-xs">
                     </li>
                 </ul>
@@ -5112,23 +5119,23 @@
             <h4 class="text-gray">
                 <i class="linecons-money" style="margin-right: 7px;" id="数字货币"></i>数字货币行情 (Live Market)
                 <span style="float: right; display: flex; align-items: center; font-size: 13px;">
-                    <button id="refresh-crypto-btn" class="btn btn-xs btn-white" onclick="fetchCryptoData(true)"
+                    <button id="refresh-crypto-btn" class="btn btn-xs btn-white" onclick="fetchCryptoData()"
                         style="margin-right: 10px; padding: 2px 6px;" title="刷新数据">
                         <i class="fa fa-refresh"></i>
-                    </button>
-                    <button id="clear-cache-btn" class="btn btn-xs btn-white" onclick="clearCacheAndRefresh()"
-                        style="margin-right: 10px; padding: 2px 6px;" title="清除缓存">
-                        <i class="fa fa-trash"></i>
                     </button>
                     <span style="margin-right: 10px; color: #888;">计价:</span>
                     <button id="currency-toggle" class="btn btn-xs btn-primary" onclick="toggleCurrency()"
                         style="padding: 2px 8px;">USD</button>
                     <span style="margin: 0 10px; color: #333;">|</span>
-                    <!-- 汇率显示 -->
-                    <span style="margin-right: 10px; color: #888; font-size: 12px;">
-                        汇率: <span id="exchange-rate-display" style="color: #10b981; font-weight: 600;">1 USDT ≈ ¥7.25</span>
-                        <i class="fa fa-sync" id="rate-sync-icon" style="margin-left: 5px; cursor: pointer; color: #999; transition: transform 0.3s;" onclick="syncExchangeRate(true)" title="立即同步USDT/CNY汇率"></i>
-                    </span>
+                    <div class="search-box-crypto"
+                        style="position: relative; display: inline-block; vertical-align: middle; z-index: 100;">
+                        <input type="text" id="crypto-search" placeholder="输入币种 (如 ETC, PEPE)..."
+                            style="background:rgba(255,255,255,0.05); border: 1px solid #444; border-radius: 4px; padding: 2px 50px 2px 10px; color: inherit; width: 190px; height: 26px; font-size: 12px; transition: border-color 0.3s;">
+                        <i class="fa fa-times" id="crypto-search-clear" onclick="clearCryptoSearch()"
+                            style="position: absolute; right: 28px; top: 50%; transform: translateY(-50%); color: #666; font-size: 12px; cursor: pointer; display: none; padding: 5px;"></i>
+                        <i class="fa fa-search" id="crypto-search-trigger" onclick="searchCrypto()"
+                            style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); color: #999; font-size: 14px; cursor: pointer; padding: 5px;"></i>
+                    </div>
                 </span>
             </h4>
 
@@ -5167,8 +5174,6 @@
                     border-radius: 12px;
                     overflow: hidden;
                     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-                    overflow-x: auto;
-                    -webkit-overflow-scrolling: touch;
                 }
 
                 .crypto-table {
@@ -5236,18 +5241,6 @@
                     font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
                     font-weight: 600;
                     font-size: 14px;
-                    color: #333;
-                    transition: color 0.3s ease;
-                }
-
-                /* 涨价时的价格颜色 - 红色 */
-                .main-price.price-up {
-                    color: #ef4444 !important;
-                }
-
-                /* 跌价时的价格颜色 - 绿色 */
-                .main-price.price-down {
-                    color: #10b981 !important;
                 }
 
                 .converted-price {
@@ -5264,28 +5257,22 @@
                     border-radius: 4px;
                     text-align: center;
                     font-weight: bold;
+                    color: #fff;
                     font-size: 12px;
-                    transition: all 0.3s ease;
                 }
 
                 .change-up {
-                    background-color: rgba(239, 68, 68, 0.1);
-                    color: #ef4444;
-                    border: 1px solid rgba(239, 68, 68, 0.3);
+                    background-color: #ef4444;
                 }
 
-                /* Red for up (China style) - 文字红色,背景浅红 */
+                /* Red for up (China style) */
                 .change-down {
-                    background-color: rgba(16, 185, 129, 0.1);
-                    color: #10b981;
-                    border: 1px solid rgba(16, 185, 129, 0.3);
+                    background-color: #10b981;
                 }
 
-                /* Green for down - 文字绿色,背景浅绿 */
+                /* Green for down */
                 .change-neutral {
-                    background-color: rgba(156, 163, 175, 0.1);
-                    color: #9ca3af;
-                    border: 1px solid rgba(156, 163, 175, 0.3);
+                    background-color: #9ca3af;
                 }
 
                 .market_cap_cell {
@@ -5295,176 +5282,25 @@
 
                 /* Real-time Pulse Animation (Restored & Enhanced) */
                 .price-update {
-                    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+                    transition: background-color 0.8s ease;
                 }
 
-                /* 涨价动画 - 红色渐变闪烁 + 向上缩放 */
                 .pulse-green {
-                    animation: priceUpFlash 0.8s ease-out;
-                    background: linear-gradient(135deg, rgba(239, 68, 68, 0.3) 0%, rgba(239, 68, 68, 0.1) 100%) !important;
+                    background-color: rgba(239, 68, 68, 0.2) !important;
                     /* Red for up (China style) */
                 }
 
-                /* 跌价动画 - 绿色渐变闪烁 + 向下缩放 */
                 .pulse-red {
-                    animation: priceDownFlash 0.8s ease-out;
-                    background: linear-gradient(135deg, rgba(16, 185, 129, 0.3) 0%, rgba(16, 185, 129, 0.1) 100%) !important;
+                    background-color: rgba(16, 185, 129, 0.2) !important;
                     /* Green for down */
                 }
 
-                /* 涨价关键帧动画 */
-                @keyframes priceUpFlash {
-                    0% {
-                        background: linear-gradient(135deg, rgba(239, 68, 68, 0.6) 0%, rgba(239, 68, 68, 0.3) 100%);
-                        transform: scale(1.05);
-                        color: #ef4444;
-                        box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
-                    }
-                    50% {
-                        background: linear-gradient(135deg, rgba(239, 68, 68, 0.4) 0%, rgba(239, 68, 68, 0.15) 100%);
-                        transform: scale(1.02);
-                        box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);
-                    }
-                    100% {
-                        background: transparent;
-                        transform: scale(1);
-                        color: inherit;
-                        box-shadow: none;
-                    }
-                }
-
-                /* 跌价关键帧动画 */
-                @keyframes priceDownFlash {
-                    0% {
-                        background: linear-gradient(135deg, rgba(16, 185, 129, 0.6) 0%, rgba(16, 185, 129, 0.3) 100%);
-                        transform: scale(0.98);
-                        color: #10b981;
-                        box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
-                    }
-                    50% {
-                        background: linear-gradient(135deg, rgba(16, 185, 129, 0.4) 0%, rgba(16, 185, 129, 0.15) 100%);
-                        transform: scale(0.99);
-                        box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
-                    }
-                    100% {
-                        background: transparent;
-                        transform: scale(1);
-                        color: inherit;
-                        box-shadow: none;
-                    }
-                }
-
-                /* 数字跳动动画 */
-                @keyframes numberBounce {
-                    0%, 100% { transform: translateY(0); }
-                    50% { transform: translateY(-3px); }
-                }
-
-                .price-bounce {
-                    animation: numberBounce 0.3s ease-in-out;
-                }
-
-                /* 数字滚动动画 */
-                .digit-scroll {
-                    display: inline-block;
-                    overflow: hidden;
-                    height: 1.3em;
-                    line-height: 1.3em;
-                    vertical-align: bottom;
-                    min-width: 0.6em;
-                    text-align: center;
-                    position: relative;
-                }
-
-                .digit-scroll-inner {
-                    display: inline-block;
-                    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-                }
-
-                .digit-scroll.up .digit-scroll-inner {
-                    transform: translateY(-1.3em);
-                }
-
-                .digit-scroll.down .digit-scroll-inner {
-                    transform: translateY(1.3em);
-                }
-
-                /* 滚动中的数字样式 */
-                .digit-scroll .digit-current,
-                .digit-scroll .digit-next {
-                    display: block;
-                    height: 1.3em;
-                    line-height: 1.3em;
-                    font-weight: 600;
-                }
-
-                .digit-scroll .digit-current {
-                    opacity: 1;
-                    transition: opacity 0.3s ease;
-                }
-
-                .digit-scroll .digit-next {
-                    opacity: 0;
-                    transition: opacity 0.3s ease;
-                }
-
-                /* 滚动时的数字高亮效果 */
-                .digit-scroll.up .digit-current {
-                    opacity: 0.3;
-                }
-
-                .digit-scroll.up .digit-next {
-                    color: #ef4444;
-                    opacity: 1;
-                }
-
-                .digit-scroll.down .digit-current {
-                    opacity: 0.3;
-                }
-
-                .digit-scroll.down .digit-next {
-                    color: #10b981;
-                    opacity: 1;
-                }
-
-                body.dark-mode .digit-scroll.up .digit-next {
-                    color: #ef4444;
-                }
-
-                body.dark-mode .digit-scroll.down .digit-next {
-                    color: #10b981;
-                }
-
                 body.dark-mode .pulse-green {
-                    background: linear-gradient(135deg, rgba(239, 68, 68, 0.4) 0%, rgba(239, 68, 68, 0.15) 100%) !important;
-                    box-shadow: 0 0 15px rgba(239, 68, 68, 0.2);
+                    background-color: rgba(239, 68, 68, 0.15) !important;
                 }
 
                 body.dark-mode .pulse-red {
-                    background: linear-gradient(135deg, rgba(16, 185, 129, 0.4) 0%, rgba(16, 185, 129, 0.15) 100%) !important;
-                    box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);
-                }
-
-                /* 涨跌指示器 */
-                .trend-indicator {
-                    display: inline-block;
-                    font-size: 12px;
-                    font-weight: bold;
-                    margin-left: 4px;
-                    opacity: 0;
-                    transition: opacity 0.3s;
-                }
-
-                .trend-up {
-                    color: #ef4444;
-                }
-
-                .trend-down {
-                    color: #10b981;
-                }
-
-                .trend-indicator.visible {
-                    opacity: 1;
+                    background-color: rgba(16, 185, 129, 0.15) !important;
                 }
 
                 /* Dark Mode Adaptation */
@@ -5492,15 +5328,6 @@
                     color: #fff;
                 }
 
-                /* 暗黑模式下的涨跌价格颜色 */
-                body.dark-mode .main-price.price-up {
-                    color: #ef4444 !important;
-                }
-
-                body.dark-mode .main-price.price-down {
-                    color: #10b981 !important;
-                }
-
                 body.dark-mode .market_cap_cell {
                     color: #888;
                 }
@@ -5522,6 +5349,7 @@
                 }
 
                 @media screen and (max-width: 768px) {
+
                     .crypto-table th,
                     .crypto-table td {
                         padding: 10px 8px !important;
@@ -5620,488 +5448,15 @@
                 body.dark-mode .main-row:hover {
                     background-color: rgba(255, 255, 255, 0.01);
                 }
-
-                /* ========== 移动端优化 ========== */
-
-                /* 移动端表格容器 - 添加横向滚动 */
-                @media screen and (max-width: 768px) {
-                    .crypto-table-container {
-                        overflow-x: auto;
-                        -webkit-overflow-scrolling: touch;
-                        margin-left: -15px;
-                        margin-right: -15px;
-                        width: calc(100% + 30px);
-                        border-radius: 0;
-                    }
-
-                    .crypto-table {
-                        min-width: 650px;
-                    }
-
-                    /* 优化移动端表格单元格 */
-                    .crypto-table th,
-                    .crypto-table td {
-                        padding: 10px 10px !important;
-                        font-size: 13px;
-                    }
-
-                    .coin-icon {
-                        width: 28px;
-                        height: 28px;
-                        margin-right: 10px;
-                    }
-
-                    .coin-name {
-                        font-size: 14px;
-                    }
-
-                    .coin-symbol,
-                    .coin-vol {
-                        font-size: 11px;
-                    }
-
-                    .main-price {
-                        font-size: 14px;
-                    }
-
-                    .converted-price {
-                        font-size: 11px;
-                    }
-
-                    .change-box {
-                        min-width: 70px;
-                        font-size: 12px;
-                        padding: 5px 8px;
-                    }
-
-                    .graph-container {
-                        min-width: 100px;
-                    }
-
-                    /* 优化移动端控制按钮 */
-                    .text-gray .btn-xs {
-                        padding: 4px 8px !important;
-                        font-size: 12px !important;
-                        margin-right: 6px !important;
-                    }
-
-                    /* 优化移动端汇率显示 */
-                    #exchange-rate-display {
-                        font-size: 12px;
-                    }
-
-                    /* 优化移动端趋势图 */
-                    .sparkline-svg {
-                        height: 45px;
-                    }
-
-                    /* 优化移动端整体间距 */
-                    .main-content {
-                        padding: 12px 12px 100px 12px !important;
-                    }
-
-                    h4.text-gray {
-                        padding: 12px 15px;
-                        margin-bottom: 15px;
-                        font-size: 16px;
-                    }
-                }
-
-                /* 小屏幕移动端优化 */
-                @media screen and (max-width: 480px) {
-                    .crypto-table-container {
-                        margin-left: -10px;
-                        margin-right: -10px;
-                        width: calc(100% + 20px);
-                    }
-
-                    .crypto-table {
-                        min-width: 600px;
-                    }
-
-                    .crypto-table th,
-                    .crypto-table td {
-                        padding: 8px 8px !important;
-                        font-size: 12px;
-                    }
-
-                    .coin-icon {
-                        width: 24px;
-                        height: 24px;
-                        margin-right: 8px;
-                    }
-
-                    .coin-name {
-                        font-size: 13px;
-                    }
-
-                    .coin-symbol,
-                    .coin-vol {
-                        font-size: 10px;
-                    }
-
-                    .main-price {
-                        font-size: 13px;
-                    }
-
-                    .converted-price {
-                        font-size: 10px;
-                    }
-
-                    .change-box {
-                        min-width: 60px;
-                        font-size: 11px;
-                        padding: 4px 6px;
-                    }
-
-                    /* 优化移动端标题栏 */
-                    .text-gray {
-                        font-size: 15px !important;
-                        flex-wrap: wrap;
-                        line-height: 1.8;
-                    }
-
-                    .text-gray .btn-xs {
-                        padding: 3px 6px !important;
-                        font-size: 11px !important;
-                        margin-right: 5px !important;
-                    }
-
-                    /* 优化移动端汇率显示 */
-                    #exchange-rate-display {
-                        font-size: 11px;
-                    }
-
-                    /* 优化移动端详情行 */
-                    .detail-container {
-                        padding: 12px;
-                        margin: 5px 8px 12px 8px;
-                    }
-
-                    .detail-info {
-                        padding-right: 0;
-                        border-right: none;
-                        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-                        padding-bottom: 12px;
-                    }
-
-                    body.dark-mode .detail-info {
-                        border-bottom-color: rgba(255, 255, 255, 0.1);
-                    }
-                }
-
-                /* 优化移动端触摸区域 */
-                @media screen and (max-width: 768px) {
-                    /* 增加按钮触摸区域 */
-                    .btn,
-                    button {
-                        min-height: 36px;
-                        min-width: 36px;
-                        display: inline-flex;
-                        align-items: center;
-                        justify-content: center;
-                    }
-
-                    /* 增加链接触摸区域 */
-                    a {
-                        display: inline-block;
-                        min-height: 36px;
-                        min-width: 36px;
-                    }
-
-                    /* 优化卡片点击区域 */
-                    .xe-widget {
-                        cursor: pointer;
-                        -webkit-tap-highlight-color: transparent;
-                    }
-
-                    /* 优化表格行点击区域 */
-                    .main-row {
-                        min-height: 48px;
-                    }
-
-                    /* 优化侧边栏菜单 */
-                    .sidebar-menu li>a {
-                        padding: 12px 15px;
-                        min-height: 48px;
-                        display: flex;
-                        align-items: center;
-                    }
-
-                    /* 优化导航栏 */
-                    .navbar .user-info-menu>li>a {
-                        padding: 10px 12px;
-                        min-height: 40px;
-                    }
-
-                    /* 移动端侧边栏优化 */
-                    .sidebar-menu {
-                        width: 260px;
-                        background: #2c2c2c;
-                        z-index: 9999;
-                    }
-
-                    .sidebar-menu-inner {
-                        width: 260px;
-                    }
-
-                    .sidebar-menu .logo-env {
-                        padding: 15px;
-                    }
-
-                    .sidebar-menu .logo-env .logo img {
-                        max-width: 120px;
-                    }
-
-                    .main-menu {
-                        padding: 10px 0;
-                    }
-
-                    .main-menu li {
-                        margin: 2px 8px;
-                    }
-
-                    .main-menu li>a {
-                        padding: 10px 12px;
-                        font-size: 14px;
-                        border-radius: 8px;
-                    }
-
-                    .main-menu li>a i {
-                        font-size: 16px;
-                        margin-right: 10px;
-                    }
-
-                    .main-menu li>ul {
-                        padding: 5px 0 5px 25px;
-                        margin: 5px 0;
-                        background: rgba(0, 0, 0, 0.1);
-                        border-radius: 8px;
-                    }
-
-                    .main-menu li>ul li>a {
-                        padding: 8px 12px;
-                        font-size: 13px;
-                    }
-
-                    /* 移动端logo区域 */
-                    .sidebar-menu .logo-env {
-                        display: flex;
-                        align-items: center;
-                        justify-content: space-between;
-                    }
-
-                    .mobile-menu-toggle {
-                        display: block !important;
-                        visibility: visible !important;
-                    }
-
-                    /* 移动端主内容区域适配 */
-                    .main-content {
-                        margin-left: 0 !important;
-                        padding-bottom: 120px !important;
-                        padding-left: 10px !important;
-                        padding-right: 10px !important;
-                    }
-
-                    /* 移动端页面容器 */
-                    .page-container {
-                        position: relative;
-                        min-height: 100vh;
-                    }
-
-                    /* 移动端卡片容器优化 */
-                    .row {
-                        margin-left: -5px;
-                        margin-right: -5px;
-                    }
-
-                    .col-sm-3 {
-                        padding-left: 5px;
-                        padding-right: 5px;
-                    }
-                }
-
-                /* 优化移动端卡片布局 */
-                @media screen and (max-width: 768px) {
-                    /* 移动端卡片布局优化 - 居中且圆滑 */
-                    .row {
-                        display: flex;
-                        flex-wrap: wrap;
-                        justify-content: center;
-                    }
-
-                    .col-sm-3 {
-                        flex: 0 0 calc(50% - 10px);
-                        max-width: calc(50% - 10px);
-                        padding-left: 5px;
-                        padding-right: 5px;
-                        margin-bottom: 10px;
-                    }
-
-                    .xe-widget {
-                        border-radius: 12px;
-                        margin-bottom: 0;
-                        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-                        height: 100%;
-                    }
-
-                    .xe-widget .xe-content {
-                        padding: 12px 10px;
-                        display: flex;
-                        flex-direction: column;
-                        align-items: center;
-                        text-align: center;
-                    }
-
-                    .xe-widget .xe-icon {
-                        margin-bottom: 8px;
-                    }
-
-                    .xe-widget .xe-icon i {
-                        font-size: 28px;
-                    }
-
-                    .xe-widget .xe-title {
-                        font-size: 13px;
-                        line-height: 1.4;
-                    }
-
-                    .xe-widget .xe-comment {
-                        font-size: 11px;
-                        margin-top: 4px;
-                    }
-
-                    .xe-widget .xe-user-info {
-                        margin-top: 8px;
-                    }
-
-                    .xe-user-img img {
-                        width: 36px;
-                        height: 36px;
-                    }
-
-                    /* 移动端卡片hover效果 */
-                    .xe-widget:hover {
-                        transform: translateY(-2px);
-                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-                    }
-                }
-
-                /* 超小屏幕优化 */
-                @media screen and (max-width: 360px) {
-                    .col-sm-3 {
-                        flex: 0 0 calc(50% - 8px);
-                        max-width: calc(50% - 8px);
-                    }
-
-                    .xe-widget .xe-content {
-                        padding: 10px 8px;
-                    }
-
-                    .xe-widget .xe-icon i {
-                        font-size: 24px;
-                    }
-
-                    .xe-widget .xe-title {
-                        font-size: 12px;
-                    }
-
-                    .xe-widget .xe-comment {
-                        font-size: 10px;
-                    }
-
-                    .xe-user-img img {
-                        width: 32px;
-                        height: 32px;
-                    }
-                }
-
-                /* 优化移动端滚动条 */
-                @media screen and (max-width: 768px) {
-                    .crypto-table-container::-webkit-scrollbar {
-                        height: 6px;
-                    }
-
-                    .crypto-table-container::-webkit-scrollbar-track {
-                        background: rgba(0, 0, 0, 0.05);
-                        border-radius: 3px;
-                    }
-
-                    .crypto-table-container::-webkit-scrollbar-thumb {
-                        background: rgba(0, 0, 0, 0.3);
-                        border-radius: 3px;
-                    }
-
-                    .crypto-table-container::-webkit-scrollbar-thumb:hover {
-                        background: rgba(0, 0, 0, 0.5);
-                    }
-
-                    body.dark-mode .crypto-table-container::-webkit-scrollbar-track {
-                        background: rgba(255, 255, 255, 0.05);
-                    }
-
-                    body.dark-mode .crypto-table-container::-webkit-scrollbar-thumb {
-                        background: rgba(255, 255, 255, 0.3);
-                    }
-
-                    body.dark-mode .crypto-table-container::-webkit-scrollbar-thumb:hover {
-                        background: rgba(255, 255, 255, 0.5);
-                    }
-                }
             </style>
 
-// Crypto Logic -->
+            <!-- Crypto Logic -->
             <script>
                 let currentCurrency = 'USD';
                 let cryptoData = [];
-
-                // 安全的localStorage访问函数 - 处理Tracking Prevention错误
-                const safeStorage = {
-                    getItem: function(key) {
-                        try {
-                            return localStorage.getItem(key);
-                        } catch (e) {
-                            console.log('localStorage访问被阻止:', e.message);
-                            return null;
-                        }
-                    },
-                    setItem: function(key, value) {
-                        try {
-                            localStorage.setItem(key, value);
-                        } catch (e) {
-                            console.log('localStorage写入被阻止:', e.message);
-                        }
-                    },
-                    removeItem: function(key) {
-                        try {
-                            localStorage.removeItem(key);
-                        } catch (e) {
-                            console.log('localStorage删除被阻止:', e.message);
-                        }
-                    }
-                };
-
-                // 汇率初始化 - 优先从缓存读取（USDT/CNY汇率）
-                let USD_CNY_RATE = 7.25;
+                let isSearching = false;
+                let USD_CNY_RATE = 7.25; // Default, will be updated dynamically
                 let lastRateUpdate = 0;
-
-                // 尝试从localStorage读取缓存的汇率
-                try {
-                    const cachedRate = safeStorage.getItem('usd_cny_rate');
-                    const cachedRateTime = safeStorage.getItem('usd_cny_rate_time');
-                    if (cachedRate && cachedRateTime) {
-                        const rateAge = Date.now() - parseInt(cachedRateTime);
-                        // 如果缓存时间在24小时内,使用缓存的汇率
-                        if (rateAge < 24 * 60 * 60 * 1000) {
-                            USD_CNY_RATE = parseFloat(cachedRate);
-                            lastRateUpdate = parseInt(cachedRateTime);
-                            console.log('使用缓存的USDT/CNY汇率:', USD_CNY_RATE, '(缓存时间:', new Date(lastRateUpdate).toLocaleString(), ')');
-                        }
-                    }
-                } catch (e) {
-                    console.log('读取汇率缓存失败:', e);
-                }
 
                 // Sparkline Cache & Utils
                 const sparklineCache = {};
@@ -6121,241 +5476,6 @@
                 // Data persistence & cache
                 let allGateTickers = []; // Master list from Gate.io for global search
                 const expandedCoins = new Set();
-                
-                // 汇率同步函数 - 从加密货币交易所获取USDT/CNY真实价格
-                async function syncExchangeRate(showNotification = false) {
-                    // 如果距离上次更新不足60秒,跳过(除非强制更新)
-                    if (!showNotification && Date.now() - lastRateUpdate < 60000) {
-                        return;
-                    }
-
-                    // 显示同步动画
-                    const syncIcon = document.getElementById('rate-sync-icon');
-                    if (syncIcon) {
-                        syncIcon.classList.add('fa-spin');
-                        syncIcon.style.color = '#f59e0b';
-                    }
-
-                    const oldRate = USD_CNY_RATE;
-
-                    // 从加密货币交易所获取USDT/CNY真实价格
-                    const rateSources = [
-                        {
-                            name: 'Binance USDT/CNY',
-                            url: 'https://api.binance.com/api/v3/ticker/price?symbol=USDTCNY',
-                            timeout: 8000,
-                            parse: (data) => {
-                                if (data && data.price) {
-                                    return parseFloat(data.price);
-                                }
-                                return null;
-                            }
-                        },
-                        {
-                            name: 'OKX USDT/CNY',
-                            url: 'https://www.okx.com/api/v5/market/ticker?instId=USDT-CNY',
-                            timeout: 8000,
-                            parse: (data) => {
-                                if (data && data.data && data.data[0] && data.data[0].last) {
-                                    return parseFloat(data.data[0].last);
-                                }
-                                return null;
-                            }
-                        },
-                        {
-                            name: 'Bybit USDT/CNY',
-                            url: 'https://api.bybit.com/v5/market/tickers?category=spot&symbol=USDTUSDC',
-                            timeout: 8000,
-                            parse: (data) => {
-                                // Bybit没有直接的USDT/CNY，使用USDT/USD然后乘以USD/CNY
-                                if (data && data.result && data.result.list && data.result.list[0]) {
-                                    const usdtPrice = parseFloat(data.result.list[0].lastPrice);
-                                    // 使用USD/CNY的官方汇率作为参考
-                                    return usdtPrice * 7.25; // 临时使用固定汇率，后续会从其他源获取
-                                }
-                                return null;
-                            }
-                        },
-                        {
-                            name: 'Huobi USDT/CNY',
-                            url: 'https://api.huobi.pro/market/detail/merged?symbol=usdtcny',
-                            timeout: 8000,
-                            parse: (data) => {
-                                if (data && data.tick && data.tick.close) {
-                                    return parseFloat(data.tick.close);
-                                }
-                                return null;
-                            }
-                        },
-                        {
-                            name: 'Gate.io USDT/CNY',
-                            url: 'https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY',
-                            timeout: 8000,
-                            parse: (data) => {
-                                if (data && data[0] && data[0].last) {
-                                    return parseFloat(data[0].last);
-                                }
-                                return null;
-                            }
-                        }
-                    ];
-
-                    let newRate = null;
-                    let sourceName = '';
-
-                    // 依次尝试各个交易所
-                    for (const source of rateSources) {
-                        try {
-                            console.log(`尝试获取USDT/CNY汇率: ${source.name}`);
-                            const res = await fetchWithTimeout(source.url, {
-                                timeout: source.timeout,
-                                useProxy: false
-                            });
-
-                            if (res.ok) {
-                                const data = await res.json();
-                                const rate = source.parse(data);
-
-                                if (rate && rate > 0 && rate < 100) { // USDT/CNY通常在7-8之间
-                                    newRate = rate;
-                                    sourceName = source.name;
-                                    console.log(`${source.name} 成功获取USDT/CNY汇率: ${rate}`);
-                                    break;
-                                }
-                            }
-                        } catch (e) {
-                            console.log(`${source.name} 失败:`, e.message);
-                            continue;
-                        }
-                    }
-
-                    // 如果所有交易所都失败，尝试从加密货币数据中获取USDT价格
-                    if (!newRate && cryptoData.length > 0) {
-                        const usdt = cryptoData.find(c => c.symbol === 'usdt');
-                        if (usdt && usdt.current_price) {
-                            // USDT的价格理论上应该是1 USD，但可能会有微小偏差
-                            // 我们使用缓存的汇率乘以USDT价格
-                            console.log('从加密货币数据获取USDT价格，使用缓存汇率');
-                            newRate = USD_CNY_RATE * usdt.current_price;
-                            sourceName = 'Cached Rate';
-                        }
-                    }
-
-                    // 如果成功获取到新汇率
-                    if (newRate) {
-                        const rateDiff = Math.abs(newRate - oldRate);
-
-                        // 只要有变化就更新
-                        if (rateDiff > 0.0001) {
-                            USD_CNY_RATE = newRate;
-                            lastRateUpdate = Date.now();
-
-                            // 保存到localStorage
-                            safeStorage.setItem('usd_cny_rate', USD_CNY_RATE.toString());
-                            safeStorage.setItem('usd_cny_rate_time', lastRateUpdate.toString());
-
-                            console.log(`USDT/CNY汇率已更新 (${sourceName}):`, oldRate, '→', USD_CNY_RATE, '(变化:', (newRate - oldRate).toFixed(4), ')');
-
-                            // 更新汇率显示
-                            updateRateDisplay();
-
-                            // 如果当前显示的是CNY，立即更新表格中的价格
-                            if (currentCurrency === 'CNY' && cryptoData.length > 0) {
-                                renderCryptoTable(cryptoData);
-                            }
-
-                            // 显示通知
-                            if (showNotification) {
-                                showRateUpdateNotification(oldRate, newRate);
-                            }
-                        } else {
-                            console.log('USDT/CNY汇率无变化,保持当前值:', USD_CNY_RATE);
-                        }
-                    } else {
-                        console.warn('所有USDT/CNY汇率源都失败，保持当前汇率:', USD_CNY_RATE);
-                    }
-
-                    // 移除同步动画
-                    if (syncIcon) {
-                        syncIcon.classList.remove('fa-spin');
-                        syncIcon.style.color = '#999';
-                    }
-                }
-                
-                // 更新汇率显示UI
-                function updateRateDisplay() {
-                    const rateDisplay = document.getElementById('exchange-rate-display');
-                    if (rateDisplay) {
-                        rateDisplay.innerHTML = `1 USDT ≈ ¥${USD_CNY_RATE.toFixed(4)}`;
-                        // 添加闪烁效果
-                        rateDisplay.style.transition = 'color 0.3s';
-                        rateDisplay.style.color = '#ef4444';
-                        setTimeout(() => {
-                            rateDisplay.style.color = '#10b981';
-                        }, 300);
-                    }
-
-                    // 如果当前显示的是CNY,更新价格显示（不重新渲染表格）
-                    if (currentCurrency === 'CNY' && cryptoData.length > 0) {
-                        updateCryptoUI(cryptoData);
-                    }
-                }
-
-                // 显示汇率更新通知
-                function showRateUpdateNotification(oldRate, newRate) {
-                    const change = newRate - oldRate;
-                    const isUp = change > 0;
-                    const changePercent = ((change / oldRate) * 100).toFixed(2);
-
-                    // 创建通知元素
-                    const notification = document.createElement('div');
-                    notification.style.cssText = `
-                        position: fixed;
-                        top: 80px;
-                        right: 20px;
-                        padding: 12px 20px;
-                        background: ${isUp ? 'rgba(239, 68, 68, 0.9)' : 'rgba(16, 185, 129, 0.9)'};
-                        color: white;
-                        border-radius: 8px;
-                        font-size: 13px;
-                        font-weight: 500;
-                        z-index: 10000;
-                        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-                        animation: slideIn 0.3s ease-out;
-                    `;
-                    notification.innerHTML = `
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <i class="fa ${isUp ? 'fa-arrow-up' : 'fa-arrow-down'}"></i>
-                            <span>USDT/CNY汇率更新: ${oldRate.toFixed(2)} → ${newRate.toFixed(2)}</span>
-                            <span style="opacity: 0.8;">(${isUp ? '+' : ''}${changePercent}%)</span>
-                        </div>
-                    `;
-                    
-                    // 添加动画样式
-                    if (!document.getElementById('rate-notification-style')) {
-                        const style = document.createElement('style');
-                        style.id = 'rate-notification-style';
-                        style.textContent = `
-                            @keyframes slideIn {
-                                from { transform: translateX(100%); opacity: 0; }
-                                to { transform: translateX(0); opacity: 1; }
-                            }
-                            @keyframes slideOut {
-                                from { transform: translateX(0); opacity: 1; }
-                                to { transform: translateX(100%); opacity: 0; }
-                            }
-                        `;
-                        document.head.appendChild(style);
-                    }
-                    
-                    document.body.appendChild(notification);
-                    
-                    // 3秒后移除通知
-                    setTimeout(() => {
-                        notification.style.animation = 'slideOut 0.3s ease-out';
-                        setTimeout(() => notification.remove(), 300);
-                    }, 3000);
-                }
 
                 async function loadSparkline(id, symbol, changePct) {
                     if (sparklineCache[symbol] || sparklineRequests.has(symbol)) return;
@@ -6374,40 +5494,30 @@
 
                     async function tryFetch() {
                         let prices = null;
-                        // 1. Try CryptoCompare (Fastest chart API) - 不需要代理
+                        // 1. Try CryptoCompare (Fastest chart API)
                         try {
-                            const res = await fetchWithTimeout(`https://min-api.cryptocompare.com/data/v2/histohour?fsym=${symbol.toUpperCase()}&tsym=USD&limit=168`, { 
-                                timeout: 7000,
-                                useProxy: false 
-                            });
+                            const res = await fetchWithTimeout(`https://min-api.cryptocompare.com/data/v2/histohour?fsym=${symbol.toUpperCase()}&tsym=USD&limit=168`, { timeout: 7000 });
                             if (res.ok) {
                                 const json = await res.json();
                                 if (json.Data && json.Data.Data && json.Data.Data.length > 0) {
                                     prices = json.Data.Data.map(d => d.close).filter(p => !isNaN(p));
                                 }
                             }
-                        } catch (e) { 
-                            console.log('CryptoCompare趋势图获取失败:', e);
-                        }
+                        } catch (e) { }
 
-                        // 2. Fallback to CoinCap - 需要代理
+                        // 2. Fallback to CoinCap
                         if (!prices) {
                             try {
                                 const end = Date.now();
                                 const start = end - (7 * 24 * 60 * 60 * 1000);
-                                const res = await fetchWithTimeout(`https://api.coincap.io/v2/assets/${finalId}/history?interval=h2&start=${start}&end=${end}`, { 
-                                    timeout: 6000,
-                                    useProxy: true 
-                                });
+                                const res = await fetchWithTimeout(`https://api.coincap.io/v2/assets/${finalId}/history?interval=h2&start=${start}&end=${end}`, { timeout: 5000 });
                                 if (res.ok) {
                                     const json = await res.json();
                                     if (json.data && json.data.length > 0) {
                                         prices = json.data.map(d => parseFloat(d.priceUsd));
                                     }
                                 }
-                            } catch (e) {
-                                console.log('CoinCap趋势图获取失败:', e);
-                            }
+                            } catch (e) { }
                         }
                         return prices;
                     }
@@ -6420,22 +5530,17 @@
                             prices = await tryFetch();
                         }
 
-                        // 3. Last Resort: CoinGecko (Backup) - 不需要代理
+                        // 3. Last Resort: CoinGecko (Backup)
                         if (!prices) {
                             try {
-                                const geckoRes = await fetchWithTimeout(`https://api.coingecko.com/api/v3/coins/${finalId}/market_chart?vs_currency=usd&days=7&interval=daily`, { 
-                                    timeout: 6000,
-                                    useProxy: false 
-                                });
+                                const geckoRes = await fetchWithTimeout(`https://api.coingecko.com/api/v3/coins/${finalId}/market_chart?vs_currency=usd&days=7&interval=daily`, { timeout: 5000 });
                                 if (geckoRes.ok) {
                                     const json = await geckoRes.json();
                                     if (json.prices && json.prices.length > 0) {
                                         prices = json.prices.map(p => p[1]);
                                     }
                                 }
-                            } catch (e) {
-                                console.log('CoinGecko趋势图获取失败:', e);
-                            }
+                            } catch (e) { }
                         }
 
                         if (prices && prices.length > 2) {
@@ -6448,7 +5553,6 @@
                             throw new Error('No data');
                         }
                     } catch (e) {
-                        console.error(`${symbol} 趋势图加载失败:`, e);
                         document.querySelectorAll(`.graph-container-${symbol}`).forEach(target => {
                             target.innerHTML = `<a href="javascript:void(0)" onclick="loadSparkline(null, '${symbol}', ${changePct})" 
                                 style="color:#888; font-size:10px; text-decoration:none; border:1px solid #444; padding:2px 6px; border-radius:10px; display:inline-block; transition:all 0.3s;"
@@ -6508,22 +5612,11 @@
                 // Helper: Fetch with Timeout to prevent hanging
                 async function fetchWithTimeout(resource, options = {}) {
                     // Reset timeout to 8s for slower proxies
-                    const { timeout = 8000, useProxy = false } = options;
+                    const { timeout = 8000 } = options;
                     const controller = new AbortController();
                     const id = setTimeout(() => controller.abort(), timeout);
-                    
-                    // 确定最终URL
-                    const finalUrl = useProxy ? getProxiedUrl(resource) : resource;
-                    
                     try {
-                        const response = await fetch(finalUrl, { 
-                            ...options, 
-                            signal: controller.signal,
-                            headers: {
-                                'Accept': 'application/json',
-                                ...options.headers
-                            }
-                        });
+                        const response = await fetch(resource, { ...options, signal: controller.signal });
                         clearTimeout(id);
                         return response;
                     } catch (error) {
@@ -6536,38 +5629,36 @@
                 function onSuccess(dot, providerName, freshData) {
                     const label = document.getElementById('api-provider-name');
                     if (dot) dot.style.color = '#10b981';
-                    if (label) label.innerText = providerName;
+                    if (label && !isSearching) label.innerText = providerName;
 
                     // Always update UI elements if they exist
-                    // 只更新价格和涨跌幅，不重新渲染整个表格，避免详情行被重置
                     if (freshData) updateCryptoUI(freshData);
+
+                    // If NOT searching, handle table sync
+                    if (!isSearching) {
+                        const tbody = document.getElementById('crypto-table-body');
+                        const rowCount = tbody ? tbody.querySelectorAll('.main-row').length : 0;
+
+                        // Force re-render if coin count changed (e.g. from 12 to 50)
+                        if (rowCount !== cryptoData.length) {
+                            renderCryptoTable(cryptoData);
+                        } else {
+                            // Otherwise just update prices/changes
+                            updateCryptoUI(freshData);
+                        }
+                    }
                 }
 
                 // Add this new function to help search results update too
                 async function updateSearchPrices() {
-                    // 搜索功能已移除,此函数保留但不执行任何操作
-                    return;
-                }
+                    const query = document.getElementById('crypto-search').value.trim();
+                    if (!query || !isSearching) return;
 
-                // CORS代理服务配置 - 解决跨域问题
-                const CORS_PROXIES = [
-                    'https://api.allorigins.win/raw?url=',
-                    'https://corsproxy.io/?',
-                    'https://api.codetabs.com/v1/proxy?quest='
-                ];
-                
-                let currentProxyIndex = 0;
-                
-                // 获取代理URL
-                function getProxiedUrl(originalUrl) {
-                    const proxy = CORS_PROXIES[currentProxyIndex];
-                    return proxy + encodeURIComponent(originalUrl);
-                }
-                
-                // 切换到下一个代理
-                function switchProxy() {
-                    currentProxyIndex = (currentProxyIndex + 1) % CORS_PROXIES.length;
-                    console.log('切换到代理:', CORS_PROXIES[currentProxyIndex]);
+                    try {
+                        // For search results, we just update what's in cryptoData or do another search
+                        // Better: just fetch standard data and let updateCryptoUI do its job
+                        fetchCryptoData();
+                    } catch (e) { }
                 }
 
                 // API Strategies configuration
@@ -6575,20 +5666,23 @@
                     GATEIO: {
                         name: 'Gate.io (Official)',
                         url: 'https://api.gateio.ws/api/v4/spot/tickers', // Returns all tickers, need filtering
-                        useProxy: false, // Gate.io支持CORS，不需要代理
-                        timeout: 45000, // 45秒超时，给Gate.io更多时间
                         handler: (data) => {
                             // 0. Backup all tickers for global search
                             allGateTickers = data;
 
-                            // 1. Filter USDT pairs and sort by volume to get Top 50
+                            // 1. Sync Exchange Rate (Fixed issue with finding USDT_CNY accurately)
+                            const usdtCny = data.find(item => item.currency_pair === 'USDT_CNY');
+                            if (usdtCny && usdtCny.last) {
+                                USD_CNY_RATE = parseFloat(usdtCny.last);
+                                lastRateUpdate = Date.now();
+                            }
+
+                            // 2. Filter USDT pairs and sort by volume to get Top 50
                             const sortedTickers = data
                                 .filter(item => item.currency_pair.endsWith('_USDT'))
                                 .filter(item => !item.currency_pair.includes('3L_') && !item.currency_pair.includes('3S_')) // Exclude leveraged
                                 .sort((a, b) => parseFloat(b.quote_volume) - parseFloat(a.quote_volume))
                                 .slice(0, 50);
-
-                            console.log('Gate.io过滤后交易对数量:', sortedTickers.length);
 
                             return sortedTickers.map(item => {
                                 const symbol = item.currency_pair.split('_')[0].toLowerCase();
@@ -6598,30 +5692,11 @@
                                     'trx': 'Tron', 'ton': 'Toncoin', 'shib': 'Shiba Inu', 'ltc': 'Litecoin',
                                     'pepe': 'PEPE', 'link': 'Chainlink', 'near': 'NEAR Protocol', 'apt': 'Aptos'
                                 };
-                                // 使用CoinGecko的图片URL,因为Gate.io的图片服务有问题
-                                const coinGeckoImageMap = {
-                                    'btc': 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png',
-                                    'eth': 'https://assets.coingecko.com/coins/images/279/small/ethereum.png',
-                                    'usdt': 'https://assets.coingecko.com/coins/images/325/small/Tether.png',
-                                    'bnb': 'https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png',
-                                    'xrp': 'https://assets.coingecko.com/coins/images/44/small/xrp-symbol-white-128.png',
-                                    'sol': 'https://assets.coingecko.com/coins/images/4128/small/solana.png',
-                                    'doge': 'https://assets.coingecko.com/coins/images/5/small/dogecoin.png',
-                                    'ada': 'https://assets.coingecko.com/coins/images/975/small/cardano.png',
-                                    'trx': 'https://assets.coingecko.com/coins/images/1958/small/tron-logo.png',
-                                    'ton': 'https://assets.coingecko.com/coins/images/19595/small/toncoin-logo.png',
-                                    'shib': 'https://assets.coingecko.com/coins/images/11939/small/shiba-inu-shib.png',
-                                    'ltc': 'https://assets.coingecko.com/coins/images/2/small/litecoin.png',
-                                    'pepe': 'https://assets.coingecko.com/coins/images/29220/small/pepe-token.png',
-                                    'link': 'https://assets.coingecko.com/coins/images/877/small/chainlink-new-logo.png',
-                                    'near': 'https://assets.coingecko.com/coins/images/10365/small/near-icon.png',
-                                    'apt': 'https://assets.coingecko.com/coins/images/25734/small/Aptos.png'
-                                };
                                 return {
                                     id: symbol,
                                     symbol: symbol,
                                     name: nameMap[symbol] || symbol.toUpperCase(),
-                                    image: coinGeckoImageMap[symbol] || `https://assets.coingecko.com/coins/images/1/small/bitcoin.png`,
+                                    image: `https://gimg2.gateimg.com/coin_icon/64/${symbol}.png`,
                                     current_price: parseFloat(item.last),
                                     price_change_percentage_24h: parseFloat(item.change_percentage),
                                     market_cap: parseFloat(item.quote_volume) * 7.5, // Proxy for display
@@ -6635,126 +5710,56 @@
                         name: 'CryptoCompare',
                         // Fetching top 50 by volume from CC
                         url: 'https://min-api.cryptocompare.com/data/top/totalvolfull?limit=50&tsym=USD',
-                        useProxy: false, // CryptoCompare支持CORS
-                        timeout: 20000, // 20秒超时
                         handler: (data) => {
-                            try {
-                                console.log('CryptoCompare原始数据结构:', JSON.stringify(data).substring(0, 200));
-                                if (!data || !data.Data || !Array.isArray(data.Data)) {
-                                    throw new Error("Invalid CC Data structure");
-                                }
-                                const validItems = data.Data.filter(item => item && item.RAW && item.RAW.USD);
-                                if (validItems.length === 0) {
-                                    throw new Error("No valid USD data in CryptoCompare response");
-                                }
-                                console.log('CryptoCompare有效数据项数量:', validItems.length);
-                                return validItems.map(item => {
-                                    const coin = item.RAW.USD;
-                                    return {
-                                        id: item.CoinInfo.Name.toLowerCase(),
-                                        symbol: item.CoinInfo.Name.toLowerCase(),
-                                        name: item.CoinInfo.FullName,
-                                        image: 'https://www.cryptocompare.com' + coin.IMAGEURL,
-                                        current_price: coin.PRICE,
-                                        price_change_percentage_24h: coin.CHANGEPCT24HOUR,
-                                        market_cap: coin.MKTCAP,
-                                        sparkline_in_7d: null
-                                    };
-                                });
-                            } catch (error) {
-                                console.error('CryptoCompare数据处理失败:', error);
-                                throw new Error("CryptoCompare processing failed");
-                            }
+                            if (!data.Data) throw new Error("Invalid CC Data");
+                            return data.Data.map(item => {
+                                const coin = item.RAW.USD;
+                                return {
+                                    id: item.CoinInfo.Name.toLowerCase(),
+                                    symbol: item.CoinInfo.Name.toLowerCase(),
+                                    name: item.CoinInfo.FullName,
+                                    image: 'https://www.cryptocompare.com' + coin.IMAGEURL,
+                                    current_price: coin.PRICE,
+                                    price_change_percentage_24h: coin.CHANGEPCT24HOUR,
+                                    market_cap: coin.MKTCAP,
+                                    sparkline_in_7d: null
+                                };
+                            });
                         }
                     },
                     COINCAP: {
                         name: 'CoinCap',
                         // Fetching top 50 by market cap from CoinCap
                         url: 'https://api.coincap.io/v2/assets?limit=50',
-                        useProxy: false, // CoinCap支持CORS，不需要代理
-                        timeout: 30000, // 30秒超时
                         handler: (data) => {
-                            try {
-                                console.log('CoinCap原始数据结构:', JSON.stringify(data).substring(0, 200));
-                                if (!data || !data.data || !Array.isArray(data.data)) {
-                                    throw new Error("Invalid CoinCap Data structure");
-                                }
-                                const coinGeckoImageMap = {
-                                    'bitcoin': 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png',
-                                    'ethereum': 'https://assets.coingecko.com/coins/images/279/small/ethereum.png',
-                                    'tether': 'https://assets.coingecko.com/coins/images/325/small/Tether.png',
-                                    'bnb': 'https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png',
-                                    'ripple': 'https://assets.coingecko.com/coins/images/44/small/xrp-symbol-white-128.png',
-                                    'solana': 'https://assets.coingecko.com/coins/images/4128/small/solana.png',
-                                    'dogecoin': 'https://assets.coingecko.com/coins/images/5/small/dogecoin.png',
-                                    'cardano': 'https://assets.coingecko.com/coins/images/975/small/cardano.png',
-                                    'tron': 'https://assets.coingecko.com/coins/images/1958/small/tron-logo.png',
-                                    'toncoin': 'https://assets.coingecko.com/coins/images/19595/small/toncoin-logo.png',
-                                    'shiba-inu': 'https://assets.coingecko.com/coins/images/11939/small/shiba-inu-shib.png',
-                                    'litecoin': 'https://assets.coingecko.com/coins/images/2/small/litecoin.png',
-                                    'pepe': 'https://assets.coingecko.com/coins/images/29220/small/pepe-token.png',
-                                    'chainlink': 'https://assets.coingecko.com/coins/images/877/small/chainlink-new-logo.png',
-                                    'near': 'https://assets.coingecko.com/coins/images/10365/small/near-icon.png',
-                                    'aptos': 'https://assets.coingecko.com/coins/images/25734/small/Aptos.png'
-                                };
-                                return data.data.map(item => ({
-                                    id: item.id,
-                                    symbol: item.symbol.toLowerCase(),
-                                    name: item.name,
-                                    image: coinGeckoImageMap[item.id] || coinGeckoImageMap[item.symbol.toLowerCase()] || 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png',
-                                    current_price: parseFloat(item.priceUsd),
-                                    price_change_percentage_24h: parseFloat(item.changePercent24Hr),
-                                    market_cap: parseFloat(item.marketCapUsd),
-                                    sparkline_in_7d: null
-                                }));
-                            } catch (error) {
-                                console.error('CoinCap数据处理失败:', error);
-                                throw new Error("CoinCap processing failed");
-                            }
+                            return data.data.map(item => ({
+                                id: item.id,
+                                symbol: item.symbol.toLowerCase(),
+                                name: item.name,
+                                image: `https://gimg2.gateimg.com/coin_icon/64/${item.symbol.toLowerCase()}.png`, // Use gate icons as they are better
+                                current_price: parseFloat(item.priceUsd),
+                                price_change_percentage_24h: parseFloat(item.changePercent24Hr),
+                                market_cap: parseFloat(item.marketCapUsd),
+                                sparkline_in_7d: null
+                            }));
                         }
                     },
                     COINGECKO: {
                         name: 'CoinGecko',
                         // Fetching top 50 by market cap from CoinGecko
                         url: 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=50&page=1&sparkline=false&price_change_percentage=24h',
-                        useProxy: false, // CoinGecko免费API支持CORS，不需要代理
-                        timeout: 30000, // 30秒超时
-                        handler: (data) => {
-                            try {
-                                console.log('CoinGecko原始数据结构:', JSON.stringify(data).substring(0, 200));
-                                // 检查是否返回了错误对象
-                                if (data && data.status && data.status.error_code) {
-                                    throw new Error(`CoinGecko API Error: ${data.status.error_message}`);
-                                }
-                                if (!Array.isArray(data)) {
-                                    throw new Error("Invalid CoinGecko Data structure");
-                                }
-                                return data.map(item => ({
-                                    id: item.id,
-                                    symbol: item.symbol.toLowerCase(),
-                                    name: item.name,
-                                    image: item.image,
-                                    current_price: item.current_price,
-                                    price_change_percentage_24h: item.price_change_percentage_24h,
-                                    market_cap: item.market_cap,
-                                    sparkline_in_7d: null
-                                }));
-                            } catch (error) {
-                                console.error('CoinGecko数据处理失败:', error);
-                                throw new Error("CoinGecko processing failed");
-                            }
-                        }
+                        handler: (data) => data.map(item => ({
+                            id: item.id,
+                            symbol: item.symbol.toLowerCase(),
+                            name: item.name,
+                            image: item.image,
+                            current_price: item.current_price,
+                            price_change_percentage_24h: item.price_change_percentage_24h,
+                            market_cap: item.market_cap,
+                            sparkline_in_7d: null
+                        }))
                     }
                 };
-
-                // 清除缓存并刷新
-                function clearCacheAndRefresh() {
-                    safeStorage.removeItem('crypto_market_cache');
-                    safeStorage.removeItem('crypto_market_cache_time');
-                    cryptoData = []; // 清空当前数据
-                    console.log('缓存已清除，重新获取数据');
-                    fetchCryptoData(true); // 强制刷新
-                }
 
                 function toggleCurrency() {
                     const btn = document.getElementById('currency-toggle');
@@ -6762,13 +5767,6 @@
                         currentCurrency = 'CNY';
                         btn.innerText = 'CNY';
                         btn.className = 'btn btn-xs btn-warning';
-
-                        // 切换到CNY时，确保USDT/CNY汇率是最新的
-                        const rateAge = lastRateUpdate ? (Date.now() - lastRateUpdate) : Infinity;
-                        if (rateAge > 60000) { // 如果超过1分钟未更新，触发同步
-                            console.log('切换到CNY，同步USDT/CNY汇率...');
-                            syncExchangeRate(false);
-                        }
                     } else {
                         currentCurrency = 'USD';
                         btn.innerText = 'USD';
@@ -6778,7 +5776,7 @@
                 }
 
                 // 1. Racing Engine with Local Cache fallback
-                async function fetchCryptoData(forceRefresh = false) {
+                async function fetchCryptoData() {
                     const dot = document.getElementById('api-status-dot');
                     const label = document.getElementById('api-provider-name');
                     const tbody = document.getElementById('crypto-table-body');
@@ -6788,106 +5786,72 @@
                     if (refreshIcon) refreshIcon.classList.add('fa-spin');
 
                     // A. Try to load from Local Storage immediately for "Instant Load" feel
-                    // 检查缓存时间，如果超过1小时则清除缓存
-                    const cacheTime = safeStorage.getItem('crypto_market_cache_time');
-                    const cacheAge = cacheTime ? (Date.now() - parseInt(cacheTime)) : Infinity;
-                    
-                    if (!forceRefresh && cryptoData.length === 0 && cacheAge < 3600000) {
-                        const cached = safeStorage.getItem('crypto_market_cache');
+                    if (cryptoData.length === 0) {
+                        const cached = localStorage.getItem('crypto_market_cache');
                         if (cached) {
                             try {
                                 const parsed = JSON.parse(cached);
                                 if (parsed && parsed.length > 0) {
                                     cryptoData = parsed;
-                                    console.log('从缓存加载，数据数量:', cryptoData.length);
                                     renderCryptoTable(cryptoData);
                                     if (label) label.innerText = 'Cached Source';
                                 }
                             } catch (e) { }
                         }
-                    } else if (cacheAge >= 3600000) {
-                        console.log('缓存已过期，清除缓存');
-                        safeStorage.removeItem('crypto_market_cache');
-                                            safeStorage.removeItem('crypto_market_cache_time');                    }
+                    }
 
-                    // B. Sync Exchange Rate - 从加密货币交易所获取USDT/CNY真实价格
-                    // 使用优化后的汇率同步函数
-                    syncExchangeRate();
+                    // B. Sync Exchange Rate (Gate.io USDT_CNY) - background
+                    const syncRate = async () => {
+                        if (Date.now() - lastRateUpdate > 30000) {
+                            try {
+                                const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY', { timeout: 5000 });
+                                if (res.ok) {
+                                    const data = await res.json();
+                                    if (data && data[0] && data[0].last) {
+                                        USD_CNY_RATE = parseFloat(data[0].last);
+                                        lastRateUpdate = Date.now();
+                                    }
+                                }
+                            } catch (e) { }
+                        }
+                    };
+                    syncRate();
 
                     // C. Parallel Racing Mode (The core optimization)
-                    // 优先使用不需要代理的API，提高成功率
                     const fetchSource = async (apiObj) => {
-                        try {
-                            console.log(`正在请求 ${apiObj.name}，超时时间: ${apiObj.timeout || 20000}ms，使用代理: ${apiObj.useProxy || false}`);
-                            if (label) label.innerText = `正在连接 ${apiObj.name}...`;
-                            const res = await fetchWithTimeout(apiObj.url, {
-                                timeout: apiObj.timeout || 20000,
-                                useProxy: apiObj.useProxy || false
-                            });
-
-                            // 处理429速率限制错误
-                            if (res.status === 429) {
-                                console.warn(`${apiObj.name} 达到速率限制，跳过此API`);
-                                throw new Error(`${apiObj.name} Rate Limited (429)`);
-                            }
-
-                            if (!res.ok) {
-                                throw new Error(`${apiObj.name} Failed (HTTP ${res.status})`);
-                            }
-
-                            const data = await res.json();
-                            console.log(`${apiObj.name} 请求成功`);
-                            return { name: apiObj.name, data: apiObj.handler(data) };
-                        } catch (error) {
-                            console.error(`${apiObj.name} 请求失败:`, error.message);
-                            throw error;
-                        }
+                        const res = await fetchWithTimeout(apiObj.url, { timeout: 15000 });
+                        if (!res.ok) throw new Error(`${apiObj.name} Failed`);
+                        const data = await res.json();
+                        return { name: apiObj.name, data: apiObj.handler(data) };
                     };
 
                     try {
-                        // 优先级策略：使用可访问的API
-                        // 1. CryptoCompare（最快，稳定）
-                        // 2. CoinCap（快速，支持CORS）
-                        // 3. CoinGecko（数据全面，但有速率限制）
-                        // Gate.io已移除（无法访问）
-                        console.log('开始并行请求多个API...');
-                        if (label) label.innerText = '正在连接API...';
+                        // Priority Racing: Start all main sources at once
+                        // We use Promise.any for speed, but Gate.io is still our accuracy target.
+                        // However, stability first. We'll take the first one that responds.
                         const fastestResult = await Promise.any([
+                            fetchSource(APIS.GATEIO),
                             fetchSource(APIS.CRYPTOCOMPARE),
-                            fetchSource(APIS.COINCAP),
-                            fetchSource(APIS.COINGECKO)
+                            fetchSource(APIS.COINCAP)
                         ]);
 
                         if (fastestResult && fastestResult.data) {
                             cryptoData = fastestResult.data;
-                            console.log('API返回数据数量:', cryptoData.length);
-                            console.log('API数据来源:', fastestResult.name);
                             onSuccess(dot, fastestResult.name, fastestResult.data);
-
-                            // 确保汇率显示已更新（特别是当从Gate.io获取数据时）
-                            updateRateDisplay();
-
                             // Persist to local storage for offline use
-                            safeStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
-                            safeStorage.setItem('crypto_market_cache_time', Date.now().toString());
+                            localStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
                             return;
                         }
                     } catch (e) {
-                        console.error('所有主要API请求失败:', e);
-                        
                         // D. Fallback to CoinGecko if all initial racing fail
                         try {
-                            if (label) label.innerText = '正在尝试备用API...';
-                            console.log('尝试CoinGecko作为备用API...');
+                            if (label) label.innerText = 'Fallback (CG)...';
                             const geckoRes = await fetchSource(APIS.COINGECKO);
                             cryptoData = geckoRes.data;
-                            console.log('CoinGecko备用API成功，数据数量:', cryptoData.length);
                             onSuccess(dot, geckoRes.name, geckoRes.data);
-                            safeStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
-                                                    safeStorage.setItem('crypto_market_cache_time', Date.now().toString());                            return;
+                            localStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
+                            return;
                         } catch (ge) {
-                            console.error('CoinGecko后备请求也失败:', ge);
-                            
                             // E. Final Fail: If we have cached data, don't show the red error box
                             if (cryptoData.length > 0) {
                                 dot.style.color = '#ef4444'; // Signal failure silently
@@ -6897,9 +5861,7 @@
                                 dot.style.color = '#ef4444';
                                 tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: #ef4444;">
                                     <i class="fa fa-exclamation-triangle"></i> 连接超时，请检查网络或代理。<br>
-                                    <small style="color:#999; font-size:12px;">已尝试多个API源，均无法连接</small><br><br>
-                                    <button class="btn btn-xs btn-primary" style="margin-right:10px;" onclick="fetchCryptoData(true)">重试连接</button>
-                                    <button class="btn btn-xs btn-warning" onclick="clearCacheAndRefresh()">清除缓存重试</button>
+                                    <button class="btn btn-xs btn-primary" style="margin-top:10px" onclick="fetchCryptoData()">重试连接</button>
                                 </td></tr>`;
                             }
                         }
@@ -6910,19 +5872,14 @@
 
                 function renderCryptoTable(data) {
                     if (!data || data.length === 0) return;
-                    
-                    console.log('渲染表格，数据数量:', data.length);
-                    
                     const tbody = document.getElementById('crypto-table-body');
+                    const searchQuery = document.getElementById('crypto-search').value.toLowerCase();
                     tbody.innerHTML = '';
 
                     const isCNY = currentCurrency === 'CNY';
                     const rate = isCNY ? USD_CNY_RATE : 1;
                     const symbol = isCNY ? '¥' : '$';
 
-                    // 优化排序逻辑（保持备份文件的逻辑）
-                    // 1. 主流币种优先(BTC, ETH, USDT, BNB, SOL, XRP, ETC, DOGE)
-                    // 2. 其他币种按市值排序
                     const orderMap = { 'btc': 1, 'eth': 2, 'usdt': 3, 'bnb': 4, 'sol': 5, 'xrp': 6, 'etc': 7, 'doge': 8 };
                     data.sort((a, b) => {
                         const scoreA = orderMap[a.symbol] || 999;
@@ -6931,9 +5888,10 @@
                         return (b.market_cap || 0) - (a.market_cap || 0);
                     });
 
-                    console.log('排序后数据数量:', data.length);
-
                     data.forEach(coin => {
+                        const searchName = coin.name || coin.symbol;
+                        if (!searchName.toLowerCase().includes(searchQuery) && !coin.symbol.toLowerCase().includes(searchQuery))
+                            return;
 
                         const rawPrice = coin.current_price;
                         const price = (rawPrice * rate).toLocaleString(undefined, {
@@ -6950,9 +5908,6 @@
                         const change = coin.price_change_percentage_24h;
                         const changeClass = change >= 0 ? 'change-up' : 'change-down';
                         const changeSign = change >= 0 ? '+' : '';
-                        
-                        // 根据涨跌幅确定价格颜色
-                        const priceColorClass = change >= 0 ? 'price-up' : 'price-down';
 
                         const mkVal = coal(coin.market_cap);
                         const marketCap = mkVal > 0 ? (mkVal * rate).toLocaleString(undefined, { maximumFractionDigits: 0, notation: "compact" }) : '-';
@@ -6986,7 +5941,7 @@
                                 </td>
                                 <td>
                                     <div class="price-wrap">
-                                        <span id="price-${coin.symbol}" class="main-price ${priceColorClass} price-update" data-val="${rawPrice * rate}">${symbol}${price}</span>
+                                        <span id="price-${coin.symbol}" class="main-price price-update" data-val="${rawPrice * rate}">${symbol}${price}</span>
                                         <span class="converted-price">${secondarySymbol}${secondaryPrice}</span>
                                     </div>
                                 </td>
@@ -7060,54 +6015,6 @@
                     return (val && !isNaN(val)) ? parseFloat(val) : 0;
                 }
 
-                // 数字滚动动画函数
-                function animateNumberRoll(element, oldPrice, newPrice, isUp, symbol) {
-                    const oldStr = oldPrice.toFixed(2);
-                    const newStr = newPrice.toFixed(2);
-                    
-                    // 如果价格没有变化，直接返回
-                    if (oldStr === newStr) {
-                        element.innerText = `${symbol}${oldPrice.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2
-                        })}`;
-                        return;
-                    }
-                    
-                    // 找出变化的数字位
-                    let result = '';
-                    let isRolling = false;
-                    
-                    for (let i = 0; i < oldStr.length; i++) {
-                        if (oldStr[i] !== newStr[i]) {
-                            // 数字发生了变化，创建滚动效果
-                            result += `<span class="digit-scroll ${isUp ? 'up' : 'down'}">
-                                <span class="digit-scroll-inner">
-                                    <span class="digit-current">${oldStr[i]}</span>
-                                    <span class="digit-next">${newStr[i]}</span>
-                                </span>
-                            </span>`;
-                            isRolling = true;
-                        } else {
-                            // 数字没有变化，直接显示
-                            result += `<span>${oldStr[i]}</span>`;
-                        }
-                    }
-                    
-                    // 添加符号
-                    element.innerHTML = `${symbol}${result}`;
-                    
-                    // 动画结束后，恢复为普通文本（带千分位）
-                    if (isRolling) {
-                        setTimeout(() => {
-                            element.innerText = `${symbol}${newPrice.toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2
-                            })}`;
-                        }, 500); // 与CSS动画时间匹配
-                    }
-                }
-
                 function updateCryptoUI(data) {
                     if (!data) return;
                     const isCNY = currentCurrency === 'CNY';
@@ -7131,29 +6038,19 @@
                             if (oldText !== newText) {
                                 const oldVal = parseFloat(priceEl.dataset.val || 0);
                                 const newVal = rawPrice * rate;
-                                const isUp = newVal >= oldVal;
 
+                                priceEl.innerText = newText;
                                 priceEl.dataset.val = newVal;
 
-                                // 更新价格颜色类名(根据24小时涨跌幅)
-                                const change = coin.price_change_percentage_24h;
-                                priceEl.classList.remove('price-up', 'price-down');
-                                priceEl.classList.add(change >= 0 ? 'price-up' : 'price-down');
-
-                                // 使用数字滚动动画显示价格
-                                animateNumberRoll(priceEl, oldVal, newVal, isUp, symbol);
-
-                                // 单元格背景闪烁动画
                                 const cell = priceEl.closest('td');
                                 if (cell) {
-                                    const pulseClass = isUp ? 'pulse-green' : 'pulse-red';
+                                    const pulseClass = newVal >= oldVal ? 'pulse-green' : 'pulse-red';
                                     cell.classList.remove('pulse-green', 'pulse-red');
                                     void cell.offsetWidth;
                                     cell.classList.add(pulseClass);
-                                    setTimeout(() => cell.classList.remove(pulseClass), 800);
+                                    setTimeout(() => cell.classList.remove(pulseClass), 1000);
                                 }
 
-                                // 更新辅助价格
                                 const secondaryEl = priceEl.nextElementSibling;
                                 if (secondaryEl && secondaryEl.classList.contains('converted-price')) {
                                     const secondarySymbol = isCNY ? '$' : '¥';
@@ -7172,31 +6069,15 @@
                             const newText = `${changeSign}${change.toFixed(2)}%`;
 
                             if (changeEl.innerText.trim() !== newText) {
-                                const oldChange = parseFloat(changeEl.dataset.change || 0);
-                                const isUp = change >= oldChange;
-                                
                                 changeEl.innerText = newText;
-                                changeEl.dataset.change = change;
-
-                                // 更新涨跌指示器
-                                let indicator = changeEl.querySelector('.trend-indicator');
-                                if (!indicator) {
-                                    indicator = document.createElement('span');
-                                    indicator.className = 'trend-indicator';
-                                    changeEl.appendChild(indicator);
-                                }
-                                indicator.className = `trend-indicator trend-${isUp ? 'up' : 'down'} visible`;
-                                indicator.innerHTML = isUp ? '↑' : '↓';
-                                setTimeout(() => indicator.classList.remove('visible'), 1000);
-
-                                // 涨跌幅按钮背景闪烁
+                                // IMPORTANT: Apply pulse to the Change button container cell too
                                 const cell = changeEl.closest('td');
                                 if (cell) {
-                                    const pulseClass = isUp ? 'pulse-green' : 'pulse-red';
+                                    const pulseClass = change >= 0 ? 'pulse-green' : 'pulse-red';
                                     cell.classList.remove('pulse-green', 'pulse-red');
                                     void cell.offsetWidth;
                                     cell.classList.add(pulseClass);
-                                    setTimeout(() => cell.classList.remove(pulseClass), 800);
+                                    setTimeout(() => cell.classList.remove(pulseClass), 1000);
                                 }
                                 changeEl.className = `change-box ${change >= 0 ? 'change-up' : 'change-down'} price-update`;
                             }
@@ -7204,70 +6085,190 @@
                     });
                 }
 
-                // Hover to hide floating buttons logic
-                document.addEventListener('DOMContentLoaded', () => {
-                    // 初始化USDT/CNY汇率显示
-                    console.log('初始化USDT/CNY汇率显示，当前汇率:', USD_CNY_RATE);
-                    updateRateDisplay();
+                // Search Logic with Debounce
+                let searchTimeout;
 
+                function handleSearchInput() {
+                    const input = document.getElementById('crypto-search');
+                    if (!input) return;
+                    const query = input.value.trim();
+                    if (!query) {
+                        isSearching = false;
+                        fetchCryptoData(); // Revert to main list if search cleared
+                        return;
+                    }
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(searchCrypto, 1000);
+                }
+
+                async function handleSearchKey(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        clearTimeout(searchTimeout);
+                        searchCrypto();
+                    } else if (e.key === 'Escape') {
+                        const input = document.getElementById('crypto-search');
+                        if (input) input.value = '';
+                        isSearching = false;
+                        fetchCryptoData();
+                    }
+                }
+
+                // Map common Chinese names to English for better search
+                const CN_COIN_MAP = {
+                    '比特币': 'bitcoin', '以太坊': 'ethereum', '泰达币': 'tether', '狗狗币': 'dogecoin',
+                    '波卡': 'polkadot', '币安': 'binance', '瑞波': 'ripple', '索拉纳': 'solana',
+                    '莱特币': 'litecoin', '艾达币': 'cardano', '波场': 'tron', '以太经典': 'ethereum-classic',
+                    '佩佩': 'pepe', '链克': 'chainlink', '优尼': 'uniswap', '近': 'near-protocol',
+                    '艾普特': 'aptos', '堆栈': 'stack', '奥普': 'optimism', '阿比特': 'arbitrum',
+                    '天体': 'celestia', '赛伊': 'sei-network'
+                };
+
+                function clearCryptoSearch() {
+                    const input = document.getElementById('crypto-search');
+                    if (input) input.value = '';
+                    isSearching = false;
+                    const clearBtn = document.getElementById('crypto-search-clear');
+                    if (clearBtn) clearBtn.style.display = 'none';
                     fetchCryptoData();
+                }
 
-                    // 智能实时同步机制 - 根据网络状况动态调整
-                    let pollInterval = 3000; // 默认3秒
-                    let consecutiveErrors = 0;
-                    let maxConsecutiveErrors = 3;
-                    
-                    const smartPoll = async () => {
-                        try {
-                            await fetchCryptoData();
-                            // 成功后重置错误计数
-                            consecutiveErrors = 0;
-                            // 成功后可以适当缩短间隔
-                            if (pollInterval > 3000) {
-                                pollInterval = 3000;
-                            }
-                        } catch (error) {
-                            consecutiveErrors++;
-                            console.error(`数据同步失败 (${consecutiveErrors}/${maxConsecutiveErrors}):`, error);
-                            
-                            // 连续失败时增加间隔时间
-                            if (consecutiveErrors >= maxConsecutiveErrors) {
-                                pollInterval = Math.min(pollInterval * 2, 30000); // 最多30秒
-                                console.log(`网络不稳定,调整同步间隔为 ${pollInterval/1000} 秒`);
+                async function searchCrypto() {
+                    const input = document.getElementById('crypto-search');
+                    if (!input) return;
+                    let query = input.value.trim().toLowerCase();
+                    const dot = document.getElementById('api-status-dot');
+                    const label = document.getElementById('api-provider-name');
+                    const tbody = document.getElementById('crypto-table-body');
+                    const clearBtn = document.getElementById('crypto-search-clear');
+
+                    if (!query) {
+                        clearCryptoSearch();
+                        return;
+                    }
+
+                    if (clearBtn) clearBtn.style.display = 'block';
+                    if (CN_COIN_MAP[query]) query = CN_COIN_MAP[query];
+
+                    if (label) label.innerText = '正在全量搜索: ' + query;
+                    if (dot) dot.style.color = '#f59e0b';
+                    isSearching = true;
+
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color: #888;">
+                        <i class="fa fa-circle-o-notch fa-spin"></i> 正在深度检索全网币种...
+                    </td></tr>`;
+
+                    try {
+                        // 1. Efficient Global Search in allGateTickers (Synced with Gate.io)
+                        const filtered = allGateTickers
+                            .filter(item => {
+                                const pair = item.currency_pair.toLowerCase();
+                                const symbol = pair.split('_')[0];
+                                return symbol.includes(query) && pair.endsWith('_usdt') && !pair.includes('3l_') && !pair.includes('3s_');
+                            })
+                            .sort((a, b) => parseFloat(b.quote_volume) - parseFloat(a.quote_volume))
+                            .slice(0, 30); // Max 30 results for search
+
+                        if (filtered.length > 0) {
+                            const mapped = filtered.map(item => {
+                                const symbol = item.currency_pair.split('_')[0].toLowerCase();
+                                return {
+                                    id: symbol,
+                                    symbol: symbol,
+                                    name: symbol.toUpperCase(),
+                                    image: `https://gimg2.gateimg.com/coin_icon/64/${symbol}.png`,
+                                    current_price: parseFloat(item.last),
+                                    price_change_percentage_24h: parseFloat(item.change_percentage),
+                                    market_cap: parseFloat(item.quote_volume) * 7.5,
+                                    total_volume: parseFloat(item.quote_volume),
+                                    sparkline_in_7d: null
+                                };
+                            });
+                            cryptoData = mapped;
+                            renderCryptoTable(mapped);
+                            if (label) label.innerText = `[Gate] 已找到 ${mapped.length} 个结果`;
+                            if (dot) dot.style.color = '#10b981';
+                            return;
+                        }
+
+                        // 2. Fallback to CoinCap Search only if Gate data has no matches
+                        const directUrl = `https://api.coincap.io/v2/assets?search=${query}&limit=20`;
+                        const res = await fetchWithTimeout(directUrl, { timeout: 5000 });
+                        if (res.ok) {
+                            const json = await res.json();
+                            if (json.data && json.data.length > 0) {
+                                const mapped = json.data.map(item => ({
+                                    id: item.id,
+                                    symbol: item.symbol.toLowerCase(),
+                                    name: item.name,
+                                    image: `https://gimg2.gateimg.com/coin_icon/64/${item.symbol.toLowerCase()}.png`,
+                                    current_price: parseFloat(item.priceUsd),
+                                    price_change_percentage_24h: parseFloat(item.changePercent24Hr),
+                                    market_cap: parseFloat(item.marketCapUsd),
+                                    total_volume: parseFloat(item.volumeUsd24Hr),
+                                    sparkline_in_7d: null
+                                }));
+                                cryptoData = mapped;
+                                renderCryptoTable(mapped);
+                                if (label) label.innerText = `[CoinCap] 已找到 ${mapped.length} 个结果`;
+                                if (dot) dot.style.color = '#34d399';
+                                return;
                             }
                         }
-                        
-                        // 使用动态间隔
-                        setTimeout(smartPoll, pollInterval);
-                    };
-                    
-                    // 启动智能轮询
-                    smartPoll();
 
-                    // Dedicated Full Ticker Refresh (Background) - 使用代理
+                        // 3. Not found
+                        if (label) label.innerText = `未找到 "${query}"`;
+                        if (dot) dot.style.color = '#ef4444';
+                        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 60px; color: #888;">
+                            <div style="font-size:32px; margin-bottom:15px;">🔍</div>
+                            未找到 "${query}"<br>
+                            <small style="color:#aaa">Gate.io 全网库中暂无此币种</small>
+                        </td></tr>`;
+
+                    } catch (e) {
+                        console.error('Search error:', e);
+                        if (label) label.innerText = 'Search Error';
+                        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color: #ef4444;">搜索失败，请检查网络设置或稍后再试</td></tr>`;
+                    }
+                }
+
+                // Hover to hide floating buttons logic
+                document.addEventListener('DOMContentLoaded', () => {
+                    fetchCryptoData();
+
+                    const searchInput = document.getElementById('crypto-search');
+                    const searchTrigger = document.getElementById('crypto-search-trigger');
+
+                    if (searchInput) {
+                        searchInput.addEventListener('input', handleSearchInput);
+                        searchInput.addEventListener('keydown', handleSearchKey);
+                    }
+                    if (searchTrigger) {
+                        searchTrigger.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            searchCrypto();
+                        });
+                    }
+
+                    // Real-time polling
+                    setInterval(() => {
+                        if (!isSearching) fetchCryptoData();
+                    }, 3000);
+
+                    // Dedicated Full Ticker Refresh (Background)
                     setInterval(async () => {
                         try {
-                            const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers', { 
-                                timeout: 12000,
-                                useProxy: true 
-                            });
+                            const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers', { timeout: 10000 });
                             if (res.ok) {
                                 const data = await res.json();
                                 if (data && data.length > 500) {
                                     allGateTickers = data;
-                                    console.log('完整行情数据已更新,共', data.length, '个交易对');
                                 }
                             }
-                        } catch (e) {
-                            console.log('完整行情更新失败:', e);
-                        }
-                    }, 90000); // 每90秒刷新一次完整列表
+                        } catch (e) { }
+                    }, 60000); // Refresh full list every minute
 
-                    // 汇率同步 - 使用优化后的函数
-                    // 每30秒同步一次汇率,并显示通知
-                    setInterval(() => {
-                        syncExchangeRate(true); // true表示显示更新通知
-                    }, 30000);
+                    // Hover Logic - Optimized to hide all floating buttons
                     const cryptoContainer = document.querySelector('.crypto-table-container');
                     if (cryptoContainer) {
                         const cryptoSection = cryptoContainer.closest('.row');
@@ -7995,7 +6996,7 @@
                 cardContainer.classList.add('card-hidden');
 
                 // 保存到localStorage
-                let hiddenCards = JSON.parse(safeStorage.getItem('hiddenCards') || '[]');
+                let hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
 
                 // 检查是否已存在（数组存储的是对象，需要检查id属性）
                 const exists = hiddenCards.some(card => card && card.id === cardId);
@@ -8005,7 +7006,7 @@
                         title: cardTitle,
                         widget: widget.outerHTML
                     });
-                    safeStorage.setItem('hiddenCards', JSON.stringify(hiddenCards));
+                    localStorage.setItem('hiddenCards', JSON.stringify(hiddenCards));
                     console.log('已隐藏卡片:', cardId, '总数:', hiddenCards.length);
                 } else {
                     console.log('卡片已存在，跳过:', cardId);
@@ -8022,9 +7023,9 @@
                     cardContainer.classList.remove('card-hidden');
 
                     // 从localStorage移除
-                    let hiddenCards = JSON.parse(safeStorage.getItem('hiddenCards') || '[]');
+                    let hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
                     hiddenCards = hiddenCards.filter(card => card.id !== cardId);
-                    safeStorage.setItem('hiddenCards', JSON.stringify(hiddenCards));
+                    localStorage.setItem('hiddenCards', JSON.stringify(hiddenCards));
 
                     // 更新管理面板
                     updateHiddenPanel();
@@ -8033,7 +7034,7 @@
 
             // ========== 5. 更新隐藏卡片管理面板 ==========
             function updateHiddenPanel() {
-                const hiddenCards = JSON.parse(safeStorage.getItem('hiddenCards') || '[]');
+                const hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
                 const listContainer = document.getElementById('hiddenCardsList');
 
                 if (!listContainer) return;
@@ -8156,15 +7157,15 @@
                 const defaultKey = `defaultOrder_${rowIndex}`;
 
                 // 保存默认顺序（首次加载时记录，排除隐藏的卡片）
-                if (!safeStorage.getItem(defaultKey)) {
+                if (!localStorage.getItem(defaultKey)) {
                     const defaultIds = Array.from(cards)
                         .filter(card => !card.classList.contains('card-hidden'))
                         .map(card => card.id);
-                    safeStorage.setItem(defaultKey, JSON.stringify(defaultIds));
+                    localStorage.setItem(defaultKey, JSON.stringify(defaultIds));
                 }
 
                 // 加载用户保存的顺序
-                const savedOrder = safeStorage.getItem(storageKey);
+                const savedOrder = localStorage.getItem(storageKey);
                 if (savedOrder) {
                     applyOrder(container, JSON.parse(savedOrder));
                 }
@@ -8227,12 +7228,12 @@
 
                     // 保存当前容器的顺序
                     const newOrder = Array.from(container.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)')).map(card => card.id);
-                    safeStorage.setItem(storageKey, JSON.stringify(newOrder));
+                    localStorage.setItem(storageKey, JSON.stringify(newOrder));
 
                     // 更新所有容器的顺序（因为可能跨栏移动）
                     allRows.forEach((c, idx) => {
                         const order = Array.from(c.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)')).map(card => card.id);
-                        safeStorage.setItem(`cardOrder_${idx}`, JSON.stringify(order));
+                        localStorage.setItem(`cardOrder_${idx}`, JSON.stringify(order));
                     });
                 });
 
@@ -8259,10 +7260,10 @@
                     if (confirm('确定要恢复默认排序吗？')) {
                         allRows.forEach((container, rowIndex) => {
                             const defaultKey = `defaultOrder_${rowIndex}`;
-                            const defaultOrder = safeStorage.getItem(defaultKey);
+                            const defaultOrder = localStorage.getItem(defaultKey);
                             if (defaultOrder) {
                                 applyOrder(container, JSON.parse(defaultOrder));
-                                safeStorage.removeItem(`cardOrder_${rowIndex}`);
+                                localStorage.removeItem(`cardOrder_${rowIndex}`);
                             }
                         });
                     }
@@ -8345,7 +7346,146 @@
             updateHiddenPanel();
         });
     </script>
+    <script>
+        // 禁止右键
+        document.addEventListener('contextmenu', function (e) {
+            e.preventDefault();
+            location.href = '/';
+        });
 
+        // 禁止 F12 / Ctrl+Shift+I / Ctrl+U
+        document.addEventListener('keydown', function (e) {
+            if (
+                e.key === 'F12' ||
+                (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'i') ||
+                (e.ctrlKey && e.key.toLowerCase() === 'u')
+            ) {
+                e.preventDefault();
+                location.href = '/';
+            }
+        });
+    </script>
+
+    <!-- 卡片状态检测 -->
+    <script>
+        (function () {
+            document.addEventListener('DOMContentLoaded', function () {
+                const cards = document.querySelectorAll('.xe-widget');
+                const isHttps = location.protocol === 'https:';
+
+                cards.forEach((card, index) => {
+                    const indicator = document.createElement('div');
+                    indicator.className = 'card-status-indicator checking';
+                    indicator.title = '检测中...';
+                    card.appendChild(indicator);
+
+                    const link = card.getAttribute('onclick');
+                    if (!link) return;
+                    const urlMatch = link.match(/window\.open\(['"]([^'"]+)['"]/);
+                    if (!urlMatch) return;
+                    const url = urlMatch[1];
+
+                    // 协议检查：HTTPS页面下无法检测HTTP链接
+                    if (isHttps && url.startsWith('http:')) {
+                        indicator.className = 'card-status-indicator unknown';
+                        indicator.title = 'HTTP站点 (HTTPS下无法检测)';
+                        indicator.style.background = '#f59e0b'; // 黄色
+                        return;
+                    }
+
+                    // 错峰检测
+                    setTimeout(() => {
+                        checkUrlWithFallback(url, indicator);
+                    }, index * 200);
+                });
+            });
+
+            // 双重检测机制：Fetch -> 失败 -> Favicon -> 失败 -> 重试 -> 离线
+            async function checkUrlWithFallback(url, indicator) {
+                // 尝试次数
+                const maxRetries = 2;
+
+                for (let i = 0; i <= maxRetries; i++) {
+                    try {
+                        // 尝试并行检测（Fetch 和 Favicon 哪个快用哪个）
+                        await Promise.any([
+                            checkUrlFetch(url),
+                            checkFavicon(url)
+                        ]);
+
+                        // 成功
+                        setOnline(indicator, '连接正常');
+                        return;
+                    } catch (e) {
+                        // 如果是最后一次尝试，且都失败了
+                        if (i === maxRetries) {
+                            indicator.className = 'card-status-indicator offline';
+                            indicator.title = '无法连接 (由于浏览器安全策略，可能存在误判)';
+                        } else {
+                            // 等待1秒后重试
+                            await new Promise(r => setTimeout(r, 1000));
+                        }
+                    }
+                }
+            }
+
+            function setOnline(indicator, msg) {
+                indicator.className = 'card-status-indicator online';
+                indicator.title = msg;
+            }
+
+            function checkUrlFetch(url) {
+                return new Promise((resolve, reject) => {
+                    const controller = new AbortController();
+                    // 延长超时到 8 秒
+                    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+                    fetch(url, {
+                        method: 'GET',
+                        mode: 'no-cors',
+                        cache: 'no-cache',
+                        referrerPolicy: 'no-referrer',
+                        signal: controller.signal
+                    })
+                        .then(() => {
+                            clearTimeout(timeoutId);
+                            resolve();
+                        })
+                        .catch((err) => {
+                            clearTimeout(timeoutId);
+                            reject(err);
+                        });
+                });
+            }
+
+            function checkFavicon(url) {
+                return new Promise((resolve, reject) => {
+                    const img = new Image();
+                    // 延长图片加载超时到 8 秒
+                    const timeoutId = setTimeout(() => {
+                        img.src = '';
+                        reject();
+                    }, 8000);
+
+                    img.onload = () => {
+                        clearTimeout(timeoutId);
+                        resolve();
+                    };
+                    img.onerror = () => {
+                        clearTimeout(timeoutId);
+                        reject();
+                    };
+
+                    try {
+                        const urlObj = new URL(url);
+                        img.src = `${urlObj.protocol}//${urlObj.host}/favicon.ico?t=${Date.now()}`;
+                    } catch (e) {
+                        reject();
+                    }
+                });
+            }
+        })();
+    </script>
     <!-- 添加链接模态框 -->
     <div class="panel-overlay" id="addCardOverlay"></div>
     <div class="hidden-cards-panel" id="addCardModal">
@@ -8551,9 +7691,9 @@
             };
 
             // 保存到 LocalStorage
-            let favs = JSON.parse(safeStorage.getItem(FAV_KEY) || '[]');
+            let favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
             favs.push(newCard);
-            safeStorage.setItem(FAV_KEY, JSON.stringify(favs));
+            localStorage.setItem(FAV_KEY, JSON.stringify(favs));
 
             // 渲染
             renderFavorites();
@@ -8563,9 +7703,9 @@
         function deleteFavCard(id, e) {
             e.stopPropagation(); // 防止触发点击跳转
             if (confirm('确定要删除这个收藏吗？')) {
-                let favs = JSON.parse(safeStorage.getItem(FAV_KEY) || '[]');
+                let favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
                 favs = favs.filter(c => c.id !== id);
-                safeStorage.setItem(FAV_KEY, JSON.stringify(favs));
+                localStorage.setItem(FAV_KEY, JSON.stringify(favs));
                 renderFavorites();
             }
         }
@@ -8574,7 +7714,7 @@
             const container = document.getElementById('my-favorites-list');
             if (!container) return;
 
-            const favs = JSON.parse(safeStorage.getItem(FAV_KEY) || '[]');
+            const favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
 
             // 清空现有内容
             container.innerHTML = '';
@@ -8624,7 +7764,7 @@
 
         // 导出收藏数据
         function exportFavorites() {
-            const favs = safeStorage.getItem(FAV_KEY);
+            const favs = localStorage.getItem(FAV_KEY);
             if (!favs || favs === '[]') {
                 alert('还没有收藏任何链接哦！');
                 return;
@@ -8652,7 +7792,7 @@
                     const data = JSON.parse(json);
                     if (Array.isArray(data)) {
                         if (confirm('导入将覆盖当前的收藏数据，确定要继续吗？')) {
-                            safeStorage.setItem(FAV_KEY, JSON.stringify(data));
+                            localStorage.setItem(FAV_KEY, JSON.stringify(data));
                             renderFavorites();
                             alert('导入成功！');
                             closeAddCardModal();
@@ -8796,14 +7936,8 @@
             // 备用: wttr.in
             const weatherAPI = 'https://api.oioweb.cn/api/weather/weather';
 
-            // 使用代理请求天气API
-            const proxiedWeatherAPI = getProxiedUrl(weatherAPI);
-
-            fetch(proxiedWeatherAPI)
-                .then(response => {
-                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                    return response.json();
-                })
+            fetch(weatherAPI)
+                .then(response => response.json())
                 .then(data => {
                     if (data.code === 200) {
                         const res = data.result;
@@ -8826,14 +7960,10 @@
                         throw new Error('API Error');
                     }
                 })
-                .catch((error) => {
-                    console.log('天气API请求失败，尝试备用源:', error.message);
+                .catch(() => {
                     // 失败则回退到 wttr.in
                     fetch('https://wttr.in/?format=j1&lang=zh')
-                        .then(response => {
-                            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                            return response.json();
-                        })
+                        .then(response => response.json())
                         .then(data => {
                             try {
                                 const current = data.current_condition[0];
@@ -8866,19 +7996,14 @@
 
                                 widget.innerHTML = `<span style="margin-right: 5px;">${city}</span> <i class="fa fa-cloud" style="margin-right:4px"></i> ${weatherDesc} ${temp}°C`;
                                 widget.title = `源: wttr.in | 城市: ${originCity}`;
-                            } catch (e) {
-                                console.error('备用天气API解析失败:', e);
-                                widget.innerHTML = `<span style="cursor:pointer" onclick="window.open('https://weather.cma.cn/','_blank')">点击查看天气</span>`;
-                            }
+                            } catch (e) { widget.innerHTML = '天气暂不可用'; }
                         })
-                        .catch((error) => {
-                            console.error('备用天气API请求失败:', error);
+                        .catch(() => {
                             widget.innerHTML = `<span style="cursor:pointer" onclick="window.open('https://weather.cma.cn/','_blank')">点击查看天气</span>`;
                         });
                 });
         })();
 
-        // 切换移动端侧边栏
         // ========== 暗黑模式逻辑 ==========
         function toggleDarkMode() {
             const body = document.body;
@@ -8893,12 +8018,12 @@
             }
 
             // 保存设置
-            safeStorage.setItem('theme_mode', isDark ? 'dark' : 'light');
+            localStorage.setItem('theme_mode', isDark ? 'dark' : 'light');
         }
 
         // 初始化暗黑模式
         (function () {
-            const savedMode = safeStorage.getItem('theme_mode');
+            const savedMode = localStorage.getItem('theme_mode');
             // 如果用户之前设置了 Dark，或者没设置但系统是 Dark
             const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
 
@@ -9047,6 +8172,9 @@
         }
     </style>
     <!-- 行情功能模块 -->
+
+<!-- 贵金属行情数据配置 -->
+<script src="assets/js/metalsData.js"></script>
 
 </body>
 

@@ -6044,8 +6044,8 @@
                     GATEIO: {
                         name: 'Gate.io (Official)',
                         url: 'https://api.gateio.ws/api/v4/spot/tickers', // Returns all tickers, need filtering
-                        useProxy: true, // Gate.io需要代理
-                        timeout: 30000, // 30秒超时
+                        useProxy: false, // Gate.io支持CORS，不需要代理
+                        timeout: 45000, // 45秒超时，给Gate.io更多时间
                         handler: (data) => {
                             // 0. Backup all tickers for global search
                             allGateTickers = data;
@@ -6119,11 +6119,12 @@
                                 if (!data || !data.Data || !Array.isArray(data.Data)) {
                                     throw new Error("Invalid CC Data structure");
                                 }
-                                return data.Data.map(item => {
-                                    if (!item || !item.RAW || !item.RAW.USD) {
-                                        console.error('CryptoCompare数据项缺少USD数据:', item);
-                                        return null;
-                                    }
+                                const validItems = data.Data.filter(item => item && item.RAW && item.RAW.USD);
+                                if (validItems.length === 0) {
+                                    throw new Error("No valid USD data in CryptoCompare response");
+                                }
+                                console.log('CryptoCompare有效数据项数量:', validItems.length);
+                                return validItems.map(item => {
                                     const coin = item.RAW.USD;
                                     return {
                                         id: item.CoinInfo.Name.toLowerCase(),
@@ -6135,7 +6136,7 @@
                                         market_cap: coin.MKTCAP,
                                         sparkline_in_7d: null
                                     };
-                                }).filter(item => item !== null);
+                                });
                             } catch (error) {
                                 console.error('CryptoCompare数据处理失败:', error);
                                 throw new Error("CryptoCompare processing failed");
@@ -6146,7 +6147,7 @@
                         name: 'CoinCap',
                         // Fetching top 50 by market cap from CoinCap
                         url: 'https://api.coincap.io/v2/assets?limit=50',
-                        useProxy: true, // CoinCap需要代理
+                        useProxy: false, // CoinCap支持CORS，不需要代理
                         timeout: 30000, // 30秒超时
                         handler: (data) => {
                             try {
@@ -6192,11 +6193,15 @@
                         name: 'CoinGecko',
                         // Fetching top 50 by market cap from CoinGecko
                         url: 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=50&page=1&sparkline=false&price_change_percentage=24h',
-                        useProxy: true, // CoinGecko需要代理以避免CORS和429错误
+                        useProxy: false, // CoinGecko免费API支持CORS，不需要代理
                         timeout: 30000, // 30秒超时
                         handler: (data) => {
                             try {
                                 console.log('CoinGecko原始数据结构:', JSON.stringify(data).substring(0, 200));
+                                // 检查是否返回了错误对象
+                                if (data && data.status && data.status.error_code) {
+                                    throw new Error(`CoinGecko API Error: ${data.status.error_message}`);
+                                }
                                 if (!Array.isArray(data)) {
                                     throw new Error("Invalid CoinGecko Data structure");
                                 }
@@ -6284,11 +6289,21 @@
                         try {
                             console.log(`正在请求 ${apiObj.name}，超时时间: ${apiObj.timeout || 20000}ms，使用代理: ${apiObj.useProxy || false}`);
                             if (label) label.innerText = `正在连接 ${apiObj.name}...`;
-                            const res = await fetchWithTimeout(apiObj.url, { 
+                            const res = await fetchWithTimeout(apiObj.url, {
                                 timeout: apiObj.timeout || 20000,
-                                useProxy: apiObj.useProxy || false 
+                                useProxy: apiObj.useProxy || false
                             });
-                            if (!res.ok) throw new Error(`${apiObj.name} Failed (HTTP ${res.status})`);
+
+                            // 处理429速率限制错误
+                            if (res.status === 429) {
+                                console.warn(`${apiObj.name} 达到速率限制，跳过此API`);
+                                throw new Error(`${apiObj.name} Rate Limited (429)`);
+                            }
+
+                            if (!res.ok) {
+                                throw new Error(`${apiObj.name} Failed (HTTP ${res.status})`);
+                            }
+
                             const data = await res.json();
                             console.log(`${apiObj.name} 请求成功`);
                             return { name: apiObj.name, data: apiObj.handler(data) };
@@ -6299,18 +6314,18 @@
                     };
 
                     try {
-                        // 优先级策略：不需要代理的API优先
-                        // 1. CryptoCompare（最快，不需要代理）
-                        // 2. Gate.io（需要代理，作为后备）
-                        // 3. CoinCap（需要代理，作为后备）
-                        // 4. CoinGecko（需要代理，作为后备）
+                        // 优先级策略：所有API都不需要代理，提高成功率和速度
+                        // 1. CryptoCompare（最快，稳定）
+                        // 2. CoinCap（快速，支持CORS）
+                        // 3. CoinGecko（数据全面，但有速率限制）
+                        // 4. Gate.io（数据准确，但响应较慢）
                         console.log('开始并行请求多个API...');
                         if (label) label.innerText = '正在连接API...';
                         const fastestResult = await Promise.any([
                             fetchSource(APIS.CRYPTOCOMPARE),
-                            fetchSource(APIS.GATEIO),
                             fetchSource(APIS.COINCAP),
-                            fetchSource(APIS.COINGECKO)
+                            fetchSource(APIS.COINGECKO),
+                            fetchSource(APIS.GATEIO)
                         ]);
 
                         if (fastestResult && fastestResult.data) {

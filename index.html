@@ -6012,6 +6012,7 @@
                         name: 'Gate.io (Official)',
                         url: 'https://api.gateio.ws/api/v4/spot/tickers', // Returns all tickers, need filtering
                         useProxy: false, // Gate.io图片不需要代理
+                        timeout: 25000, // 25秒超时
                         handler: (data) => {
                             // 0. Backup all tickers for global search
                             allGateTickers = data;
@@ -6078,6 +6079,7 @@
                         // Fetching top 50 by volume from CC
                         url: 'https://min-api.cryptocompare.com/data/top/totalvolfull?limit=50&tsym=USD',
                         useProxy: false, // CryptoCompare支持CORS
+                        timeout: 20000, // 20秒超时
                         handler: (data) => {
                             if (!data.Data) throw new Error("Invalid CC Data");
                             return data.Data.map(item => {
@@ -6100,6 +6102,7 @@
                         // Fetching top 50 by market cap from CoinCap
                         url: 'https://api.coincap.io/v2/assets?limit=50',
                         useProxy: true, // CoinCap需要代理
+                        timeout: 25000, // 25秒超时
                         handler: (data) => {
                             const coinGeckoImageMap = {
                                 'bitcoin': 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png',
@@ -6136,6 +6139,7 @@
                         // Fetching top 50 by market cap from CoinGecko
                         url: 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=50&page=1&sparkline=false&price_change_percentage=24h',
                         useProxy: false, // CoinGecko支持CORS
+                        timeout: 25000, // 25秒超时
                         handler: (data) => data.map(item => ({
                             id: item.id,
                             symbol: item.symbol.toLowerCase(),
@@ -6211,28 +6215,37 @@
                     syncExchangeRate();
 
                     // C. Parallel Racing Mode (The core optimization)
+                    // 优先使用不需要代理的API，提高成功率
                     const fetchSource = async (apiObj) => {
                         try {
+                            console.log(`正在请求 ${apiObj.name}，超时时间: ${apiObj.timeout || 20000}ms，使用代理: ${apiObj.useProxy || false}`);
+                            if (label) label.innerText = `正在连接 ${apiObj.name}...`;
                             const res = await fetchWithTimeout(apiObj.url, { 
-                                timeout: 15000,
+                                timeout: apiObj.timeout || 20000,
                                 useProxy: apiObj.useProxy || false 
                             });
-                            if (!res.ok) throw new Error(`${apiObj.name} Failed`);
+                            if (!res.ok) throw new Error(`${apiObj.name} Failed (HTTP ${res.status})`);
                             const data = await res.json();
+                            console.log(`${apiObj.name} 请求成功`);
                             return { name: apiObj.name, data: apiObj.handler(data) };
                         } catch (error) {
-                            console.error(`${apiObj.name} 请求失败:`, error);
+                            console.error(`${apiObj.name} 请求失败:`, error.message);
                             throw error;
                         }
                     };
 
                     try {
-                        // Priority Racing: Start all main sources at once
-                        // We use Promise.any for speed, but Gate.io is still our accuracy target.
-                        // However, stability first. We'll take the first one that responds.
+                        // 优先级策略：不需要代理的API优先
+                        // 1. CryptoCompare（最快，不需要代理）
+                        // 2. CoinGecko（不需要代理）
+                        // 3. Gate.io（需要代理，作为后备）
+                        // 4. CoinCap（需要代理，作为后备）
+                        console.log('开始并行请求多个API...');
+                        if (label) label.innerText = '正在连接API...';
                         const fastestResult = await Promise.any([
-                            fetchSource(APIS.GATEIO),
                             fetchSource(APIS.CRYPTOCOMPARE),
+                            fetchSource(APIS.COINGECKO),
+                            fetchSource(APIS.GATEIO),
                             fetchSource(APIS.COINCAP)
                         ]);
 
@@ -6251,11 +6264,14 @@
                         
                         // D. Fallback to CoinGecko if all initial racing fail
                         try {
-                            if (label) label.innerText = 'Fallback (CG)...';
+                            if (label) label.innerText = '正在尝试备用API...';
+                            console.log('尝试CoinGecko作为备用API...');
                             const geckoRes = await fetchSource(APIS.COINGECKO);
                             cryptoData = geckoRes.data;
+                            console.log('CoinGecko备用API成功，数据数量:', cryptoData.length);
                             onSuccess(dot, geckoRes.name, geckoRes.data);
                             localStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
+                            localStorage.setItem('crypto_market_cache_time', Date.now().toString());
                             return;
                         } catch (ge) {
                             console.error('CoinGecko后备请求也失败:', ge);
@@ -6269,7 +6285,9 @@
                                 dot.style.color = '#ef4444';
                                 tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: #ef4444;">
                                     <i class="fa fa-exclamation-triangle"></i> 连接超时，请检查网络或代理。<br>
-                                    <button class="btn btn-xs btn-primary" style="margin-top:10px" onclick="fetchCryptoData()">重试连接</button>
+                                    <small style="color:#999; font-size:12px;">已尝试多个API源，均无法连接</small><br><br>
+                                    <button class="btn btn-xs btn-primary" style="margin-right:10px;" onclick="fetchCryptoData(true)">重试连接</button>
+                                    <button class="btn btn-xs btn-warning" onclick="clearCacheAndRefresh()">清除缓存重试</button>
                                 </td></tr>`;
                             }
                         }

@@ -14,8 +14,9 @@
     <meta name="msvalidate.01" content="B5E4CFF733488FD189098A7AC19D4EAF" />
 
     <!-- 字体预加载，提升性能 -->
-    <link rel="preload" href="https://cdn.jsdelivr.net/npm/harmonyos-sans@1.0.6/css/harmonyos-sans.min.css" as="style">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/harmonyos-sans@1.0.6/css/harmonyos-sans.min.css">
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/harmonyos-sans@1.0.6/css/harmonyos-sans.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/harmonyos-sans@1.0.6/css/harmonyos-sans.min.css"></noscript>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/harmonyos-sans@1.0.6/css/harmonyos-sans.min.css" media="print" onload="this.media='all'">
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js">
     </script>
     <script>
@@ -45,7 +46,7 @@
     <link rel="shortcut icon" href="../assets/images/favicon.png">
     <link rel="apple-touch-icon" href="../assets/images/favicon.png">
 
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Arimo:400,700,400italic">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Arimo:400,700,400italic&display=swap">
     <link rel="stylesheet" href="../assets/css/fonts/linecons/css/linecons.css">
     <link rel="stylesheet" href="../assets/css/fonts/fontawesome/css/font-awesome.min.css">
     <link rel="stylesheet" href="../assets/css/bootstrap.css">
@@ -5577,15 +5578,41 @@
             <script>
                 let currentCurrency = 'USD';
                 let cryptoData = [];
-                
+
+                // 安全的localStorage访问函数 - 处理Tracking Prevention错误
+                const safeStorage = {
+                    getItem: function(key) {
+                        try {
+                            return localStorage.getItem(key);
+                        } catch (e) {
+                            console.log('localStorage访问被阻止:', e.message);
+                            return null;
+                        }
+                    },
+                    setItem: function(key, value) {
+                        try {
+                            localStorage.setItem(key, value);
+                        } catch (e) {
+                            console.log('localStorage写入被阻止:', e.message);
+                        }
+                    },
+                    removeItem: function(key) {
+                        try {
+                            localStorage.removeItem(key);
+                        } catch (e) {
+                            console.log('localStorage删除被阻止:', e.message);
+                        }
+                    }
+                };
+
                 // 汇率初始化 - 优先从缓存读取
                 let USD_CNY_RATE = 7.25;
                 let lastRateUpdate = 0;
-                
+
                 // 尝试从localStorage读取缓存的汇率
                 try {
-                    const cachedRate = localStorage.getItem('usd_cny_rate');
-                    const cachedRateTime = localStorage.getItem('usd_cny_rate_time');
+                    const cachedRate = safeStorage.getItem('usd_cny_rate');
+                    const cachedRateTime = safeStorage.getItem('usd_cny_rate_time');
                     if (cachedRate && cachedRateTime) {
                         const rateAge = Date.now() - parseInt(cachedRateTime);
                         // 如果缓存时间在24小时内,使用缓存的汇率
@@ -5652,8 +5679,8 @@
                                     lastRateUpdate = Date.now();
 
                                     // 保存到localStorage
-                                    localStorage.setItem('usd_cny_rate', USD_CNY_RATE.toString());
-                                    localStorage.setItem('usd_cny_rate_time', lastRateUpdate.toString());
+                                    safeStorage.setItem('usd_cny_rate', USD_CNY_RATE.toString());
+                                    safeStorage.setItem('usd_cny_rate_time', lastRateUpdate.toString());
 
                                     console.log('汇率已更新:', oldRate, '→', USD_CNY_RATE, '(变化:', (newRate - oldRate).toFixed(4), ')');
 
@@ -5728,8 +5755,8 @@
                                     USD_CNY_RATE = newRate;
                                     lastRateUpdate = Date.now();
                                     
-                                    localStorage.setItem('usd_cny_rate', USD_CNY_RATE.toString());
-                                    localStorage.setItem('usd_cny_rate_time', lastRateUpdate.toString());
+                                    safeStorage.setItem('usd_cny_rate', USD_CNY_RATE.toString());
+                                    safeStorage.setItem('usd_cny_rate_time', lastRateUpdate.toString());
                                     
                                     console.log('使用备用汇率源更新:', oldRate, '→', USD_CNY_RATE);
                                     
@@ -6193,8 +6220,8 @@
 
                 // 清除缓存并刷新
                 function clearCacheAndRefresh() {
-                    localStorage.removeItem('crypto_market_cache');
-                    localStorage.removeItem('crypto_market_cache_time');
+                    safeStorage.removeItem('crypto_market_cache');
+                    safeStorage.removeItem('crypto_market_cache_time');
                     cryptoData = []; // 清空当前数据
                     console.log('缓存已清除，重新获取数据');
                     fetchCryptoData(true); // 强制刷新
@@ -6226,11 +6253,11 @@
 
                     // A. Try to load from Local Storage immediately for "Instant Load" feel
                     // 检查缓存时间，如果超过1小时则清除缓存
-                    const cacheTime = localStorage.getItem('crypto_market_cache_time');
+                    const cacheTime = safeStorage.getItem('crypto_market_cache_time');
                     const cacheAge = cacheTime ? (Date.now() - parseInt(cacheTime)) : Infinity;
                     
                     if (!forceRefresh && cryptoData.length === 0 && cacheAge < 3600000) {
-                        const cached = localStorage.getItem('crypto_market_cache');
+                        const cached = safeStorage.getItem('crypto_market_cache');
                         if (cached) {
                             try {
                                 const parsed = JSON.parse(cached);
@@ -6244,9 +6271,8 @@
                         }
                     } else if (cacheAge >= 3600000) {
                         console.log('缓存已过期，清除缓存');
-                        localStorage.removeItem('crypto_market_cache');
-                        localStorage.removeItem('crypto_market_cache_time');
-                    }
+                        safeStorage.removeItem('crypto_market_cache');
+                                            safeStorage.removeItem('crypto_market_cache_time');                    }
 
                     // B. Sync Exchange Rate (Gate.io USDT_CNY) - background with proxy support
                     // 使用优化后的汇率同步函数
@@ -6293,8 +6319,8 @@
                             console.log('API数据来源:', fastestResult.name);
                             onSuccess(dot, fastestResult.name, fastestResult.data);
                             // Persist to local storage for offline use
-                            localStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
-                            localStorage.setItem('crypto_market_cache_time', Date.now().toString());
+                            safeStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
+                            safeStorage.setItem('crypto_market_cache_time', Date.now().toString());
                             return;
                         }
                     } catch (e) {
@@ -6308,9 +6334,8 @@
                             cryptoData = geckoRes.data;
                             console.log('CoinGecko备用API成功，数据数量:', cryptoData.length);
                             onSuccess(dot, geckoRes.name, geckoRes.data);
-                            localStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
-                            localStorage.setItem('crypto_market_cache_time', Date.now().toString());
-                            return;
+                            safeStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
+                                                    safeStorage.setItem('crypto_market_cache_time', Date.now().toString());                            return;
                         } catch (ge) {
                             console.error('CoinGecko后备请求也失败:', ge);
                             
@@ -7420,7 +7445,7 @@
                 cardContainer.classList.add('card-hidden');
 
                 // 保存到localStorage
-                let hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
+                let hiddenCards = JSON.parse(safeStorage.getItem('hiddenCards') || '[]');
 
                 // 检查是否已存在（数组存储的是对象，需要检查id属性）
                 const exists = hiddenCards.some(card => card && card.id === cardId);
@@ -7430,7 +7455,7 @@
                         title: cardTitle,
                         widget: widget.outerHTML
                     });
-                    localStorage.setItem('hiddenCards', JSON.stringify(hiddenCards));
+                    safeStorage.setItem('hiddenCards', JSON.stringify(hiddenCards));
                     console.log('已隐藏卡片:', cardId, '总数:', hiddenCards.length);
                 } else {
                     console.log('卡片已存在，跳过:', cardId);
@@ -7447,9 +7472,9 @@
                     cardContainer.classList.remove('card-hidden');
 
                     // 从localStorage移除
-                    let hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
+                    let hiddenCards = JSON.parse(safeStorage.getItem('hiddenCards') || '[]');
                     hiddenCards = hiddenCards.filter(card => card.id !== cardId);
-                    localStorage.setItem('hiddenCards', JSON.stringify(hiddenCards));
+                    safeStorage.setItem('hiddenCards', JSON.stringify(hiddenCards));
 
                     // 更新管理面板
                     updateHiddenPanel();
@@ -7458,7 +7483,7 @@
 
             // ========== 5. 更新隐藏卡片管理面板 ==========
             function updateHiddenPanel() {
-                const hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
+                const hiddenCards = JSON.parse(safeStorage.getItem('hiddenCards') || '[]');
                 const listContainer = document.getElementById('hiddenCardsList');
 
                 if (!listContainer) return;
@@ -7581,15 +7606,15 @@
                 const defaultKey = `defaultOrder_${rowIndex}`;
 
                 // 保存默认顺序（首次加载时记录，排除隐藏的卡片）
-                if (!localStorage.getItem(defaultKey)) {
+                if (!safeStorage.getItem(defaultKey)) {
                     const defaultIds = Array.from(cards)
                         .filter(card => !card.classList.contains('card-hidden'))
                         .map(card => card.id);
-                    localStorage.setItem(defaultKey, JSON.stringify(defaultIds));
+                    safeStorage.setItem(defaultKey, JSON.stringify(defaultIds));
                 }
 
                 // 加载用户保存的顺序
-                const savedOrder = localStorage.getItem(storageKey);
+                const savedOrder = safeStorage.getItem(storageKey);
                 if (savedOrder) {
                     applyOrder(container, JSON.parse(savedOrder));
                 }
@@ -7652,12 +7677,12 @@
 
                     // 保存当前容器的顺序
                     const newOrder = Array.from(container.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)')).map(card => card.id);
-                    localStorage.setItem(storageKey, JSON.stringify(newOrder));
+                    safeStorage.setItem(storageKey, JSON.stringify(newOrder));
 
                     // 更新所有容器的顺序（因为可能跨栏移动）
                     allRows.forEach((c, idx) => {
                         const order = Array.from(c.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)')).map(card => card.id);
-                        localStorage.setItem(`cardOrder_${idx}`, JSON.stringify(order));
+                        safeStorage.setItem(`cardOrder_${idx}`, JSON.stringify(order));
                     });
                 });
 
@@ -7684,10 +7709,10 @@
                     if (confirm('确定要恢复默认排序吗？')) {
                         allRows.forEach((container, rowIndex) => {
                             const defaultKey = `defaultOrder_${rowIndex}`;
-                            const defaultOrder = localStorage.getItem(defaultKey);
+                            const defaultOrder = safeStorage.getItem(defaultKey);
                             if (defaultOrder) {
                                 applyOrder(container, JSON.parse(defaultOrder));
-                                localStorage.removeItem(`cardOrder_${rowIndex}`);
+                                safeStorage.removeItem(`cardOrder_${rowIndex}`);
                             }
                         });
                     }
@@ -7976,9 +8001,9 @@
             };
 
             // 保存到 LocalStorage
-            let favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
+            let favs = JSON.parse(safeStorage.getItem(FAV_KEY) || '[]');
             favs.push(newCard);
-            localStorage.setItem(FAV_KEY, JSON.stringify(favs));
+            safeStorage.setItem(FAV_KEY, JSON.stringify(favs));
 
             // 渲染
             renderFavorites();
@@ -7988,9 +8013,9 @@
         function deleteFavCard(id, e) {
             e.stopPropagation(); // 防止触发点击跳转
             if (confirm('确定要删除这个收藏吗？')) {
-                let favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
+                let favs = JSON.parse(safeStorage.getItem(FAV_KEY) || '[]');
                 favs = favs.filter(c => c.id !== id);
-                localStorage.setItem(FAV_KEY, JSON.stringify(favs));
+                safeStorage.setItem(FAV_KEY, JSON.stringify(favs));
                 renderFavorites();
             }
         }
@@ -7999,7 +8024,7 @@
             const container = document.getElementById('my-favorites-list');
             if (!container) return;
 
-            const favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
+            const favs = JSON.parse(safeStorage.getItem(FAV_KEY) || '[]');
 
             // 清空现有内容
             container.innerHTML = '';
@@ -8049,7 +8074,7 @@
 
         // 导出收藏数据
         function exportFavorites() {
-            const favs = localStorage.getItem(FAV_KEY);
+            const favs = safeStorage.getItem(FAV_KEY);
             if (!favs || favs === '[]') {
                 alert('还没有收藏任何链接哦！');
                 return;
@@ -8077,7 +8102,7 @@
                     const data = JSON.parse(json);
                     if (Array.isArray(data)) {
                         if (confirm('导入将覆盖当前的收藏数据，确定要继续吗？')) {
-                            localStorage.setItem(FAV_KEY, JSON.stringify(data));
+                            safeStorage.setItem(FAV_KEY, JSON.stringify(data));
                             renderFavorites();
                             alert('导入成功！');
                             closeAddCardModal();
@@ -8317,12 +8342,12 @@
             }
 
             // 保存设置
-            localStorage.setItem('theme_mode', isDark ? 'dark' : 'light');
+            safeStorage.setItem('theme_mode', isDark ? 'dark' : 'light');
         }
 
         // 初始化暗黑模式
         (function () {
-            const savedMode = localStorage.getItem('theme_mode');
+            const savedMode = safeStorage.getItem('theme_mode');
             // 如果用户之前设置了 Dark，或者没设置但系统是 Dark
             const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
 
@@ -8471,9 +8496,6 @@
         }
     </style>
     <!-- 行情功能模块 -->
-
-<!-- 贵金属行情数据配置 -->
-<script src="assets/js/metalsData.js"></script>
 
 </body>
 

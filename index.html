@@ -507,7 +507,53 @@
             }
         }
 
+        /* 移动端隐藏搜索框 */
+        @media screen and (max-width: 768px) {
+            .global-search {
+                display: none !important;
+            }
+        }
+
         /* ========== 移动端导航栏和布局优化 ========== */
+
+        /* 移动端汉堡菜单按钮优化 */
+        @media screen and (max-width: 768px) {
+            .user-info-menu.left-links {
+                margin-left: 0;
+            }
+
+            .user-info-menu.left-links li a {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 44px;
+                height: 44px;
+                border-radius: 8px;
+                background: rgba(0, 0, 0, 0.05);
+                transition: all 0.3s ease;
+            }
+
+            .user-info-menu.left-links li a:hover {
+                background: rgba(0, 0, 0, 0.1);
+            }
+
+            .user-info-menu.left-links li a i {
+                font-size: 20px;
+                color: #333;
+            }
+
+            body.dark-mode .user-info-menu.left-links li a {
+                background: rgba(255, 255, 255, 0.05);
+            }
+
+            body.dark-mode .user-info-menu.left-links li a:hover {
+                background: rgba(255, 255, 255, 0.1);
+            }
+
+            body.dark-mode .user-info-menu.left-links li a i {
+                color: #fff;
+            }
+        }
 
         /* 移动端侧边栏优化 */
         @media screen and (max-width: 768px) {
@@ -593,6 +639,27 @@
             }
         }
 
+        /* 优化移动端滚动和触摸 */
+        @media screen and (max-width: 768px) {
+            /* 禁用移动端双击缩放 */
+            * {
+                touch-action: manipulation;
+            }
+
+            /* 优化移动端滚动 */
+            body {
+                -webkit-overflow-scrolling: touch;
+                overscroll-behavior-y: contain;
+            }
+
+            /* 优化移动端表单元素 */
+            input,
+            select,
+            textarea {
+                font-size: 16px; /* 防止iOS自动缩放 */
+            }
+        }
+
         /* 小屏幕移动端优化 */
         @media screen and (max-width: 480px) {
             .sidebar-menu {
@@ -640,26 +707,47 @@
             .back-to-top i {
                 font-size: 18px;
             }
-        }
 
-        /* 优化移动端滚动和触摸 */
-        @media screen and (max-width: 768px) {
-            /* 禁用移动端双击缩放 */
-            * {
-                touch-action: manipulation;
+            /* 小屏幕卡片布局优化 */
+            .row {
+                margin-left: -5px;
+                margin-right: -5px;
             }
 
-            /* 优化移动端滚动 */
-            body {
-                -webkit-overflow-scrolling: touch;
-                overscroll-behavior-y: contain;
+            .col-sm-3 {
+                flex: 0 0 calc(50% - 10px);
+                max-width: calc(50% - 10px);
+                padding-left: 5px;
+                padding-right: 5px;
+                margin-bottom: 8px;
             }
 
-            /* 优化移动端表单元素 */
-            input,
-            select,
-            textarea {
-                font-size: 16px; /* 防止iOS自动缩放 */
+            .xe-widget {
+                border-radius: 10px;
+                margin-bottom: 8px;
+            }
+
+            .xe-widget .xe-content {
+                padding: 10px 8px;
+            }
+
+            .xe-widget .xe-title {
+                font-size: 12px;
+            }
+
+            .xe-widget .xe-comment {
+                font-size: 10px;
+            }
+
+            .xe-user-img img {
+                width: 28px;
+                height: 28px;
+            }
+
+            /* 移动端卡片hover效果 */
+            .xe-widget:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
             }
         }
     </style>
@@ -5953,75 +6041,6 @@
                     body.dark-mode .detail-info {
                         border-bottom-color: rgba(255, 255, 255, 0.1);
                     }
-
-                    /* 优化移动端整体间距 */
-                    .row {
-                        margin-left: -5px;
-                        margin-right: -5px;
-                    }
-
-                    .col-sm-3 {
-                        padding-left: 5px;
-                        padding-right: 5px;
-                        margin-bottom: 10px;
-                    }
-
-                    .main-content {
-                        padding: 10px 5px;
-                    }
-
-                    h4.text-gray {
-                        padding: 8px 10px;
-                        margin-bottom: 10px;
-                    }
-
-                    /* 优化移动端触摸区域 - 更小的屏幕也需要足够的触摸区域 */
-                    .btn,
-                    button,
-                    .xe-widget {
-                        min-height: 44px;
-                        min-width: 44px;
-                    }
-
-                    .btn-xs {
-                        min-height: 36px;
-                        min-width: 36px;
-                    }
-
-                    /* 优化移动端链接 */
-                    a {
-                        display: inline-block;
-                        min-height: 44px;
-                        min-width: 44px;
-                    }
-
-                    /* 优化移动端卡片 */
-                    .xe-widget .xe-content {
-                        padding: 10px 8px;
-                    }
-
-                    .xe-widget .xe-title {
-                        font-size: 13px;
-                    }
-
-                    .xe-widget .xe-comment {
-                        font-size: 10px;
-                    }
-
-                    /* 优化移动端图标 */
-                    .xe-user-img img {
-                        width: 32px;
-                        height: 32px;
-                    }
-
-                    /* 优化移动端页脚 */
-                    .main-footer {
-                        padding: 15px 10px;
-                    }
-
-                    .footer-text {
-                        font-size: 11px;
-                    }
                 }
 
                 /* 优化移动端触摸区域 */
@@ -6071,14 +6090,27 @@
 
                 /* 优化移动端卡片布局 */
                 @media screen and (max-width: 768px) {
+                    /* 移动端卡片布局优化 - 居中且圆滑 */
+                    .row {
+                        display: flex;
+                        flex-wrap: wrap;
+                        justify-content: center;
+                        margin-left: -5px;
+                        margin-right: -5px;
+                    }
+
                     .col-sm-3 {
-                        padding-left: 10px;
-                        padding-right: 10px;
-                        margin-bottom: 15px;
+                        flex: 0 0 calc(50% - 10px);
+                        max-width: calc(50% - 10px);
+                        padding-left: 5px;
+                        padding-right: 5px;
+                        margin-bottom: 10px;
                     }
 
                     .xe-widget {
-                        margin-bottom: 15px;
+                        border-radius: 12px;
+                        margin-bottom: 10px;
+                        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
                     }
 
                     .xe-widget .xe-content {
@@ -6086,7 +6118,7 @@
                     }
 
                     .xe-widget .xe-title {
-                        font-size: 14px;
+                        font-size: 13px;
                     }
 
                     .xe-widget .xe-comment {
@@ -6094,8 +6126,14 @@
                     }
 
                     .xe-user-img img {
-                        width: 36px;
-                        height: 36px;
+                        width: 32px;
+                        height: 32px;
+                    }
+
+                    /* 移动端卡片hover效果 */
+                    .xe-widget:hover {
+                        transform: translateY(-2px);
+                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
                     }
                 }
 

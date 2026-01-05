@@ -8849,15 +8849,16 @@
             @media screen and (max-width: 600px) {
                 .crypto-table-container {
                     padding: 0 !important;
-                    margin-left: -5px;
-                    margin-right: -5px;
-                    width: calc(100% + 10px);
+                    margin-left: -10px;
+                    margin-right: -10px;
+                    width: calc(100% + 20px);
                     overflow-x: auto !important;
                     -webkit-overflow-scrolling: touch;
+                    overflow-y: hidden;
                 }
 
                 .crypto-table {
-                    min-width: 500px;
+                    min-width: 650px !important;
                     /* Force minimum width to enable scrolling */
                 }
 
@@ -8865,6 +8866,7 @@
                 .crypto-table td {
                     padding: 8px 6px !important;
                     font-size: 11px !important;
+                    white-space: nowrap;
                 }
 
                 /* Restore the hidden columns but keep them compact */

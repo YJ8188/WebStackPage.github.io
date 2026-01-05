@@ -526,32 +526,35 @@
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                width: 44px;
-                height: 44px;
-                border-radius: 8px;
-                background: rgba(0, 0, 0, 0.05);
+                width: 48px;
+                height: 48px;
+                border-radius: 12px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
                 transition: all 0.3s ease;
             }
 
             .user-info-menu.left-links li a:hover {
-                background: rgba(0, 0, 0, 0.1);
+                transform: scale(1.05);
+                box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+            }
+
+            .user-info-menu.left-links li a:active {
+                transform: scale(0.95);
             }
 
             .user-info-menu.left-links li a i {
-                font-size: 20px;
-                color: #333;
+                font-size: 22px;
+                color: #fff;
             }
 
             body.dark-mode .user-info-menu.left-links li a {
-                background: rgba(255, 255, 255, 0.05);
+                background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+                box-shadow: 0 4px 15px rgba(240, 147, 251, 0.4);
             }
 
             body.dark-mode .user-info-menu.left-links li a:hover {
-                background: rgba(255, 255, 255, 0.1);
-            }
-
-            body.dark-mode .user-info-menu.left-links li a i {
-                color: #fff;
+                box-shadow: 0 6px 20px rgba(240, 147, 251, 0.6);
             }
         }
 
@@ -609,13 +612,22 @@
             /* 优化移动端主内容区域 */
             .main-content {
                 margin-left: 0;
-                padding-top: 70px;
+                padding-top: 75px;
             }
 
             /* 优化移动端导航栏 */
             .navbar {
-                padding: 10px 15px;
-                min-height: 60px;
+                padding: 12px 15px;
+                min-height: 70px;
+                background: #fff;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+                border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            }
+
+            body.dark-mode .navbar {
+                background: #1a1a2e;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+                border-bottom-color: rgba(255, 255, 255, 0.1);
             }
 
             .navbar .user-info-menu {
@@ -623,7 +635,12 @@
             }
 
             .navbar .user-info-menu>li {
-                margin-left: 5px;
+                margin-left: 8px;
+            }
+
+            /* 隐藏移动端右侧菜单 */
+            .navbar .user-info-menu.right-links {
+                display: none;
             }
 
             /* 优化移动端天气组件 */
@@ -708,18 +725,18 @@
                 font-size: 18px;
             }
 
-            /* 小屏幕卡片布局优化 */
+            /* 小屏幕卡片布局优化 - 单列显示 */
             .row {
                 margin-left: -5px;
                 margin-right: -5px;
             }
 
             .col-sm-3 {
-                flex: 0 0 calc(50% - 10px);
-                max-width: calc(50% - 10px);
+                flex: 0 0 100%;
+                max-width: 100%;
                 padding-left: 5px;
                 padding-right: 5px;
-                margin-bottom: 8px;
+                margin-bottom: 10px;
             }
 
             .xe-widget {

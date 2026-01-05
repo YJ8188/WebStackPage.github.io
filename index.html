@@ -5167,6 +5167,8 @@
                     border-radius: 12px;
                     overflow: hidden;
                     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+                    overflow-x: auto;
+                    -webkit-overflow-scrolling: touch;
                 }
 
                 .crypto-table {
@@ -5520,7 +5522,6 @@
                 }
 
                 @media screen and (max-width: 768px) {
-
                     .crypto-table th,
                     .crypto-table td {
                         padding: 10px 8px !important;
@@ -5627,16 +5628,100 @@
                     .crypto-table-container {
                         overflow-x: auto;
                         -webkit-overflow-scrolling: touch;
+                        margin-left: -15px;
+                        margin-right: -15px;
+                        width: calc(100% + 30px);
+                        border-radius: 0;
+                    }
+
+                    .crypto-table {
+                        min-width: 650px;
+                    }
+
+                    /* 优化移动端表格单元格 */
+                    .crypto-table th,
+                    .crypto-table td {
+                        padding: 10px 10px !important;
+                        font-size: 13px;
+                    }
+
+                    .coin-icon {
+                        width: 28px;
+                        height: 28px;
+                        margin-right: 10px;
+                    }
+
+                    .coin-name {
+                        font-size: 14px;
+                    }
+
+                    .coin-symbol,
+                    .coin-vol {
+                        font-size: 11px;
+                    }
+
+                    .main-price {
+                        font-size: 14px;
+                    }
+
+                    .converted-price {
+                        font-size: 11px;
+                    }
+
+                    .change-box {
+                        min-width: 70px;
+                        font-size: 12px;
+                        padding: 5px 8px;
+                    }
+
+                    .graph-container {
+                        min-width: 100px;
+                    }
+
+                    /* 优化移动端控制按钮 */
+                    .text-gray .btn-xs {
+                        padding: 4px 8px !important;
+                        font-size: 12px !important;
+                        margin-right: 6px !important;
+                    }
+
+                    /* 优化移动端汇率显示 */
+                    #exchange-rate-display {
+                        font-size: 12px;
+                    }
+
+                    /* 优化移动端趋势图 */
+                    .sparkline-svg {
+                        height: 45px;
+                    }
+
+                    /* 优化移动端整体间距 */
+                    .main-content {
+                        padding: 12px 12px 100px 12px !important;
+                    }
+
+                    h4.text-gray {
+                        padding: 12px 15px;
+                        margin-bottom: 15px;
+                        font-size: 16px;
+                    }
+                }
+
+                /* 小屏幕移动端优化 */
+                @media screen and (max-width: 480px) {
+                    .crypto-table-container {
+                        margin-left: -10px;
+                        margin-right: -10px;
+                        width: calc(100% + 20px);
                     }
 
                     .crypto-table {
                         min-width: 600px;
                     }
 
-                    /* 优化移动端表格单元格 */
                     .crypto-table th,
                     .crypto-table td {
-                        padding: 10px 8px !important;
+                        padding: 8px 8px !important;
                         font-size: 12px;
                     }
 
@@ -5666,14 +5751,16 @@
                     .change-box {
                         min-width: 60px;
                         font-size: 11px;
-                        padding: 4px 3px;
+                        padding: 4px 6px;
                     }
 
-                    .graph-container {
-                        min-width: 80px;
+                    /* 优化移动端标题栏 */
+                    .text-gray {
+                        font-size: 15px !important;
+                        flex-wrap: wrap;
+                        line-height: 1.8;
                     }
 
-                    /* 优化移动端控制按钮 */
                     .text-gray .btn-xs {
                         padding: 3px 6px !important;
                         font-size: 11px !important;
@@ -5685,120 +5772,17 @@
                         font-size: 11px;
                     }
 
-                    /* 优化移动端趋势图 */
-                    .sparkline-svg {
-                        height: 40px;
-                    }
-
-                    /* 优化移动端整体间距 */
-                    .row {
-                        margin-left: -10px;
-                        margin-right: -10px;
-                    }
-
-                    .main-content {
-                        padding: 15px 10px;
-                    }
-
-                    h4.text-gray {
-                        padding: 10px 15px;
-                        margin-bottom: 15px;
-                    }
-
-                    /* 优化移动端触摸区域 */
-                    .btn,
-                    button,
-                    .xe-widget {
-                        min-height: 44px;
-                        min-width: 44px;
-                    }
-
-                    .btn-xs {
-                        min-height: 36px;
-                        min-width: 36px;
-                    }
-
-                    /* 优化移动端链接 */
-                    a {
-                        display: inline-block;
-                        min-height: 44px;
-                        min-width: 44px;
-                        line-height: 44px;
-                    }
-
-                    .sidebar-menu li>a {
-                        min-height: 48px;
-                        display: flex;
-                        align-items: center;
-                    }
-                }
-
-                /* 小屏幕移动端优化 */
-                @media screen and (max-width: 480px) {
-                    .crypto-table th,
-                    .crypto-table td {
-                        padding: 8px 6px !important;
-                        font-size: 11px;
-                    }
-
-                    .coin-icon {
-                        width: 20px;
-                        height: 20px;
-                        margin-right: 6px;
-                    }
-
-                    .coin-name {
-                        font-size: 12px;
-                    }
-
-                    .coin-symbol,
-                    .coin-vol {
-                        font-size: 9px;
-                    }
-
-                    .main-price {
-                        font-size: 12px;
-                    }
-
-                    .converted-price {
-                        font-size: 9px;
-                    }
-
-                    .change-box {
-                        min-width: 55px;
-                        font-size: 10px;
-                        padding: 3px 2px;
-                    }
-
-                    /* 优化移动端标题栏 */
-                    .text-gray {
-                        font-size: 14px !important;
-                        flex-wrap: wrap;
-                        line-height: 1.8;
-                    }
-
-                    .text-gray .btn-xs {
-                        padding: 2px 5px !important;
-                        font-size: 10px !important;
-                        margin-right: 4px !important;
-                    }
-
-                    /* 优化移动端汇率显示 */
-                    #exchange-rate-display {
-                        font-size: 10px;
-                    }
-
                     /* 优化移动端详情行 */
                     .detail-container {
-                        padding: 10px;
-                        margin: 5px 5px 10px 5px;
+                        padding: 12px;
+                        margin: 5px 8px 12px 8px;
                     }
 
                     .detail-info {
                         padding-right: 0;
                         border-right: none;
                         border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-                        padding-bottom: 10px;
+                        padding-bottom: 12px;
                     }
 
                     body.dark-mode .detail-info {
@@ -5849,6 +5833,93 @@
                         padding: 10px 12px;
                         min-height: 40px;
                     }
+
+                    /* 移动端侧边栏优化 */
+                    .sidebar-menu {
+                        width: 260px;
+                        background: #2c2c2c;
+                        z-index: 9999;
+                    }
+
+                    .sidebar-menu-inner {
+                        width: 260px;
+                    }
+
+                    .sidebar-menu .logo-env {
+                        padding: 15px;
+                    }
+
+                    .sidebar-menu .logo-env .logo img {
+                        max-width: 120px;
+                    }
+
+                    .main-menu {
+                        padding: 10px 0;
+                    }
+
+                    .main-menu li {
+                        margin: 2px 8px;
+                    }
+
+                    .main-menu li>a {
+                        padding: 10px 12px;
+                        font-size: 14px;
+                        border-radius: 8px;
+                    }
+
+                    .main-menu li>a i {
+                        font-size: 16px;
+                        margin-right: 10px;
+                    }
+
+                    .main-menu li>ul {
+                        padding: 5px 0 5px 25px;
+                        margin: 5px 0;
+                        background: rgba(0, 0, 0, 0.1);
+                        border-radius: 8px;
+                    }
+
+                    .main-menu li>ul li>a {
+                        padding: 8px 12px;
+                        font-size: 13px;
+                    }
+
+                    /* 移动端logo区域 */
+                    .sidebar-menu .logo-env {
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                    }
+
+                    .mobile-menu-toggle {
+                        display: block !important;
+                        visibility: visible !important;
+                    }
+
+                    /* 移动端主内容区域适配 */
+                    .main-content {
+                        margin-left: 0 !important;
+                        padding-bottom: 120px !important;
+                        padding-left: 10px !important;
+                        padding-right: 10px !important;
+                    }
+
+                    /* 移动端页面容器 */
+                    .page-container {
+                        position: relative;
+                        min-height: 100vh;
+                    }
+
+                    /* 移动端卡片容器优化 */
+                    .row {
+                        margin-left: -5px;
+                        margin-right: -5px;
+                    }
+
+                    .col-sm-3 {
+                        padding-left: 5px;
+                        padding-right: 5px;
+                    }
                 }
 
                 /* 优化移动端卡片布局 */
@@ -5858,8 +5929,6 @@
                         display: flex;
                         flex-wrap: wrap;
                         justify-content: center;
-                        margin-left: -5px;
-                        margin-right: -5px;
                     }
 
                     .col-sm-3 {
@@ -5872,25 +5941,44 @@
 
                     .xe-widget {
                         border-radius: 12px;
-                        margin-bottom: 10px;
+                        margin-bottom: 0;
                         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+                        height: 100%;
                     }
 
                     .xe-widget .xe-content {
                         padding: 12px 10px;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        text-align: center;
+                    }
+
+                    .xe-widget .xe-icon {
+                        margin-bottom: 8px;
+                    }
+
+                    .xe-widget .xe-icon i {
+                        font-size: 28px;
                     }
 
                     .xe-widget .xe-title {
                         font-size: 13px;
+                        line-height: 1.4;
                     }
 
                     .xe-widget .xe-comment {
                         font-size: 11px;
+                        margin-top: 4px;
+                    }
+
+                    .xe-widget .xe-user-info {
+                        margin-top: 8px;
                     }
 
                     .xe-user-img img {
-                        width: 32px;
-                        height: 32px;
+                        width: 36px;
+                        height: 36px;
                     }
 
                     /* 移动端卡片hover效果 */
@@ -5900,19 +5988,53 @@
                     }
                 }
 
+                /* 超小屏幕优化 */
+                @media screen and (max-width: 360px) {
+                    .col-sm-3 {
+                        flex: 0 0 calc(50% - 8px);
+                        max-width: calc(50% - 8px);
+                    }
+
+                    .xe-widget .xe-content {
+                        padding: 10px 8px;
+                    }
+
+                    .xe-widget .xe-icon i {
+                        font-size: 24px;
+                    }
+
+                    .xe-widget .xe-title {
+                        font-size: 12px;
+                    }
+
+                    .xe-widget .xe-comment {
+                        font-size: 10px;
+                    }
+
+                    .xe-user-img img {
+                        width: 32px;
+                        height: 32px;
+                    }
+                }
+
                 /* 优化移动端滚动条 */
                 @media screen and (max-width: 768px) {
                     .crypto-table-container::-webkit-scrollbar {
-                        height: 4px;
+                        height: 6px;
                     }
 
                     .crypto-table-container::-webkit-scrollbar-track {
                         background: rgba(0, 0, 0, 0.05);
+                        border-radius: 3px;
                     }
 
                     .crypto-table-container::-webkit-scrollbar-thumb {
-                        background: rgba(0, 0, 0, 0.2);
-                        border-radius: 2px;
+                        background: rgba(0, 0, 0, 0.3);
+                        border-radius: 3px;
+                    }
+
+                    .crypto-table-container::-webkit-scrollbar-thumb:hover {
+                        background: rgba(0, 0, 0, 0.5);
                     }
 
                     body.dark-mode .crypto-table-container::-webkit-scrollbar-track {
@@ -5920,7 +6042,11 @@
                     }
 
                     body.dark-mode .crypto-table-container::-webkit-scrollbar-thumb {
-                        background: rgba(255, 255, 255, 0.2);
+                        background: rgba(255, 255, 255, 0.3);
+                    }
+
+                    body.dark-mode .crypto-table-container::-webkit-scrollbar-thumb:hover {
+                        background: rgba(255, 255, 255, 0.5);
                     }
                 }
             </style>

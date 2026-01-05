@@ -5244,53 +5244,59 @@
                     transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
                 }
 
-                /* 涨价动画 - 红色闪烁 + 向上缩放 */
+                /* 涨价动画 - 红色渐变闪烁 + 向上缩放 */
                 .pulse-green {
                     animation: priceUpFlash 0.8s ease-out;
-                    background-color: rgba(239, 68, 68, 0.25) !important;
+                    background: linear-gradient(135deg, rgba(239, 68, 68, 0.3) 0%, rgba(239, 68, 68, 0.1) 100%) !important;
                     /* Red for up (China style) */
                 }
 
-                /* 跌价动画 - 绿色闪烁 + 向下缩放 */
+                /* 跌价动画 - 绿色渐变闪烁 + 向下缩放 */
                 .pulse-red {
                     animation: priceDownFlash 0.8s ease-out;
-                    background-color: rgba(16, 185, 129, 0.25) !important;
+                    background: linear-gradient(135deg, rgba(16, 185, 129, 0.3) 0%, rgba(16, 185, 129, 0.1) 100%) !important;
                     /* Green for down */
                 }
 
                 /* 涨价关键帧动画 */
                 @keyframes priceUpFlash {
                     0% {
-                        background-color: rgba(239, 68, 68, 0.6);
+                        background: linear-gradient(135deg, rgba(239, 68, 68, 0.6) 0%, rgba(239, 68, 68, 0.3) 100%);
                         transform: scale(1.05);
                         color: #ef4444;
+                        box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
                     }
                     50% {
-                        background-color: rgba(239, 68, 68, 0.4);
+                        background: linear-gradient(135deg, rgba(239, 68, 68, 0.4) 0%, rgba(239, 68, 68, 0.15) 100%);
                         transform: scale(1.02);
+                        box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);
                     }
                     100% {
-                        background-color: transparent;
+                        background: transparent;
                         transform: scale(1);
                         color: inherit;
+                        box-shadow: none;
                     }
                 }
 
                 /* 跌价关键帧动画 */
                 @keyframes priceDownFlash {
                     0% {
-                        background-color: rgba(16, 185, 129, 0.6);
+                        background: linear-gradient(135deg, rgba(16, 185, 129, 0.6) 0%, rgba(16, 185, 129, 0.3) 100%);
                         transform: scale(0.98);
                         color: #10b981;
+                        box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
                     }
                     50% {
-                        background-color: rgba(16, 185, 129, 0.4);
+                        background: linear-gradient(135deg, rgba(16, 185, 129, 0.4) 0%, rgba(16, 185, 129, 0.15) 100%);
                         transform: scale(0.99);
+                        box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
                     }
                     100% {
-                        background-color: transparent;
+                        background: transparent;
                         transform: scale(1);
                         color: inherit;
+                        box-shadow: none;
                     }
                 }
 
@@ -5376,11 +5382,13 @@
                 }
 
                 body.dark-mode .pulse-green {
-                    background-color: rgba(239, 68, 68, 0.2) !important;
+                    background: linear-gradient(135deg, rgba(239, 68, 68, 0.4) 0%, rgba(239, 68, 68, 0.15) 100%) !important;
+                    box-shadow: 0 0 15px rgba(239, 68, 68, 0.2);
                 }
 
                 body.dark-mode .pulse-red {
-                    background-color: rgba(16, 185, 129, 0.2) !important;
+                    background: linear-gradient(135deg, rgba(16, 185, 129, 0.4) 0%, rgba(16, 185, 129, 0.15) 100%) !important;
+                    box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);
                 }
 
                 /* 涨跌指示器 */
@@ -6252,23 +6260,14 @@
                     const rate = isCNY ? USD_CNY_RATE : 1;
                     const symbol = isCNY ? '¥' : '$';
 
-                    // 优化排序逻辑
-                    // 1. 主流币种优先(BTC, ETH, USDT, BNB, SOL, XRP)
+                    // 优化排序逻辑（保持备份文件的逻辑）
+                    // 1. 主流币种优先(BTC, ETH, USDT, BNB, SOL, XRP, ETC, DOGE)
                     // 2. 其他币种按市值排序
-                    const priorityCoins = ['btc', 'eth', 'usdt', 'bnb', 'sol', 'xrp', 'ada', 'doge', 'trx', 'ton'];
+                    const orderMap = { 'btc': 1, 'eth': 2, 'usdt': 3, 'bnb': 4, 'sol': 5, 'xrp': 6, 'etc': 7, 'doge': 8 };
                     data.sort((a, b) => {
-                        const indexA = priorityCoins.indexOf(a.symbol);
-                        const indexB = priorityCoins.indexOf(b.symbol);
-                        
-                        // 如果两个都是主流币种，按优先级排序
-                        if (indexA !== -1 && indexB !== -1) {
-                            return indexA - indexB;
-                        }
-                        // 如果只有一个是主流币种，主流币种排在前面
-                        if (indexA !== -1) return -1;
-                        if (indexB !== -1) return 1;
-                        
-                        // 其他币种按市值从大到小排序
+                        const scoreA = orderMap[a.symbol] || 999;
+                        const scoreB = orderMap[b.symbol] || 999;
+                        if (scoreA !== scoreB) return scoreA - scoreB;
                         return (b.market_cap || 0) - (a.market_cap || 0);
                     });
 

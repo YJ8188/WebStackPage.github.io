@@ -6011,8 +6011,8 @@
                     GATEIO: {
                         name: 'Gate.io (Official)',
                         url: 'https://api.gateio.ws/api/v4/spot/tickers', // Returns all tickers, need filtering
-                        useProxy: false, // Gate.io图片不需要代理
-                        timeout: 25000, // 25秒超时
+                        useProxy: true, // Gate.io需要代理
+                        timeout: 30000, // 30秒超时
                         handler: (data) => {
                             // 0. Backup all tickers for global search
                             allGateTickers = data;
@@ -6081,20 +6081,32 @@
                         useProxy: false, // CryptoCompare支持CORS
                         timeout: 20000, // 20秒超时
                         handler: (data) => {
-                            if (!data.Data) throw new Error("Invalid CC Data");
-                            return data.Data.map(item => {
-                                const coin = item.RAW.USD;
-                                return {
-                                    id: item.CoinInfo.Name.toLowerCase(),
-                                    symbol: item.CoinInfo.Name.toLowerCase(),
-                                    name: item.CoinInfo.FullName,
-                                    image: 'https://www.cryptocompare.com' + coin.IMAGEURL,
-                                    current_price: coin.PRICE,
-                                    price_change_percentage_24h: coin.CHANGEPCT24HOUR,
-                                    market_cap: coin.MKTCAP,
-                                    sparkline_in_7d: null
-                                };
-                            });
+                            try {
+                                console.log('CryptoCompare原始数据结构:', JSON.stringify(data).substring(0, 200));
+                                if (!data || !data.Data || !Array.isArray(data.Data)) {
+                                    throw new Error("Invalid CC Data structure");
+                                }
+                                return data.Data.map(item => {
+                                    if (!item || !item.RAW || !item.RAW.USD) {
+                                        console.error('CryptoCompare数据项缺少USD数据:', item);
+                                        return null;
+                                    }
+                                    const coin = item.RAW.USD;
+                                    return {
+                                        id: item.CoinInfo.Name.toLowerCase(),
+                                        symbol: item.CoinInfo.Name.toLowerCase(),
+                                        name: item.CoinInfo.FullName,
+                                        image: 'https://www.cryptocompare.com' + coin.IMAGEURL,
+                                        current_price: coin.PRICE,
+                                        price_change_percentage_24h: coin.CHANGEPCT24HOUR,
+                                        market_cap: coin.MKTCAP,
+                                        sparkline_in_7d: null
+                                    };
+                                }).filter(item => item !== null);
+                            } catch (error) {
+                                console.error('CryptoCompare数据处理失败:', error);
+                                throw new Error("CryptoCompare processing failed");
+                            }
                         }
                     },
                     COINCAP: {
@@ -6102,54 +6114,74 @@
                         // Fetching top 50 by market cap from CoinCap
                         url: 'https://api.coincap.io/v2/assets?limit=50',
                         useProxy: true, // CoinCap需要代理
-                        timeout: 25000, // 25秒超时
+                        timeout: 30000, // 30秒超时
                         handler: (data) => {
-                            const coinGeckoImageMap = {
-                                'bitcoin': 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png',
-                                'ethereum': 'https://assets.coingecko.com/coins/images/279/small/ethereum.png',
-                                'tether': 'https://assets.coingecko.com/coins/images/325/small/Tether.png',
-                                'bnb': 'https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png',
-                                'ripple': 'https://assets.coingecko.com/coins/images/44/small/xrp-symbol-white-128.png',
-                                'solana': 'https://assets.coingecko.com/coins/images/4128/small/solana.png',
-                                'dogecoin': 'https://assets.coingecko.com/coins/images/5/small/dogecoin.png',
-                                'cardano': 'https://assets.coingecko.com/coins/images/975/small/cardano.png',
-                                'tron': 'https://assets.coingecko.com/coins/images/1958/small/tron-logo.png',
-                                'toncoin': 'https://assets.coingecko.com/coins/images/19595/small/toncoin-logo.png',
-                                'shiba-inu': 'https://assets.coingecko.com/coins/images/11939/small/shiba-inu-shib.png',
-                                'litecoin': 'https://assets.coingecko.com/coins/images/2/small/litecoin.png',
-                                'pepe': 'https://assets.coingecko.com/coins/images/29220/small/pepe-token.png',
-                                'chainlink': 'https://assets.coingecko.com/coins/images/877/small/chainlink-new-logo.png',
-                                'near': 'https://assets.coingecko.com/coins/images/10365/small/near-icon.png',
-                                'aptos': 'https://assets.coingecko.com/coins/images/25734/small/Aptos.png'
-                            };
-                            return data.data.map(item => ({
-                                id: item.id,
-                                symbol: item.symbol.toLowerCase(),
-                                name: item.name,
-                                image: coinGeckoImageMap[item.id] || coinGeckoImageMap[item.symbol.toLowerCase()] || 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png',
-                                current_price: parseFloat(item.priceUsd),
-                                price_change_percentage_24h: parseFloat(item.changePercent24Hr),
-                                market_cap: parseFloat(item.marketCapUsd),
-                                sparkline_in_7d: null
-                            }));
+                            try {
+                                console.log('CoinCap原始数据结构:', JSON.stringify(data).substring(0, 200));
+                                if (!data || !data.data || !Array.isArray(data.data)) {
+                                    throw new Error("Invalid CoinCap Data structure");
+                                }
+                                const coinGeckoImageMap = {
+                                    'bitcoin': 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png',
+                                    'ethereum': 'https://assets.coingecko.com/coins/images/279/small/ethereum.png',
+                                    'tether': 'https://assets.coingecko.com/coins/images/325/small/Tether.png',
+                                    'bnb': 'https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png',
+                                    'ripple': 'https://assets.coingecko.com/coins/images/44/small/xrp-symbol-white-128.png',
+                                    'solana': 'https://assets.coingecko.com/coins/images/4128/small/solana.png',
+                                    'dogecoin': 'https://assets.coingecko.com/coins/images/5/small/dogecoin.png',
+                                    'cardano': 'https://assets.coingecko.com/coins/images/975/small/cardano.png',
+                                    'tron': 'https://assets.coingecko.com/coins/images/1958/small/tron-logo.png',
+                                    'toncoin': 'https://assets.coingecko.com/coins/images/19595/small/toncoin-logo.png',
+                                    'shiba-inu': 'https://assets.coingecko.com/coins/images/11939/small/shiba-inu-shib.png',
+                                    'litecoin': 'https://assets.coingecko.com/coins/images/2/small/litecoin.png',
+                                    'pepe': 'https://assets.coingecko.com/coins/images/29220/small/pepe-token.png',
+                                    'chainlink': 'https://assets.coingecko.com/coins/images/877/small/chainlink-new-logo.png',
+                                    'near': 'https://assets.coingecko.com/coins/images/10365/small/near-icon.png',
+                                    'aptos': 'https://assets.coingecko.com/coins/images/25734/small/Aptos.png'
+                                };
+                                return data.data.map(item => ({
+                                    id: item.id,
+                                    symbol: item.symbol.toLowerCase(),
+                                    name: item.name,
+                                    image: coinGeckoImageMap[item.id] || coinGeckoImageMap[item.symbol.toLowerCase()] || 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png',
+                                    current_price: parseFloat(item.priceUsd),
+                                    price_change_percentage_24h: parseFloat(item.changePercent24Hr),
+                                    market_cap: parseFloat(item.marketCapUsd),
+                                    sparkline_in_7d: null
+                                }));
+                            } catch (error) {
+                                console.error('CoinCap数据处理失败:', error);
+                                throw new Error("CoinCap processing failed");
+                            }
                         }
                     },
                     COINGECKO: {
                         name: 'CoinGecko',
                         // Fetching top 50 by market cap from CoinGecko
                         url: 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=50&page=1&sparkline=false&price_change_percentage=24h',
-                        useProxy: false, // CoinGecko支持CORS
-                        timeout: 25000, // 25秒超时
-                        handler: (data) => data.map(item => ({
-                            id: item.id,
-                            symbol: item.symbol.toLowerCase(),
-                            name: item.name,
-                            image: item.image,
-                            current_price: item.current_price,
-                            price_change_percentage_24h: item.price_change_percentage_24h,
-                            market_cap: item.market_cap,
-                            sparkline_in_7d: null
-                        }))
+                        useProxy: true, // CoinGecko需要代理以避免CORS和429错误
+                        timeout: 30000, // 30秒超时
+                        handler: (data) => {
+                            try {
+                                console.log('CoinGecko原始数据结构:', JSON.stringify(data).substring(0, 200));
+                                if (!Array.isArray(data)) {
+                                    throw new Error("Invalid CoinGecko Data structure");
+                                }
+                                return data.map(item => ({
+                                    id: item.id,
+                                    symbol: item.symbol.toLowerCase(),
+                                    name: item.name,
+                                    image: item.image,
+                                    current_price: item.current_price,
+                                    price_change_percentage_24h: item.price_change_percentage_24h,
+                                    market_cap: item.market_cap,
+                                    sparkline_in_7d: null
+                                }));
+                            } catch (error) {
+                                console.error('CoinGecko数据处理失败:', error);
+                                throw new Error("CoinGecko processing failed");
+                            }
+                        }
                     }
                 };
 
@@ -6237,16 +6269,16 @@
                     try {
                         // 优先级策略：不需要代理的API优先
                         // 1. CryptoCompare（最快，不需要代理）
-                        // 2. CoinGecko（不需要代理）
-                        // 3. Gate.io（需要代理，作为后备）
-                        // 4. CoinCap（需要代理，作为后备）
+                        // 2. Gate.io（需要代理，作为后备）
+                        // 3. CoinCap（需要代理，作为后备）
+                        // 4. CoinGecko（需要代理，作为后备）
                         console.log('开始并行请求多个API...');
                         if (label) label.innerText = '正在连接API...';
                         const fastestResult = await Promise.any([
                             fetchSource(APIS.CRYPTOCOMPARE),
-                            fetchSource(APIS.COINGECKO),
                             fetchSource(APIS.GATEIO),
-                            fetchSource(APIS.COINCAP)
+                            fetchSource(APIS.COINCAP),
+                            fetchSource(APIS.COINGECKO)
                         ]);
 
                         if (fastestResult && fastestResult.data) {

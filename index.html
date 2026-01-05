@@ -5227,25 +5227,97 @@
 
                 /* Real-time Pulse Animation (Restored & Enhanced) */
                 .price-update {
-                    transition: background-color 0.8s ease;
+                    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
                 }
 
+                /* 涨价动画 - 红色闪烁 + 向上缩放 */
                 .pulse-green {
-                    background-color: rgba(239, 68, 68, 0.2) !important;
+                    animation: priceUpFlash 0.8s ease-out;
+                    background-color: rgba(239, 68, 68, 0.25) !important;
                     /* Red for up (China style) */
                 }
 
+                /* 跌价动画 - 绿色闪烁 + 向下缩放 */
                 .pulse-red {
-                    background-color: rgba(16, 185, 129, 0.2) !important;
+                    animation: priceDownFlash 0.8s ease-out;
+                    background-color: rgba(16, 185, 129, 0.25) !important;
                     /* Green for down */
                 }
 
+                /* 涨价关键帧动画 */
+                @keyframes priceUpFlash {
+                    0% {
+                        background-color: rgba(239, 68, 68, 0.6);
+                        transform: scale(1.05);
+                        color: #ef4444;
+                    }
+                    50% {
+                        background-color: rgba(239, 68, 68, 0.4);
+                        transform: scale(1.02);
+                    }
+                    100% {
+                        background-color: transparent;
+                        transform: scale(1);
+                        color: inherit;
+                    }
+                }
+
+                /* 跌价关键帧动画 */
+                @keyframes priceDownFlash {
+                    0% {
+                        background-color: rgba(16, 185, 129, 0.6);
+                        transform: scale(0.98);
+                        color: #10b981;
+                    }
+                    50% {
+                        background-color: rgba(16, 185, 129, 0.4);
+                        transform: scale(0.99);
+                    }
+                    100% {
+                        background-color: transparent;
+                        transform: scale(1);
+                        color: inherit;
+                    }
+                }
+
+                /* 数字跳动动画 */
+                @keyframes numberBounce {
+                    0%, 100% { transform: translateY(0); }
+                    50% { transform: translateY(-3px); }
+                }
+
+                .price-bounce {
+                    animation: numberBounce 0.3s ease-in-out;
+                }
+
                 body.dark-mode .pulse-green {
-                    background-color: rgba(239, 68, 68, 0.15) !important;
+                    background-color: rgba(239, 68, 68, 0.2) !important;
                 }
 
                 body.dark-mode .pulse-red {
-                    background-color: rgba(16, 185, 129, 0.15) !important;
+                    background-color: rgba(16, 185, 129, 0.2) !important;
+                }
+
+                /* 涨跌指示器 */
+                .trend-indicator {
+                    display: inline-block;
+                    font-size: 12px;
+                    font-weight: bold;
+                    margin-left: 4px;
+                    opacity: 0;
+                    transition: opacity 0.3s;
+                }
+
+                .trend-up {
+                    color: #ef4444;
+                }
+
+                .trend-down {
+                    color: #10b981;
+                }
+
+                .trend-indicator.visible {
+                    opacity: 1;
                 }
 
                 /* Dark Mode Adaptation */
@@ -5439,30 +5511,40 @@
 
                     async function tryFetch() {
                         let prices = null;
-                        // 1. Try CryptoCompare (Fastest chart API)
+                        // 1. Try CryptoCompare (Fastest chart API) - 不需要代理
                         try {
-                            const res = await fetchWithTimeout(`https://min-api.cryptocompare.com/data/v2/histohour?fsym=${symbol.toUpperCase()}&tsym=USD&limit=168`, { timeout: 7000 });
+                            const res = await fetchWithTimeout(`https://min-api.cryptocompare.com/data/v2/histohour?fsym=${symbol.toUpperCase()}&tsym=USD&limit=168`, { 
+                                timeout: 7000,
+                                useProxy: false 
+                            });
                             if (res.ok) {
                                 const json = await res.json();
                                 if (json.Data && json.Data.Data && json.Data.Data.length > 0) {
                                     prices = json.Data.Data.map(d => d.close).filter(p => !isNaN(p));
                                 }
                             }
-                        } catch (e) { }
+                        } catch (e) { 
+                            console.log('CryptoCompare趋势图获取失败:', e);
+                        }
 
-                        // 2. Fallback to CoinCap
+                        // 2. Fallback to CoinCap - 需要代理
                         if (!prices) {
                             try {
                                 const end = Date.now();
                                 const start = end - (7 * 24 * 60 * 60 * 1000);
-                                const res = await fetchWithTimeout(`https://api.coincap.io/v2/assets/${finalId}/history?interval=h2&start=${start}&end=${end}`, { timeout: 5000 });
+                                const res = await fetchWithTimeout(`https://api.coincap.io/v2/assets/${finalId}/history?interval=h2&start=${start}&end=${end}`, { 
+                                    timeout: 6000,
+                                    useProxy: true 
+                                });
                                 if (res.ok) {
                                     const json = await res.json();
                                     if (json.data && json.data.length > 0) {
                                         prices = json.data.map(d => parseFloat(d.priceUsd));
                                     }
                                 }
-                            } catch (e) { }
+                            } catch (e) {
+                                console.log('CoinCap趋势图获取失败:', e);
+                            }
                         }
                         return prices;
                     }
@@ -5475,17 +5557,22 @@
                             prices = await tryFetch();
                         }
 
-                        // 3. Last Resort: CoinGecko (Backup)
+                        // 3. Last Resort: CoinGecko (Backup) - 不需要代理
                         if (!prices) {
                             try {
-                                const geckoRes = await fetchWithTimeout(`https://api.coingecko.com/api/v3/coins/${finalId}/market_chart?vs_currency=usd&days=7&interval=daily`, { timeout: 5000 });
+                                const geckoRes = await fetchWithTimeout(`https://api.coingecko.com/api/v3/coins/${finalId}/market_chart?vs_currency=usd&days=7&interval=daily`, { 
+                                    timeout: 6000,
+                                    useProxy: false 
+                                });
                                 if (geckoRes.ok) {
                                     const json = await geckoRes.json();
                                     if (json.prices && json.prices.length > 0) {
                                         prices = json.prices.map(p => p[1]);
                                     }
                                 }
-                            } catch (e) { }
+                            } catch (e) {
+                                console.log('CoinGecko趋势图获取失败:', e);
+                            }
                         }
 
                         if (prices && prices.length > 2) {
@@ -5498,6 +5585,7 @@
                             throw new Error('No data');
                         }
                     } catch (e) {
+                        console.error(`${symbol} 趋势图加载失败:`, e);
                         document.querySelectorAll(`.graph-container-${symbol}`).forEach(target => {
                             target.innerHTML = `<a href="javascript:void(0)" onclick="loadSparkline(null, '${symbol}', ${changePct})" 
                                 style="color:#888; font-size:10px; text-decoration:none; border:1px solid #444; padding:2px 6px; border-radius:10px; display:inline-block; transition:all 0.3s;"
@@ -5557,11 +5645,22 @@
                 // Helper: Fetch with Timeout to prevent hanging
                 async function fetchWithTimeout(resource, options = {}) {
                     // Reset timeout to 8s for slower proxies
-                    const { timeout = 8000 } = options;
+                    const { timeout = 8000, useProxy = false } = options;
                     const controller = new AbortController();
                     const id = setTimeout(() => controller.abort(), timeout);
+                    
+                    // 确定最终URL
+                    const finalUrl = useProxy ? getProxiedUrl(resource) : resource;
+                    
                     try {
-                        const response = await fetch(resource, { ...options, signal: controller.signal });
+                        const response = await fetch(finalUrl, { 
+                            ...options, 
+                            signal: controller.signal,
+                            headers: {
+                                'Accept': 'application/json',
+                                ...options.headers
+                            }
+                        });
                         clearTimeout(id);
                         return response;
                     } catch (error) {
@@ -5606,11 +5705,33 @@
                     } catch (e) { }
                 }
 
+                // CORS代理服务配置 - 解决跨域问题
+                const CORS_PROXIES = [
+                    'https://api.allorigins.win/raw?url=',
+                    'https://corsproxy.io/?',
+                    'https://api.codetabs.com/v1/proxy?quest='
+                ];
+                
+                let currentProxyIndex = 0;
+                
+                // 获取代理URL
+                function getProxiedUrl(originalUrl) {
+                    const proxy = CORS_PROXIES[currentProxyIndex];
+                    return proxy + encodeURIComponent(originalUrl);
+                }
+                
+                // 切换到下一个代理
+                function switchProxy() {
+                    currentProxyIndex = (currentProxyIndex + 1) % CORS_PROXIES.length;
+                    console.log('切换到代理:', CORS_PROXIES[currentProxyIndex]);
+                }
+
                 // API Strategies configuration
                 const APIS = {
                     GATEIO: {
                         name: 'Gate.io (Official)',
                         url: 'https://api.gateio.ws/api/v4/spot/tickers', // Returns all tickers, need filtering
+                        useProxy: true, // 标记需要使用代理
                         handler: (data) => {
                             // 0. Backup all tickers for global search
                             allGateTickers = data;
@@ -5655,6 +5776,7 @@
                         name: 'CryptoCompare',
                         // Fetching top 50 by volume from CC
                         url: 'https://min-api.cryptocompare.com/data/top/totalvolfull?limit=50&tsym=USD',
+                        useProxy: false, // CryptoCompare支持CORS
                         handler: (data) => {
                             if (!data.Data) throw new Error("Invalid CC Data");
                             return data.Data.map(item => {
@@ -5676,6 +5798,7 @@
                         name: 'CoinCap',
                         // Fetching top 50 by market cap from CoinCap
                         url: 'https://api.coincap.io/v2/assets?limit=50',
+                        useProxy: true, // CoinCap需要代理
                         handler: (data) => {
                             return data.data.map(item => ({
                                 id: item.id,
@@ -5693,6 +5816,7 @@
                         name: 'CoinGecko',
                         // Fetching top 50 by market cap from CoinGecko
                         url: 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=50&page=1&sparkline=false&price_change_percentage=24h',
+                        useProxy: false, // CoinGecko支持CORS
                         handler: (data) => data.map(item => ({
                             id: item.id,
                             symbol: item.symbol.toLowerCase(),
@@ -5745,11 +5869,14 @@
                         }
                     }
 
-                    // B. Sync Exchange Rate (Gate.io USDT_CNY) - background
+                    // B. Sync Exchange Rate (Gate.io USDT_CNY) - background with proxy support
                     const syncRate = async () => {
                         if (Date.now() - lastRateUpdate > 30000) {
                             try {
-                                const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY', { timeout: 5000 });
+                                const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY', { 
+                                    timeout: 8000,
+                                    useProxy: true 
+                                });
                                 if (res.ok) {
                                     const data = await res.json();
                                     if (data && data[0] && data[0].last) {
@@ -5757,17 +5884,27 @@
                                         lastRateUpdate = Date.now();
                                     }
                                 }
-                            } catch (e) { }
+                            } catch (e) {
+                                console.log('汇率同步失败,使用默认值:', e);
+                            }
                         }
                     };
                     syncRate();
 
                     // C. Parallel Racing Mode (The core optimization)
                     const fetchSource = async (apiObj) => {
-                        const res = await fetchWithTimeout(apiObj.url, { timeout: 15000 });
-                        if (!res.ok) throw new Error(`${apiObj.name} Failed`);
-                        const data = await res.json();
-                        return { name: apiObj.name, data: apiObj.handler(data) };
+                        try {
+                            const res = await fetchWithTimeout(apiObj.url, { 
+                                timeout: 15000,
+                                useProxy: apiObj.useProxy || false 
+                            });
+                            if (!res.ok) throw new Error(`${apiObj.name} Failed`);
+                            const data = await res.json();
+                            return { name: apiObj.name, data: apiObj.handler(data) };
+                        } catch (error) {
+                            console.error(`${apiObj.name} 请求失败:`, error);
+                            throw error;
+                        }
                     };
 
                     try {
@@ -5788,6 +5925,8 @@
                             return;
                         }
                     } catch (e) {
+                        console.error('所有主要API请求失败:', e);
+                        
                         // D. Fallback to CoinGecko if all initial racing fail
                         try {
                             if (label) label.innerText = 'Fallback (CG)...';
@@ -5797,6 +5936,8 @@
                             localStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
                             return;
                         } catch (ge) {
+                            console.error('CoinGecko后备请求也失败:', ge);
+                            
                             // E. Final Fail: If we have cached data, don't show the red error box
                             if (cryptoData.length > 0) {
                                 dot.style.color = '#ef4444'; // Signal failure silently
@@ -5983,19 +6124,28 @@
                             if (oldText !== newText) {
                                 const oldVal = parseFloat(priceEl.dataset.val || 0);
                                 const newVal = rawPrice * rate;
+                                const isUp = newVal >= oldVal;
 
                                 priceEl.innerText = newText;
                                 priceEl.dataset.val = newVal;
 
+                                // 添加数字跳动动画
+                                priceEl.classList.remove('price-bounce');
+                                void priceEl.offsetWidth;
+                                priceEl.classList.add('price-bounce');
+                                setTimeout(() => priceEl.classList.remove('price-bounce'), 300);
+
+                                // 单元格背景闪烁动画
                                 const cell = priceEl.closest('td');
                                 if (cell) {
-                                    const pulseClass = newVal >= oldVal ? 'pulse-green' : 'pulse-red';
+                                    const pulseClass = isUp ? 'pulse-green' : 'pulse-red';
                                     cell.classList.remove('pulse-green', 'pulse-red');
                                     void cell.offsetWidth;
                                     cell.classList.add(pulseClass);
-                                    setTimeout(() => cell.classList.remove(pulseClass), 1000);
+                                    setTimeout(() => cell.classList.remove(pulseClass), 800);
                                 }
 
+                                // 更新辅助价格
                                 const secondaryEl = priceEl.nextElementSibling;
                                 if (secondaryEl && secondaryEl.classList.contains('converted-price')) {
                                     const secondarySymbol = isCNY ? '$' : '¥';
@@ -6014,15 +6164,31 @@
                             const newText = `${changeSign}${change.toFixed(2)}%`;
 
                             if (changeEl.innerText.trim() !== newText) {
+                                const oldChange = parseFloat(changeEl.dataset.change || 0);
+                                const isUp = change >= oldChange;
+                                
                                 changeEl.innerText = newText;
-                                // IMPORTANT: Apply pulse to the Change button container cell too
+                                changeEl.dataset.change = change;
+
+                                // 更新涨跌指示器
+                                let indicator = changeEl.querySelector('.trend-indicator');
+                                if (!indicator) {
+                                    indicator = document.createElement('span');
+                                    indicator.className = 'trend-indicator';
+                                    changeEl.appendChild(indicator);
+                                }
+                                indicator.className = `trend-indicator trend-${isUp ? 'up' : 'down'} visible`;
+                                indicator.innerHTML = isUp ? '↑' : '↓';
+                                setTimeout(() => indicator.classList.remove('visible'), 1000);
+
+                                // 涨跌幅按钮背景闪烁
                                 const cell = changeEl.closest('td');
                                 if (cell) {
-                                    const pulseClass = change >= 0 ? 'pulse-green' : 'pulse-red';
+                                    const pulseClass = isUp ? 'pulse-green' : 'pulse-red';
                                     cell.classList.remove('pulse-green', 'pulse-red');
                                     void cell.offsetWidth;
                                     cell.classList.add(pulseClass);
-                                    setTimeout(() => cell.classList.remove(pulseClass), 1000);
+                                    setTimeout(() => cell.classList.remove(pulseClass), 800);
                                 }
                                 changeEl.className = `change-box ${change >= 0 ? 'change-up' : 'change-down'} price-update`;
                             }
@@ -6136,9 +6302,12 @@
                             return;
                         }
 
-                        // 2. Fallback to CoinCap Search only if Gate data has no matches
+                        // 2. Fallback to CoinCap Search only if Gate data has no matches - 使用代理
                         const directUrl = `https://api.coincap.io/v2/assets?search=${query}&limit=20`;
-                        const res = await fetchWithTimeout(directUrl, { timeout: 5000 });
+                        const res = await fetchWithTimeout(directUrl, { 
+                            timeout: 6000,
+                            useProxy: true 
+                        });
                         if (res.ok) {
                             const json = await res.json();
                             if (json.data && json.data.length > 0) {
@@ -6173,7 +6342,11 @@
                     } catch (e) {
                         console.error('Search error:', e);
                         if (label) label.innerText = 'Search Error';
-                        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color: #ef4444;">搜索失败，请检查网络设置或稍后再试</td></tr>`;
+                        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color: #ef4444;">
+                            <i class="fa fa-exclamation-triangle"></i> 搜索失败，请检查网络设置或稍后再试
+                            <br><br>
+                            <button class="btn btn-xs btn-primary" onclick="searchCrypto()">重试搜索</button>
+                        </td></tr>`;
                     }
                 }
 
@@ -6195,23 +6368,85 @@
                         });
                     }
 
-                    // Real-time polling
-                    setInterval(() => {
-                        if (!isSearching) fetchCryptoData();
-                    }, 3000);
+                    // 智能实时同步机制 - 根据网络状况动态调整
+                    let pollInterval = 3000; // 默认3秒
+                    let consecutiveErrors = 0;
+                    let maxConsecutiveErrors = 3;
+                    
+                    const smartPoll = async () => {
+                        if (!isSearching) {
+                            try {
+                                await fetchCryptoData();
+                                // 成功后重置错误计数
+                                consecutiveErrors = 0;
+                                // 成功后可以适当缩短间隔
+                                if (pollInterval > 3000) {
+                                    pollInterval = 3000;
+                                }
+                            } catch (error) {
+                                consecutiveErrors++;
+                                console.error(`数据同步失败 (${consecutiveErrors}/${maxConsecutiveErrors}):`, error);
+                                
+                                // 连续失败时增加间隔时间
+                                if (consecutiveErrors >= maxConsecutiveErrors) {
+                                    pollInterval = Math.min(pollInterval * 2, 30000); // 最多30秒
+                                    console.log(`网络不稳定,调整同步间隔为 ${pollInterval/1000} 秒`);
+                                }
+                            }
+                        }
+                        
+                        // 使用动态间隔
+                        setTimeout(smartPoll, pollInterval);
+                    };
+                    
+                    // 启动智能轮询
+                    smartPoll();
 
-                    // Dedicated Full Ticker Refresh (Background)
+                    // Dedicated Full Ticker Refresh (Background) - 使用代理
                     setInterval(async () => {
                         try {
-                            const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers', { timeout: 10000 });
+                            const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers', { 
+                                timeout: 12000,
+                                useProxy: true 
+                            });
                             if (res.ok) {
                                 const data = await res.json();
                                 if (data && data.length > 500) {
                                     allGateTickers = data;
+                                    console.log('完整行情数据已更新,共', data.length, '个交易对');
                                 }
                             }
-                        } catch (e) { }
-                    }, 60000); // Refresh full list every minute
+                        } catch (e) {
+                            console.log('完整行情更新失败:', e);
+                        }
+                    }, 90000); // 每90秒刷新一次完整列表
+
+                    // 汇率同步 - 使用代理
+                    setInterval(async () => {
+                        try {
+                            const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY', { 
+                                timeout: 8000,
+                                useProxy: true 
+                            });
+                            if (res.ok) {
+                                const data = await res.json();
+                                if (data && data[0] && data[0].last) {
+                                    const newRate = parseFloat(data[0].last);
+                                    if (Math.abs(newRate - USD_CNY_RATE) > 0.01) {
+                                        USD_CNY_RATE = newRate;
+                                        lastRateUpdate = Date.now();
+                                        console.log('汇率已更新:', USD_CNY_RATE);
+                                        // 如果当前显示的是CNY,重新渲染表格
+                                        if (currentCurrency === 'CNY') {
+                                            renderCryptoTable(cryptoData);
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (e) {
+                            console.log('汇率同步失败:', e);
+                        }
+                    }, 45000); // 每45秒同步一次汇率
 
                     // Hover Logic - Optimized to hide all floating buttons
                     const cryptoContainer = document.querySelector('.crypto-table-container');

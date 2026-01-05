@@ -5064,9 +5064,13 @@
             <h4 class="text-gray">
                 <i class="linecons-money" style="margin-right: 7px;" id="数字货币"></i>数字货币行情 (Live Market)
                 <span style="float: right; display: flex; align-items: center; font-size: 13px;">
-                    <button id="refresh-crypto-btn" class="btn btn-xs btn-white" onclick="fetchCryptoData()"
+                    <button id="refresh-crypto-btn" class="btn btn-xs btn-white" onclick="fetchCryptoData(true)"
                         style="margin-right: 10px; padding: 2px 6px;" title="刷新数据">
                         <i class="fa fa-refresh"></i>
+                    </button>
+                    <button id="clear-cache-btn" class="btn btn-xs btn-white" onclick="clearCacheAndRefresh()"
+                        style="margin-right: 10px; padding: 2px 6px;" title="清除缓存">
+                        <i class="fa fa-trash"></i>
                     </button>
                     <span style="margin-right: 10px; color: #888;">计价:</span>
                     <button id="currency-toggle" class="btn btn-xs btn-primary" onclick="toggleCurrency()"
@@ -6026,6 +6030,8 @@
                                 .sort((a, b) => parseFloat(b.quote_volume) - parseFloat(a.quote_volume))
                                 .slice(0, 50);
 
+                            console.log('Gate.io过滤后交易对数量:', sortedTickers.length);
+
                             return sortedTickers.map(item => {
                                 const symbol = item.currency_pair.split('_')[0].toLowerCase();
                                 const nameMap = {
@@ -6143,6 +6149,15 @@
                     }
                 };
 
+                // 清除缓存并刷新
+                function clearCacheAndRefresh() {
+                    localStorage.removeItem('crypto_market_cache');
+                    localStorage.removeItem('crypto_market_cache_time');
+                    cryptoData = []; // 清空当前数据
+                    console.log('缓存已清除，重新获取数据');
+                    fetchCryptoData(true); // 强制刷新
+                }
+
                 function toggleCurrency() {
                     const btn = document.getElementById('currency-toggle');
                     if (currentCurrency === 'USD') {
@@ -6158,7 +6173,7 @@
                 }
 
                 // 1. Racing Engine with Local Cache fallback
-                async function fetchCryptoData() {
+                async function fetchCryptoData(forceRefresh = false) {
                     const dot = document.getElementById('api-status-dot');
                     const label = document.getElementById('api-provider-name');
                     const tbody = document.getElementById('crypto-table-body');
@@ -6168,18 +6183,27 @@
                     if (refreshIcon) refreshIcon.classList.add('fa-spin');
 
                     // A. Try to load from Local Storage immediately for "Instant Load" feel
-                    if (cryptoData.length === 0) {
+                    // 检查缓存时间，如果超过1小时则清除缓存
+                    const cacheTime = localStorage.getItem('crypto_market_cache_time');
+                    const cacheAge = cacheTime ? (Date.now() - parseInt(cacheTime)) : Infinity;
+                    
+                    if (!forceRefresh && cryptoData.length === 0 && cacheAge < 3600000) {
                         const cached = localStorage.getItem('crypto_market_cache');
                         if (cached) {
                             try {
                                 const parsed = JSON.parse(cached);
                                 if (parsed && parsed.length > 0) {
                                     cryptoData = parsed;
+                                    console.log('从缓存加载，数据数量:', cryptoData.length);
                                     renderCryptoTable(cryptoData);
                                     if (label) label.innerText = 'Cached Source';
                                 }
                             } catch (e) { }
                         }
+                    } else if (cacheAge >= 3600000) {
+                        console.log('缓存已过期，清除缓存');
+                        localStorage.removeItem('crypto_market_cache');
+                        localStorage.removeItem('crypto_market_cache_time');
                     }
 
                     // B. Sync Exchange Rate (Gate.io USDT_CNY) - background with proxy support
@@ -6214,9 +6238,12 @@
 
                         if (fastestResult && fastestResult.data) {
                             cryptoData = fastestResult.data;
+                            console.log('API返回数据数量:', cryptoData.length);
+                            console.log('API数据来源:', fastestResult.name);
                             onSuccess(dot, fastestResult.name, fastestResult.data);
                             // Persist to local storage for offline use
                             localStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
+                            localStorage.setItem('crypto_market_cache_time', Date.now().toString());
                             return;
                         }
                     } catch (e) {
@@ -6253,6 +6280,9 @@
 
                 function renderCryptoTable(data) {
                     if (!data || data.length === 0) return;
+                    
+                    console.log('渲染表格，数据数量:', data.length);
+                    
                     const tbody = document.getElementById('crypto-table-body');
                     tbody.innerHTML = '';
 
@@ -6270,6 +6300,8 @@
                         if (scoreA !== scoreB) return scoreA - scoreB;
                         return (b.market_cap || 0) - (a.market_cap || 0);
                     });
+
+                    console.log('排序后数据数量:', data.length);
 
                     data.forEach(coin => {
 

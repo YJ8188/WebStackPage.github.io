@@ -5304,6 +5304,77 @@
                     animation: numberBounce 0.3s ease-in-out;
                 }
 
+                /* 数字滚动动画 */
+                .digit-scroll {
+                    display: inline-block;
+                    overflow: hidden;
+                    height: 1.3em;
+                    line-height: 1.3em;
+                    vertical-align: bottom;
+                    min-width: 0.6em;
+                    text-align: center;
+                    position: relative;
+                }
+
+                .digit-scroll-inner {
+                    display: inline-block;
+                    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+                }
+
+                .digit-scroll.up .digit-scroll-inner {
+                    transform: translateY(-1.3em);
+                }
+
+                .digit-scroll.down .digit-scroll-inner {
+                    transform: translateY(1.3em);
+                }
+
+                /* 滚动中的数字样式 */
+                .digit-scroll .digit-current,
+                .digit-scroll .digit-next {
+                    display: block;
+                    height: 1.3em;
+                    line-height: 1.3em;
+                    font-weight: 600;
+                }
+
+                .digit-scroll .digit-current {
+                    opacity: 1;
+                    transition: opacity 0.3s ease;
+                }
+
+                .digit-scroll .digit-next {
+                    opacity: 0;
+                    transition: opacity 0.3s ease;
+                }
+
+                /* 滚动时的数字高亮效果 */
+                .digit-scroll.up .digit-current {
+                    opacity: 0.3;
+                }
+
+                .digit-scroll.up .digit-next {
+                    color: #ef4444;
+                    opacity: 1;
+                }
+
+                .digit-scroll.down .digit-current {
+                    opacity: 0.3;
+                }
+
+                .digit-scroll.down .digit-next {
+                    color: #10b981;
+                    opacity: 1;
+                }
+
+                body.dark-mode .digit-scroll.up .digit-next {
+                    color: #ef4444;
+                }
+
+                body.dark-mode .digit-scroll.down .digit-next {
+                    color: #10b981;
+                }
+
                 body.dark-mode .pulse-green {
                     background-color: rgba(239, 68, 68, 0.2) !important;
                 }
@@ -5577,11 +5648,6 @@
                                     // 更新汇率显示
                                     updateRateDisplay();
                                     
-                                    // 如果当前显示的是CNY,重新渲染表格
-                                    if (currentCurrency === 'CNY') {
-                                        renderCryptoTable(cryptoData);
-                                    }
-                                    
                                     // 显示通知
                                     if (showNotification) {
                                         showRateUpdateNotification(oldRate, newRate);
@@ -5618,6 +5684,11 @@
                             rateDisplay.style.color = '#10b981';
                         }, 300);
                     }
+                    
+                    // 如果当前显示的是CNY,更新价格显示（不重新渲染表格）
+                    if (currentCurrency === 'CNY' && cryptoData.length > 0) {
+                        updateCryptoUI(cryptoData);
+                    }
                 }
                 
                 // 备用汇率源
@@ -5644,9 +5715,8 @@
                                     
                                     console.log('使用备用汇率源更新:', oldRate, '→', USD_CNY_RATE);
                                     
-                                    if (currentCurrency === 'CNY') {
-                                        renderCryptoTable(cryptoData);
-                                    }
+                                    // 更新汇率显示
+                                    updateRateDisplay();
                                 }
                             }
                         }
@@ -5893,19 +5963,8 @@
                     if (label) label.innerText = providerName;
 
                     // Always update UI elements if they exist
+                    // 只更新价格和涨跌幅，不重新渲染整个表格，避免详情行被重置
                     if (freshData) updateCryptoUI(freshData);
-
-                    // Handle table sync
-                    const tbody = document.getElementById('crypto-table-body');
-                    const rowCount = tbody ? tbody.querySelectorAll('.main-row').length : 0;
-
-                    // Force re-render if coin count changed (e.g. from 12 to 50)
-                    if (rowCount !== cryptoData.length) {
-                        renderCryptoTable(cryptoData);
-                    } else {
-                        // Otherwise just update prices/changes
-                        updateCryptoUI(freshData);
-                    }
                 }
 
                 // Add this new function to help search results update too
@@ -6340,6 +6399,54 @@
                     return (val && !isNaN(val)) ? parseFloat(val) : 0;
                 }
 
+                // 数字滚动动画函数
+                function animateNumberRoll(element, oldPrice, newPrice, isUp, symbol) {
+                    const oldStr = oldPrice.toFixed(2);
+                    const newStr = newPrice.toFixed(2);
+                    
+                    // 如果价格没有变化，直接返回
+                    if (oldStr === newStr) {
+                        element.innerText = `${symbol}${oldPrice.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                        })}`;
+                        return;
+                    }
+                    
+                    // 找出变化的数字位
+                    let result = '';
+                    let isRolling = false;
+                    
+                    for (let i = 0; i < oldStr.length; i++) {
+                        if (oldStr[i] !== newStr[i]) {
+                            // 数字发生了变化，创建滚动效果
+                            result += `<span class="digit-scroll ${isUp ? 'up' : 'down'}">
+                                <span class="digit-scroll-inner">
+                                    <span class="digit-current">${oldStr[i]}</span>
+                                    <span class="digit-next">${newStr[i]}</span>
+                                </span>
+                            </span>`;
+                            isRolling = true;
+                        } else {
+                            // 数字没有变化，直接显示
+                            result += `<span>${oldStr[i]}</span>`;
+                        }
+                    }
+                    
+                    // 添加符号
+                    element.innerHTML = `${symbol}${result}`;
+                    
+                    // 动画结束后，恢复为普通文本（带千分位）
+                    if (isRolling) {
+                        setTimeout(() => {
+                            element.innerText = `${symbol}${newPrice.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                            })}`;
+                        }, 500); // 与CSS动画时间匹配
+                    }
+                }
+
                 function updateCryptoUI(data) {
                     if (!data) return;
                     const isCNY = currentCurrency === 'CNY';
@@ -6365,7 +6472,6 @@
                                 const newVal = rawPrice * rate;
                                 const isUp = newVal >= oldVal;
 
-                                priceEl.innerText = newText;
                                 priceEl.dataset.val = newVal;
 
                                 // 更新价格颜色类名(根据24小时涨跌幅)
@@ -6373,11 +6479,8 @@
                                 priceEl.classList.remove('price-up', 'price-down');
                                 priceEl.classList.add(change >= 0 ? 'price-up' : 'price-down');
 
-                                // 添加数字跳动动画
-                                priceEl.classList.remove('price-bounce');
-                                void priceEl.offsetWidth;
-                                priceEl.classList.add('price-bounce');
-                                setTimeout(() => priceEl.classList.remove('price-bounce'), 300);
+                                // 使用数字滚动动画显示价格
+                                animateNumberRoll(priceEl, oldVal, newVal, isUp, symbol);
 
                                 // 单元格背景闪烁动画
                                 const cell = priceEl.closest('td');
@@ -6499,12 +6602,10 @@
                     }, 90000); // 每90秒刷新一次完整列表
 
                     // 汇率同步 - 使用优化后的函数
-                    // 每60秒同步一次汇率,并显示通知
+                    // 每30秒同步一次汇率,并显示通知
                     setInterval(() => {
                         syncExchangeRate(true); // true表示显示更新通知
-                    }, 60000);
-
-                    // Hover Logic - Optimized to hide all floating buttons
+                    }, 30000);
                     const cryptoContainer = document.querySelector('.crypto-table-container');
                     if (cryptoContainer) {
                         const cryptoSection = cryptoContainer.closest('.row');

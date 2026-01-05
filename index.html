@@ -5078,7 +5078,7 @@
                     <span style="margin: 0 10px; color: #333;">|</span>
                     <!-- 汇率显示 -->
                     <span style="margin-right: 10px; color: #888; font-size: 12px;">
-                        汇率: <span id="exchange-rate-display" style="color: #10b981; font-weight: 600;">1 USD ≈ ¥${USD_CNY_RATE.toFixed(2)}</span>
+                        汇率: <span id="exchange-rate-display" style="color: #10b981; font-weight: 600;">1 USD ≈ ¥${USD_CNY_RATE.toFixed(4)}</span>
                         <i class="fa fa-sync" id="rate-sync-icon" style="margin-left: 5px; cursor: pointer; color: #999; transition: transform 0.3s;" onclick="syncExchangeRate(true)" title="立即同步汇率"></i>
                     </span>
                 </span>
@@ -5620,46 +5620,46 @@
                 
                 // 汇率同步函数 - 优化版
                 async function syncExchangeRate(showNotification = false) {
-                    // 如果距离上次更新不足30秒,跳过(除非强制更新)
-                    if (!showNotification && Date.now() - lastRateUpdate < 30000) {
+                    // 如果距离上次更新不足60秒,跳过(除非强制更新)
+                    if (!showNotification && Date.now() - lastRateUpdate < 60000) {
                         return;
                     }
-                    
+
                     // 显示同步动画
                     const syncIcon = document.getElementById('rate-sync-icon');
                     if (syncIcon) {
                         syncIcon.classList.add('fa-spin');
                         syncIcon.style.color = '#f59e0b';
                     }
-                    
+
                     try {
                         console.log('开始同步汇率...');
-                        const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY', { 
-                            timeout: 8000,
-                            useProxy: true 
+                        const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY', {
+                            timeout: 10000,
+                            useProxy: true
                         });
-                        
+
                         if (res.ok) {
                             const data = await res.json();
                             if (data && data[0] && data[0].last) {
                                 const newRate = parseFloat(data[0].last);
                                 const oldRate = USD_CNY_RATE;
                                 const rateDiff = Math.abs(newRate - oldRate);
-                                
+
                                 // 只有汇率变化超过0.01才更新(避免微小波动)
                                 if (rateDiff > 0.01) {
                                     USD_CNY_RATE = newRate;
                                     lastRateUpdate = Date.now();
-                                    
+
                                     // 保存到localStorage
                                     localStorage.setItem('usd_cny_rate', USD_CNY_RATE.toString());
                                     localStorage.setItem('usd_cny_rate_time', lastRateUpdate.toString());
-                                    
+
                                     console.log('汇率已更新:', oldRate, '→', USD_CNY_RATE, '(变化:', (newRate - oldRate).toFixed(4), ')');
-                                    
+
                                     // 更新汇率显示
                                     updateRateDisplay();
-                                    
+
                                     // 显示通知
                                     if (showNotification) {
                                         showRateUpdateNotification(oldRate, newRate);
@@ -5670,9 +5670,15 @@
                             }
                         } else {
                             console.log('汇率API返回状态:', res.status);
+                            throw new Error(`HTTP ${res.status}`);
                         }
                     } catch (error) {
-                        console.error('汇率同步失败:', error);
+                        console.error('汇率同步失败:', error.message);
+                        // 如果是429错误,说明请求过于频繁,延长下次请求时间
+                        if (error.message.includes('429') || error.message.includes('Too Many Requests')) {
+                            console.log('遇到429错误,延长同步间隔');
+                            lastRateUpdate = Date.now() - 30000; // 让下次请求在90秒后
+                        }
                         // 如果同步失败,尝试使用备用汇率源
                         await fallbackExchangeRate();
                     } finally {
@@ -5688,7 +5694,7 @@
                 function updateRateDisplay() {
                     const rateDisplay = document.getElementById('exchange-rate-display');
                     if (rateDisplay) {
-                        rateDisplay.innerHTML = `1 USD ≈ ¥${USD_CNY_RATE.toFixed(2)}`;
+                        rateDisplay.innerHTML = `1 USD ≈ ¥${USD_CNY_RATE.toFixed(4)}`;
                         // 添加闪烁效果
                         rateDisplay.style.transition = 'color 0.3s';
                         rateDisplay.style.color = '#ef4444';
@@ -8215,8 +8221,14 @@
             // 备用: wttr.in
             const weatherAPI = 'https://api.oioweb.cn/api/weather/weather';
 
-            fetch(weatherAPI)
-                .then(response => response.json())
+            // 使用代理请求天气API
+            const proxiedWeatherAPI = getProxiedUrl(weatherAPI);
+
+            fetch(proxiedWeatherAPI)
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    return response.json();
+                })
                 .then(data => {
                     if (data.code === 200) {
                         const res = data.result;
@@ -8239,10 +8251,14 @@
                         throw new Error('API Error');
                     }
                 })
-                .catch(() => {
+                .catch((error) => {
+                    console.log('天气API请求失败，尝试备用源:', error.message);
                     // 失败则回退到 wttr.in
                     fetch('https://wttr.in/?format=j1&lang=zh')
-                        .then(response => response.json())
+                        .then(response => {
+                            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                            return response.json();
+                        })
                         .then(data => {
                             try {
                                 const current = data.current_condition[0];
@@ -8275,9 +8291,13 @@
 
                                 widget.innerHTML = `<span style="margin-right: 5px;">${city}</span> <i class="fa fa-cloud" style="margin-right:4px"></i> ${weatherDesc} ${temp}°C`;
                                 widget.title = `源: wttr.in | 城市: ${originCity}`;
-                            } catch (e) { widget.innerHTML = '天气暂不可用'; }
+                            } catch (e) {
+                                console.error('备用天气API解析失败:', e);
+                                widget.innerHTML = `<span style="cursor:pointer" onclick="window.open('https://weather.cma.cn/','_blank')">点击查看天气</span>`;
+                            }
                         })
-                        .catch(() => {
+                        .catch((error) => {
+                            console.error('备用天气API请求失败:', error);
                             widget.innerHTML = `<span style="cursor:pointer" onclick="window.open('https://weather.cma.cn/','_blank')">点击查看天气</span>`;
                         });
                 });

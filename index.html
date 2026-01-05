@@ -5192,6 +5192,18 @@
                     font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
                     font-weight: 600;
                     font-size: 14px;
+                    color: #333;
+                    transition: color 0.3s ease;
+                }
+
+                /* 涨价时的价格颜色 - 红色 */
+                .main-price.price-up {
+                    color: #ef4444;
+                }
+
+                /* 跌价时的价格颜色 - 绿色 */
+                .main-price.price-down {
+                    color: #10b981;
                 }
 
                 .converted-price {
@@ -5208,22 +5220,28 @@
                     border-radius: 4px;
                     text-align: center;
                     font-weight: bold;
-                    color: #fff;
                     font-size: 12px;
+                    transition: all 0.3s ease;
                 }
 
                 .change-up {
-                    background-color: #ef4444;
+                    background-color: rgba(239, 68, 68, 0.1);
+                    color: #ef4444;
+                    border: 1px solid rgba(239, 68, 68, 0.3);
                 }
 
-                /* Red for up (China style) */
+                /* Red for up (China style) - 文字红色,背景浅红 */
                 .change-down {
-                    background-color: #10b981;
+                    background-color: rgba(16, 185, 129, 0.1);
+                    color: #10b981;
+                    border: 1px solid rgba(16, 185, 129, 0.3);
                 }
 
-                /* Green for down */
+                /* Green for down - 文字绿色,背景浅绿 */
                 .change-neutral {
-                    background-color: #9ca3af;
+                    background-color: rgba(156, 163, 175, 0.1);
+                    color: #9ca3af;
+                    border: 1px solid rgba(156, 163, 175, 0.3);
                 }
 
                 .market_cap_cell {
@@ -6177,6 +6195,9 @@
                         const change = coin.price_change_percentage_24h;
                         const changeClass = change >= 0 ? 'change-up' : 'change-down';
                         const changeSign = change >= 0 ? '+' : '';
+                        
+                        // 根据涨跌幅确定价格颜色
+                        const priceColorClass = change >= 0 ? 'price-up' : 'price-down';
 
                         const mkVal = coal(coin.market_cap);
                         const marketCap = mkVal > 0 ? (mkVal * rate).toLocaleString(undefined, { maximumFractionDigits: 0, notation: "compact" }) : '-';
@@ -6210,7 +6231,7 @@
                                 </td>
                                 <td>
                                     <div class="price-wrap">
-                                        <span id="price-${coin.symbol}" class="main-price price-update" data-val="${rawPrice * rate}">${symbol}${price}</span>
+                                        <span id="price-${coin.symbol}" class="main-price ${priceColorClass} price-update" data-val="${rawPrice * rate}">${symbol}${price}</span>
                                         <span class="converted-price">${secondarySymbol}${secondaryPrice}</span>
                                     </div>
                                 </td>
@@ -6311,6 +6332,11 @@
 
                                 priceEl.innerText = newText;
                                 priceEl.dataset.val = newVal;
+
+                                // 更新价格颜色类名(根据24小时涨跌幅)
+                                const change = coin.price_change_percentage_24h;
+                                priceEl.classList.remove('price-up', 'price-down');
+                                priceEl.classList.add(change >= 0 ? 'price-up' : 'price-down');
 
                                 // 添加数字跳动动画
                                 priceEl.classList.remove('price-bounce');

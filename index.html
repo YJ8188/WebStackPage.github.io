@@ -513,6 +513,48 @@
                 display: none !important;
             }
         }
+
+        /* ========== 移动端完美适配 ========== */
+        @media screen and (max-width: 768px) {
+            /* 确保页面可以正常滚动 */
+            html,
+            body {
+                overflow-x: hidden;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            /* 确保主内容区域可以滚动 */
+            .page-container {
+                overflow-x: hidden;
+                overflow-y: auto;
+            }
+
+            .main-content {
+                overflow-x: hidden;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            /* 确保侧边栏不会阻止滚动 */
+            .sidebar-menu {
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            /* 确保所有容器不会阻止滚动 */
+            * {
+                touch-action: pan-y pan-x;
+            }
+
+            /* 禁用双击缩放，但保留滚动 */
+            input,
+            textarea,
+            select {
+                font-size: 16px;
+                touch-action: manipulation;
+            }
+        }
     </style>
 
 </head>

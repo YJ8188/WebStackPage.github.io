@@ -6323,27 +6323,53 @@
 
                     <div class="row">
                         <div class="col-sm-12">
-                            <div class="precious-table-container">
-                                <table class="table precious-table">
-                                    <thead>
-                                        <tr>
-                                            <th>品种</th>
-                                            <th>回购价</th>
-                                            <th>销售价</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="precious-table-body">
-                                        <tr>
-                                            <td colspan="3" style="text-align:center; padding: 20px;">正在加载实时行情...
-                                                <i class="fa fa-spinner fa-spin"></i>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
+                            <p class="states" style="font-size: 12px; color: #666; padding: 10px; background-color: #fff; text-align: center; margin-bottom: 15px;">声明：以下行情仅供参考，如有咨询请联系相关人员。</p>
+                            
+                            <!-- 参考价格 -->
+                            <p class="paddingP" style="padding: 15px 10px; margin: 0 0 15px 0; font-size: 16px; font-weight: bold; color: #333;">参考价格</p>
+                            <table class="jinjia_tab" style="width: 100%; border-collapse: collapse; margin-bottom: 20px; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                                <thead>
+                                    <tr>
+                                        <th width="33.33%" style="background-color: #f8f8f8; padding: 12px; text-align: center; border-bottom: 2px solid #ddd; font-weight: bold; color: #333;">商品</th>
+                                        <th width="33.33%" style="background-color: #f8f8f8; padding: 12px; text-align: center; border-bottom: 2px solid #ddd; font-weight: bold; color: #333;">回购</th>
+                                        <th width="33.33%" style="background-color: #f8f8f8; padding: 12px; text-align: center; border-bottom: 2px solid #ddd; font-weight: bold; color: #333;">销售</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reference-prices-table-body" style="background: #fff;">
+                                    <!-- 由JS动态生成 -->
+                                </tbody>
+                            </table>
+
+                            <!-- 旧料回收 -->
+                            <table class="jinjia_tab" style="width: 100%; border-collapse: collapse; margin-bottom: 20px; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                                <thead>
+                                    <tr>
+                                        <th width="50%" style="background-color: #f8f8f8; padding: 12px; text-align: center; border-bottom: 2px solid #ddd; font-weight: bold; color: #333;">商品</th>
+                                        <th width="50%" style="background-color: #f8f8f8; padding: 12px; text-align: center; border-bottom: 2px solid #ddd; font-weight: bold; color: #333;">回购</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recycle-prices-table-body" style="background: #fff;">
+                                    <!-- 由JS动态生成 -->
+                                </tbody>
+                            </table>
+
+                            <!-- 上海行情 -->
+                            <p class="paddingP" style="padding: 15px 10px; margin: 0 0 15px 0; font-size: 16px; font-weight: bold; color: #333;">上海行情</p>
+                            <table class="jinjia_tab" style="width: 100%; border-collapse: collapse; margin-bottom: 20px; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                                <thead>
+                                    <tr>
+                                        <th width="33.33%" style="background-color: #f8f8f8; padding: 12px; text-align: center; border-bottom: 2px solid #ddd; font-weight: bold; color: #333;">商品</th>
+                                        <th width="33.33%" style="background-color: #f8f8f8; padding: 12px; text-align: center; border-bottom: 2px solid #ddd; font-weight: bold; color: #333;">回购</th>
+                                        <th width="33.33%" style="background-color: #f8f8f8; padding: 12px; text-align: center; border-bottom: 2px solid #ddd; font-weight: bold; color: #333;">销售</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="shanghai-prices-table-body" style="background: #fff;">
+                                    <!-- 由JS动态生成 -->
+                                </tbody>
+                            </table>
+
                             <div style="font-size: 12px; color: #888; text-align: right; margin-top: 5px;">
-                                Data provided by <span id="precious-api-provider-name">Precious Metals API</span> <span id="precious-api-status-dot"
-                                    style="color: #10b981;">●</span>
+                                Data provided by Precious Metals WebSocket API <span id="precious-api-status-dot" style="color: #10b981;">●</span>
                             </div>
                         </div>
                     </div>
@@ -8168,9 +8194,16 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 
+<!-- 贵金属行情相关JS -->
+<script src="js/Plaintext.js"></script>
+<script src="js/Utilss.js"></script>
+<script src="js/dataSettings.js"></script>
+<script src="js/bases.js"></script>
+<script src="js/sockets.js"></script>
+<script src="js/app.js"></script>
 
-<script src="assets/js/Utilss.js"></script>
-<script src="assets/js/sockets.js"></script>
+<!-- 贵金属行情数据配置 -->
+<script src="assets/js/metalsData.js"></script>
 
 </body>
 

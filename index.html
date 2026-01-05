@@ -5077,16 +5077,6 @@
                         汇率: <span id="exchange-rate-display" style="color: #10b981; font-weight: 600;">1 USD ≈ ¥${USD_CNY_RATE.toFixed(2)}</span>
                         <i class="fa fa-sync" id="rate-sync-icon" style="margin-left: 5px; cursor: pointer; color: #999; transition: transform 0.3s;" onclick="syncExchangeRate(true)" title="立即同步汇率"></i>
                     </span>
-                    <span style="margin: 0 10px; color: #333;">|</span>
-                    <div class="search-box-crypto"
-                        style="position: relative; display: inline-block; vertical-align: middle; z-index: 100;">
-                        <input type="text" id="crypto-search" placeholder="输入币种 (如 ETC, PEPE)..."
-                            style="background:rgba(255,255,255,0.05); border: 1px solid #444; border-radius: 4px; padding: 2px 50px 2px 10px; color: inherit; width: 190px; height: 26px; font-size: 12px; transition: border-color 0.3s;">
-                        <i class="fa fa-times" id="crypto-search-clear" onclick="clearCryptoSearch()"
-                            style="position: absolute; right: 28px; top: 50%; transform: translateY(-50%); color: #666; font-size: 12px; cursor: pointer; display: none; padding: 5px;"></i>
-                        <i class="fa fa-search" id="crypto-search-trigger" onclick="searchCrypto()"
-                            style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); color: #999; font-size: 14px; cursor: pointer; padding: 5px;"></i>
-                    </div>
                 </span>
             </h4>
 
@@ -5495,7 +5485,6 @@
             <script>
                 let currentCurrency = 'USD';
                 let cryptoData = [];
-                let isSearching = false;
                 
                 // 汇率初始化 - 优先从缓存读取
                 let USD_CNY_RATE = 7.25;
@@ -5892,36 +5881,28 @@
                 function onSuccess(dot, providerName, freshData) {
                     const label = document.getElementById('api-provider-name');
                     if (dot) dot.style.color = '#10b981';
-                    if (label && !isSearching) label.innerText = providerName;
+                    if (label) label.innerText = providerName;
 
                     // Always update UI elements if they exist
                     if (freshData) updateCryptoUI(freshData);
 
-                    // If NOT searching, handle table sync
-                    if (!isSearching) {
-                        const tbody = document.getElementById('crypto-table-body');
-                        const rowCount = tbody ? tbody.querySelectorAll('.main-row').length : 0;
+                    // Handle table sync
+                    const tbody = document.getElementById('crypto-table-body');
+                    const rowCount = tbody ? tbody.querySelectorAll('.main-row').length : 0;
 
-                        // Force re-render if coin count changed (e.g. from 12 to 50)
-                        if (rowCount !== cryptoData.length) {
-                            renderCryptoTable(cryptoData);
-                        } else {
-                            // Otherwise just update prices/changes
-                            updateCryptoUI(freshData);
-                        }
+                    // Force re-render if coin count changed (e.g. from 12 to 50)
+                    if (rowCount !== cryptoData.length) {
+                        renderCryptoTable(cryptoData);
+                    } else {
+                        // Otherwise just update prices/changes
+                        updateCryptoUI(freshData);
                     }
                 }
 
                 // Add this new function to help search results update too
                 async function updateSearchPrices() {
-                    const query = document.getElementById('crypto-search').value.trim();
-                    if (!query || !isSearching) return;
-
-                    try {
-                        // For search results, we just update what's in cryptoData or do another search
-                        // Better: just fetch standard data and let updateCryptoUI do its job
-                        fetchCryptoData();
-                    } catch (e) { }
+                    // 搜索功能已移除,此函数保留但不执行任何操作
+                    return;
                 }
 
                 // CORS代理服务配置 - 解决跨域问题
@@ -5950,7 +5931,7 @@
                     GATEIO: {
                         name: 'Gate.io (Official)',
                         url: 'https://api.gateio.ws/api/v4/spot/tickers', // Returns all tickers, need filtering
-                        useProxy: true, // 标记需要使用代理
+                        useProxy: false, // Gate.io图片不需要代理
                         handler: (data) => {
                             // 0. Backup all tickers for global search
                             allGateTickers = data;
@@ -5977,11 +5958,30 @@
                                     'trx': 'Tron', 'ton': 'Toncoin', 'shib': 'Shiba Inu', 'ltc': 'Litecoin',
                                     'pepe': 'PEPE', 'link': 'Chainlink', 'near': 'NEAR Protocol', 'apt': 'Aptos'
                                 };
+                                // 使用CoinGecko的图片URL,因为Gate.io的图片服务有问题
+                                const coinGeckoImageMap = {
+                                    'btc': 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png',
+                                    'eth': 'https://assets.coingecko.com/coins/images/279/small/ethereum.png',
+                                    'usdt': 'https://assets.coingecko.com/coins/images/325/small/Tether.png',
+                                    'bnb': 'https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png',
+                                    'xrp': 'https://assets.coingecko.com/coins/images/44/small/xrp-symbol-white-128.png',
+                                    'sol': 'https://assets.coingecko.com/coins/images/4128/small/solana.png',
+                                    'doge': 'https://assets.coingecko.com/coins/images/5/small/dogecoin.png',
+                                    'ada': 'https://assets.coingecko.com/coins/images/975/small/cardano.png',
+                                    'trx': 'https://assets.coingecko.com/coins/images/1958/small/tron-logo.png',
+                                    'ton': 'https://assets.coingecko.com/coins/images/19595/small/toncoin-logo.png',
+                                    'shib': 'https://assets.coingecko.com/coins/images/11939/small/shiba-inu-shib.png',
+                                    'ltc': 'https://assets.coingecko.com/coins/images/2/small/litecoin.png',
+                                    'pepe': 'https://assets.coingecko.com/coins/images/29220/small/pepe-token.png',
+                                    'link': 'https://assets.coingecko.com/coins/images/877/small/chainlink-new-logo.png',
+                                    'near': 'https://assets.coingecko.com/coins/images/10365/small/near-icon.png',
+                                    'apt': 'https://assets.coingecko.com/coins/images/25734/small/Aptos.png'
+                                };
                                 return {
                                     id: symbol,
                                     symbol: symbol,
                                     name: nameMap[symbol] || symbol.toUpperCase(),
-                                    image: `https://gimg2.gateimg.com/coin_icon/64/${symbol}.png`,
+                                    image: coinGeckoImageMap[symbol] || `https://assets.coingecko.com/coins/images/1/small/bitcoin.png`,
                                     current_price: parseFloat(item.last),
                                     price_change_percentage_24h: parseFloat(item.change_percentage),
                                     market_cap: parseFloat(item.quote_volume) * 7.5, // Proxy for display
@@ -6019,11 +6019,29 @@
                         url: 'https://api.coincap.io/v2/assets?limit=50',
                         useProxy: true, // CoinCap需要代理
                         handler: (data) => {
+                            const coinGeckoImageMap = {
+                                'bitcoin': 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png',
+                                'ethereum': 'https://assets.coingecko.com/coins/images/279/small/ethereum.png',
+                                'tether': 'https://assets.coingecko.com/coins/images/325/small/Tether.png',
+                                'bnb': 'https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png',
+                                'ripple': 'https://assets.coingecko.com/coins/images/44/small/xrp-symbol-white-128.png',
+                                'solana': 'https://assets.coingecko.com/coins/images/4128/small/solana.png',
+                                'dogecoin': 'https://assets.coingecko.com/coins/images/5/small/dogecoin.png',
+                                'cardano': 'https://assets.coingecko.com/coins/images/975/small/cardano.png',
+                                'tron': 'https://assets.coingecko.com/coins/images/1958/small/tron-logo.png',
+                                'toncoin': 'https://assets.coingecko.com/coins/images/19595/small/toncoin-logo.png',
+                                'shiba-inu': 'https://assets.coingecko.com/coins/images/11939/small/shiba-inu-shib.png',
+                                'litecoin': 'https://assets.coingecko.com/coins/images/2/small/litecoin.png',
+                                'pepe': 'https://assets.coingecko.com/coins/images/29220/small/pepe-token.png',
+                                'chainlink': 'https://assets.coingecko.com/coins/images/877/small/chainlink-new-logo.png',
+                                'near': 'https://assets.coingecko.com/coins/images/10365/small/near-icon.png',
+                                'aptos': 'https://assets.coingecko.com/coins/images/25734/small/Aptos.png'
+                            };
                             return data.data.map(item => ({
                                 id: item.id,
                                 symbol: item.symbol.toLowerCase(),
                                 name: item.name,
-                                image: `https://gimg2.gateimg.com/coin_icon/64/${item.symbol.toLowerCase()}.png`, // Use gate icons as they are better
+                                image: coinGeckoImageMap[item.id] || coinGeckoImageMap[item.symbol.toLowerCase()] || 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png',
                                 current_price: parseFloat(item.priceUsd),
                                 price_change_percentage_24h: parseFloat(item.changePercent24Hr),
                                 market_cap: parseFloat(item.marketCapUsd),
@@ -6160,25 +6178,33 @@
                 function renderCryptoTable(data) {
                     if (!data || data.length === 0) return;
                     const tbody = document.getElementById('crypto-table-body');
-                    const searchQuery = document.getElementById('crypto-search').value.toLowerCase();
                     tbody.innerHTML = '';
 
                     const isCNY = currentCurrency === 'CNY';
                     const rate = isCNY ? USD_CNY_RATE : 1;
                     const symbol = isCNY ? '¥' : '$';
 
-                    const orderMap = { 'btc': 1, 'eth': 2, 'usdt': 3, 'bnb': 4, 'sol': 5, 'xrp': 6, 'etc': 7, 'doge': 8 };
+                    // 优化排序逻辑
+                    // 1. 主流币种优先(BTC, ETH, USDT, BNB, SOL, XRP)
+                    // 2. 其他币种按市值排序
+                    const priorityCoins = ['btc', 'eth', 'usdt', 'bnb', 'sol', 'xrp', 'ada', 'doge', 'trx', 'ton'];
                     data.sort((a, b) => {
-                        const scoreA = orderMap[a.symbol] || 999;
-                        const scoreB = orderMap[b.symbol] || 999;
-                        if (scoreA !== scoreB) return scoreA - scoreB;
+                        const indexA = priorityCoins.indexOf(a.symbol);
+                        const indexB = priorityCoins.indexOf(b.symbol);
+                        
+                        // 如果两个都是主流币种，按优先级排序
+                        if (indexA !== -1 && indexB !== -1) {
+                            return indexA - indexB;
+                        }
+                        // 如果只有一个是主流币种，主流币种排在前面
+                        if (indexA !== -1) return -1;
+                        if (indexB !== -1) return 1;
+                        
+                        // 其他币种按市值从大到小排序
                         return (b.market_cap || 0) - (a.market_cap || 0);
                     });
 
                     data.forEach(coin => {
-                        const searchName = coin.name || coin.symbol;
-                        if (!searchName.toLowerCase().includes(searchQuery) && !coin.symbol.toLowerCase().includes(searchQuery))
-                            return;
 
                         const rawPrice = coin.current_price;
                         const price = (rawPrice * rate).toLocaleString(undefined, {
@@ -6405,160 +6431,6 @@
                     });
                 }
 
-                // Search Logic with Debounce
-                let searchTimeout;
-
-                function handleSearchInput() {
-                    const input = document.getElementById('crypto-search');
-                    if (!input) return;
-                    const query = input.value.trim();
-                    if (!query) {
-                        isSearching = false;
-                        fetchCryptoData(); // Revert to main list if search cleared
-                        return;
-                    }
-                    clearTimeout(searchTimeout);
-                    searchTimeout = setTimeout(searchCrypto, 1000);
-                }
-
-                async function handleSearchKey(e) {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        clearTimeout(searchTimeout);
-                        searchCrypto();
-                    } else if (e.key === 'Escape') {
-                        const input = document.getElementById('crypto-search');
-                        if (input) input.value = '';
-                        isSearching = false;
-                        fetchCryptoData();
-                    }
-                }
-
-                // Map common Chinese names to English for better search
-                const CN_COIN_MAP = {
-                    '比特币': 'bitcoin', '以太坊': 'ethereum', '泰达币': 'tether', '狗狗币': 'dogecoin',
-                    '波卡': 'polkadot', '币安': 'binance', '瑞波': 'ripple', '索拉纳': 'solana',
-                    '莱特币': 'litecoin', '艾达币': 'cardano', '波场': 'tron', '以太经典': 'ethereum-classic',
-                    '佩佩': 'pepe', '链克': 'chainlink', '优尼': 'uniswap', '近': 'near-protocol',
-                    '艾普特': 'aptos', '堆栈': 'stack', '奥普': 'optimism', '阿比特': 'arbitrum',
-                    '天体': 'celestia', '赛伊': 'sei-network'
-                };
-
-                function clearCryptoSearch() {
-                    const input = document.getElementById('crypto-search');
-                    if (input) input.value = '';
-                    isSearching = false;
-                    const clearBtn = document.getElementById('crypto-search-clear');
-                    if (clearBtn) clearBtn.style.display = 'none';
-                    fetchCryptoData();
-                }
-
-                async function searchCrypto() {
-                    const input = document.getElementById('crypto-search');
-                    if (!input) return;
-                    let query = input.value.trim().toLowerCase();
-                    const dot = document.getElementById('api-status-dot');
-                    const label = document.getElementById('api-provider-name');
-                    const tbody = document.getElementById('crypto-table-body');
-                    const clearBtn = document.getElementById('crypto-search-clear');
-
-                    if (!query) {
-                        clearCryptoSearch();
-                        return;
-                    }
-
-                    if (clearBtn) clearBtn.style.display = 'block';
-                    if (CN_COIN_MAP[query]) query = CN_COIN_MAP[query];
-
-                    if (label) label.innerText = '正在全量搜索: ' + query;
-                    if (dot) dot.style.color = '#f59e0b';
-                    isSearching = true;
-
-                    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color: #888;">
-                        <i class="fa fa-circle-o-notch fa-spin"></i> 正在深度检索全网币种...
-                    </td></tr>`;
-
-                    try {
-                        // 1. Efficient Global Search in allGateTickers (Synced with Gate.io)
-                        const filtered = allGateTickers
-                            .filter(item => {
-                                const pair = item.currency_pair.toLowerCase();
-                                const symbol = pair.split('_')[0];
-                                return symbol.includes(query) && pair.endsWith('_usdt') && !pair.includes('3l_') && !pair.includes('3s_');
-                            })
-                            .sort((a, b) => parseFloat(b.quote_volume) - parseFloat(a.quote_volume))
-                            .slice(0, 30); // Max 30 results for search
-
-                        if (filtered.length > 0) {
-                            const mapped = filtered.map(item => {
-                                const symbol = item.currency_pair.split('_')[0].toLowerCase();
-                                return {
-                                    id: symbol,
-                                    symbol: symbol,
-                                    name: symbol.toUpperCase(),
-                                    image: `https://gimg2.gateimg.com/coin_icon/64/${symbol}.png`,
-                                    current_price: parseFloat(item.last),
-                                    price_change_percentage_24h: parseFloat(item.change_percentage),
-                                    market_cap: parseFloat(item.quote_volume) * 7.5,
-                                    total_volume: parseFloat(item.quote_volume),
-                                    sparkline_in_7d: null
-                                };
-                            });
-                            cryptoData = mapped;
-                            renderCryptoTable(mapped);
-                            if (label) label.innerText = `[Gate] 已找到 ${mapped.length} 个结果`;
-                            if (dot) dot.style.color = '#10b981';
-                            return;
-                        }
-
-                        // 2. Fallback to CoinCap Search only if Gate data has no matches - 使用代理
-                        const directUrl = `https://api.coincap.io/v2/assets?search=${query}&limit=20`;
-                        const res = await fetchWithTimeout(directUrl, { 
-                            timeout: 6000,
-                            useProxy: true 
-                        });
-                        if (res.ok) {
-                            const json = await res.json();
-                            if (json.data && json.data.length > 0) {
-                                const mapped = json.data.map(item => ({
-                                    id: item.id,
-                                    symbol: item.symbol.toLowerCase(),
-                                    name: item.name,
-                                    image: `https://gimg2.gateimg.com/coin_icon/64/${item.symbol.toLowerCase()}.png`,
-                                    current_price: parseFloat(item.priceUsd),
-                                    price_change_percentage_24h: parseFloat(item.changePercent24Hr),
-                                    market_cap: parseFloat(item.marketCapUsd),
-                                    total_volume: parseFloat(item.volumeUsd24Hr),
-                                    sparkline_in_7d: null
-                                }));
-                                cryptoData = mapped;
-                                renderCryptoTable(mapped);
-                                if (label) label.innerText = `[CoinCap] 已找到 ${mapped.length} 个结果`;
-                                if (dot) dot.style.color = '#34d399';
-                                return;
-                            }
-                        }
-
-                        // 3. Not found
-                        if (label) label.innerText = `未找到 "${query}"`;
-                        if (dot) dot.style.color = '#ef4444';
-                        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 60px; color: #888;">
-                            <div style="font-size:32px; margin-bottom:15px;">🔍</div>
-                            未找到 "${query}"<br>
-                            <small style="color:#aaa">Gate.io 全网库中暂无此币种</small>
-                        </td></tr>`;
-
-                    } catch (e) {
-                        console.error('Search error:', e);
-                        if (label) label.innerText = 'Search Error';
-                        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color: #ef4444;">
-                            <i class="fa fa-exclamation-triangle"></i> 搜索失败，请检查网络设置或稍后再试
-                            <br><br>
-                            <button class="btn btn-xs btn-primary" onclick="searchCrypto()">重试搜索</button>
-                        </td></tr>`;
-                    }
-                }
-
                 // Hover to hide floating buttons logic
                 document.addEventListener('DOMContentLoaded', () => {
                     // 初始化汇率显示
@@ -6566,44 +6438,28 @@
                     
                     fetchCryptoData();
 
-                    const searchInput = document.getElementById('crypto-search');
-                    const searchTrigger = document.getElementById('crypto-search-trigger');
-
-                    if (searchInput) {
-                        searchInput.addEventListener('input', handleSearchInput);
-                        searchInput.addEventListener('keydown', handleSearchKey);
-                    }
-                    if (searchTrigger) {
-                        searchTrigger.addEventListener('click', (e) => {
-                            e.preventDefault();
-                            searchCrypto();
-                        });
-                    }
-
                     // 智能实时同步机制 - 根据网络状况动态调整
                     let pollInterval = 3000; // 默认3秒
                     let consecutiveErrors = 0;
                     let maxConsecutiveErrors = 3;
                     
                     const smartPoll = async () => {
-                        if (!isSearching) {
-                            try {
-                                await fetchCryptoData();
-                                // 成功后重置错误计数
-                                consecutiveErrors = 0;
-                                // 成功后可以适当缩短间隔
-                                if (pollInterval > 3000) {
-                                    pollInterval = 3000;
-                                }
-                            } catch (error) {
-                                consecutiveErrors++;
-                                console.error(`数据同步失败 (${consecutiveErrors}/${maxConsecutiveErrors}):`, error);
-                                
-                                // 连续失败时增加间隔时间
-                                if (consecutiveErrors >= maxConsecutiveErrors) {
-                                    pollInterval = Math.min(pollInterval * 2, 30000); // 最多30秒
-                                    console.log(`网络不稳定,调整同步间隔为 ${pollInterval/1000} 秒`);
-                                }
+                        try {
+                            await fetchCryptoData();
+                            // 成功后重置错误计数
+                            consecutiveErrors = 0;
+                            // 成功后可以适当缩短间隔
+                            if (pollInterval > 3000) {
+                                pollInterval = 3000;
+                            }
+                        } catch (error) {
+                            consecutiveErrors++;
+                            console.error(`数据同步失败 (${consecutiveErrors}/${maxConsecutiveErrors}):`, error);
+                            
+                            // 连续失败时增加间隔时间
+                            if (consecutiveErrors >= maxConsecutiveErrors) {
+                                pollInterval = Math.min(pollInterval * 2, 30000); // 最多30秒
+                                console.log(`网络不稳定,调整同步间隔为 ${pollInterval/1000} 秒`);
                             }
                         }
                         

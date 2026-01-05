@@ -725,46 +725,62 @@
                 font-size: 18px;
             }
 
-            /* 小屏幕卡片布局优化 - 单列显示 */
+            /* 小屏幕卡片布局优化 - 一排5个 */
             .row {
-                margin-left: -5px;
-                margin-right: -5px;
+                margin-left: -3px;
+                margin-right: -3px;
             }
 
             .col-sm-3 {
-                flex: 0 0 100%;
-                max-width: 100%;
-                padding-left: 5px;
-                padding-right: 5px;
-                margin-bottom: 10px;
+                flex: 0 0 calc(20% - 6px);
+                max-width: calc(20% - 6px);
+                padding-left: 3px;
+                padding-right: 3px;
+                margin-bottom: 8px;
             }
 
             .xe-widget {
-                border-radius: 10px;
+                border-radius: 8px;
                 margin-bottom: 8px;
             }
 
             .xe-widget .xe-content {
-                padding: 10px 8px;
+                padding: 8px 6px;
             }
 
             .xe-widget .xe-title {
-                font-size: 12px;
+                font-size: 11px;
+                font-weight: 500;
             }
 
             .xe-widget .xe-comment {
-                font-size: 10px;
+                font-size: 9px;
+                display: none;
             }
 
             .xe-user-img img {
-                width: 28px;
-                height: 28px;
+                width: 24px;
+                height: 24px;
             }
 
-            /* 移动端卡片hover效果 */
+            /* 移动端卡片hover效果 - 简化 */
             .xe-widget:hover {
                 transform: translateY(-1px);
-                box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            }
+
+            /* 移动端加密货币表格横向滚动 */
+            .crypto-table-container {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                margin-left: -10px;
+                margin-right: -10px;
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+
+            .crypto-table {
+                min-width: 600px;
             }
         }
     </style>
@@ -9189,6 +9205,103 @@
 
         body.dark-mode .footer-inner {
             background: transparent !important;
+        }
+
+        /* 移动端优化 - 微信小程序风格 */
+        @media screen and (max-width: 480px) {
+            /* 卡片布局 - 一排5个 */
+            .col-sm-3 {
+                flex: 0 0 20% !important;
+                max-width: 20% !important;
+                padding-left: 2px !important;
+                padding-right: 2px !important;
+                margin-bottom: 4px !important;
+            }
+
+            .row {
+                margin-left: -2px !important;
+                margin-right: -2px !important;
+            }
+
+            .xe-widget {
+                border-radius: 6px !important;
+                margin-bottom: 4px !important;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+            }
+
+            .xe-widget .xe-content {
+                padding: 6px 4px !important;
+                text-align: center !important;
+            }
+
+            .xe-widget .xe-title {
+                font-size: 10px !important;
+                font-weight: 500 !important;
+                margin-bottom: 2px !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+            }
+
+            .xe-widget .xe-comment {
+                display: none !important;
+            }
+
+            .xe-user-img img {
+                width: 28px !important;
+                height: 28px !important;
+                margin-bottom: 4px !important;
+            }
+
+            /* 标题栏简化 */
+            h4.text-gray {
+                font-size: 14px !important;
+                padding: 8px 10px !important;
+                margin-bottom: 8px !important;
+                background: transparent !important;
+                border-radius: 0 !important;
+                border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
+            }
+
+            body.dark-mode h4.text-gray {
+                background: transparent !important;
+                border-bottom-color: rgba(255, 255, 255, 0.05) !important;
+            }
+
+            /* 按钮简化 */
+            .btn-xs {
+                padding: 3px 6px !important;
+                font-size: 10px !important;
+                border-radius: 4px !important;
+            }
+
+            /* 间距优化 */
+            .main-content {
+                padding-top: 70px !important;
+                padding-left: 5px !important;
+                padding-right: 5px !important;
+            }
+
+            /* 加密货币表格横向滚动 */
+            .crypto-table-container {
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+                margin-left: -5px !important;
+                margin-right: -5px !important;
+                padding-left: 5px !important;
+                padding-right: 5px !important;
+                border-radius: 0 !important;
+            }
+
+            .crypto-table {
+                min-width: 600px !important;
+            }
+
+            .crypto-table th,
+            .crypto-table td {
+                padding: 6px 4px !important;
+                font-size: 10px !important;
+            }
         }
     </style>
     <!-- 行情功能模块 -->

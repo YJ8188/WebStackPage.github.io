@@ -5645,7 +5645,7 @@
                 let allGateTickers = []; // Master list from Gate.io for global search
                 const expandedCoins = new Set();
                 
-                // 汇率同步函数 - 优化版（从加密货币数据中获取USDT价格）
+                // 汇率同步函数 - 多源备份版（不依赖Gate.io）
                 async function syncExchangeRate(showNotification = false) {
                     // 如果距离上次更新不足60秒,跳过(除非强制更新)
                     if (!showNotification && Date.now() - lastRateUpdate < 60000) {
@@ -5659,66 +5659,135 @@
                         syncIcon.style.color = '#f59e0b';
                     }
 
-                    try {
-                        console.log('开始同步汇率...');
-                        const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY', {
+                    const oldRate = USD_CNY_RATE;
+
+                    // 尝试多个汇率源
+                    const rateSources = [
+                        {
+                            name: 'CoinCap USDT',
+                            url: 'https://api.coincap.io/v2/assets/tether',
                             timeout: 10000,
-                            useProxy: false
-                        });
+                            parse: (data) => {
+                                if (data && data.data && data.data.priceUsd) {
+                                    // CoinCap返回的是USDT的USD价格，需要从其他地方获取USD/CNY
+                                    // 这里我们使用CryptoCompare的USD/CNY
+                                    return null;
+                                }
+                                return null;
+                            }
+                        },
+                        {
+                            name: 'CryptoCompare USD/CNY',
+                            url: 'https://min-api.cryptocompare.com/data/price?fsym=USD&tsyms=CNY',
+                            timeout: 8000,
+                            parse: (data) => {
+                                if (data && data.CNY) {
+                                    return parseFloat(data.CNY);
+                                }
+                                return null;
+                            }
+                        },
+                        {
+                            name: 'ExchangeRate-API',
+                            url: 'https://api.exchangerate-api.com/v4/latest/USD',
+                            timeout: 8000,
+                            parse: (data) => {
+                                if (data && data.rates && data.rates.CNY) {
+                                    return parseFloat(data.rates.CNY);
+                                }
+                                return null;
+                            }
+                        },
+                        {
+                            name: 'Frankfurter API',
+                            url: 'https://api.frankfurter.app/latest?from=USD&to=CNY',
+                            timeout: 8000,
+                            parse: (data) => {
+                                if (data && data.rates && data.rates.CNY) {
+                                    return parseFloat(data.rates.CNY);
+                                }
+                                return null;
+                            }
+                        }
+                    ];
 
-                        if (res.ok) {
-                            const data = await res.json();
-                            if (data && data[0] && data[0].last) {
-                                const newRate = parseFloat(data[0].last);
-                                const oldRate = USD_CNY_RATE;
-                                const rateDiff = Math.abs(newRate - oldRate);
+                    let newRate = null;
+                    let sourceName = '';
 
-                                // 只要有变化就更新（确保与USDT价格完全一致）
-                                if (rateDiff > 0.0001) {
-                                    USD_CNY_RATE = newRate;
-                                    lastRateUpdate = Date.now();
+                    // 依次尝试各个汇率源
+                    for (const source of rateSources) {
+                        try {
+                            console.log(`尝试汇率源: ${source.name}`);
+                            const res = await fetchWithTimeout(source.url, {
+                                timeout: source.timeout,
+                                useProxy: false
+                            });
 
-                                    // 保存到localStorage
-                                    safeStorage.setItem('usd_cny_rate', USD_CNY_RATE.toString());
-                                    safeStorage.setItem('usd_cny_rate_time', lastRateUpdate.toString());
+                            if (res.ok) {
+                                const data = await res.json();
+                                const rate = source.parse(data);
 
-                                    console.log('汇率已更新:', oldRate, '→', USD_CNY_RATE, '(变化:', (newRate - oldRate).toFixed(4), ')');
-
-                                    // 更新汇率显示
-                                    updateRateDisplay();
-
-                                    // 如果当前显示的是CNY，立即更新表格中的价格
-                                    if (currentCurrency === 'CNY' && cryptoData.length > 0) {
-                                        renderCryptoTable(cryptoData);
-                                    }
-
-                                    // 显示通知
-                                    if (showNotification) {
-                                        showRateUpdateNotification(oldRate, newRate);
-                                    }
-                                } else {
-                                    console.log('汇率无变化,保持当前值:', USD_CNY_RATE);
+                                if (rate && rate > 0) {
+                                    newRate = rate;
+                                    sourceName = source.name;
+                                    console.log(`${source.name} 成功获取汇率: ${rate}`);
+                                    break;
                                 }
                             }
+                        } catch (e) {
+                            console.log(`${source.name} 失败:`, e.message);
+                            continue;
+                        }
+                    }
+
+                    // 如果所有源都失败，尝试从加密货币数据中获取USDT价格
+                    if (!newRate && cryptoData.length > 0) {
+                        const usdt = cryptoData.find(c => c.symbol === 'usdt');
+                        if (usdt && usdt.current_price) {
+                            // USDT的价格理论上应该是1 USD，但可能会有微小偏差
+                            // 我们使用缓存的汇率或默认值
+                            console.log('使用缓存的汇率，无法从API获取');
+                        }
+                    }
+
+                    // 如果成功获取到新汇率
+                    if (newRate) {
+                        const rateDiff = Math.abs(newRate - oldRate);
+
+                        // 只要有变化就更新
+                        if (rateDiff > 0.0001) {
+                            USD_CNY_RATE = newRate;
+                            lastRateUpdate = Date.now();
+
+                            // 保存到localStorage
+                            safeStorage.setItem('usd_cny_rate', USD_CNY_RATE.toString());
+                            safeStorage.setItem('usd_cny_rate_time', lastRateUpdate.toString());
+
+                            console.log(`汇率已更新 (${sourceName}):`, oldRate, '→', USD_CNY_RATE, '(变化:', (newRate - oldRate).toFixed(4), ')');
+
+                            // 更新汇率显示
+                            updateRateDisplay();
+
+                            // 如果当前显示的是CNY，立即更新表格中的价格
+                            if (currentCurrency === 'CNY' && cryptoData.length > 0) {
+                                renderCryptoTable(cryptoData);
+                            }
+
+                            // 显示通知
+                            if (showNotification) {
+                                showRateUpdateNotification(oldRate, newRate);
+                            }
                         } else {
-                            console.log('汇率API返回状态:', res.status);
-                            throw new Error(`HTTP ${res.status}`);
+                            console.log('汇率无变化,保持当前值:', USD_CNY_RATE);
                         }
-                    } catch (error) {
-                        console.error('汇率同步失败:', error.message);
-                        // 如果是429错误,说明请求过于频繁,延长下次请求时间
-                        if (error.message.includes('429') || error.message.includes('Too Many Requests')) {
-                            console.log('遇到429错误,延长同步间隔');
-                            lastRateUpdate = Date.now() - 30000; // 让下次请求在90秒后
-                        }
-                        // 如果同步失败,尝试使用备用汇率源
-                        await fallbackExchangeRate();
-                    } finally {
-                        // 移除同步动画
-                        if (syncIcon) {
-                            syncIcon.classList.remove('fa-spin');
-                            syncIcon.style.color = '#999';
-                        }
+                    } else {
+                        console.warn('所有汇率源都失败，保持当前汇率:', USD_CNY_RATE);
+                    }
+
+                    // 移除同步动画
+                    if (syncIcon) {
+                        syncIcon.classList.remove('fa-spin');
+                        syncIcon.style.color = '#999';
                     }
                 }
                 
@@ -5740,41 +5809,7 @@
                         updateCryptoUI(cryptoData);
                     }
                 }
-                
-                // 备用汇率源
-                async function fallbackExchangeRate() {
-                    try {
-                        // 使用CryptoCompare获取汇率
-                        const res = await fetchWithTimeout('https://min-api.cryptocompare.com/data/price?fsym=USD&tsyms=CNY', { 
-                            timeout: 6000,
-                            useProxy: false 
-                        });
-                        
-                        if (res.ok) {
-                            const data = await res.json();
-                            if (data && data.CNY) {
-                                const newRate = parseFloat(data.CNY);
-                                const oldRate = USD_CNY_RATE;
-                                
-                                if (Math.abs(newRate - oldRate) > 0.01) {
-                                    USD_CNY_RATE = newRate;
-                                    lastRateUpdate = Date.now();
-                                    
-                                    safeStorage.setItem('usd_cny_rate', USD_CNY_RATE.toString());
-                                    safeStorage.setItem('usd_cny_rate_time', lastRateUpdate.toString());
-                                    
-                                    console.log('使用备用汇率源更新:', oldRate, '→', USD_CNY_RATE);
-                                    
-                                    // 更新汇率显示
-                                    updateRateDisplay();
-                                }
-                            }
-                        }
-                    } catch (e) {
-                        console.log('备用汇率源也失败:', e);
-                    }
-                }
-                
+
                 // 显示汇率更新通知
                 function showRateUpdateNotification(oldRate, newRate) {
                     const change = newRate - oldRate;
@@ -6055,30 +6090,7 @@
                             // 0. Backup all tickers for global search
                             allGateTickers = data;
 
-                            // 1. Sync Exchange Rate - 只在汇率未设置或过期时更新
-                            const usdtCny = data.find(item => item.currency_pair === 'USDT_CNY');
-                            if (usdtCny && usdtCny.last) {
-                                const newRate = parseFloat(usdtCny.last);
-                                const rateAge = lastRateUpdate ? (Date.now() - lastRateUpdate) : Infinity;
-
-                                // 只有当汇率未设置或超过5分钟未更新时，才从Gate.io数据中更新汇率
-                                if (rateAge > 300000 || !USD_CNY_RATE) {
-                                    const oldRate = USD_CNY_RATE;
-                                    USD_CNY_RATE = newRate;
-                                    lastRateUpdate = Date.now();
-
-                                    console.log('从Gate.io数据更新汇率:', oldRate, '→', USD_CNY_RATE);
-
-                                    // 保存到localStorage
-                                    safeStorage.setItem('usd_cny_rate', USD_CNY_RATE.toString());
-                                    safeStorage.setItem('usd_cny_rate_time', lastRateUpdate.toString());
-
-                                    // 更新汇率显示
-                                    updateRateDisplay();
-                                }
-                            }
-
-                            // 2. Filter USDT pairs and sort by volume to get Top 50
+                            // 1. Filter USDT pairs and sort by volume to get Top 50
                             const sortedTickers = data
                                 .filter(item => item.currency_pair.endsWith('_USDT'))
                                 .filter(item => !item.currency_pair.includes('3L_') && !item.currency_pair.includes('3S_')) // Exclude leveraged
@@ -6307,7 +6319,7 @@
                         safeStorage.removeItem('crypto_market_cache');
                                             safeStorage.removeItem('crypto_market_cache_time');                    }
 
-                    // B. Sync Exchange Rate (Gate.io USDT_CNY) - background with proxy support
+                    // B. Sync Exchange Rate - 使用多源备份的汇率同步函数
                     // 使用优化后的汇率同步函数
                     syncExchangeRate();
 
@@ -6342,18 +6354,17 @@
                     };
 
                     try {
-                        // 优先级策略：所有API都不需要代理，提高成功率和速度
+                        // 优先级策略：使用可访问的API
                         // 1. CryptoCompare（最快，稳定）
                         // 2. CoinCap（快速，支持CORS）
                         // 3. CoinGecko（数据全面，但有速率限制）
-                        // 4. Gate.io（数据准确，但响应较慢）
+                        // Gate.io已移除（无法访问）
                         console.log('开始并行请求多个API...');
                         if (label) label.innerText = '正在连接API...';
                         const fastestResult = await Promise.any([
                             fetchSource(APIS.CRYPTOCOMPARE),
                             fetchSource(APIS.COINCAP),
-                            fetchSource(APIS.COINGECKO),
-                            fetchSource(APIS.GATEIO)
+                            fetchSource(APIS.COINGECKO)
                         ]);
 
                         if (fastestResult && fastestResult.data) {

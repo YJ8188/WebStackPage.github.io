@@ -781,6 +781,11 @@ const syncRate = async () => {
                     lastRateUpdate = Date.now();
                     updateExchangeRateDisplay();
 
+                    // 汇率更新后，立即刷新所有CNY价格
+                    if (currentCurrency === 'CNY') {
+                        updateCryptoUI(cryptoData);
+                    }
+
                     // 只有当汇率发生变化时才显示提醒（变化大于0.0001）
                     if (oldRate !== null && Math.abs(newRate - oldRate) > 0.0001) {
                         // 显示桌面通知
@@ -918,10 +923,16 @@ function renderCryptoTable(data) {
         });
 
         const secondarySymbol = isCNY ? '$' : '¥';
-        const secondaryPrice = (rawPrice * (isCNY ? 1 : (USD_CNY_RATE || 1))).toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: (rawPrice < 1 ? 4 : 2)
-        });
+        // 如果是CNY模式但汇率还未加载，显示加载中
+        let secondaryPriceText;
+        if (isCNY && USD_CNY_RATE === null) {
+            secondaryPriceText = '加载中...';
+        } else {
+            secondaryPriceText = (rawPrice * (isCNY ? 1 : (USD_CNY_RATE || 1))).toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: (rawPrice < 1 ? 4 : 2)
+            });
+        }
 
         const change = coin.price_change_percentage_24h;
         const changeClass = change >= 0 ? 'change-up' : 'change-down';
@@ -1072,11 +1083,17 @@ function updateCryptoUI(data) {
                 const secondaryEl = priceEl.nextElementSibling;
                 if (secondaryEl && secondaryEl.classList.contains('converted-price')) {
                     const secondarySymbol = isCNY ? '$' : '¥';
-                    const secondaryPrice = (rawPrice * (isCNY ? 1 : (USD_CNY_RATE || 1))).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: (rawPrice < 1 ? 4 : 2)
-                    });
-                    secondaryEl.innerText = `${secondarySymbol}${secondaryPrice}`;
+                    // 如果是CNY模式但汇率还未加载，显示加载中
+                    let secondaryPriceText;
+                    if (isCNY && USD_CNY_RATE === null) {
+                        secondaryPriceText = '加载中...';
+                    } else {
+                        secondaryPriceText = (rawPrice * (isCNY ? 1 : (USD_CNY_RATE || 1))).toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: (rawPrice < 1 ? 4 : 2)
+                        });
+                    }
+                    secondaryEl.innerText = `${secondarySymbol}${secondaryPriceText}`;
                 }
             }
         }

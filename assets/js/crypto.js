@@ -321,6 +321,172 @@ const APIS = {
 
 // ==================== 汇率显示功能 ====================
 /**
+ * 显示24小时汇率行情弹窗
+ */
+async function showRateDetailModal() {
+    // 检查是否已有弹窗
+    let modal = document.getElementById('rate-detail-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'rate-detail-modal';
+        modal.style.cssText = `
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 10001;
+            justify-content: center;
+            align-items: center;
+        `;
+        document.body.appendChild(modal);
+
+        modal.innerHTML = `
+            <div style="
+                background: white;
+                border-radius: 12px;
+                padding: 24px;
+                max-width: 500px;
+                width: 90%;
+                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+                animation: modalFadeIn 0.3s ease-out;
+            ">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3 style="margin: 0; font-size: 18px; font-weight: 600; color: #333;">
+                        📊 USDT/CNY 24小时行情
+                    </h3>
+                    <button onclick="closeRateDetailModal()" style="
+                        background: none;
+                        border: none;
+                        font-size: 24px;
+                        cursor: pointer;
+                        color: #999;
+                        padding: 0;
+                        line-height: 1;
+                    ">×</button>
+                </div>
+                <div id="rate-detail-content" style="min-height: 200px;">
+                    <div style="text-align: center; padding: 40px 0;">
+                        <i class="fa fa-spinner fa-spin" style="font-size: 24px; color: #10b981;"></i>
+                        <p style="margin-top: 10px; color: #666;">正在加载24小时行情数据...</p>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // 添加动画样式
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes modalFadeIn {
+                from { opacity: 0; transform: scale(0.9); }
+                to { opacity: 1; transform: scale(1); }
+            }
+            @keyframes modalFadeOut {
+                from { opacity: 1; transform: scale(1); }
+                to { opacity: 0; transform: scale(0.9); }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // 点击背景关闭
+        modal.onclick = (e) => {
+            if (e.target === modal) closeRateDetailModal();
+        };
+    }
+
+    modal.style.display = 'flex';
+
+    // 获取24小时行情数据
+    try {
+        const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY', { timeout: 5000 });
+        if (res.ok) {
+            const data = await res.json();
+            if (data && data[0]) {
+                const ticker = data[0];
+                const current = parseFloat(ticker.last);
+                const high = parseFloat(ticker.high_24h);
+                const low = parseFloat(ticker.low_24h);
+                const volume = parseFloat(ticker.base_volume);
+                const change = parseFloat(ticker.change_percentage);
+                const changePct = change.toFixed(2);
+                const direction = change >= 0 ? '上涨' : '下跌';
+                const color = change >= 0 ? '#ef4444' : '#10b981';
+
+                const content = document.getElementById('rate-detail-content');
+                content.innerHTML = `
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <div style="font-size: 36px; font-weight: bold; color: #333; margin-bottom: 4px;">
+                            ${current.toFixed(4)}
+                        </div>
+                        <div style="font-size: 14px; color: ${color}; font-weight: 500;">
+                            ${change >= 0 ? '📈' : '📉'} ${direction} ${Math.abs(changePct)}%
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+                        <div style="background: #f8f8f8; padding: 16px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 12px; color: #999; margin-bottom: 4px;">24小时最高</div>
+                            <div style="font-size: 18px; font-weight: 600; color: #333;">${high.toFixed(4)}</div>
+                        </div>
+                        <div style="background: #f8f8f8; padding: 16px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 12px; color: #999; margin-bottom: 4px;">24小时最低</div>
+                            <div style="font-size: 18px; font-weight: 600; color: #333;">${low.toFixed(4)}</div>
+                        </div>
+                        <div style="background: #f8f8f8; padding: 16px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 12px; color: #999; margin-bottom: 4px;">24小时成交量</div>
+                            <div style="font-size: 18px; font-weight: 600; color: #333;">${volume.toLocaleString(undefined, { maximumFractionDigits: 0 })} USDT</div>
+                        </div>
+                        <div style="background: #f8f8f8; padding: 16px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 12px; color: #999; margin-bottom: 4px;">数据来源</div>
+                            <div style="font-size: 14px; font-weight: 600; color: #10b981;">Gate.io</div>
+                        </div>
+                    </div>
+
+                    <div style="text-align: center; font-size: 12px; color: #999;">
+                        数据更新时间: ${new Date().toLocaleString('zh-CN')}
+                    </div>
+                `;
+            }
+        }
+    } catch (e) {
+        const content = document.getElementById('rate-detail-content');
+        content.innerHTML = `
+            <div style="text-align: center; padding: 40px 0;">
+                <div style="font-size: 48px; margin-bottom: 10px;">❌</div>
+                <p style="color: #ef4444; font-size: 16px; margin-bottom: 8px;">加载失败</p>
+                <p style="color: #999; font-size: 14px;">请检查网络连接后重试</p>
+                <button onclick="showRateDetailModal()" style="
+                    margin-top: 16px;
+                    padding: 8px 24px;
+                    background: #10b981;
+                    color: white;
+                    border: none;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 14px;
+                ">重试</button>
+            </div>
+        `;
+    }
+}
+
+/**
+ * 关闭汇率详情弹窗
+ */
+function closeRateDetailModal() {
+    const modal = document.getElementById('rate-detail-modal');
+    if (modal) {
+        modal.style.animation = 'modalFadeOut 0.3s ease-in forwards';
+        setTimeout(() => {
+            modal.style.display = 'none';
+            modal.style.animation = '';
+        }, 300);
+    }
+}
+
+/**
  * 显示汇率更新提醒消息
  */
 function showRateUpdateMessage(oldRate, newRate) {
@@ -422,28 +588,6 @@ function showInlineRateMessage(oldRate, newRate) {
 }
 
 /**
- * 切换USD/CNY显示顺序（数字颠倒）
- */
-function toggleCurrencyDisplay() {
-    const rateEl = document.getElementById('exchange-rate-display');
-    if (!rateEl) return;
-
-    const currentRate = USD_CNY_RATE;
-    const reversedRate = 1 / currentRate;
-
-    // 检查当前显示的是哪种格式
-    if (rateEl.dataset.mode === 'usdt-cny') {
-        // 切换到 CNY-USDT
-        rateEl.innerHTML = `1 CNY = <span class="rate-value">${reversedRate.toFixed(4)}</span> USDT`;
-        rateEl.dataset.mode = 'cny-usdt';
-    } else {
-        // 切换到 USDT-CNY
-        rateEl.innerHTML = `1 USDT = <span class="rate-value">${currentRate.toFixed(2)}</span> CNY`;
-        rateEl.dataset.mode = 'usdt-cny';
-    }
-}
-
-/**
  * 更新汇率显示
  */
 function updateExchangeRateDisplay() {
@@ -451,15 +595,8 @@ function updateExchangeRateDisplay() {
     if (!rateEl) return;
 
     const currentRate = USD_CNY_RATE;
-    const reversedRate = 1 / currentRate;
-
-    // 根据当前模式更新显示
-    if (rateEl.dataset.mode === 'cny-usdt') {
-        rateEl.innerHTML = `1 CNY = <span class="rate-value">${reversedRate.toFixed(4)}</span> USDT`;
-    } else {
-        rateEl.innerHTML = `1 USDT = <span class="rate-value">${currentRate.toFixed(2)}</span> CNY`;
-        rateEl.dataset.mode = 'usdt-cny';
-    }
+    rateEl.innerHTML = `1 USDT = <span class="rate-value">${currentRate.toFixed(2)}</span> CNY`;
+    rateEl.dataset.mode = 'usdt-cny';
 }
 
 /**
@@ -468,14 +605,20 @@ function updateExchangeRateDisplay() {
  */
 const syncRate = async () => {
     try {
+        console.log('[汇率同步] 开始获取USDT/CNY汇率...');
         const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY', { timeout: 5000 });
+        
         if (res.ok) {
             const data = await res.json();
+            console.log('[汇率同步] API响应成功:', data);
+            
             if (data && data[0] && data[0].last) {
                 const oldRate = USD_CNY_RATE;
                 const newRate = parseFloat(data[0].last);
+                
+                console.log(`[汇率同步] 旧汇率: ${oldRate}, 新汇率: ${newRate}, 变化: ${(newRate - oldRate).toFixed(6)}`);
 
-                // 只有汇率发生变化时才显示提醒
+                // 只有汇率发生变化时才显示提醒（变化大于0.0001）
                 if (Math.abs(newRate - oldRate) > 0.0001) {
                     USD_CNY_RATE = newRate;
                     lastRateUpdate = Date.now();
@@ -486,14 +629,19 @@ const syncRate = async () => {
 
                     // 显示页面内提醒消息（移动端友好）
                     showInlineRateMessage(oldRate, newRate);
+                    
+                    console.log('[汇率同步] 汇率已更新，已发送提醒');
                 } else {
                     // 即使汇率没变，也更新时间戳
                     lastRateUpdate = Date.now();
+                    console.log('[汇率同步] 汇率无变化，仅更新时间戳');
                 }
             }
+        } else {
+            console.error('[汇率同步] API响应失败:', res.status, res.statusText);
         }
     } catch (e) {
-        console.error('汇率同步失败:', e);
+        console.error('[汇率同步] 请求失败:', e);
     }
 };
 
@@ -811,9 +959,8 @@ function initCryptoUI() {
                 <span style="margin-right: 10px; color: #888;">汇率:</span>
                 <span id="exchange-rate-display" class="rate-display"
                     style="font-size: 12px; font-weight: bold; color: #10b981; cursor: pointer;"
-                    onclick="toggleCurrencyDisplay()"
-                    title="点击切换汇率显示"
-                    data-mode="usdt-cny">
+                    onclick="showRateDetailModal()"
+                    title="点击查看24小时行情详情">
                     1 USDT = <span class="rate-value">7.25</span> CNY
                 </span>
             </span>
@@ -1168,10 +1315,13 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) { }
     }, 60000);
 
-    // 实时更新汇率显示（每10秒，更频繁）
+    // 实时更新汇率显示（每5秒，更频繁）
     setInterval(() => {
         syncRate();
-    }, 10000);
+    }, 5000);
+
+    // 页面加载时立即同步一次汇率
+    syncRate();
 
     // 请求通知权限
     if ('Notification' in window && Notification.permission === 'default') {

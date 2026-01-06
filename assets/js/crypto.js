@@ -12,10 +12,15 @@ let currentCurrency = 'USD'; // 当前货币类型：USD或CNY
 let cryptoData = []; // 加密货币数据数组
 let USD_CNY_RATE = 7.25; // 美元兑人民币汇率（默认值7.25，实时获取后会更新）
 let lastRateUpdate = 0; // 上次汇率更新时间
+let lastLocalStorageUpdate = 0; // 上次localStorage更新时间
+const LOCAL_STORAGE_UPDATE_INTERVAL = 10000; // localStorage更新间隔：10秒
 
 // ==================== 缓存和工具 ====================
-// K线图缓存
+// K线图缓存（限制最多缓存20个币种，防止内存泄漏）
 const sparklineCache = {};
+const MAX_SPARKLINE_CACHE = 20;
+const sparklineCacheOrder = []; // 记录缓存顺序，用于LRU清理
+
 // 正在请求的币种集合
 const sparklineRequests = new Set();
 // 币种ID映射表（用于从不同API获取数据）
@@ -114,7 +119,17 @@ async function loadSparkline(id, symbol, changePct) {
         }
 
         if (prices && prices.length > 2) {
+            // 添加到缓存
             sparklineCache[symbol] = prices;
+            sparklineCacheOrder.push(symbol);
+
+            // 清理旧缓存（LRU策略）
+            if (sparklineCacheOrder.length > MAX_SPARKLINE_CACHE) {
+                const oldestSymbol = sparklineCacheOrder.shift();
+                delete sparklineCache[oldestSymbol];
+                console.log(`[K线缓存] 清理旧缓存: ${oldestSymbol}`);
+            }
+
             document.querySelectorAll(`.graph-container-${symbol}`).forEach(target => {
                 const isDetail = target.id.startsWith('graph-detail-');
                 target.innerHTML = generateSparklineSvg(prices, changePct, isDetail ? 240 : 100);
@@ -877,7 +892,7 @@ async function fetchCryptoData() {
 
     try {
         console.log('[行情同步] 开始并行竞速模式...');
-        // 优先竞速：同时启动所有主要数据源
+        // 优化：只启动2个主要数据源进行竞速，减少并发请求
         // 使用Promise.any获取最快响应
         const fastestResult = await Promise.any([
             fetchSource(APIS.CRYPTOCOMPARE),
@@ -888,9 +903,15 @@ async function fetchCryptoData() {
             console.log(`[行情同步] 成功！最快响应来自: ${fastestResult.name}`);
             cryptoData = fastestResult.data;
             onSuccess(dot, fastestResult.name, fastestResult.data);
-            // 持久化到本地存储
-            localStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
-            localStorage.setItem('crypto_market_cache_time', Date.now().toString());
+
+            // 节流localStorage写入：每10秒最多写入一次
+            const now = Date.now();
+            if (now - lastLocalStorageUpdate >= LOCAL_STORAGE_UPDATE_INTERVAL) {
+                localStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
+                localStorage.setItem('crypto_market_cache_time', Date.now().toString());
+                lastLocalStorageUpdate = now;
+                console.log('[行情同步] 数据已保存到localStorage');
+            }
             return;
         }
     } catch (e) {
@@ -930,6 +951,23 @@ async function fetchCryptoData() {
         }
     } finally {
         if (refreshIcon) refreshIcon.classList.remove('fa-spin');
+    }
+}
+
+// ==================== localStorage节流写入函数 ====================
+/**
+ * 节流写入localStorage，避免频繁写入导致卡顿
+ */
+function throttledLocalStorageWrite(key, value) {
+    const now = Date.now();
+    if (now - lastLocalStorageUpdate >= LOCAL_STORAGE_UPDATE_INTERVAL) {
+        try {
+            localStorage.setItem(key, value);
+            lastLocalStorageUpdate = now;
+            console.log(`[localStorage] 数据已保存: ${key}`);
+        } catch (e) {
+            console.error('[localStorage] 写入失败:', e);
+        }
     }
 }
 
@@ -1805,27 +1843,36 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('[页面加载] 调用 updateExchangeRateDisplay()');
     updateExchangeRateDisplay();
 
-    // 实时轮询更新（每1秒，更频繁的实时同步）
-    setInterval(() => {
-        fetchCryptoData();
-    }, 1000);
+    // 实时轮询更新（每3秒，平衡实时性和性能）
+    let cryptoRefreshInterval = setInterval(() => {
+        // 只在页面可见时刷新
+        if (!document.hidden) {
+            fetchCryptoData();
+        }
+    }, 3000);
 
-    // 后台刷新完整交易对列表（每60秒）
+    // 后台刷新完整交易对列表（每60秒，只在页面可见时刷新）
     setInterval(async () => {
-        try {
-            const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers', { timeout: 10000 });
-            if (res.ok) {
-                const data = await res.json();
-                if (data && data.length > 500) {
-                    allGateTickers = data;
+        // 只在页面可见时刷新
+        if (!document.hidden) {
+            try {
+                const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers', { timeout: 10000 });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.length > 500) {
+                        allGateTickers = data;
+                    }
                 }
-            }
-        } catch (e) { }
+            } catch (e) { }
+        }
     }, 60000);
 
-    // 实时更新汇率显示（每5秒，更频繁）
+    // 实时更新汇率显示（每5秒，只在页面可见时刷新）
     setInterval(() => {
-        syncRate();
+        // 只在页面可见时刷新
+        if (!document.hidden) {
+            syncRate();
+        }
     }, 5000);
 
     // 页面加载时立即同步一次汇率

@@ -13,6 +13,97 @@ let cryptoData = []; // 加密货币数据数组
 let USD_CNY_RATE = null; // 美元兑人民币汇率（实时获取，初始为null）
 let lastRateUpdate = 0; // 上次汇率更新时间
 
+// ==================== 汇率API测试函数 ====================
+/**
+ * 测试所有汇率API并输出结果到控制台
+ */
+async function testAllRateAPIs() {
+    console.log('========== 汇率API测试开始 ==========');
+
+    const testAPIs = [
+        {
+            name: 'ExchangeRate-API',
+            url: 'https://api.exchangerate-api.com/v4/latest/USD',
+            handler: (data) => {
+                if (data && data.rates && data.rates.CNY) {
+                    return parseFloat(data.rates.CNY);
+                }
+                throw new Error('Invalid data');
+            }
+        },
+        {
+            name: 'OKX',
+            url: 'https://www.okx.com/api/v5/market/ticker?instId=USDT-CNY',
+            handler: (data) => {
+                if (data && data.data && data.data[0] && data.data[0].last) {
+                    return parseFloat(data.data[0].last);
+                }
+                throw new Error('Invalid data');
+            }
+        },
+        {
+            name: 'Bybit',
+            url: 'https://api.bybit.com/v5/market/tickers?category=spot&symbol=USDTCNY',
+            handler: (data) => {
+                if (data && data.result && data.result.list && data.result.list[0] && data.result.list[0].lastPrice) {
+                    return parseFloat(data.result.list[0].lastPrice);
+                }
+                throw new Error('Invalid data');
+            }
+        },
+        {
+            name: 'Huobi',
+            url: 'https://api.huobi.pro/market/detail/merged?symbol=usdtcny',
+            handler: (data) => {
+                if (data && data.tick && data.tick.close) {
+                    return parseFloat(data.tick.close);
+                }
+                throw new Error('Invalid data');
+            }
+        },
+        {
+            name: 'Binance',
+            url: 'https://api.binance.com/api/v3/ticker/price?symbol=USDTCNY',
+            handler: (data) => {
+                if (data && data.price) {
+                    return parseFloat(data.price);
+                }
+                throw new Error('Invalid data');
+            }
+        }
+    ];
+
+    for (const api of testAPIs) {
+        try {
+            console.log(`\n测试 ${api.name}...`);
+            console.log(`URL: ${api.url}`);
+
+            const startTime = Date.now();
+            const res = await fetchWithTimeout(api.url, { timeout: 5000 });
+            const endTime = Date.now();
+
+            if (res.ok) {
+                const data = await res.json();
+                const rate = api.handler(data);
+                console.log(`✅ ${api.name} 成功！`);
+                console.log(`   响应时间: ${endTime - startTime}ms`);
+                console.log(`   汇率: ${rate}`);
+                console.log(`   原始数据:`, data);
+            } else {
+                console.log(`❌ ${api.name} 失败: HTTP ${res.status}`);
+            }
+        } catch (error) {
+            console.log(`❌ ${api.name} 失败: ${error.message}`);
+        }
+    }
+
+    console.log('\n========== 汇率API测试结束 ==========');
+}
+
+// 将测试函数暴露到全局，方便在控制台调用
+window.testAllRateAPIs = testAllRateAPIs;
+console.log('💡 提示: 在控制台输入 testAllRateAPIs() 可以测试所有汇率API');
+
 // ==================== 缓存和工具 ====================
 // K线图缓存
 const sparklineCache = {};
@@ -1543,25 +1634,15 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('[页面加载] DOMContentLoaded 事件触发');
     console.log('[页面加载] 开始初始化数字货币模块');
 
-    // 清除旧的缓存数据（确保获取最新数据）
-    console.log('[页面加载] 检查并清除旧缓存...');
-    const oldCache = localStorage.getItem('crypto_market_cache');
-    if (oldCache) {
-        try {
-            const parsed = JSON.parse(oldCache);
-            // 如果缓存数据超过1小时，清除它
-            const cacheTime = localStorage.getItem('crypto_market_cache_time');
-            if (cacheTime && (Date.now() - parseInt(cacheTime)) > 3600000) {
-                console.log('[页面加载] 缓存数据已过期，清除缓存');
-                localStorage.removeItem('crypto_market_cache');
-                localStorage.removeItem('crypto_market_cache_time');
-            }
-        } catch (e) {
-            console.error('[页面加载] 缓存数据解析失败，清除缓存');
-            localStorage.removeItem('crypto_market_cache');
-            localStorage.removeItem('crypto_market_cache_time');
-        }
-    }
+    // 强制清除所有缓存数据（确保获取最新汇率）
+    console.log('[页面加载] 强制清除所有缓存数据...');
+    localStorage.removeItem('crypto_market_cache');
+    localStorage.removeItem('crypto_market_cache_time');
+    console.log('[页面加载] 缓存已清除');
+
+    // 重置汇率变量
+    USD_CNY_RATE = null;
+    console.log('[页面加载] 汇率变量已重置');
 
     // 动态生成UI
     console.log('[页面加载] 调用 initCryptoUI()');

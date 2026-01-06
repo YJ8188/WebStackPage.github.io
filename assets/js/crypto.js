@@ -22,11 +22,21 @@ async function testAllRateAPIs() {
 
     const testAPIs = [
         {
-            name: 'ExchangeRate-API',
-            url: 'https://api.exchangerate-api.com/v4/latest/USD',
+            name: 'Gate.io',
+            url: 'https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY',
             handler: (data) => {
-                if (data && data.rates && data.rates.CNY) {
-                    return parseFloat(data.rates.CNY);
+                if (data && data.length > 0 && data[0].last) {
+                    return parseFloat(data[0].last);
+                }
+                throw new Error('Invalid data');
+            }
+        },
+        {
+            name: 'Binance',
+            url: 'https://api.binance.com/api/v3/ticker/price?symbol=USDTCNY',
+            handler: (data) => {
+                if (data && data.price) {
+                    return parseFloat(data.price);
                 }
                 throw new Error('Invalid data');
             }
@@ -62,11 +72,11 @@ async function testAllRateAPIs() {
             }
         },
         {
-            name: 'Binance',
-            url: 'https://api.binance.com/api/v3/ticker/price?symbol=USDTCNY',
+            name: 'ExchangeRate-API (不推荐)',
+            url: 'https://api.exchangerate-api.com/v4/latest/USD',
             handler: (data) => {
-                if (data && data.price) {
-                    return parseFloat(data.price);
+                if (data && data.rates && data.rates.CNY) {
+                    return parseFloat(data.rates.CNY);
                 }
                 throw new Error('Invalid data');
             }
@@ -372,23 +382,23 @@ const APIS = {
 // 汇率API配置（按优先级排序）
 const rateAPIs = [
     {
+        name: 'Gate.io',
+        url: 'https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY',
+        timeout: 5000,
+        handler: (data) => {
+            if (data && data.length > 0 && data[0].last) {
+                return parseFloat(data[0].last);
+            }
+            throw new Error('Invalid data');
+        }
+    },
+    {
         name: 'Binance',
         url: 'https://api.binance.com/api/v3/ticker/price?symbol=USDTCNY',
         timeout: 5000,
         handler: (data) => {
             if (data && data.price) {
                 return parseFloat(data.price);
-            }
-            throw new Error('Invalid data');
-        }
-    },
-    {
-        name: 'ExchangeRate-API',
-        url: 'https://api.exchangerate-api.com/v4/latest/USD',
-        timeout: 5000,
-        handler: (data) => {
-            if (data && data.rates && data.rates.CNY) {
-                return parseFloat(data.rates.CNY);
             }
             throw new Error('Invalid data');
         }
@@ -425,8 +435,76 @@ const rateAPIs = [
             }
             throw new Error('Invalid data');
         }
+    },
+    {
+        name: 'ExchangeRate-API',
+        url: 'https://api.exchangerate-api.com/v4/latest/USD',
+        timeout: 5000,
+        handler: (data) => {
+            if (data && data.rates && data.rates.CNY) {
+                return parseFloat(data.rates.CNY);
+            }
+            throw new Error('Invalid data');
+        }
     }
 ];
+
+// ==================== 网络状态检测 ====================
+/**
+ * 检测网络连接状态
+ */
+async function checkNetworkStatus() {
+    console.log('========== 网络状态检测开始 ==========');
+
+    // 检测在线状态
+    const isOnline = navigator.onLine;
+    console.log(`浏览器在线状态: ${isOnline ? '✅ 在线' : '❌ 离线'}`);
+
+    // 检测连接类型
+    if (navigator.connection) {
+        console.log(`网络类型: ${navigator.connection.effectiveType || '未知'}`);
+        console.log(`下行速度: ${navigator.connection.downlink || '未知'} Mbps`);
+        console.log(`往返时间: ${navigator.connection.rtt || '未知'} ms`);
+    }
+
+    // 测试各个API的连通性
+    const testURLs = [
+        { name: 'Gate.io', url: 'https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY' },
+        { name: 'Binance', url: 'https://api.binance.com/api/v3/ticker/price?symbol=USDTCNY' },
+        { name: 'OKX', url: 'https://www.okx.com/api/v5/market/ticker?instId=USDT-CNY' },
+        { name: 'Bybit', url: 'https://api.bybit.com/v5/market/tickers?category=spot&symbol=USDTCNY' },
+        { name: 'Huobi', url: 'https://api.huobi.pro/market/detail/merged?symbol=usdtcny' },
+        { name: 'ExchangeRate-API', url: 'https://api.exchangerate-api.com/v4/latest/USD' },
+        { name: 'CryptoCompare', url: 'https://min-api.cryptocompare.com/data/top/totalvolfull?limit=10&tsym=USD' },
+        { name: 'CoinCap', url: 'https://api.coincap.io/v2/assets?limit=10' }
+    ];
+
+    for (const test of testURLs) {
+        try {
+            const startTime = Date.now();
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+            const response = await fetch(test.url, {
+                method: 'HEAD',
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
+            const endTime = Date.now();
+
+            console.log(`✅ ${test.name}: ${response.status} (${endTime - startTime}ms)`);
+        } catch (error) {
+            console.log(`❌ ${test.name}: ${error.message}`);
+        }
+    }
+
+    console.log('========== 网络状态检测结束 ==========');
+}
+
+// 将检测函数暴露到全局
+window.checkNetworkStatus = checkNetworkStatus;
+console.log('💡 提示: 在控制台输入 checkNetworkStatus() 可以检测网络状态');
 /**
  * 显示24小时汇率行情弹窗
  */
@@ -1644,6 +1722,10 @@ function initCryptoUI() {
 document.addEventListener('DOMContentLoaded', () => {
     console.log('[页面加载] DOMContentLoaded 事件触发');
     console.log('[页面加载] 开始初始化数字货币模块');
+
+    // 检测网络状态
+    console.log('[页面加载] 检测网络状态...');
+    checkNetworkStatus();
 
     // 强制清除所有缓存数据（确保获取最新汇率）
     console.log('[页面加载] 强制清除所有缓存数据...');

@@ -7,10 +7,13 @@ var uidStr = Utilss.getUUID()
 var CF_WORKER_URL = 'https://ws-relay-ysxnew.a34296407-5cc.workers.dev';
 var USE_PROXY = false;  // 直接连接（HTTP 页面可用）
 
+// 强制使用 WS（不使用 WSS，因为服务器只支持 WS）
+var WS_URL = 'ws://120.25.236.183:8189/push?cname=ysxnew&uid=';
+
 // 使用代理 URL
 var wsUrl = USE_PROXY 
     ? CF_WORKER_URL + '/push?cname=ysxnew&uid=' + uidStr
-    : Utilss.getWsURL() + uidStr;
+    : WS_URL;
 
 var connCount = 0;
 
@@ -128,7 +131,9 @@ if (window.location.protocol === 'https:') {
 
 createWebSocket(wsUrl);   //连接ws
 function createWebSocket(url) {
-
+    console.log('[WebSocket] 正在连接: ' + url);
+    console.log('[WebSocket] 当前页面协议: ' + window.location.protocol);
+    
     try {
         if ('WebSocket' in window) {
             ws = new WebSocket(url);

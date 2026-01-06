@@ -387,12 +387,20 @@ const rateAPIs = [
         timeout: 5000,
         handler: (data) => {
             console.log('[CoinGecko] 原始数据:', data);
+            console.log('[CoinGecko] data.rates:', data.rates);
             if (data && data.rates) {
-                // CoinGecko返回的是CNY相对于USD的汇率
+                // CoinGecko返回的是各种货币相对于BTC的汇率
+                // 我们需要找到CNY和USD，然后计算USD/CNY
                 const cnyRate = data.rates.cny;
-                if (cnyRate && cnyRate.value) {
-                    const rate = parseFloat(cnyRate.value);
-                    console.log('[CoinGecko] 解析汇率:', rate);
+                const usdRate = data.rates.usd;
+
+                console.log('[CoinGecko] CNY rate:', cnyRate);
+                console.log('[CoinGecko] USD rate:', usdRate);
+
+                if (cnyRate && usdRate && cnyRate.value && usdRate.value) {
+                    // USD/CNY = (CNY/BTC) / (USD/BTC) = CNY相对于USD的汇率
+                    const rate = cnyRate.value / usdRate.value;
+                    console.log('[CoinGecko] 计算汇率 (CNY/USD):', rate);
                     return rate;
                 }
             }

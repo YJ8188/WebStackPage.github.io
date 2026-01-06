@@ -304,14 +304,18 @@ const APIS = {
 };
 
 // ==================== 汇率显示功能 ====================
-const _0x4f2a = atob('YjgzYjI1ODBjOGVhOTVjYQ=='); // 
 
-// 汇率API配置（使用xxapi.cn）
+const _0x4f2a = atob('YjgzYjI1ODBjOGVhOTVjYQ=='); 
+
+// 汇率API配置（使用xxapi.cn - Bearer Token方式）
 const rateAPIs = [
     {
         name: 'XXAPI',
-        url: `https://v2.xxapi.cn/api/allrates?key=${_0x4f2a}`,
+        url: 'https://v2.xxapi.cn/api/allrates',
         timeout: 10000,
+        headers: {
+            'Authorization': `Bearer ${_0x4f2a}`
+        },
         handler: (data) => {
             console.log('[XXAPI] 原始数据:', data);
             if (data && data.data && data.data.rates && data.data.rates.CNY) {
@@ -347,7 +351,7 @@ async function checkNetworkStatus() {
 
     // 测试各个API的连通性
     const testURLs = [
-        { name: 'XXAPI汇率', url: `https://v2.xxapi.cn/api/allrates?key=${_0x4f2a}` },
+        { name: 'XXAPI汇率', url: 'https://v2.xxapi.cn/api/allrates', headers: { 'Authorization': `Bearer ${_0x4f2a}` } },
         { name: 'CryptoCompare', url: 'https://min-api.cryptocompare.com/data/top/totalvolfull?limit=10&tsym=USD' },
         { name: 'CoinCap', url: 'https://api.coincap.io/v2/assets?limit=10' }
     ];
@@ -509,12 +513,15 @@ async function showRateDetailModal() {
 
     modal.style.display = 'flex';
 
-    // 使用XXAPI汇率API
+    // 使用XXAPI汇率API（Bearer Token方式）
     const rateAPIs = [
         {
             name: 'XXAPI',
-            url: `https://v2.xxapi.cn/api/allrates?key=${_0x4f2a}`,
+            url: 'https://v2.xxapi.cn/api/allrates',
             timeout: 10000,
+            headers: {
+                'Authorization': `Bearer ${_0x4f2a}`
+            },
             handler: (data) => {
                 console.log('[XXAPI] 原始数据:', data);
                 if (data && data.data && data.data.rates && data.data.rates.CNY) {
@@ -542,8 +549,11 @@ async function showRateDetailModal() {
     for (const api of rateAPIs) {
         try {
             console.log(`[汇率详情] 尝试从 ${api.name} 获取数据...`);
-            const res = await fetchWithTimeout(api.url, { timeout: api.timeout });
-            
+            const res = await fetchWithTimeout(api.url, {
+                timeout: api.timeout,
+                headers: api.headers || {}
+            });
+
             if (res.ok) {
                 const data = await res.json();
                 successData = api.handler(data);
@@ -774,7 +784,10 @@ const syncRate = async () => {
                 console.log(`[汇率同步] 尝试 ${api.name}...`);
                 console.log(`[汇率同步] ${api.name} URL:`, api.url);
 
-                const res = await fetchWithTimeout(api.url, { timeout: api.timeout });
+                const res = await fetchWithTimeout(api.url, {
+                    timeout: api.timeout,
+                    headers: api.headers || {}
+                });
 
                 if (res.ok) {
                     const data = await res.json();

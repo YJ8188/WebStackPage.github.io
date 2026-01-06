@@ -265,14 +265,21 @@ function initMetalsTableWithRetry(retryCount = 0) {
 // 页面加载完成后初始化
 console.log('%c[金银行情] 模块加载完成，当前状态: ' + document.readyState, 'color: #10b981; font-weight: bold;');
 
+// 立即检查元素是否存在
+var placeholder = document.getElementById('metals-section-placeholder');
+var staticTable = document.getElementById('reference-prices-table');
+console.log('%c[金银行情] 元素检查 - placeholder: ' + !!placeholder + ', staticTable: ' + !!staticTable, 'color: #10b981;');
+
 // 使用 window.onload 确保页面完全加载
 window.addEventListener('load', function() {
     console.log('%c[金银行情] window.load 事件触发', 'color: #10b981;');
 
-    // 检查是动态模式还是静态模式
-    var placeholder = document.getElementById('metals-section-placeholder');
-    var staticTable = document.getElementById('reference-prices-table');
+    // 再次检查元素
+    placeholder = document.getElementById('metals-section-placeholder');
+    staticTable = document.getElementById('reference-prices-table');
+    console.log('%c[金银行情] load 事件后元素检查 - placeholder: ' + !!placeholder + ', staticTable: ' + !!staticTable, 'color: #10b981;');
 
+    // 检查是动态模式还是静态模式
     if (placeholder) {
         console.log('%c[金银行情] 检测到动态模式（index.html）', 'color: #10b981;');
         // 延迟执行，确保所有资源都已加载完成
@@ -291,3 +298,10 @@ window.addEventListener('load', function() {
         console.error('%c[金银行情] 未找到金银行情容器元素', 'color: #f59e0b; font-weight: bold;');
     }
 });
+
+// 备用：如果 window.onload 不触发，使用 DOMContentLoaded
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('%c[金银行情] DOMContentLoaded 事件触发', 'color: #10b981;');
+    });
+}

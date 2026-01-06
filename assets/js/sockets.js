@@ -5,12 +5,18 @@ var uidStr = Utilss.getUUID()
 var wsUrl = Utilss.getWsURL()+uidStr;
 var connCount = 0;
 
+// 智能降级配置
+var useSecureProtocol = true;  // 默认使用安全协议（WSS/HTTPS）
+var retryCount = 0;
+var maxRetries = 2;  // 每种协议最多重试2次
+
 // 根据 HTTP/HTTPS 协议自动选择 WebSocket 协议
 if (window.location.protocol === 'https:') {
-    // HTTPS 页面使用 WSS
+    // HTTPS 页面，优先尝试 WSS
     wsUrl = wsUrl.replace('ws://', 'wss://');
-    console.log('[WebSocket] 检测到 HTTPS，使用 WSS 协议');
+    console.log('[WebSocket] 检测到 HTTPS，优先使用 WSS 协议');
 } else {
+    // HTTP 页面，使用 WS
     console.log('[WebSocket] 检测到 HTTP，使用 WS 协议');
 }
 
@@ -31,6 +37,25 @@ function createWebSocket(url) {
 function reconnect(url) {
     if (lockReconnect) return;
     lockReconnect = true;
+    
+    // 检查是否需要降级协议
+    if (retryCount >= maxRetries && useSecureProtocol) {
+        // 重试次数过多，尝试降级到不安全协议
+        useSecureProtocol = false;
+        retryCount = 0;
+        
+        // 将 WSS 降级为 WS，HTTPS 降级为 HTTP
+        if (url.includes('wss://')) {
+            url = url.replace('wss://', 'ws://');
+            console.warn('[WebSocket] WSS 连接失败，降级使用 WS 协议');
+        } else if (url.includes('https://')) {
+            url = url.replace('https://', 'http://');
+            console.warn('[WebSocket] HTTPS 连接失败，降级使用 HTTP 协议');
+        }
+    } else {
+        retryCount++;
+    }
+    
     getFormula();
     setTimeout(function () {     //没连接上会一直重连，设置延迟避免请求过多
         createWebSocket(url);
@@ -52,12 +77,16 @@ function initEventHandle() {
     };
     ws.onerror = function () {
         isConn = false;
+        console.error("llws连接错误! 当前URL: " + wsUrl);
         reconnect(wsUrl);
-        console.log("llws连接错误!");
     };
     ws.onopen = function () {
         isConn = true;
-
+        
+        // 连接成功，重置重试计数
+        retryCount = 0;
+        console.log('[WebSocket] 连接成功! 使用协议: ' + (wsUrl.includes('wss://') ? 'WSS' : 'WS'));
+        
         heartCheck.reset().start();      //心跳检测重置
         console.log("llws连接成功!" + new Date().toLocaleString());
     };

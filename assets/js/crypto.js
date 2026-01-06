@@ -1,13 +1,25 @@
 // Crypto Logic - Digital Currency Module
-let currentCurrency = 'USD';
-let cryptoData = [];
-let isSearching = false;
-let USD_CNY_RATE = 7.25; // Default, will be updated dynamically
-let lastRateUpdate = 0;
+// ==================== 数字货币行情模块 ====================
+/**
+ * 数字货币实时行情显示模块
+ * 功能：获取并显示数字货币的实时价格、涨跌幅、市值等信息
+ * 作者：何哥
+ * 版本：1.0
+ */
 
-// Sparkline Cache & Utils
+// ==================== 全局变量 ====================
+let currentCurrency = 'USD'; // 当前货币类型：USD或CNY
+let cryptoData = []; // 加密货币数据数组
+let isSearching = false; // 是否正在搜索
+let USD_CNY_RATE = 7.25; // 美元兑人民币汇率（默认值，会动态更新）
+let lastRateUpdate = 0; // 上次汇率更新时间
+
+// ==================== 缓存和工具 ====================
+// K线图缓存
 const sparklineCache = {};
+// 正在请求的币种集合
 const sparklineRequests = new Set();
+// 币种ID映射表（用于从不同API获取数据）
 const COIN_ID_MAP = {
     'btc': 'bitcoin', 'eth': 'ethereum', 'usdt': 'tether', 'bnb': 'binance-coin',
     'xrp': 'ripple', 'sol': 'solana', 'doge': 'dogecoin', 'ada': 'cardano',
@@ -16,23 +28,35 @@ const COIN_ID_MAP = {
     'arb': 'arbitrum', 'op': 'optimism', 'tia': 'celestia', 'sei': 'sei-network',
     'pepe': 'pepe', 'stx': 'stacks', 'apt': 'aptos', 'floki': 'floki', 'fet': 'fetch-ai',
     'bonk': 'bonk', 'kas': 'kaspa', 'rndr': 'render-token', 'inj': 'injective',
-    'near': 'near-protocol', 'bch': 'bitcoin-cash', 'uni': 'uniswap', 'ldo': 'lido-dao',
-    'icp': 'internet-computer', 'apt': 'aptos', 'mnt': 'mantle', 'kas': 'kaspa'
+    'near': 'near-protocol', 'ldo': 'lido-dao', 'icp': 'internet-computer', 'mnt': 'mantle'
 };
 
-// Data persistence & cache
-let allGateTickers = []; // Master list from Gate.io for global search
+// ==================== 数据持久化和缓存 ====================
+// Gate.io的所有交易对数据（用于全局搜索）
+let allGateTickers = [];
+// 已展开详情的币种集合
 const expandedCoins = new Set();
 
+/**
+ * 加载K线图数据
+ * @param {string} id - 币种ID
+ * @param {string} symbol - 币种符号
+ * @param {number} changePct - 涨跌幅百分比
+ */
 async function loadSparkline(id, symbol, changePct) {
+    // 如果已缓存或正在请求，则跳过
     if (sparklineCache[symbol] || sparklineRequests.has(symbol)) return;
+    
+    // 获取最终的币种ID
     const finalId = id || COIN_ID_MAP[symbol] || symbol.toLowerCase();
     if (!finalId) return;
 
+    // 添加到请求集合
     sparklineRequests.add(symbol);
+    
+    // 获取所有图表容器并显示加载状态
     const containers = document.querySelectorAll(`.graph-container-${symbol}`);
     containers.forEach(el => {
-        // Better loading state
         el.innerHTML = `<div style="display:flex; align-items:center; justify-content:center; height:30px; opacity:0.6;">
             <i class="fa fa-spinner fa-spin" style="font-size:12px; margin-right:6px; color:#10b981;"></i>
             <span style="font-size:10px; color:#10b981;">数据同步中...</span>
@@ -209,25 +233,30 @@ async function updateSearchPrices() {
 }
 
 // API Strategies configuration
+// ==================== API配置 ====================
+/**
+ * 多API数据源配置
+ * 使用竞速模式获取数据，优先返回最快的响应
+ */
 const APIS = {
     GATEIO: {
         name: 'Gate.io (Official)',
-        url: 'https://api.gateio.ws/api/v4/spot/tickers', // Returns all tickers, need filtering
+        url: 'https://api.gateio.ws/api/v4/spot/tickers',
         handler: (data) => {
-            // 0. Backup all tickers for global search
+            // 0. 备份所有交易对数据用于全局搜索
             allGateTickers = data;
 
-            // 1. Sync Exchange Rate (Fixed issue with finding USDT_CNY accurately)
+            // 1. 同步汇率（修复USDT_CNY查找问题）
             const usdtCny = data.find(item => item.currency_pair === 'USDT_CNY');
             if (usdtCny && usdtCny.last) {
                 USD_CNY_RATE = parseFloat(usdtCny.last);
                 lastRateUpdate = Date.now();
             }
 
-            // 2. Filter USDT pairs and sort by volume to get Top 50
+            // 2. 过滤USDT交易对并按成交量排序，取前50个
             const sortedTickers = data
                 .filter(item => item.currency_pair.endsWith('_USDT'))
-                .filter(item => !item.currency_pair.includes('3L_') && !item.currency_pair.includes('3S_')) // Exclude leveraged
+                .filter(item => !item.currency_pair.includes('3L_') && !item.currency_pair.includes('3S_')) // 排除杠杆
                 .sort((a, b) => parseFloat(b.quote_volume) - parseFloat(a.quote_volume))
                 .slice(0, 50);
 
@@ -246,7 +275,7 @@ const APIS = {
                     image: `https://gimg2.gateimg.com/coin_icon/64/${symbol}.png`,
                     current_price: parseFloat(item.last),
                     price_change_percentage_24h: parseFloat(item.change_percentage),
-                    market_cap: parseFloat(item.quote_volume) * 7.5, // Proxy for display
+                    market_cap: parseFloat(item.quote_volume) * 7.5, // 市值代理
                     total_volume: parseFloat(item.quote_volume),
                     sparkline_in_7d: null
                 };
@@ -255,7 +284,6 @@ const APIS = {
     },
     CRYPTOCOMPARE: {
         name: 'CryptoCompare',
-        // Fetching top 50 by volume from CC
         url: 'https://min-api.cryptocompare.com/data/top/totalvolfull?limit=50&tsym=USD',
         handler: (data) => {
             if (!data.Data) throw new Error("Invalid CC Data");
@@ -276,14 +304,13 @@ const APIS = {
     },
     COINCAP: {
         name: 'CoinCap',
-        // Fetching top 50 by market cap from CoinCap
         url: 'https://api.coincap.io/v2/assets?limit=50',
         handler: (data) => {
             return data.data.map(item => ({
                 id: item.id,
                 symbol: item.symbol.toLowerCase(),
                 name: item.name,
-                image: `https://gimg2.gateimg.com/coin_icon/64/${item.symbol.toLowerCase()}.png`, // Use gate icons as they are better
+                image: `https://gimg2.gateimg.com/coin_icon/64/${item.symbol.toLowerCase()}.png`,
                 current_price: parseFloat(item.priceUsd),
                 price_change_percentage_24h: parseFloat(item.changePercent24Hr),
                 market_cap: parseFloat(item.marketCapUsd),
@@ -293,7 +320,6 @@ const APIS = {
     },
     COINGECKO: {
         name: 'CoinGecko',
-        // Fetching top 50 by market cap from CoinGecko
         url: 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=50&page=1&sparkline=false&price_change_percentage=24h',
         handler: (data) => data.map(item => ({
             id: item.id,
@@ -308,6 +334,10 @@ const APIS = {
     }
 };
 
+// ==================== 货币切换功能 ====================
+/**
+ * 切换显示货币（USD/CNY）
+ */
 function toggleCurrency() {
     const btn = document.getElementById('currency-toggle');
     if (currentCurrency === 'USD') {
@@ -322,17 +352,22 @@ function toggleCurrency() {
     renderCryptoTable(cryptoData);
 }
 
-// 1. Racing Engine with Local Cache fallback
+// ==================== 数据获取核心引擎 ====================
+/**
+ * 获取数字货币数据（竞速模式 + 本地缓存回退）
+ * 优先使用本地缓存实现即时加载，同时后台更新数据
+ */
 async function fetchCryptoData() {
     const dot = document.getElementById('api-status-dot');
     const label = document.getElementById('api-provider-name');
     const tbody = document.getElementById('crypto-table-body');
     const refreshIcon = document.querySelector('#refresh-crypto-btn i');
 
-    dot.style.color = '#f59e0b'; // Fetching state
+    // 设置为获取中状态
+    dot.style.color = '#f59e0b';
     if (refreshIcon) refreshIcon.classList.add('fa-spin');
 
-    // A. Try to load from Local Storage immediately for "Instant Load" feel
+    // A. 立即尝试从本地存储加载（实现即时加载效果）
     if (cryptoData.length === 0) {
         const cached = localStorage.getItem('crypto_market_cache');
         if (cached) {
@@ -347,7 +382,7 @@ async function fetchCryptoData() {
         }
     }
 
-    // B. Sync Exchange Rate (Gate.io USDT_CNY) - background
+    // B. 后台同步汇率（Gate.io USDT_CNY）
     const syncRate = async () => {
         if (Date.now() - lastRateUpdate > 30000) {
             try {
@@ -360,11 +395,11 @@ async function fetchCryptoData() {
                     }
                 }
             } catch (e) { }
-        }
+        };
     };
     syncRate();
 
-    // C. Parallel Racing Mode (The core optimization)
+    // C. 并行竞速模式（核心优化）
     const fetchSource = async (apiObj) => {
         const res = await fetchWithTimeout(apiObj.url, { timeout: 15000 });
         if (!res.ok) throw new Error(`${apiObj.name} Failed`);
@@ -373,9 +408,8 @@ async function fetchCryptoData() {
     };
 
     try {
-        // Priority Racing: Start all main sources at once
-        // We use Promise.any for speed, but Gate.io is still our accuracy target.
-        // However, stability first. We'll take the first one that responds.
+        // 优先竞速：同时启动所有主要数据源
+        // 使用Promise.any获取最快响应
         const fastestResult = await Promise.any([
             fetchSource(APIS.GATEIO),
             fetchSource(APIS.CRYPTOCOMPARE),
@@ -385,12 +419,12 @@ async function fetchCryptoData() {
         if (fastestResult && fastestResult.data) {
             cryptoData = fastestResult.data;
             onSuccess(dot, fastestResult.name, fastestResult.data);
-            // Persist to local storage for offline use
+            // 持久化到本地存储
             localStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
             return;
         }
     } catch (e) {
-        // D. Fallback to CoinGecko if all initial racing fail
+        // D. 如果所有初始竞速失败，回退到CoinGecko
         try {
             if (label) label.innerText = 'Fallback (CG)...';
             const geckoRes = await fetchSource(APIS.COINGECKO);
@@ -399,12 +433,12 @@ async function fetchCryptoData() {
             localStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
             return;
         } catch (ge) {
-            // E. Final Fail: If we have cached data, don't show the red error box
+            // E. 最终失败：如果有缓存数据，不显示红色错误框
             if (cryptoData.length > 0) {
-                dot.style.color = '#ef4444'; // Signal failure silently
+                dot.style.color = '#ef4444';
                 if (label) label.innerText = 'Sync Off (Local)';
             } else {
-                // Full Failure UI
+                // 完全失败UI
                 dot.style.color = '#ef4444';
                 tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: #ef4444;">
                     <i class="fa fa-exclamation-triangle"></i> 连接超时，请检查网络或代理。<br>
@@ -632,22 +666,31 @@ function updateCryptoUI(data) {
     });
 }
 
-// Search Logic with Debounce
+// ==================== 搜索功能 ====================
+/**
+ * 搜索逻辑（带防抖）
+ */
 let searchTimeout;
 
+/**
+ * 处理搜索输入事件
+ */
 function handleSearchInput() {
     const input = document.getElementById('crypto-search');
     if (!input) return;
     const query = input.value.trim();
     if (!query) {
         isSearching = false;
-        fetchCryptoData(); // Revert to main list if search cleared
+        fetchCryptoData(); // 清空搜索时恢复主列表
         return;
     }
     clearTimeout(searchTimeout);
     searchTimeout = setTimeout(searchCrypto, 1000);
 }
 
+/**
+ * 处理搜索键盘事件
+ */
 async function handleSearchKey(e) {
     if (e.key === 'Enter') {
         e.preventDefault();
@@ -661,7 +704,9 @@ async function handleSearchKey(e) {
     }
 }
 
-// Map common Chinese names to English for better search
+/**
+ * 中文币种名称映射表（用于更好的搜索体验）
+ */
 const CN_COIN_MAP = {
     '比特币': 'bitcoin', '以太坊': 'ethereum', '泰达币': 'tether', '狗狗币': 'dogecoin',
     '波卡': 'polkadot', '币安': 'binance', '瑞波': 'ripple', '索拉纳': 'solana',
@@ -671,6 +716,9 @@ const CN_COIN_MAP = {
     '天体': 'celestia', '赛伊': 'sei-network'
 };
 
+/**
+ * 清除搜索
+ */
 function clearCryptoSearch() {
     const input = document.getElementById('crypto-search');
     if (input) input.value = '';
@@ -680,6 +728,9 @@ function clearCryptoSearch() {
     fetchCryptoData();
 }
 
+/**
+ * 搜索币种
+ */
 async function searchCrypto() {
     const input = document.getElementById('crypto-search');
     if (!input) return;
@@ -695,6 +746,8 @@ async function searchCrypto() {
     }
 
     if (clearBtn) clearBtn.style.display = 'block';
+    
+    // 中文转英文映射
     if (CN_COIN_MAP[query]) query = CN_COIN_MAP[query];
 
     if (label) label.innerText = '正在全量搜索: ' + query;
@@ -706,7 +759,7 @@ async function searchCrypto() {
     </td></tr>`;
 
     try {
-        // 1. Efficient Global Search in allGateTickers (Synced with Gate.io)
+        // 1. 在Gate.io全量数据中高效搜索
         const filtered = allGateTickers
             .filter(item => {
                 const pair = item.currency_pair.toLowerCase();
@@ -714,7 +767,7 @@ async function searchCrypto() {
                 return symbol.includes(query) && pair.endsWith('_usdt') && !pair.includes('3l_') && !pair.includes('3s_');
             })
             .sort((a, b) => parseFloat(b.quote_volume) - parseFloat(a.quote_volume))
-            .slice(0, 30); // Max 30 results for search
+            .slice(0, 30); // 最多返回30个结果
 
         if (filtered.length > 0) {
             const mapped = filtered.map(item => {
@@ -738,7 +791,7 @@ async function searchCrypto() {
             return;
         }
 
-        // 2. Fallback to CoinCap Search only if Gate data has no matches
+        // 2. 如果Gate数据无匹配，回退到CoinCap搜索
         const directUrl = `https://api.coincap.io/v2/assets?search=${query}&limit=20`;
         const res = await fetchWithTimeout(directUrl, { timeout: 5000 });
         if (res.ok) {
@@ -763,7 +816,7 @@ async function searchCrypto() {
             }
         }
 
-        // 3. Not found
+        // 3. 未找到
         if (label) label.innerText = `未找到 "${query}"`;
         if (dot) dot.style.color = '#ef4444';
         tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 60px; color: #888;">
@@ -779,10 +832,15 @@ async function searchCrypto() {
     }
 }
 
-// Hover to hide floating buttons logic
+// ==================== 页面初始化 ====================
+/**
+ * 页面加载完成后初始化
+ */
 document.addEventListener('DOMContentLoaded', () => {
+    // 初始加载数据
     fetchCryptoData();
 
+    // 绑定搜索输入事件
     const searchInput = document.getElementById('crypto-search');
     const searchTrigger = document.getElementById('crypto-search-trigger');
 
@@ -797,12 +855,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Real-time polling
+    // 实时轮询更新（每3秒）
     setInterval(() => {
         if (!isSearching) fetchCryptoData();
     }, 3000);
 
-    // Dedicated Full Ticker Refresh (Background)
+    // 后台刷新完整交易对列表（每60秒）
     setInterval(async () => {
         try {
             const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers', { timeout: 10000 });
@@ -813,9 +871,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         } catch (e) { }
-    }, 60000); // Refresh full list every minute
+    }, 60000);
 
-    // Hover Logic - Optimized to hide all floating buttons
+    // 悬停时隐藏浮动按钮的优化
     const cryptoContainer = document.querySelector('.crypto-table-container');
     if (cryptoContainer) {
         const cryptoSection = cryptoContainer.closest('.row');

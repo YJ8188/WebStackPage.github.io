@@ -462,6 +462,19 @@ async function showRateDetailModal() {
                 background: #2563eb !important;
                 border-color: #2563eb !important;
             }
+            /* 汇率详情弹窗内容字体颜色暗黑模式 */
+            body.dark-mode #rate-detail-content > div:first-child > div:first-child {
+                color: #fff !important;
+            }
+            body.dark-mode #rate-detail-content > div:nth-child(2) > div > div.label {
+                color: #999 !important;
+            }
+            body.dark-mode #rate-detail-content > div:nth-child(2) > div > div.value {
+                color: #fff !important;
+            }
+            body.dark-mode #rate-detail-content > div:last-child {
+                color: #888 !important;
+            }
         `;
         document.head.appendChild(style);
 

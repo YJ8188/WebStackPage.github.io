@@ -288,7 +288,7 @@ const rateAPIs = [
     {
         name: 'YunAPI',
         url: 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://yunapi.cn/api/huilv'),
-        timeout: 5000,
+        timeout: 10000,
         handler: (data) => {
             console.log('[YunAPI] 原始数据:', data);
             if (data && data.contents) {
@@ -334,7 +334,7 @@ async function checkNetworkStatus() {
         try {
             const startTime = Date.now();
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000);
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
 
             const response = await fetch(test.url, {
                 method: 'HEAD',
@@ -479,7 +479,7 @@ async function showRateDetailModal() {
         {
             name: 'YunAPI',
             url: 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://yunapi.cn/api/huilv'),
-            timeout: 5000,
+            timeout: 10000,
             handler: (data) => {
                 console.log('[YunAPI] 原始数据:', data);
                 if (data && data.contents) {

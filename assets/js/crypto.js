@@ -368,6 +368,65 @@ const APIS = {
 };
 
 // ==================== 汇率显示功能 ====================
+
+// 汇率API配置（按优先级排序）
+const rateAPIs = [
+    {
+        name: 'Binance',
+        url: 'https://api.binance.com/api/v3/ticker/price?symbol=USDTCNY',
+        timeout: 5000,
+        handler: (data) => {
+            if (data && data.price) {
+                return parseFloat(data.price);
+            }
+            throw new Error('Invalid data');
+        }
+    },
+    {
+        name: 'ExchangeRate-API',
+        url: 'https://api.exchangerate-api.com/v4/latest/USD',
+        timeout: 5000,
+        handler: (data) => {
+            if (data && data.rates && data.rates.CNY) {
+                return parseFloat(data.rates.CNY);
+            }
+            throw new Error('Invalid data');
+        }
+    },
+    {
+        name: 'OKX',
+        url: 'https://www.okx.com/api/v5/market/ticker?instId=USDT-CNY',
+        timeout: 5000,
+        handler: (data) => {
+            if (data && data.data && data.data[0] && data.data[0].last) {
+                return parseFloat(data.data[0].last);
+            }
+            throw new Error('Invalid data');
+        }
+    },
+    {
+        name: 'Bybit',
+        url: 'https://api.bybit.com/v5/market/tickers?category=spot&symbol=USDTCNY',
+        timeout: 5000,
+        handler: (data) => {
+            if (data && data.result && data.result.list && data.result.list[0] && data.result.list[0].lastPrice) {
+                return parseFloat(data.result.list[0].lastPrice);
+            }
+            throw new Error('Invalid data');
+        }
+    },
+    {
+        name: 'Huobi',
+        url: 'https://api.huobi.pro/market/detail/merged?symbol=usdtcny',
+        timeout: 5000,
+        handler: (data) => {
+            if (data && data.tick && data.tick.close) {
+                return parseFloat(data.tick.close);
+            }
+            throw new Error('Invalid data');
+        }
+    }
+];
 /**
  * 显示24小时汇率行情弹窗
  */
@@ -802,54 +861,6 @@ function updateExchangeRateDisplay() {
  * 实时同步，每次获取最新数据
  */
 const syncRate = async () => {
-    // 多个API数据源配置（按优先级排序）
-    const rateAPIs = [
-        {
-            name: 'ExchangeRate-API',
-            url: 'https://api.exchangerate-api.com/v4/latest/USD',
-            timeout: 5000,
-            handler: (data) => {
-                if (data && data.rates && data.rates.CNY) {
-                    return parseFloat(data.rates.CNY);
-                }
-                throw new Error('Invalid data');
-            }
-        },
-        {
-            name: 'OKX',
-            url: 'https://www.okx.com/api/v5/market/ticker?instId=USDT-CNY',
-            timeout: 5000,
-            handler: (data) => {
-                if (data && data.data && data.data[0] && data.data[0].last) {
-                    return parseFloat(data.data[0].last);
-                }
-                throw new Error('Invalid data');
-            }
-        },
-        {
-            name: 'Bybit',
-            url: 'https://api.bybit.com/v5/market/tickers?category=spot&symbol=USDTCNY',
-            timeout: 5000,
-            handler: (data) => {
-                if (data && data.result && data.result.list && data.result.list[0] && data.result.list[0].lastPrice) {
-                    return parseFloat(data.result.list[0].lastPrice);
-                }
-                throw new Error('Invalid data');
-            }
-        },
-        {
-            name: 'Huobi',
-            url: 'https://api.huobi.pro/market/detail/merged?symbol=usdtcny',
-            timeout: 5000,
-            handler: (data) => {
-                if (data && data.tick && data.tick.close) {
-                    return parseFloat(data.tick.close);
-                }
-                throw new Error('Invalid data');
-            }
-        }
-    ];
-
     try {
         console.log('[汇率同步] 开始获取USDT/CNY汇率...');
         console.log('[汇率同步] 当前汇率:', USD_CNY_RATE);

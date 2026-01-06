@@ -10,7 +10,7 @@
 // ==================== 全局变量 ====================
 let currentCurrency = 'USD'; // 当前货币类型：USD或CNY
 let cryptoData = []; // 加密货币数据数组
-let USD_CNY_RATE = null; // 美元兑人民币汇率（实时获取，初始为null）
+let USD_CNY_RATE = 7.25; // 美元兑人民币汇率（默认值7.25，实时获取后会更新）
 let lastRateUpdate = 0; // 上次汇率更新时间
 
 // ==================== 汇率API测试函数 ====================
@@ -886,14 +886,10 @@ function updateExchangeRateDisplay() {
     if (!rateEl) return;
 
     const currentRate = USD_CNY_RATE;
-    
-    // 如果汇率还未获取，显示加载状态
-    if (currentRate === null) {
-        rateEl.innerHTML = `<span style="opacity: 0.6;">加载中...</span>`;
-    } else {
-        rateEl.innerHTML = `1 USDT = <span class="rate-value">${currentRate.toFixed(4)}</span> CNY`;
-        rateEl.dataset.mode = 'usdt-cny';
-    }
+
+    // 直接显示汇率值（不再显示加载状态）
+    rateEl.innerHTML = `1 USDT = <span class="rate-value">${currentRate.toFixed(4)}</span> CNY`;
+    rateEl.dataset.mode = 'usdt-cny';
 }
 
 /**
@@ -1685,36 +1681,52 @@ function initCryptoUI() {
             @media screen and (max-width: 600px) {
                 .crypto-table-container {
                     padding: 0 !important;
-                    margin-left: -5px;
-                    margin-right: -5px;
-                    width: calc(100% + 10px);
+                    margin-left: -10px;
+                    margin-right: -10px;
+                    width: calc(100% + 20px);
                     overflow-x: auto !important;
                     -webkit-overflow-scrolling: touch;
                     /* 添加滚动条样式 */
                     scrollbar-width: thin;
-                    scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+                    scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
+                    /* 添加阴影提示可以滚动 */
+                    box-shadow: inset -10px 0 20px -10px rgba(0, 0, 0, 0.1);
                 }
 
                 /* Webkit滚动条样式 */
                 .crypto-table-container::-webkit-scrollbar {
-                    height: 4px;
+                    height: 6px;
                 }
 
                 .crypto-table-container::-webkit-scrollbar-track {
                     background: transparent;
+                    border-radius: 3px;
                 }
 
                 .crypto-table-container::-webkit-scrollbar-thumb {
-                    background: rgba(0, 0, 0, 0.2);
-                    border-radius: 2px;
+                    background: rgba(0, 0, 0, 0.3);
+                    border-radius: 3px;
+                    transition: background 0.3s;
+                }
+
+                .crypto-table-container::-webkit-scrollbar-thumb:hover {
+                    background: rgba(0, 0, 0, 0.5);
                 }
 
                 body.dark-mode .crypto-table-container::-webkit-scrollbar-thumb {
-                    background: rgba(255, 255, 255, 0.2);
+                    background: rgba(255, 255, 255, 0.3);
+                }
+
+                body.dark-mode .crypto-table-container::-webkit-scrollbar-thumb:hover {
+                    background: rgba(255, 255, 255, 0.5);
+                }
+
+                body.dark-mode .crypto-table-container {
+                    box-shadow: inset -10px 0 20px -10px rgba(255, 255, 255, 0.05);
                 }
 
                 .crypto-table {
-                    min-width: 500px;
+                    min-width: 550px;
                 }
 
                 .crypto-table th,
@@ -1742,24 +1754,51 @@ function initCryptoUI() {
                 /* 优化7日趋势列的显示 */
                 .crypto-table th:nth-child(5),
                 .crypto-table td:nth-child(5) {
-                    min-width: 100px;
+                    min-width: 110px;
                 }
 
                 .sparkline-svg {
                     max-width: 100px;
+                }
+
+                /* 添加滚动提示文字 */
+                .crypto-table-container::after {
+                    content: '← 左右滑动查看更多 →';
+                    position: absolute;
+                    bottom: 20px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: rgba(0, 0, 0, 0.7);
+                    color: white;
+                    padding: 6px 12px;
+                    border-radius: 20px;
+                    font-size: 11px;
+                    pointer-events: none;
+                    opacity: 0;
+                    transition: opacity 0.3s;
+                    z-index: 5;
+                }
+
+                .crypto-table-container:not(.scrolled)::after {
+                    opacity: 1;
+                    animation: fadeInOut 3s ease-in-out;
+                }
+
+                @keyframes fadeInOut {
+                    0%, 100% { opacity: 0; }
+                    20%, 80% { opacity: 1; }
                 }
             }
 
             @media screen and (max-width: 480px) {
                 /* 超小屏幕进一步优化 */
                 .crypto-table-container {
-                    overflow-x: auto;
+                    overflow-x: auto !important;
                     -webkit-overflow-scrolling: touch;
                 }
 
                 .crypto-table {
-                    min-width: 100%;
-                    width: 100%;
+                    min-width: 500px !important;
                 }
 
                 .crypto-table th,
@@ -1791,17 +1830,32 @@ function initCryptoUI() {
                     font-size: 10px !important;
                 }
 
+                /* 确保所有列都显示 */
                 .crypto-table th:nth-child(4),
-                .crypto-table td:nth-child(4) {
-                    display: none;
+                .crypto-table td:nth-child(4),
+                .crypto-table th:nth-child(5),
+                .crypto-table td:nth-child(5) {
+                    display: table-cell !important;
                 }
             }
 
             @media screen and (max-width: 360px) {
                 /* 极小屏幕优化 */
+                .crypto-table-container {
+                    overflow-x: auto !important;
+                    -webkit-overflow-scrolling: touch;
+                }
+
+                .crypto-table {
+                    min-width: 500px !important;
+                }
+
+                /* 确保所有列都显示 */
                 .crypto-table th:nth-child(4),
-                .crypto-table td:nth-child(4) {
-                    display: none;
+                .crypto-table td:nth-child(4),
+                .crypto-table th:nth-child(5),
+                .crypto-table td:nth-child(5) {
+                    display: table-cell !important;
                 }
 
                 .coin-icon {
@@ -1898,16 +1952,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // 检测网络状态
     console.log('[页面加载] 检测网络状态...');
     checkNetworkStatus();
-
-    // 强制清除所有缓存数据（确保获取最新汇率）
-    console.log('[页面加载] 强制清除所有缓存数据...');
-    localStorage.removeItem('crypto_market_cache');
-    localStorage.removeItem('crypto_market_cache_time');
-    console.log('[页面加载] 缓存已清除');
-
-    // 重置汇率变量
-    USD_CNY_RATE = null;
-    console.log('[页面加载] 汇率变量已重置');
 
     // 动态生成UI
     console.log('[页面加载] 调用 initCryptoUI()');

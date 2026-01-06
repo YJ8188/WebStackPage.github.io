@@ -371,6 +371,7 @@ async function showRateDetailModal() {
                     <div style="text-align: center; padding: 40px 0;">
                         <i class="fa fa-spinner fa-spin" style="font-size: 24px; color: #10b981;"></i>
                         <p style="margin-top: 10px; color: #666;">正在加载24小时行情数据...</p>
+                        <p style="margin-top: 5px; color: #999; font-size: 12px;">尝试多个数据源...</p>
                     </div>
                 </div>
             </div>
@@ -398,65 +399,153 @@ async function showRateDetailModal() {
 
     modal.style.display = 'flex';
 
-    // 获取24小时行情数据
-    try {
-        const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY', { timeout: 5000 });
-        if (res.ok) {
-            const data = await res.json();
-            if (data && data[0]) {
-                const ticker = data[0];
-                const current = parseFloat(ticker.last);
-                const high = parseFloat(ticker.high_24h);
-                const low = parseFloat(ticker.low_24h);
-                const volume = parseFloat(ticker.base_volume);
-                const change = parseFloat(ticker.change_percentage);
-                const changePct = change.toFixed(2);
-                const direction = change >= 0 ? '上涨' : '下跌';
-                const color = change >= 0 ? '#ef4444' : '#10b981';
-
-                const content = document.getElementById('rate-detail-content');
-                content.innerHTML = `
-                    <div style="text-align: center; margin-bottom: 24px;">
-                        <div style="font-size: 36px; font-weight: bold; color: #333; margin-bottom: 4px;">
-                            ${current.toFixed(4)}
-                        </div>
-                        <div style="font-size: 14px; color: ${color}; font-weight: 500;">
-                            ${change >= 0 ? '📈' : '📉'} ${direction} ${Math.abs(changePct)}%
-                        </div>
-                    </div>
-
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
-                        <div style="background: #f8f8f8; padding: 16px; border-radius: 8px; text-align: center;">
-                            <div style="font-size: 12px; color: #999; margin-bottom: 4px;">24小时最高</div>
-                            <div style="font-size: 18px; font-weight: 600; color: #333;">${high.toFixed(4)}</div>
-                        </div>
-                        <div style="background: #f8f8f8; padding: 16px; border-radius: 8px; text-align: center;">
-                            <div style="font-size: 12px; color: #999; margin-bottom: 4px;">24小时最低</div>
-                            <div style="font-size: 18px; font-weight: 600; color: #333;">${low.toFixed(4)}</div>
-                        </div>
-                        <div style="background: #f8f8f8; padding: 16px; border-radius: 8px; text-align: center;">
-                            <div style="font-size: 12px; color: #999; margin-bottom: 4px;">24小时成交量</div>
-                            <div style="font-size: 18px; font-weight: 600; color: #333;">${volume.toLocaleString(undefined, { maximumFractionDigits: 0 })} USDT</div>
-                        </div>
-                        <div style="background: #f8f8f8; padding: 16px; border-radius: 8px; text-align: center;">
-                            <div style="font-size: 12px; color: #999; margin-bottom: 4px;">数据来源</div>
-                            <div style="font-size: 14px; font-weight: 600; color: #10b981;">Gate.io</div>
-                        </div>
-                    </div>
-
-                    <div style="text-align: center; font-size: 12px; color: #999;">
-                        数据更新时间: ${new Date().toLocaleString('zh-CN')}
-                    </div>
-                `;
+    // 多个API数据源配置
+    const rateAPIs = [
+        {
+            name: 'Gate.io',
+            url: 'https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY',
+            timeout: 5000,
+            handler: (data) => {
+                if (data && data[0]) {
+                    return {
+                        current: parseFloat(data[0].last),
+                        high: parseFloat(data[0].high_24h),
+                        low: parseFloat(data[0].low_24h),
+                        volume: parseFloat(data[0].base_volume),
+                        change: parseFloat(data[0].change_percentage),
+                        source: 'Gate.io'
+                    };
+                }
+                throw new Error('Invalid data format');
+            }
+        },
+        {
+            name: 'Binance',
+            url: 'https://api.binance.com/api/v3/ticker/24hr?symbol=USDTUSDT',
+            timeout: 5000,
+            handler: (data) => {
+                // Binance返回的是USDT/USDT，需要转换为USDT/CNY
+                // 使用当前汇率进行转换
+                const usdtPrice = parseFloat(data.lastPrice);
+                return {
+                    current: usdtPrice * USD_CNY_RATE,
+                    high: parseFloat(data.highPrice) * USD_CNY_RATE,
+                    low: parseFloat(data.lowPrice) * USD_CNY_RATE,
+                    volume: parseFloat(data.volume),
+                    change: parseFloat(data.priceChangePercent),
+                    source: 'Binance'
+                };
+            }
+        },
+        {
+            name: 'OKX',
+            url: 'https://www.okx.com/api/v5/market/ticker?instId=USDT-CNY',
+            timeout: 5000,
+            handler: (data) => {
+                if (data && data.data && data.data[0]) {
+                    const ticker = data.data[0];
+                    return {
+                        current: parseFloat(ticker.last),
+                        high: parseFloat(ticker.high24h),
+                        low: parseFloat(ticker.low24h),
+                        volume: parseFloat(ticker.volCcy24h),
+                        change: parseFloat(ticker.changePercent),
+                        source: 'OKX'
+                    };
+                }
+                throw new Error('Invalid data format');
+            }
+        },
+        {
+            name: 'Huobi',
+            url: 'https://api.huobi.pro/market/detail/merged?symbol=usdtcny',
+            timeout: 5000,
+            handler: (data) => {
+                if (data && data.tick) {
+                    const tick = data.tick;
+                    return {
+                        current: parseFloat(tick.close),
+                        high: parseFloat(tick.high),
+                        low: parseFloat(tick.low),
+                        volume: parseFloat(tick.vol),
+                        change: ((parseFloat(tick.close) - parseFloat(tick.open)) / parseFloat(tick.open)) * 100,
+                        source: 'Huobi'
+                    };
+                }
+                throw new Error('Invalid data format');
             }
         }
-    } catch (e) {
-        const content = document.getElementById('rate-detail-content');
+    ];
+
+    // 尝试从多个API获取数据（竞速模式）
+    let successData = null;
+    let lastError = null;
+
+    for (const api of rateAPIs) {
+        try {
+            console.log(`[汇率详情] 尝试从 ${api.name} 获取数据...`);
+            const res = await fetchWithTimeout(api.url, { timeout: api.timeout });
+            
+            if (res.ok) {
+                const data = await res.json();
+                successData = api.handler(data);
+                console.log(`[汇率详情] ${api.name} 数据获取成功:`, successData);
+                break;
+            }
+        } catch (e) {
+            console.error(`[汇率详情] ${api.name} 获取失败:`, e);
+            lastError = e;
+        }
+    }
+
+    const content = document.getElementById('rate-detail-content');
+
+    if (successData) {
+        const { current, high, low, volume, change, source } = successData;
+        const changePct = change.toFixed(2);
+        const direction = change >= 0 ? '上涨' : '下跌';
+        const color = change >= 0 ? '#ef4444' : '#10b981';
+
+        content.innerHTML = `
+            <div style="text-align: center; margin-bottom: 24px;">
+                <div style="font-size: 36px; font-weight: bold; color: #333; margin-bottom: 4px;">
+                    ${current.toFixed(4)}
+                </div>
+                <div style="font-size: 14px; color: ${color}; font-weight: 500;">
+                    ${change >= 0 ? '📈' : '📉'} ${direction} ${Math.abs(changePct)}%
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+                <div style="background: #f8f8f8; padding: 16px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 12px; color: #999; margin-bottom: 4px;">24小时最高</div>
+                    <div style="font-size: 18px; font-weight: 600; color: #333;">${high.toFixed(4)}</div>
+                </div>
+                <div style="background: #f8f8f8; padding: 16px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 12px; color: #999; margin-bottom: 4px;">24小时最低</div>
+                    <div style="font-size: 18px; font-weight: 600; color: #333;">${low.toFixed(4)}</div>
+                </div>
+                <div style="background: #f8f8f8; padding: 16px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 12px; color: #999; margin-bottom: 4px;">24小时成交量</div>
+                    <div style="font-size: 18px; font-weight: 600; color: #333;">${volume.toLocaleString(undefined, { maximumFractionDigits: 0 })} USDT</div>
+                </div>
+                <div style="background: #f8f8f8; padding: 16px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 12px; color: #999; margin-bottom: 4px;">数据来源</div>
+                    <div style="font-size: 14px; font-weight: 600; color: #10b981;">${source}</div>
+                </div>
+            </div>
+
+            <div style="text-align: center; font-size: 12px; color: #999;">
+                数据更新时间: ${new Date().toLocaleString('zh-CN')}
+            </div>
+        `;
+    } else {
         content.innerHTML = `
             <div style="text-align: center; padding: 40px 0;">
                 <div style="font-size: 48px; margin-bottom: 10px;">❌</div>
                 <p style="color: #ef4444; font-size: 16px; margin-bottom: 8px;">加载失败</p>
-                <p style="color: #999; font-size: 14px;">请检查网络连接后重试</p>
+                <p style="color: #999; font-size: 14px; margin-bottom: 16px;">已尝试 ${rateAPIs.length} 个数据源</p>
+                <p style="color: #999; font-size: 12px; margin-bottom: 16px;">${lastError ? lastError.message : '未知错误'}</p>
                 <button onclick="showRateDetailModal()" style="
                     margin-top: 16px;
                     padding: 8px 24px;

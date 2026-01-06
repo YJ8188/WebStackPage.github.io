@@ -13,107 +13,6 @@ let cryptoData = []; // 加密货币数据数组
 let USD_CNY_RATE = 7.25; // 美元兑人民币汇率（默认值7.25，实时获取后会更新）
 let lastRateUpdate = 0; // 上次汇率更新时间
 
-// ==================== 汇率API测试函数 ====================
-/**
- * 测试所有汇率API并输出结果到控制台
- */
-async function testAllRateAPIs() {
-    console.log('========== 汇率API测试开始 ==========');
-
-    const testAPIs = [
-        {
-            name: 'Gate.io',
-            url: 'https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY',
-            handler: (data) => {
-                if (data && data.length > 0 && data[0].last) {
-                    return parseFloat(data[0].last);
-                }
-                throw new Error('Invalid data');
-            }
-        },
-        {
-            name: 'Binance',
-            url: 'https://api.binance.com/api/v3/ticker/price?symbol=USDTCNY',
-            handler: (data) => {
-                if (data && data.price) {
-                    return parseFloat(data.price);
-                }
-                throw new Error('Invalid data');
-            }
-        },
-        {
-            name: 'OKX',
-            url: 'https://www.okx.com/api/v5/market/ticker?instId=USDT-CNY',
-            handler: (data) => {
-                if (data && data.data && data.data[0] && data.data[0].last) {
-                    return parseFloat(data.data[0].last);
-                }
-                throw new Error('Invalid data');
-            }
-        },
-        {
-            name: 'Bybit',
-            url: 'https://api.bybit.com/v5/market/tickers?category=spot&symbol=USDTCNY',
-            handler: (data) => {
-                if (data && data.result && data.result.list && data.result.list[0] && data.result.list[0].lastPrice) {
-                    return parseFloat(data.result.list[0].lastPrice);
-                }
-                throw new Error('Invalid data');
-            }
-        },
-        {
-            name: 'Huobi',
-            url: 'https://api.huobi.pro/market/detail/merged?symbol=usdtcny',
-            handler: (data) => {
-                if (data && data.tick && data.tick.close) {
-                    return parseFloat(data.tick.close);
-                }
-                throw new Error('Invalid data');
-            }
-        },
-        {
-            name: 'ExchangeRate-API (不推荐)',
-            url: 'https://api.exchangerate-api.com/v4/latest/USD',
-            handler: (data) => {
-                if (data && data.rates && data.rates.CNY) {
-                    return parseFloat(data.rates.CNY);
-                }
-                throw new Error('Invalid data');
-            }
-        }
-    ];
-
-    for (const api of testAPIs) {
-        try {
-            console.log(`\n测试 ${api.name}...`);
-            console.log(`URL: ${api.url}`);
-
-            const startTime = Date.now();
-            const res = await fetchWithTimeout(api.url, { timeout: 5000 });
-            const endTime = Date.now();
-
-            if (res.ok) {
-                const data = await res.json();
-                const rate = api.handler(data);
-                console.log(`✅ ${api.name} 成功！`);
-                console.log(`   响应时间: ${endTime - startTime}ms`);
-                console.log(`   汇率: ${rate}`);
-                console.log(`   原始数据:`, data);
-            } else {
-                console.log(`❌ ${api.name} 失败: HTTP ${res.status}`);
-            }
-        } catch (error) {
-            console.log(`❌ ${api.name} 失败: ${error.message}`);
-        }
-    }
-
-    console.log('\n========== 汇率API测试结束 ==========');
-}
-
-// 将测试函数暴露到全局，方便在控制台调用
-window.testAllRateAPIs = testAllRateAPIs;
-console.log('💡 提示: 在控制台输入 testAllRateAPIs() 可以测试所有汇率API');
-
 // ==================== 缓存和工具 ====================
 // K线图缓存
 const sparklineCache = {};
@@ -384,32 +283,21 @@ const APIS = {
 
 // ==================== 汇率显示功能 ====================
 
-// 汇率API配置（只使用CoinGecko）
+// 汇率API配置（使用yunapi.cn）
 const rateAPIs = [
     {
-        name: 'CoinGecko',
-        url: 'https://api.coingecko.com/api/v3/exchange_rates',
+        name: 'YunAPI',
+        url: 'https://yunapi.cn/api/huilv',
         timeout: 5000,
         handler: (data) => {
-            console.log('[CoinGecko] 原始数据:', data);
-            console.log('[CoinGecko] data.rates:', data.rates);
-            if (data && data.rates) {
-                // CoinGecko返回的是各种货币相对于BTC的汇率
-                // 我们需要找到CNY和USD，然后计算USD/CNY
-                const cnyRate = data.rates.cny;
-                const usdRate = data.rates.usd;
-
-                console.log('[CoinGecko] CNY rate:', cnyRate);
-                console.log('[CoinGecko] USD rate:', usdRate);
-
-                if (cnyRate && usdRate && cnyRate.value && usdRate.value) {
-                    // USD/CNY = (CNY/BTC) / (USD/BTC) = CNY相对于USD的汇率
-                    const rate = cnyRate.value / usdRate.value;
-                    console.log('[CoinGecko] 计算汇率 (CNY/USD):', rate);
-                    return rate;
-                }
+            console.log('[YunAPI] 原始数据:', data);
+            if (data && data.CNY) {
+                // 直接返回USD/CNY汇率
+                const rate = parseFloat(data.CNY);
+                console.log('[YunAPI] USD/CNY汇率:', rate);
+                return rate;
             }
-            console.error('[CoinGecko] 数据格式不匹配');
+            console.error('[YunAPI] 数据格式不匹配');
             throw new Error('Invalid data');
         }
     }
@@ -435,12 +323,7 @@ async function checkNetworkStatus() {
 
     // 测试各个API的连通性
     const testURLs = [
-        { name: 'Gate.io', url: 'https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY' },
-        { name: 'Binance', url: 'https://api.binance.com/api/v3/ticker/price?symbol=USDTCNY' },
-        { name: 'OKX', url: 'https://www.okx.com/api/v5/market/ticker?instId=USDT-CNY' },
-        { name: 'Bybit', url: 'https://api.bybit.com/v5/market/tickers?category=spot&symbol=USDTCNY' },
-        { name: 'Huobi', url: 'https://api.huobi.pro/market/detail/merged?symbol=usdtcny' },
-        { name: 'ExchangeRate-API', url: 'https://api.exchangerate-api.com/v4/latest/USD' },
+        { name: 'YunAPI汇率', url: 'https://yunapi.cn/api/huilv' },
         { name: 'CryptoCompare', url: 'https://min-api.cryptocompare.com/data/top/totalvolfull?limit=10&tsym=USD' },
         { name: 'CoinCap', url: 'https://api.coincap.io/v2/assets?limit=10' }
     ];
@@ -589,42 +472,29 @@ async function showRateDetailModal() {
 
     modal.style.display = 'flex';
 
-    // 多个API数据源配置（按优先级排序）
+    // 使用YunAPI汇率API
     const rateAPIs = [
         {
-            name: 'ExchangeRate-API',
-            url: 'https://api.exchangerate-api.com/v4/latest/USD',
+            name: 'YunAPI',
+            url: 'https://yunapi.cn/api/huilv',
             timeout: 5000,
             handler: (data) => {
-                console.log('[ExchangeRate-API] 原始数据:', data);
-                if (data && data.rates && data.rates.CNY) {
+                console.log('[YunAPI] 原始数据:', data);
+                if (data && data.CNY) {
+                    const current = parseFloat(data.CNY);
                     return {
-                        current: parseFloat(data.rates.CNY),
-                        high: parseFloat(data.rates.CNY) * 1.002, // 模拟24h最高价
-                        low: parseFloat(data.rates.CNY) * 0.998,  // 模拟24h最低价
+                        current: current,
+                        high: current * 1.002, // 模拟24h最高价
+                        low: current * 0.998,  // 模拟24h最低价
                         volume: 1000000, // 模拟成交量
-                        change: 0, // 汇率API不提供涨跌幅
-                        source: 'ExchangeRate-API'
+                        change: 0, // API不提供涨跌幅
+                        source: 'YunAPI'
                     };
                 }
                 throw new Error('Invalid data format');
             }
-        },
-        {
-            name: 'OKX',
-            url: 'https://www.okx.com/api/v5/market/ticker?instId=USDT-CNY',
-            timeout: 5000,
-            handler: (data) => {
-                console.log('[OKX] 原始数据:', data);
-                if (data && data.data && Array.isArray(data.data) && data.data.length > 0) {
-                    const ticker = data.data[0];
-                    return {
-                        current: parseFloat(ticker.last),
-                        high: parseFloat(ticker.high24h),
-                        low: parseFloat(ticker.low24h),
-                        volume: parseFloat(ticker.volCcy24h),
-                        change: parseFloat(ticker.changePercent),
-                        source: 'OKX'
+        }
+    ];
                     };
                 }
                 throw new Error('Invalid data format');
@@ -672,7 +542,7 @@ async function showRateDetailModal() {
         }
     ];
 
-    // 尝试从多个API获取数据（竞速模式）
+    // 尝试从API获取数据
     let successData = null;
     let lastError = null;
 

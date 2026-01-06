@@ -761,17 +761,19 @@ const syncRate = async () => {
 
     try {
         console.log('[汇率同步] 开始获取USDT/CNY汇率...');
+        console.log('[汇率同步] 当前汇率:', USD_CNY_RATE);
         
         // 尝试从多个API获取数据
         for (const api of rateAPIs) {
             try {
+                console.log(`[汇率同步] 尝试 ${api.name}...`);
                 const res = await fetchWithTimeout(api.url, { timeout: api.timeout });
                 
                 if (res.ok) {
                     const data = await res.json();
+                    console.log(`[汇率同步] ${api.name} 响应状态:`, res.status);
                     const newRate = api.handler(data);
-                    
-                    console.log(`[汇率同步] ${api.name} 成功: ${newRate}`);
+                    console.log(`[汇率同步] ${api.name} 返回汇率:`, newRate);
                     
                     const oldRate = USD_CNY_RATE;
                     console.log(`[汇率同步] 旧汇率: ${oldRate}, 新汇率: ${newRate}, 变化: ${oldRate !== null ? (newRate - oldRate).toFixed(6) : 'N/A'}`);
@@ -780,9 +782,11 @@ const syncRate = async () => {
                     USD_CNY_RATE = newRate;
                     lastRateUpdate = Date.now();
                     updateExchangeRateDisplay();
+                    console.log('[汇率同步] 汇率已更新为:', USD_CNY_RATE);
 
                     // 汇率更新后，立即刷新所有CNY价格
                     if (currentCurrency === 'CNY') {
+                        console.log('[汇率同步] 当前是CNY模式，刷新所有CNY价格');
                         updateCryptoUI(cryptoData);
                     }
 
@@ -804,7 +808,7 @@ const syncRate = async () => {
                     console.log(`[汇率同步] ${api.name} HTTP错误: ${res.status}`);
                 }
             } catch (e) {
-                console.log(`[汇率同步] ${api.name} 失败: ${e.message}`);
+                console.log(`[汇率同步] ${api.name} 失败:`, e);
             }
         }
         

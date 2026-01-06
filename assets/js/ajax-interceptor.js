@@ -36,6 +36,17 @@ console.log('[AJAX拦截器] 文件已加载！');
             
             console.log('[AJAX拦截器] 拦截到请求: ' + originalUrl);
             
+            // 检查是否是已知不支持 HTTPS 的服务器
+            var isInsecureServer = originalUrl && (
+                originalUrl.indexOf('120.25.236.183') !== -1
+            );
+            
+            if (isInsecureServer) {
+                // 已知不支持 HTTPS 的服务器，直接使用 HTTP，会有 Mixed Content 警告
+                console.warn('[AJAX拦截器] 检测到不支持 HTTPS 的服务器，直接使用 HTTP: ' + originalUrl);
+                return originalAjax(options);
+            }
+            
             // 如果页面是 HTTPS，且 URL 是 HTTP
             if (window.location.protocol === 'https:' && originalUrl && originalUrl.indexOf('http://') === 0) {
                 // 先尝试 HTTPS

@@ -1192,12 +1192,9 @@ function renderCryptoTable(data) {
                         <i class="fa fa-angle-down" id="arrow-${coin.symbol}" style="margin-left:8px; color:#666; transition:transform 0.3s; ${isOpen ? 'transform:rotate(180deg)' : ''}"></i>
                     </span>
                 </td>
-                <td style="text-align:center;">
-                    ${sparklineContent}
-                </td>
             </tr>
             <tr id="detail-${coin.symbol}" class="detail-row" style="${isOpen ? 'display:table-row' : ''}">
-                <td colspan="5" style="border-top:none; padding:0 !important;">
+                <td colspan="4" style="border-top:none; padding:0 !important;">
                     <div class="detail-container">
                         <div class="detail-info">
                             <h5 style="margin-top:0; font-size:14px; font-weight:bold; color:#555; margin-bottom:15px;">市场详情</h5>
@@ -1342,13 +1339,13 @@ function initCryptoUI() {
 
     const cryptoHTML = `
         <h4 class="text-gray">
-            <i class="linecons-money" style="margin-right: 7px;" id="数字货币"></i>数字货币行情 (Live Market)
-            <span style="float: right; display: flex; align-items: center; font-size: 13px;">
+            <i class="linecons-money" style="margin-right: 7px;" id="数字货币"></i>数字货币行情
+            <span style="float: right; display: flex; align-items: center; font-size: 13px; flex-wrap: wrap; gap: 8px;">
                 <button id="refresh-crypto-btn" class="btn btn-xs btn-white" onclick="fetchCryptoData()"
-                    style="margin-right: 10px; padding: 2px 6px;" title="刷新数据">
+                    style="margin-right: 0; padding: 4px 8px;" title="刷新数据">
                     <i class="fa fa-refresh"></i>
                 </button>
-                <span style="margin-right: 8px; color: #888; font-size: 12px;">汇率:</span>
+                <span style="margin-right: 0; color: #888; font-size: 12px;">汇率:</span>
                 <span id="exchange-rate-display" class="rate-display"
                     style="font-size: 12px; font-weight: bold; color: #10b981; cursor: pointer;"
                     onclick="showRateDetailModal()"
@@ -1364,11 +1361,11 @@ function initCryptoUI() {
                     <table class="table crypto-table">
                         <thead>
                             <tr>
-                                <th style="width: 28%;">币种 / 24h量</th>
-                                <th style="width: 18%;">最新价</th>
-                                <th style="width: 14%;">24h涨跌</th>
-                                <th class="table-market-cap" style="width: 18%;">市值</th>
-                                <th style="width: 22%; text-align:center;">7日趋势</th>
+                                <th style="width: 35%;">币种 / 24h量</th>
+                                <th style="width: 25%;">最新价</th>
+                                <th style="width: 20%;">24h涨跌</th>
+                                <th class="table-market-cap" style="width: 20%;">市值</th>
+                                <th style="width: 0%; display: none;">7日趋势</th>
                             </tr>
                         </thead>
                         <tbody id="crypto-table-body">
@@ -1521,6 +1518,10 @@ function initCryptoUI() {
                 box-shadow: none;
             }
 
+            body.dark-mode .crypto-table {
+                background: #1e1e1e;
+            }
+
             body.dark-mode .crypto-table th {
                 background: #252525;
                 color: #777;
@@ -1528,6 +1529,7 @@ function initCryptoUI() {
             }
 
             body.dark-mode .crypto-table td {
+                background: #1e1e1e;
                 border-top-color: #2a2a2a;
                 color: #ccc;
             }
@@ -1576,7 +1578,7 @@ function initCryptoUI() {
             /* 移动端标题区域优化 */
             @media screen and (max-width: 768px) {
                 .text-gray {
-                    font-size: 16px !important;
+                    font-size: 14px !important;
                     line-height: 1.4;
                 }
 
@@ -1602,30 +1604,42 @@ function initCryptoUI() {
                 .crypto-table-container {
                     overflow-x: auto;
                     -webkit-overflow-scrolling: touch;
+                    border-radius: 8px;
+                }
+
+                body.dark-mode .crypto-table-container {
+                    background: #1e1e1e;
                 }
 
                 .crypto-table {
-                    min-width: 600px;
+                    min-width: 100%;
+                    width: 100%;
+                    background: #fff;
+                }
+
+                body.dark-mode .crypto-table {
+                    background: #1e1e1e;
                 }
 
                 .crypto-table th,
                 .crypto-table td {
-                    padding: 8px 6px !important;
-                    white-space: nowrap;
+                    padding: 10px 8px !important;
+                    white-space: normal;
                 }
 
                 .crypto-table th {
                     font-size: 11px !important;
+                    padding: 10px 6px !important;
                 }
 
                 .coin-icon {
-                    width: 24px;
-                    height: 24px;
+                    width: 28px;
+                    height: 28px;
                     margin-right: 8px;
                 }
 
                 .coin-name {
-                    font-size: 12px !important;
+                    font-size: 13px !important;
                 }
 
                 .coin-vol {
@@ -1633,7 +1647,7 @@ function initCryptoUI() {
                 }
 
                 .main-price {
-                    font-size: 12px !important;
+                    font-size: 13px !important;
                 }
 
                 .converted-price {
@@ -1641,13 +1655,13 @@ function initCryptoUI() {
                 }
 
                 .change-box {
-                    min-width: 60px;
-                    padding: 4px 3px !important;
-                    font-size: 10px !important;
+                    min-width: 55px;
+                    padding: 5px 4px !important;
+                    font-size: 11px !important;
                 }
 
                 .market_cap_cell {
-                    font-size: 10px !important;
+                    font-size: 11px !important;
                 }
 
                 .table-market-cap,
@@ -1680,19 +1694,62 @@ function initCryptoUI() {
 
             @media screen and (max-width: 480px) {
                 /* 超小屏幕进一步优化 */
+                .crypto-table-container {
+                    overflow-x: auto;
+                    -webkit-overflow-scrolling: touch;
+                }
+
                 .crypto-table {
-                    min-width: 550px;
+                    min-width: 100%;
+                    width: 100%;
                 }
 
                 .crypto-table th,
                 .crypto-table td {
-                    padding: 6px 4px !important;
+                    padding: 8px 5px !important;
+                }
+
+                .coin-icon {
+                    width: 24px;
+                    height: 24px;
+                    margin-right: 6px;
+                }
+
+                .coin-name {
+                    font-size: 12px !important;
+                }
+
+                .main-price {
+                    font-size: 12px !important;
+                }
+
+                .change-box {
+                    min-width: 50px;
+                    font-size: 10px !important;
+                    padding: 4px 3px !important;
+                }
+
+                .market_cap_cell {
+                    font-size: 10px !important;
+                }
+
+                .crypto-table th:nth-child(4),
+                .crypto-table td:nth-child(4) {
+                    display: none;
+                }
+            }
+
+            @media screen and (max-width: 360px) {
+                /* 极小屏幕优化 */
+                .crypto-table th:nth-child(4),
+                .crypto-table td:nth-child(4) {
+                    display: none;
                 }
 
                 .coin-icon {
                     width: 20px;
                     height: 20px;
-                    margin-right: 6px;
+                    margin-right: 5px;
                 }
 
                 .coin-name {
@@ -1704,8 +1761,9 @@ function initCryptoUI() {
                 }
 
                 .change-box {
-                    min-width: 55px;
+                    min-width: 45px;
                     font-size: 9px !important;
+                    padding: 3px 2px !important;
                 }
             }
 

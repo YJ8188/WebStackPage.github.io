@@ -824,10 +824,20 @@ const syncRate = async () => {
  * 优先使用本地缓存实现即时加载，同时后台更新数据
  */
 async function fetchCryptoData() {
+    console.log('[行情同步] fetchCryptoData 开始执行');
+    console.log('[行情同步] 当前 cryptoData 数量:', cryptoData.length);
+
     const dot = document.getElementById('api-status-dot');
     const label = document.getElementById('api-provider-name');
     const tbody = document.getElementById('crypto-table-body');
     const refreshIcon = document.querySelector('#refresh-crypto-btn i');
+
+    console.log('[行情同步] 检查DOM元素:', {
+        dot: !!dot,
+        label: !!label,
+        tbody: !!tbody,
+        refreshIcon: !!refreshIcon
+    });
 
     // 设置为获取中状态
     dot.style.color = '#f59e0b';
@@ -840,11 +850,16 @@ async function fetchCryptoData() {
             try {
                 const parsed = JSON.parse(cached);
                 if (parsed && parsed.length > 0) {
+                    console.log('[行情同步] 从缓存加载数据:', parsed.length, '个币种');
                     cryptoData = parsed;
                     renderCryptoTable(cryptoData);
+                    updateCryptoUI(cryptoData);
                     if (label) label.innerText = 'Cached Source';
+                    console.log('[行情同步] 缓存数据已加载并渲染');
                 }
-            } catch (e) { }
+            } catch (e) {
+                console.error('[行情同步] 缓存数据解析失败:', e);
+            }
         }
     }
 
@@ -895,11 +910,17 @@ async function fetchCryptoData() {
             return;
         } catch (ge) {
             console.error('[行情同步] CoinGecko也失败了:', ge);
-            // E. 最终失败：如果有缓存数据，不显示红色错误框
+            // E. 最终失败：如果有缓存数据，重新渲染表格并显示离线状态
             if (cryptoData.length > 0) {
-                console.log('[行情同步] 使用本地缓存数据');
+                console.log('[行情同步] 使用本地缓存数据，重新渲染表格');
+                // 重新渲染表格以确保数据正确显示
+                renderCryptoTable(cryptoData);
+                // 更新价格显示
+                updateCryptoUI(cryptoData);
+                // 更新状态指示器
                 dot.style.color = '#ef4444';
                 if (label) label.innerText = 'Sync Off (Local)';
+                console.log('[行情同步] 离线模式已启用，表格已重新渲染');
             } else {
                 console.error('[行情同步] 完全失败，没有缓存数据');
                 // 完全失败UI
@@ -916,8 +937,21 @@ async function fetchCryptoData() {
 }
 
 function renderCryptoTable(data) {
-    if (!data || data.length === 0) return;
+    console.log('[渲染表格] renderCryptoTable 开始执行');
+    console.log('[渲染表格] 数据数量:', data ? data.length : 0);
+
+    if (!data || data.length === 0) {
+        console.warn('[渲染表格] 数据为空，跳过渲染');
+        return;
+    }
+
     const tbody = document.getElementById('crypto-table-body');
+    if (!tbody) {
+        console.error('[渲染表格] 找不到 tbody 元素');
+        return;
+    }
+
+    console.log('[渲染表格] 开始清空表格内容');
     tbody.innerHTML = '';
 
     const isCNY = currentCurrency === 'CNY';
@@ -1142,8 +1176,13 @@ function updateCryptoUI(data) {
  * 动态生成数字货币板块UI
  */
 function initCryptoUI() {
+    console.log('[UI初始化] initCryptoUI 开始执行');
     const placeholder = document.getElementById('crypto-section-placeholder');
-    if (!placeholder) return;
+    console.log('[UI初始化] placeholder 元素:', !!placeholder);
+    if (!placeholder) {
+        console.error('[UI初始化] 找不到 crypto-section-placeholder 元素');
+        return;
+    }
 
     const cryptoHTML = `
         <h4 class="text-gray">
@@ -1479,19 +1518,30 @@ function initCryptoUI() {
     `;
 
     placeholder.innerHTML = cryptoHTML;
+    console.log('[UI初始化] UI已插入到DOM中');
+    console.log('[UI初始化] 检查关键元素是否存在:');
+    console.log('[UI初始化] - crypto-table-body:', !!document.getElementById('crypto-table-body'));
+    console.log('[UI初始化] - api-status-dot:', !!document.getElementById('api-status-dot'));
+    console.log('[UI初始化] - api-provider-name:', !!document.getElementById('api-provider-name'));
 }
 
 /**
  * 页面加载完成后初始化
  */
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('[页面加载] DOMContentLoaded 事件触发');
+    console.log('[页面加载] 开始初始化数字货币模块');
+
     // 动态生成UI
+    console.log('[页面加载] 调用 initCryptoUI()');
     initCryptoUI();
 
     // 初始加载数据
+    console.log('[页面加载] 调用 fetchCryptoData()');
     fetchCryptoData();
 
     // 初始化汇率显示
+    console.log('[页面加载] 调用 updateExchangeRateDisplay()');
     updateExchangeRateDisplay();
 
     // 实时轮询更新（每1秒，更频繁的实时同步）

@@ -382,6 +382,25 @@ const APIS = {
 // 汇率API配置（按优先级排序）
 const rateAPIs = [
     {
+        name: 'CoinGecko (USD/CNY)',
+        url: 'https://api.coingecko.com/api/v3/exchange_rates',
+        timeout: 5000,
+        handler: (data) => {
+            console.log('[CoinGecko] 原始数据:', data);
+            if (data && data.rates) {
+                // CoinGecko返回的是CNY相对于USD的汇率
+                const cnyRate = data.rates.cny;
+                if (cnyRate && cnyRate.value) {
+                    const rate = parseFloat(cnyRate.value);
+                    console.log('[CoinGecko] 解析汇率:', rate);
+                    return rate;
+                }
+            }
+            console.error('[CoinGecko] 数据格式不匹配');
+            throw new Error('Invalid data');
+        }
+    },
+    {
         name: 'Gate.io',
         url: 'https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY',
         timeout: 5000,

@@ -417,6 +417,16 @@ async function showRateDetailModal() {
             body.dark-mode .rate-detail-update-time {
                 color: #888 !important;
             }
+            /* 重试按钮暗黑模式样式 */
+            body.dark-mode .btn-primary {
+                background: #3b82f6 !important;
+                border-color: #3b82f6 !important;
+                color: #fff !important;
+            }
+            body.dark-mode .btn-primary:hover {
+                background: #2563eb !important;
+                border-color: #2563eb !important;
+            }
         `;
         document.head.appendChild(style);
 
@@ -431,20 +441,19 @@ async function showRateDetailModal() {
     // 多个API数据源配置（按优先级排序）
     const rateAPIs = [
         {
-            name: 'Gate.io',
-            url: 'https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY',
+            name: 'ExchangeRate-API',
+            url: 'https://api.exchangerate-api.com/v4/latest/USD',
             timeout: 5000,
             handler: (data) => {
-                console.log('[Gate.io] 原始数据:', data);
-                if (data && Array.isArray(data) && data.length > 0) {
-                    const ticker = data[0];
+                console.log('[ExchangeRate-API] 原始数据:', data);
+                if (data && data.rates && data.rates.CNY) {
                     return {
-                        current: parseFloat(ticker.last),
-                        high: parseFloat(ticker.high_24h),
-                        low: parseFloat(ticker.low_24h),
-                        volume: parseFloat(ticker.base_volume),
-                        change: parseFloat(ticker.change_percentage),
-                        source: 'Gate.io'
+                        current: parseFloat(data.rates.CNY),
+                        high: parseFloat(data.rates.CNY) * 1.002, // 模拟24h最高价
+                        low: parseFloat(data.rates.CNY) * 0.998,  // 模拟24h最低价
+                        volume: 1000000, // 模拟成交量
+                        change: 0, // 汇率API不提供涨跌幅
+                        source: 'ExchangeRate-API'
                     };
                 }
                 throw new Error('Invalid data format');
@@ -508,24 +517,6 @@ async function showRateDetailModal() {
                     };
                 }
                 throw new Error('Invalid data format');
-            }
-        },
-        {
-            name: 'Binance',
-            url: 'https://api.binance.com/api/v3/ticker/24hr?symbol=USDTUSDT',
-            timeout: 5000,
-            handler: (data) => {
-                console.log('[Binance] 原始数据:', data);
-                // Binance返回的是USDT/USDT，需要转换为USDT/CNY
-                const usdtPrice = parseFloat(data.lastPrice);
-                return {
-                    current: usdtPrice * USD_CNY_RATE,
-                    high: parseFloat(data.highPrice) * USD_CNY_RATE,
-                    low: parseFloat(data.lowPrice) * USD_CNY_RATE,
-                    volume: parseFloat(data.volume),
-                    change: parseFloat(data.priceChangePercent),
-                    source: 'Binance'
-                };
             }
         }
     ];
@@ -758,16 +749,20 @@ function updateExchangeRateDisplay() {
  * 同步并显示汇率（Gate.io USDT_CNY）
  * 实时同步，每次获取最新数据
  */
+/**
+ * 同步并显示汇率（Gate.io USDT_CNY）
+ * 实时同步，每次获取最新数据
+ */
 const syncRate = async () => {
     // 多个API数据源配置（按优先级排序）
     const rateAPIs = [
         {
-            name: 'Gate.io',
-            url: 'https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY',
+            name: 'ExchangeRate-API',
+            url: 'https://api.exchangerate-api.com/v4/latest/USD',
             timeout: 5000,
             handler: (data) => {
-                if (data && data[0] && data[0].last) {
-                    return parseFloat(data[0].last);
+                if (data && data.rates && data.rates.CNY) {
+                    return parseFloat(data.rates.CNY);
                 }
                 throw new Error('Invalid data');
             }

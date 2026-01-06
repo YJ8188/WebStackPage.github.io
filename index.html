@@ -13,7 +13,6 @@
     <!-- ==================== DNS预解析和预连接 ==================== -->
     <!-- DNS预解析：提前解析域名，加快资源加载速度 -->
     <link rel="dns-prefetch" href="//cdn.jsdelivr.net">
-    <link rel="dns-prefetch" href="//hm.baidu.com">
     <!-- 预连接：提前建立TCP连接，减少请求延迟 -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 
@@ -27,18 +26,7 @@
     <!-- 引入HarmonyOS Sans字体样式 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/harmonyos-sans@1.0.6/css/harmonyos-sans.min.css">
 
-<!-- ==================== 百度统计代码 ==================== -->
-<!-- 百度统计用于网站访问数据分析 -->
-<script>
-        var _hmt = _hmt || []; // 创建百度统计对象
-        (function () {
-            var hm = document.createElement("script"); // 创建script元素
-            hm.src = "https://hm.baidu.com/hm.js?c05bb16ea908292af9f6c513087a1cc3"; // 设置百度统计脚本地址
-            var s = document.getElementsByTagName("script")[0]; // 获取第一个script标签
-            s.parentNode.insertBefore(hm, s); // 将统计脚本插入到页面中
-        })();
-    </script>
-    <!-- ==================== 浏览器兼容性和页面信息 ==================== -->
+<!-- ==================== 浏览器兼容性和页面信息 ==================== -->
 <!-- X-UA-Compatible：指定IE浏览器使用最新的渲染模式 -->
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <!-- 页面作者信息 -->
@@ -7359,25 +7347,7 @@
             updateHiddenPanel();
         });
     </script>
-    <script>
-        // 禁止右键
-        document.addEventListener('contextmenu', function (e) {
-            e.preventDefault();
-            location.href = '/';
-        });
-
-        // 禁止 F12 / Ctrl+Shift+I / Ctrl+U
-        document.addEventListener('keydown', function (e) {
-            if (
-                e.key === 'F12' ||
-                (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'i') ||
-                (e.ctrlKey && e.key.toLowerCase() === 'u')
-            ) {
-                e.preventDefault();
-                location.href = '/';
-            }
-        });
-    </script>
+    
 
     
     <!-- 添加链接模态框 -->

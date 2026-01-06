@@ -4,9 +4,6 @@
  * 功能：获取并显示贵金属的实时价格、涨跌幅等信息
  */
 
-// API Key (使用Base64编码加密)
-const _0x4f2a = atob('YjgzYjI1ODBjOGVhOTVjYQ==');
-
 var MetalsData = {
     // 贵金属价格数据
     prices: {
@@ -24,13 +21,12 @@ var MetalsData = {
     // 获取黄金价格数据
     fetchGoldPrice: function() {
         var self = this;
-        
+
         console.log('%c[金银行情] 开始获取黄金价格数据...', 'color: #10b981;');
-        
+
         fetch('https://v2.xxapi.cn/api/goldprice', {
             method: 'GET',
             headers: {
-                'Authorization': `Bearer ${_0x4f2a}`,
                 'Accept': 'application/json'
             }
         })

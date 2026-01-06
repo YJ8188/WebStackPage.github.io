@@ -14,13 +14,7 @@
         timer: null,
         url: null,
         retryCount: 0,
-        maxRetries: 3,
-        currentProxyIndex: 0,
-        // CORS 代理列表（按优先级排序）
-        proxies: [
-            'https://corsproxy.io/?',
-            'https://api.allorigins.win/raw?url='
-        ]
+        maxRetries: 3
     };
 
     // 检测是否应该使用轮询模式
@@ -31,61 +25,32 @@
             return false;
         }
 
-        // 检查是否是 GitHub Pages
-        if (window.location.hostname.includes('github.io')) {
-            console.log('[金银行情轮询] 检测到 GitHub Pages 环境，启用轮询模式');
-            return true;
-        }
-
-        // 检查是否包含不支持 HTTPS 的服务器地址
-        var wsUrl = typeof Utilss !== 'undefined' ? Utilss.getWsURL() : '';
-        if (wsUrl && wsUrl.indexOf('120.25.236.183') !== -1) {
-            console.log('[金银行情轮询] 检测到不支持 HTTPS 的服务器，启用轮询模式');
-            return true;
-        }
-
-        return false;
+        return true;
     }
 
-    // 获取 HTTP 轮询 URL（从 WebSocket URL 转换）
+    // 获取 HTTP 轮询 URL（使用 Cloudflare Worker 代理）
     function getPollingUrl() {
-        if (typeof Utilss === 'undefined') {
-            console.error('[金银行情轮询] Utilss 未定义');
-            return null;
-        }
-
-        var wsUrl = Utilss.getWsURL();
-        var uidStr = Utilss.getUUID();
-
-        // 提取服务器地址和端口
-        var match = wsUrl.match(/ws:\/\/([^\/]+)/);
-        if (!match) {
-            console.error('[金银行情轮询] 无法解析 WebSocket URL');
-            return null;
-        }
-
-        var server = match[1];
-        var httpUrl = 'http://' + server + '/api/metals?uid=' + uidStr;
+        var uidStr = typeof Utilss !== 'undefined' ? Utilss.getUUID() : Date.now().toString();
+        
+        // 使用 Cloudflare Worker 代理
+        var cfWorkerUrl = typeof CF_WORKER_URL !== 'undefined' ? CF_WORKER_URL : 'https://ws-relay-ysxnew.a34296407-5cc.workers.dev';
+        var httpUrl = cfWorkerUrl + '/api/metals?uid=' + uidStr;
 
         console.log('[金银行情轮询] 轮询 URL: ' + httpUrl);
         return httpUrl;
     }
 
-    // 获取行情数据（使用 CORS 代理）
+    // 获取行情数据
     function fetchMetalsData() {
         if (!pollingConfig.url) {
             console.error('[金银行情轮询] URL 未配置');
             return;
         }
 
-        // 获取当前代理
-        var currentProxy = pollingConfig.proxies[pollingConfig.currentProxyIndex];
-        var proxyUrl = currentProxy + encodeURIComponent(pollingConfig.url);
-        console.log('[金银行情轮询] 请求代理 URL: ' + proxyUrl);
-        console.log('[金银行情轮询] 使用代理: ' + currentProxy);
+        console.log('[金银行情轮询] 请求: ' + pollingConfig.url);
 
-        // 使用 fetch API
-        fetch(proxyUrl)
+        // 使用 fetch API 直接请求 Cloudflare Worker 代理
+        fetch(pollingConfig.url)
             .then(function(response) {
                 if (!response.ok) {
                     throw new Error('HTTP ' + response.status);
@@ -95,7 +60,6 @@
             .then(function(data) {
                 console.log('[金银行情轮询] 数据获取成功', data);
                 pollingConfig.retryCount = 0;
-                pollingConfig.currentProxyIndex = 0;  // 重置代理索引
 
                 // 调用 parserData 处理数据
                 if (typeof parserData === 'function') {

@@ -1518,10 +1518,6 @@ function initCryptoUI() {
                 box-shadow: none;
             }
 
-            body.dark-mode .crypto-table {
-                background: #1e1e1e;
-            }
-
             body.dark-mode .crypto-table th {
                 background: #252525;
                 color: #777;
@@ -1529,7 +1525,6 @@ function initCryptoUI() {
             }
 
             body.dark-mode .crypto-table td {
-                background: #1e1e1e;
                 border-top-color: #2a2a2a;
                 color: #ccc;
             }
@@ -1600,68 +1595,20 @@ function initCryptoUI() {
             }
 
             @media screen and (max-width: 768px) {
-                /* 移动端表格容器添加横向滚动 */
-                .crypto-table-container {
-                    overflow-x: auto;
-                    -webkit-overflow-scrolling: touch;
-                    border-radius: 8px;
-                }
-
-                body.dark-mode .crypto-table-container {
-                    background: #1e1e1e;
-                }
-
-                .crypto-table {
-                    min-width: 100%;
-                    width: 100%;
-                    background: #fff;
-                }
-
-                body.dark-mode .crypto-table {
-                    background: #1e1e1e;
-                }
-
                 .crypto-table th,
                 .crypto-table td {
                     padding: 10px 8px !important;
-                    white-space: normal;
-                }
-
-                .crypto-table th {
-                    font-size: 11px !important;
-                    padding: 10px 6px !important;
                 }
 
                 .coin-icon {
-                    width: 28px;
-                    height: 28px;
+                    width: 24px;
+                    height: 24px;
                     margin-right: 8px;
                 }
 
-                .coin-name {
-                    font-size: 13px !important;
-                }
-
-                .coin-vol {
-                    font-size: 10px !important;
-                }
-
-                .main-price {
-                    font-size: 13px !important;
-                }
-
-                .converted-price {
-                    font-size: 10px !important;
-                }
-
                 .change-box {
-                    min-width: 55px;
-                    padding: 5px 4px !important;
-                    font-size: 11px !important;
-                }
-
-                .market_cap_cell {
-                    font-size: 11px !important;
+                    min-width: 65px;
+                    font-size: 11px;
                 }
 
                 .table-market-cap,
@@ -1689,6 +1636,44 @@ function initCryptoUI() {
 
                 body.dark-mode .detail-info {
                     border-bottom-color: rgba(255, 255, 255, 0.1);
+                }
+            }
+
+            /* 移动端币种表格竖屏展示优化 */
+            @media screen and (max-width: 600px) {
+                .crypto-table-container {
+                    padding: 0 !important;
+                    margin-left: -5px;
+                    margin-right: -5px;
+                    width: calc(100% + 10px);
+                    overflow-x: auto !important;
+                    -webkit-overflow-scrolling: touch;
+                }
+
+                .crypto-table {
+                    min-width: 500px;
+                }
+
+                .crypto-table th,
+                .crypto-table td {
+                    padding: 8px 6px !important;
+                    font-size: 11px !important;
+                }
+
+                /* Restore the hidden columns but keep them compact */
+                .crypto-table th:nth-child(4),
+                .crypto-table td:nth-child(4),
+                .crypto-table th:nth-child(5),
+                .crypto-table td:nth-child(5) {
+                    display: table-cell !important;
+                }
+
+                .coin-name {
+                    font-size: 10px !important;
+                }
+
+                .main-price {
+                    font-size: 12px !important;
                 }
             }
 

@@ -48,16 +48,22 @@ const expandedCoins = new Set();
  * @param {number} changePct - 涨跌幅百分比
  */
 async function loadSparkline(id, symbol, changePct) {
-    // 如果已缓存或正在请求，则跳过
-    if (sparklineCache[symbol] || sparklineRequests.has(symbol)) return;
-    
+    // 如果已缓存，直接使用缓存数据，不再刷新
+    if (sparklineCache[symbol]) {
+        console.log(`[K线图] ${symbol} 已缓存，跳过刷新`);
+        return;
+    }
+
+    // 如果正在请求，则跳过
+    if (sparklineRequests.has(symbol)) return;
+
     // 获取最终的币种ID
     const finalId = id || COIN_ID_MAP[symbol] || symbol.toLowerCase();
     if (!finalId) return;
 
     // 添加到请求集合
     sparklineRequests.add(symbol);
-    
+
     // 获取所有图表容器并显示加载状态
     const containers = document.querySelectorAll(`.graph-container-${symbol}`);
     containers.forEach(el => {
@@ -130,6 +136,7 @@ async function loadSparkline(id, symbol, changePct) {
                 console.log(`[K线缓存] 清理旧缓存: ${oldestSymbol}`);
             }
 
+            console.log(`[K线图] ${symbol} 数据加载成功，已缓存`);
             document.querySelectorAll(`.graph-container-${symbol}`).forEach(target => {
                 const isDetail = target.id.startsWith('graph-detail-');
                 target.innerHTML = generateSparklineSvg(prices, changePct, isDetail ? 240 : 100);

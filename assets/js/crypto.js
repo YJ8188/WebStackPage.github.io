@@ -428,7 +428,7 @@ async function showRateDetailModal() {
 
     modal.style.display = 'flex';
 
-    // 多个API数据源配置
+    // 多个API数据源配置（按优先级排序）
     const rateAPIs = [
         {
             name: 'Gate.io',
@@ -465,6 +465,26 @@ async function showRateDetailModal() {
                         volume: parseFloat(ticker.volCcy24h),
                         change: parseFloat(ticker.changePercent),
                         source: 'OKX'
+                    };
+                }
+                throw new Error('Invalid data format');
+            }
+        },
+        {
+            name: 'Bybit',
+            url: 'https://api.bybit.com/v5/market/tickers?category=spot&symbol=USDTCNY',
+            timeout: 5000,
+            handler: (data) => {
+                console.log('[Bybit] 原始数据:', data);
+                if (data && data.result && data.result.list && data.result.list.length > 0) {
+                    const ticker = data.result.list[0];
+                    return {
+                        current: parseFloat(ticker.lastPrice),
+                        high: parseFloat(ticker.highPrice24h),
+                        low: parseFloat(ticker.lowPrice24h),
+                        volume: parseFloat(ticker.volume24h),
+                        change: parseFloat(ticker.price24hPcnt) * 100,
+                        source: 'Bybit'
                     };
                 }
                 throw new Error('Invalid data format');
@@ -584,16 +604,18 @@ async function showRateDetailModal() {
                 <p style="color: #999; font-size: 12px; margin-bottom: 16px; max-width: 300px; margin-left: auto; margin-right: auto;">
                     ${lastError ? lastError.message || '未知错误' : '无法获取数据'}
                 </p>
-                <button onclick="showRateDetailModal()" style="
+                <button class="btn btn-xs btn-primary" onclick="showRateDetailModal()" style="
                     margin-top: 16px;
                     padding: 8px 24px;
-                    background: #10b981;
+                    background: #3b82f6;
                     color: white;
                     border: none;
-                    border-radius: 6px;
+                    border-radius: 4px;
                     cursor: pointer;
-                    font-size: 14px;
-                ">重试</button>
+                    font-size: 13px;
+                    font-weight: 500;
+                    transition: all 0.3s ease;
+                " onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">重试</button>
             </div>
         `;
     }
@@ -737,41 +759,99 @@ function updateExchangeRateDisplay() {
  * 实时同步，每次获取最新数据
  */
 const syncRate = async () => {
+    // 多个API数据源配置（按优先级排序）
+    const rateAPIs = [
+        {
+            name: 'Gate.io',
+            url: 'https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY',
+            timeout: 5000,
+            handler: (data) => {
+                if (data && data[0] && data[0].last) {
+                    return parseFloat(data[0].last);
+                }
+                throw new Error('Invalid data');
+            }
+        },
+        {
+            name: 'OKX',
+            url: 'https://www.okx.com/api/v5/market/ticker?instId=USDT-CNY',
+            timeout: 5000,
+            handler: (data) => {
+                if (data && data.data && data.data[0] && data.data[0].last) {
+                    return parseFloat(data.data[0].last);
+                }
+                throw new Error('Invalid data');
+            }
+        },
+        {
+            name: 'Bybit',
+            url: 'https://api.bybit.com/v5/market/tickers?category=spot&symbol=USDTCNY',
+            timeout: 5000,
+            handler: (data) => {
+                if (data && data.result && data.result.list && data.result.list[0] && data.result.list[0].lastPrice) {
+                    return parseFloat(data.result.list[0].lastPrice);
+                }
+                throw new Error('Invalid data');
+            }
+        },
+        {
+            name: 'Huobi',
+            url: 'https://api.huobi.pro/market/detail/merged?symbol=usdtcny',
+            timeout: 5000,
+            handler: (data) => {
+                if (data && data.tick && data.tick.close) {
+                    return parseFloat(data.tick.close);
+                }
+                throw new Error('Invalid data');
+            }
+        }
+    ];
+
     try {
         console.log('[汇率同步] 开始获取USDT/CNY汇率...');
-        const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY', { timeout: 5000 });
         
-        if (res.ok) {
-            const data = await res.json();
-            console.log('[汇率同步] API响应成功:', data);
-            
-            if (data && data[0] && data[0].last) {
-                const oldRate = USD_CNY_RATE;
-                const newRate = parseFloat(data[0].last);
+        // 尝试从多个API获取数据
+        for (const api of rateAPIs) {
+            try {
+                const res = await fetchWithTimeout(api.url, { timeout: api.timeout });
                 
-                console.log(`[汇率同步] 旧汇率: ${oldRate}, 新汇率: ${newRate}, 变化: ${(newRate - oldRate).toFixed(6)}`);
-
-                // 总是更新汇率（因为是实时同步）
-                USD_CNY_RATE = newRate;
-                lastRateUpdate = Date.now();
-                updateExchangeRateDisplay();
-
-                // 只有当汇率发生变化时才显示提醒（变化大于0.0001）
-                if (oldRate !== null && Math.abs(newRate - oldRate) > 0.0001) {
-                    // 显示桌面通知
-                    showRateUpdateMessage(oldRate, newRate);
-
-                    // 显示页面内提醒消息（移动端友好）
-                    showInlineRateMessage(oldRate, newRate);
+                if (res.ok) {
+                    const data = await res.json();
+                    const newRate = api.handler(data);
                     
-                    console.log('[汇率同步] 汇率已更新，已发送提醒');
+                    console.log(`[汇率同步] ${api.name} 成功: ${newRate}`);
+                    
+                    const oldRate = USD_CNY_RATE;
+                    console.log(`[汇率同步] 旧汇率: ${oldRate}, 新汇率: ${newRate}, 变化: ${oldRate !== null ? (newRate - oldRate).toFixed(6) : 'N/A'}`);
+
+                    // 总是更新汇率（因为是实时同步）
+                    USD_CNY_RATE = newRate;
+                    lastRateUpdate = Date.now();
+                    updateExchangeRateDisplay();
+
+                    // 只有当汇率发生变化时才显示提醒（变化大于0.0001）
+                    if (oldRate !== null && Math.abs(newRate - oldRate) > 0.0001) {
+                        // 显示桌面通知
+                        showRateUpdateMessage(oldRate, newRate);
+
+                        // 显示页面内提醒消息（移动端友好）
+                        showInlineRateMessage(oldRate, newRate);
+                        
+                        console.log('[汇率同步] 汇率已更新，已发送提醒');
+                    } else {
+                        console.log('[汇率同步] 汇率已更新（首次获取或无变化）');
+                    }
+                    
+                    return;
                 } else {
-                    console.log('[汇率同步] 汇率已更新（首次获取或无变化）');
+                    console.log(`[汇率同步] ${api.name} HTTP错误: ${res.status}`);
                 }
+            } catch (e) {
+                console.log(`[汇率同步] ${api.name} 失败: ${e.message}`);
             }
-        } else {
-            console.error('[汇率同步] API响应失败:', res.status, res.statusText);
         }
+        
+        console.error('[汇率同步] 所有API都失败了');
     } catch (e) {
         console.error('[汇率同步] 请求失败:', e);
     }

@@ -10,7 +10,7 @@
 // ==================== 全局变量 ====================
 let currentCurrency = 'USD'; // 当前货币类型：USD或CNY
 let cryptoData = []; // 加密货币数据数组
-let USD_CNY_RATE = 7.25; // 美元兑人民币汇率（默认值，会动态更新）
+let USD_CNY_RATE = null; // 美元兑人民币汇率（实时获取，初始为null）
 let lastRateUpdate = 0; // 上次汇率更新时间
 
 // ==================== 缓存和工具 ====================
@@ -722,8 +722,14 @@ function updateExchangeRateDisplay() {
     if (!rateEl) return;
 
     const currentRate = USD_CNY_RATE;
-    rateEl.innerHTML = `1 USDT = <span class="rate-value">${currentRate.toFixed(2)}</span> CNY`;
-    rateEl.dataset.mode = 'usdt-cny';
+    
+    // 如果汇率还未获取，显示加载状态
+    if (currentRate === null) {
+        rateEl.innerHTML = `<span style="opacity: 0.6;">加载中...</span>`;
+    } else {
+        rateEl.innerHTML = `1 USDT = <span class="rate-value">${currentRate.toFixed(2)}</span> CNY`;
+        rateEl.dataset.mode = 'usdt-cny';
+    }
 }
 
 /**
@@ -745,12 +751,13 @@ const syncRate = async () => {
                 
                 console.log(`[汇率同步] 旧汇率: ${oldRate}, 新汇率: ${newRate}, 变化: ${(newRate - oldRate).toFixed(6)}`);
 
-                // 只有汇率发生变化时才显示提醒（变化大于0.0001）
-                if (Math.abs(newRate - oldRate) > 0.0001) {
-                    USD_CNY_RATE = newRate;
-                    lastRateUpdate = Date.now();
-                    updateExchangeRateDisplay();
+                // 总是更新汇率（因为是实时同步）
+                USD_CNY_RATE = newRate;
+                lastRateUpdate = Date.now();
+                updateExchangeRateDisplay();
 
+                // 只有当汇率发生变化时才显示提醒（变化大于0.0001）
+                if (oldRate !== null && Math.abs(newRate - oldRate) > 0.0001) {
                     // 显示桌面通知
                     showRateUpdateMessage(oldRate, newRate);
 
@@ -759,9 +766,7 @@ const syncRate = async () => {
                     
                     console.log('[汇率同步] 汇率已更新，已发送提醒');
                 } else {
-                    // 即使汇率没变，也更新时间戳
-                    lastRateUpdate = Date.now();
-                    console.log('[汇率同步] 汇率无变化，仅更新时间戳');
+                    console.log('[汇率同步] 汇率已更新（首次获取或无变化）');
                 }
             }
         } else {
@@ -1088,7 +1093,7 @@ function initCryptoUI() {
                     style="font-size: 12px; font-weight: bold; color: #10b981; cursor: pointer;"
                     onclick="showRateDetailModal()"
                     title="点击查看24小时行情详情">
-                    1 USDT = <span class="rate-value">7.25</span> CNY
+                    <span style="opacity: 0.6;">加载中...</span>
                 </span>
             </span>
         </h4>

@@ -69,15 +69,19 @@ var MetalsData = {
             return;
         }
 
+        if (!this.prices.bankGoldBars || this.prices.bankGoldBars.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="2" style="text-align:center; padding: 20px; color: #999;">暂无数据</td></tr>';
+            return;
+        }
+
         var html = '';
-        this.prices.bankGoldBars.forEach(function(item, index) {
-            var className = index % 2 === 1 ? 'single_tr' : '';
-            html += '<tr class="' + className + '">' +
+        this.prices.bankGoldBars.forEach(function(item) {
+            html += '<tr>' +
                 '<td class="jinjia_name">' + item.bank + '</td>' +
-                '<td><span class="f_hongse">' + item.price + '</span></td>' +
+                '<td><span class="f_hongse">¥' + item.price + '</span></td>' +
                 '</tr>';
         });
-        
+
         tbody.innerHTML = html;
         console.log('%c[金银行情] 银行金条表格渲染成功', 'color: #10b981;');
     },
@@ -90,16 +94,20 @@ var MetalsData = {
             return;
         }
 
+        if (!this.prices.goldRecycle || this.prices.goldRecycle.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding: 20px; color: #999;">暂无数据</td></tr>';
+            return;
+        }
+
         var html = '';
-        this.prices.goldRecycle.forEach(function(item, index) {
-            var className = index % 2 === 1 ? 'single_tr' : '';
-            html += '<tr class="' + className + '">' +
+        this.prices.goldRecycle.forEach(function(item) {
+            html += '<tr>' +
                 '<td class="jinjia_name">' + item.gold_type + '</td>' +
-                '<td><span class="f_hongse">' + item.recycle_price + '</span></td>' +
-                '<td style="font-size: 12px; color: #888;">' + item.updated_date + '</td>' +
+                '<td><span class="f_hongse">¥' + item.recycle_price + '</span></td>' +
+                '<td style="font-size: 12px; color: #999;">' + item.updated_date + '</td>' +
                 '</tr>';
         });
-        
+
         tbody.innerHTML = html;
         console.log('%c[金银行情] 黄金回收表格渲染成功', 'color: #10b981;');
     },
@@ -112,18 +120,21 @@ var MetalsData = {
             return;
         }
 
+        if (!this.prices.preciousMetals || this.prices.preciousMetals.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px; color: #999;">暂无数据</td></tr>';
+            return;
+        }
+
         var html = '';
-        this.prices.preciousMetals.forEach(function(item, index) {
-            var className = index % 2 === 1 ? 'single_tr' : '';
-            html += '<tr class="' + className + '">' +
+        this.prices.preciousMetals.forEach(function(item) {
+            html += '<tr>' +
                 '<td class="jinjia_name">' + item.brand + '</td>' +
-                '<td><span class="f_hongse">' + item.bullion_price + '</span></td>' +
-                '<td><span class="f_hongse">' + item.gold_price + '</span></td>' +
-                '<td><span class="f_hongse">' + item.platinum_price + '</span></td>' +
-                '<td style="font-size: 12px; color: #888;">' + item.updated_date + '</td>' +
+                '<td><span class="f_hongse">¥' + item.bullion_price + '</span></td>' +
+                '<td><span class="f_hongse">¥' + item.gold_price + '</span></td>' +
+                '<td><span class="f_hongse">¥' + item.platinum_price + '</span></td>' +
                 '</tr>';
         });
-        
+
         tbody.innerHTML = html;
         console.log('%c[金银行情] 贵金属表格渲染成功', 'color: #10b981;');
     }
@@ -142,69 +153,138 @@ function initMetalsUI() {
     }
 
     const metalsHTML = `
-        <div class="panel panel-default" id="金银行情">
-            <div class="panel-body">
-                <h4 class="text-gray">
-                    <i class="linecons-diamond" style="margin-right: 7px;" id="金银行情"></i>金银行情
-                    <span style="float: right; font-size: 12px; color: #888;">实时行情数据</span>
-                </h4>
+        <h4 class="text-gray">
+            <i class="linecons-diamond" style="margin-right: 7px;" id="金银行情"></i>金银行情
+            <span style="float: right; display: flex; align-items: center; font-size: 12px;">
+                <button id="refresh-metals-btn" class="btn btn-xs btn-white" onclick="MetalsData.init()"
+                    style="margin-right: 0; padding: 4px 8px;" title="刷新数据">
+                    <i class="fa fa-refresh"></i>
+                </button>
+                <span style="margin-left: 8px; color: #888;">实时行情</span>
+            </span>
+        </h4>
 
-                <div class="row">
-                    <div class="col-sm-12">
-                        <p class="states" style="font-size: 12px; color: #666; padding: 10px; background-color: #fff; text-align: center; margin-bottom: 15px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">声明：以下行情仅供参考，如有咨询请联系相关人员。</p>
-                        
-                        <!-- 银行投资金条价格 -->
-                        <p class="paddingP" style="padding: 15px 10px; margin: 0 0 15px 0; font-size: 16px; font-weight: bold; color: #333;">银行投资金条价格</p>
-                        <table class="jinjia_tab" style="width: 100%; border-collapse: collapse; margin-bottom: 20px; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
-                            <thead>
-                                <tr>
-                                    <th width="60%" style="background-color: #f8f8f8; padding: 12px; text-align: center; border-bottom: 2px solid #ddd; font-weight: bold; color: #333;">银行</th>
-                                    <th width="40%" style="background-color: #f8f8f8; padding: 12px; text-align: center; border-bottom: 2px solid #ddd; font-weight: bold; color: #333;">价格(元/克)</th>
-                                </tr>
-                            </thead>
-                            <tbody id="bank-gold-bars-body" style="background: #fff;">
-                                <tr><td colspan="2" style="text-align:center; padding: 20px;">正在加载行情数据...</td></tr>
-                            </tbody>
-                        </table>
+        <div class="row">
+            <div class="col-sm-12">
+                <p class="states" style="font-size: 12px; color: #666; padding: 10px; background-color: #fff; text-align: center; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">声明：以下行情仅供参考，如有咨询请联系相关人员。</p>
 
-                        <!-- 黄金回收价格 -->
-                        <p class="paddingP" style="padding: 15px 10px; margin: 0 0 15px 0; font-size: 16px; font-weight: bold; color: #333;">黄金回收价格</p>
-                        <table class="jinjia_tab" style="width: 100%; border-collapse: collapse; margin-bottom: 20px; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
-                            <thead>
-                                <tr>
-                                    <th width="40%" style="background-color: #f8f8f8; padding: 12px; text-align: center; border-bottom: 2px solid #ddd; font-weight: bold; color: #333;">品种</th>
-                                    <th width="30%" style="background-color: #f8f8f8; padding: 12px; text-align: center; border-bottom: 2px solid #ddd; font-weight: bold; color: #333;">回收价格(元/克)</th>
-                                    <th width="30%" style="background-color: #f8f8f8; padding: 12px; text-align: center; border-bottom: 2px solid #ddd; font-weight: bold; color: #333;">更新日期</th>
-                                </tr>
-                            </thead>
-                            <tbody id="gold-recycle-body" style="background: #fff;">
-                                <tr><td colspan="3" style="text-align:center; padding: 20px;">正在加载行情数据...</td></tr>
-                            </tbody>
-                        </table>
+                <!-- 银行投资金条价格 -->
+                <div class="metals-table-container" style="margin-bottom: 20px;">
+                    <div style="padding: 12px 15px; font-size: 15px; font-weight: 600; color: #333; border-bottom: 1px solid #f0f0f0;">银行投资金条价格</div>
+                    <table class="table metals-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 60%;">银行</th>
+                                <th style="width: 40%;">价格(元/克)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bank-gold-bars-body">
+                            <tr>
+                                <td colspan="2" style="text-align:center; padding: 20px;">
+                                    正在加载行情数据... <i class="fa fa-spinner fa-spin"></i>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
 
-                        <!-- 贵金属价格 -->
-                        <p class="paddingP" style="padding: 15px 10px; margin: 0 0 15px 0; font-size: 16px; font-weight: bold; color: #333;">贵金属价格</p>
-                        <table class="jinjia_tab" style="width: 100%; border-collapse: collapse; margin-bottom: 20px; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
-                            <thead>
-                                <tr>
-                                    <th width="25%" style="background-color: #f8f8f8; padding: 12px; text-align: center; border-bottom: 2px solid #ddd; font-weight: bold; color: #333;">品牌</th>
-                                    <th width="25%" style="background-color: #f8f8f8; padding: 12px; text-align: center; border-bottom: 2px solid #ddd; font-weight: bold; color: #333;">金条价(元/克)</th>
-                                    <th width="25%" style="background-color: #f8f8f8; padding: 12px; text-align: center; border-bottom: 2px solid #ddd; font-weight: bold; color: #333;">黄金价(元/克)</th>
-                                    <th width="25%" style="background-color: #f8f8f8; padding: 12px; text-align: center; border-bottom: 2px solid #ddd; font-weight: bold; color: #333;">铂金价(元/克)</th>
-                                </tr>
-                            </thead>
-                            <tbody id="precious-metals-body" style="background: #fff;">
-                                <tr><td colspan="4" style="text-align:center; padding: 20px;">正在加载行情数据...</td></tr>
-                            </tbody>
-                        </table>
+                <!-- 黄金回收价格 -->
+                <div class="metals-table-container" style="margin-bottom: 20px;">
+                    <div style="padding: 12px 15px; font-size: 15px; font-weight: 600; color: #333; border-bottom: 1px solid #f0f0f0;">黄金回收价格</div>
+                    <table class="table metals-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 40%;">品种</th>
+                                <th style="width: 30%;">回收价格(元/克)</th>
+                                <th style="width: 30%;">更新日期</th>
+                            </tr>
+                        </thead>
+                        <tbody id="gold-recycle-body">
+                            <tr>
+                                <td colspan="3" style="text-align:center; padding: 20px;">
+                                    正在加载行情数据... <i class="fa fa-spinner fa-spin"></i>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
 
-                        <div style="font-size: 12px; color: #888; text-align: right; margin-top: 5px;">
-                            贵金属行情数据
-                        </div>
-                    </div>
+                <!-- 贵金属价格 -->
+                <div class="metals-table-container">
+                    <div style="padding: 12px 15px; font-size: 15px; font-weight: 600; color: #333; border-bottom: 1px solid #f0f0f0;">贵金属价格</div>
+                    <table class="table metals-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 25%;">品牌</th>
+                                <th style="width: 25%;">金条价(元/克)</th>
+                                <th style="width: 25%;">黄金价(元/克)</th>
+                                <th style="width: 25%;">铂金价(元/克)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="precious-metals-body">
+                            <tr>
+                                <td colspan="4" style="text-align:center; padding: 20px;">
+                                    正在加载行情数据... <i class="fa fa-spinner fa-spin"></i>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="font-size: 12px; color: #888; text-align: right; margin-top: 5px;">
+                    Data provided by <span id="metals-api-provider">XXAPI</span>
+                    <span id="metals-api-status-dot" style="color: #10b981;">●</span>
                 </div>
             </div>
         </div>
+
+        <style>
+            .metals-table-container {
+                background: #fff;
+                border-radius: 12px;
+                overflow: hidden;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            }
+
+            .metals-table {
+                margin-bottom: 0;
+                width: 100%;
+            }
+
+            .metals-table th {
+                background: #fcfcfc;
+                font-weight: 500;
+                color: #888;
+                border-bottom: 1px solid #f0f0f0;
+                padding: 12px 15px !important;
+                font-size: 13px;
+            }
+
+            .metals-table td {
+                vertical-align: middle !important;
+                padding: 12px 15px !important;
+                border-top: 1px solid #f8f8f8;
+                color: #333;
+            }
+
+            .metals-table tr:nth-child(even) {
+                background-color: #fafafa;
+            }
+
+            .metals-table tr:hover {
+                background-color: #f5f5f5;
+            }
+
+            .f_hongse {
+                color: #ef4444;
+                font-weight: 600;
+            }
+
+            .jinjia_name {
+                font-weight: 500;
+                color: #333;
+            }
+        </style>
     `;
 
     placeholder.innerHTML = metalsHTML;

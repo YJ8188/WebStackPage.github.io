@@ -217,7 +217,7 @@ function onSuccess(dot, providerName, freshData) {
     if (rowCount !== cryptoData.length) {
         renderCryptoTable(cryptoData);
     } else {
-        // Otherwise just update prices/changes
+        // Otherwise just update prices/changes (不重新渲染表格，保持展开状态)
         updateCryptoUI(freshData);
     }
 }
@@ -1037,7 +1037,7 @@ function renderCryptoTable(data) {
                     ${sparklineContent}
                 </td>
             </tr>
-            <tr id="detail-${coin.symbol}" class="detail-row" style="${isOpen ? 'display:table-row' : ''}">
+            <tr id="detail-${coin.symbol}" class="detail-row" style="${isOpen ? 'display:table-row; opacity:1; max-height:200px;' : ''}">
                 <td colspan="5" style="border-top:none; padding:0 !important;">
                     <div class="detail-container">
                         <div class="detail-info">

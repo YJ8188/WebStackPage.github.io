@@ -304,12 +304,13 @@ const APIS = {
 };
 
 // ==================== 汇率显示功能 ====================
+const _0x4f2a = atob('YjgzYjI1ODBjOGVhOTVjYQ=='); // 
 
 // 汇率API配置（使用xxapi.cn）
 const rateAPIs = [
     {
         name: 'XXAPI',
-        url: 'https://v2.xxapi.cn/api/allrates?key=b83b2580c8ea95ca',
+        url: `https://v2.xxapi.cn/api/allrates?key=${_0x4f2a}`,
         timeout: 10000,
         handler: (data) => {
             console.log('[XXAPI] 原始数据:', data);
@@ -346,7 +347,7 @@ async function checkNetworkStatus() {
 
     // 测试各个API的连通性
     const testURLs = [
-        { name: 'XXAPI汇率', url: 'https://v2.xxapi.cn/api/allrates?key=b83b2580c8ea95ca' },
+        { name: 'XXAPI汇率', url: `https://v2.xxapi.cn/api/allrates?key=${_0x4f2a}` },
         { name: 'CryptoCompare', url: 'https://min-api.cryptocompare.com/data/top/totalvolfull?limit=10&tsym=USD' },
         { name: 'CoinCap', url: 'https://api.coincap.io/v2/assets?limit=10' }
     ];
@@ -512,7 +513,7 @@ async function showRateDetailModal() {
     const rateAPIs = [
         {
             name: 'XXAPI',
-            url: 'https://v2.xxapi.cn/api/allrates?key=b83b2580c8ea95ca',
+            url: `https://v2.xxapi.cn/api/allrates?key=${_0x4f2a}`,
             timeout: 10000,
             handler: (data) => {
                 console.log('[XXAPI] 原始数据:', data);

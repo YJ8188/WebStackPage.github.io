@@ -112,22 +112,16 @@ function fallbackToPolling() {
     }
 }
 
-// 根据 HTTP/HTTPS 协议自动选择 WebSocket 协议
+// 根据页面协议选择 WebSocket 协议（强制使用 WS）
 if (window.location.protocol === 'https:') {
-    // HTTPS 页面，检测服务器是否支持 HTTPS
-    var serverHost = wsUrl.match(/:\/\/([^\/:]+)/);
-    if (serverHost) {
-        var host = serverHost[1];
-        console.log('[WebSocket] 服务器地址: ' + host);
-    }
-    
-    // 尝试 WSS
-    wsUrl = wsUrl.replace('ws://', 'wss://');
-    console.log('[WebSocket] 检测到 HTTPS，优先使用 WSS 协议');
+    console.log('[WebSocket] 页面是 HTTPS，但强制使用 WS 协议（服务器只支持 WS）');
 } else {
-    // HTTP 页面，使用 WS
-    console.log('[WebSocket] 检测到 HTTP，使用 WS 协议');
+    console.log('[WebSocket] 页面是 HTTP，使用 WS 协议');
 }
+
+// 强制使用 WS（不转换为 WSS，因为服务器只支持 WS）
+wsUrl = 'ws://120.25.236.183:8189/push?cname=ysxnew&uid=' + uidStr;
+console.log('[WebSocket] 强制使用 WS: ' + wsUrl);
 
 createWebSocket(wsUrl);   //连接ws
 function createWebSocket(url) {

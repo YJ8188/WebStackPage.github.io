@@ -264,7 +264,10 @@ function generateSparklineSvg(prices, changePct, width = 100) {
     const fillPoints = `0,${height} ` + points + ` ${width},${height}`;
     const formatPrice = (p) => p < 1 ? p.toFixed(4) : (p > 1000 ? p.toLocaleString(undefined, { maximumFractionDigits: 1 }) : p.toFixed(2));
 
-    return `<svg width="${width}" height="${height}" class="sparkline-svg" preserveAspectRatio="none">
+    // 检测是否为移动端（宽度较小）
+    const isMobile = width <= 100;
+
+    return `<svg width="${width}" height="${height}" class="sparkline-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">
         <defs>
             <linearGradient id="${gradId}" x1="0%" y1="0%" x2="0%" y2="100%">
                 <stop offset="0%" style="stop-color:${color};stop-opacity:0.25" />
@@ -273,10 +276,12 @@ function generateSparklineSvg(prices, changePct, width = 100) {
         </defs>
         <polygon points="${fillPoints}" fill="url(#${gradId})" />
         <polyline points="${points}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        ${!isMobile ? `
         <circle cx="${maxPoint.x}" cy="${maxPoint.y}" r="2.5" fill="#ef4444" />
         <text x="${maxPoint.x}" y="${maxPoint.y - 4}" class="sparkline-point-label" text-anchor="${maxPoint.x > width * 0.7 ? 'end' : 'start'}" style="fill:#ef4444; font-size:10px;">${formatPrice(maxPoint.val)}</text>
         <circle cx="${minPoint.x}" cy="${minPoint.y}" r="2.5" fill="#10b981" />
         <text x="${minPoint.x}" y="${minPoint.y + 12}" class="sparkline-point-label" text-anchor="${minPoint.x > width * 0.7 ? 'end' : 'start'}" style="fill:#10b981; font-size:10px;">${formatPrice(minPoint.val)}</text>
+        ` : ''}
     </svg>`;
 }
 
@@ -1192,9 +1197,12 @@ function renderCryptoTable(data) {
                         <i class="fa fa-angle-down" id="arrow-${coin.symbol}" style="margin-left:8px; color:#666; transition:transform 0.3s; ${isOpen ? 'transform:rotate(180deg)' : ''}"></i>
                     </span>
                 </td>
+                <td style="text-align:center;">
+                    ${sparklineContent}
+                </td>
             </tr>
             <tr id="detail-${coin.symbol}" class="detail-row" style="${isOpen ? 'display:table-row' : ''}">
-                <td colspan="4" style="border-top:none; padding:0 !important;">
+                <td colspan="5" style="border-top:none; padding:0 !important;">
                     <div class="detail-container">
                         <div class="detail-info">
                             <h5 style="margin-top:0; font-size:14px; font-weight:bold; color:#555; margin-bottom:15px;">市场详情</h5>
@@ -1357,15 +1365,16 @@ function initCryptoUI() {
 
         <div class="row">
             <div class="col-sm-12">
-                <div class="crypto-table-container">
+                <div class="crypto-table-container" id="crypto-table-container">
+                    <i class="fa fa-angle-right scroll-hint" id="scroll-hint"></i>
                     <table class="table crypto-table">
                         <thead>
                             <tr>
-                                <th style="width: 35%;">币种 / 24h量</th>
-                                <th style="width: 25%;">最新价</th>
-                                <th style="width: 20%;">24h涨跌</th>
-                                <th class="table-market-cap" style="width: 20%;">市值</th>
-                                <th style="width: 0%; display: none;">7日趋势</th>
+                                <th style="width: 28%;">币种 / 24h量</th>
+                                <th style="width: 18%;">最新价</th>
+                                <th style="width: 14%;">24h涨跌</th>
+                                <th class="table-market-cap" style="width: 18%;">市值</th>
+                                <th style="width: 22%; text-align:center;">7日趋势</th>
                             </tr>
                         </thead>
                         <tbody id="crypto-table-body">
@@ -1594,6 +1603,39 @@ function initCryptoUI() {
                 }
             }
 
+            /* 滚动提示动画 */
+            @keyframes scrollHint {
+                0%, 100% {
+                    opacity: 0.3;
+                    transform: translateX(0);
+                }
+                50% {
+                    opacity: 1;
+                    transform: translateX(5px);
+                }
+            }
+
+            .scroll-hint {
+                position: absolute;
+                right: 10px;
+                top: 50%;
+                transform: translateY(-50%);
+                color: #999;
+                font-size: 20px;
+                animation: scrollHint 2s ease-in-out infinite;
+                pointer-events: none;
+                z-index: 10;
+            }
+
+            body.dark-mode .scroll-hint {
+                color: #666;
+            }
+
+            /* 隐藏滚动提示当用户开始滚动 */
+            .crypto-table-container.scrolled .scroll-hint {
+                display: none;
+            }
+
             @media screen and (max-width: 768px) {
                 .crypto-table th,
                 .crypto-table td {
@@ -1648,6 +1690,27 @@ function initCryptoUI() {
                     width: calc(100% + 10px);
                     overflow-x: auto !important;
                     -webkit-overflow-scrolling: touch;
+                    /* 添加滚动条样式 */
+                    scrollbar-width: thin;
+                    scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+                }
+
+                /* Webkit滚动条样式 */
+                .crypto-table-container::-webkit-scrollbar {
+                    height: 4px;
+                }
+
+                .crypto-table-container::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+
+                .crypto-table-container::-webkit-scrollbar-thumb {
+                    background: rgba(0, 0, 0, 0.2);
+                    border-radius: 2px;
+                }
+
+                body.dark-mode .crypto-table-container::-webkit-scrollbar-thumb {
+                    background: rgba(255, 255, 255, 0.2);
                 }
 
                 .crypto-table {
@@ -1674,6 +1737,16 @@ function initCryptoUI() {
 
                 .main-price {
                     font-size: 12px !important;
+                }
+
+                /* 优化7日趋势列的显示 */
+                .crypto-table th:nth-child(5),
+                .crypto-table td:nth-child(5) {
+                    min-width: 100px;
+                }
+
+                .sparkline-svg {
+                    max-width: 100px;
                 }
             }
 
@@ -1905,5 +1978,15 @@ document.addEventListener('DOMContentLoaded', () => {
             cryptoSection.addEventListener('mouseleave', showFloats);
             cryptoSection.addEventListener('touchstart', hideFloats, { passive: true });
         }
+
+        // 滚动检测：当用户开始滚动时隐藏滚动提示
+        cryptoContainer.addEventListener('scroll', () => {
+            cryptoContainer.classList.add('scrolled');
+        }, { passive: true });
+
+        // 触摸滑动检测
+        cryptoContainer.addEventListener('touchmove', () => {
+            cryptoContainer.classList.add('scrolled');
+        }, { passive: true });
     }
 });

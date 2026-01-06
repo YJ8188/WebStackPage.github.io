@@ -3,9 +3,9 @@ var isConn = false;
 var ws = null;          // 判断当前浏览器是否支持WebSocket
 var uidStr = Utilss.getUUID()
 
-// Cloudflare Workers 代理配置（免费 HTTPS → WS 桥接）
+// Cloudflare Workers 代理配置（免费 HTTPS → HTTP 桥接）
 var CF_WORKER_URL = 'https://ws-relay-ysxnew.a34296407-5cc.workers.dev';
-var USE_PROXY = true;  // 是否使用代理（HTTPS 页面必须用代理）
+var USE_PROXY = false;  // 直接连接（HTTP 页面可用）
 
 // 使用代理 URL
 var wsUrl = USE_PROXY 

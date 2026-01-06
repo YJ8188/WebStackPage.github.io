@@ -292,11 +292,9 @@ const rateAPIs = [
         handler: (data) => {
             console.log('[XXAPI] 原始数据:', data);
             if (data && data.data && data.data.rates && data.data.rates.CNY) {
-                const cnyRate = data.data.rates.CNY.rate;
-                // API返回的是 1 CNY = ? USD
-                // 我们需要 1 USD = ? CNY
-                const usdToCnyRate = 1 / cnyRate;
-                console.log('[XXAPI] CNY汇率:', cnyRate);
+                // API返回的rate表示：1 USD = ? 该货币
+                // 所以CNY.rate = 7.33 表示 1 USD = 7.33 CNY
+                const usdToCnyRate = data.data.rates.CNY.rate;
                 console.log('[XXAPI] USD/CNY汇率:', usdToCnyRate);
                 return usdToCnyRate;
             }

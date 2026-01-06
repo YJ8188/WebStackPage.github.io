@@ -853,13 +853,20 @@ async function fetchCryptoData() {
 
     // C. 并行竞速模式（核心优化）
     const fetchSource = async (apiObj) => {
+        console.log(`[行情同步] 尝试 ${apiObj.name}...`);
+        console.log(`[行情同步] ${apiObj.name} URL:`, apiObj.url);
         const res = await fetchWithTimeout(apiObj.url, { timeout: 15000 });
-        if (!res.ok) throw new Error(`${apiObj.name} Failed`);
+        console.log(`[行情同步] ${apiObj.name} 响应状态:`, res.status);
+        if (!res.ok) throw new Error(`${apiObj.name} Failed: HTTP ${res.status}`);
         const data = await res.json();
-        return { name: apiObj.name, data: apiObj.handler(data) };
+        console.log(`[行情同步] ${apiObj.name} 响应数据:`, data);
+        const processedData = apiObj.handler(data);
+        console.log(`[行情同步] ${apiObj.name} 处理后数据:`, processedData);
+        return { name: apiObj.name, data: processedData };
     };
 
     try {
+        console.log('[行情同步] 开始并行竞速模式...');
         // 优先竞速：同时启动所有主要数据源
         // 使用Promise.any获取最快响应
         const fastestResult = await Promise.any([
@@ -868,6 +875,7 @@ async function fetchCryptoData() {
         ]);
 
         if (fastestResult && fastestResult.data) {
+            console.log(`[行情同步] 成功！最快响应来自: ${fastestResult.name}`);
             cryptoData = fastestResult.data;
             onSuccess(dot, fastestResult.name, fastestResult.data);
             // 持久化到本地存储
@@ -875,8 +883,10 @@ async function fetchCryptoData() {
             return;
         }
     } catch (e) {
+        console.error('[行情同步] 并行竞速失败:', e);
         // D. 如果所有初始竞速失败，回退到CoinGecko
         try {
+            console.log('[行情同步] 回退到CoinGecko...');
             if (label) label.innerText = 'Fallback (CG)...';
             const geckoRes = await fetchSource(APIS.COINGECKO);
             cryptoData = geckoRes.data;
@@ -884,11 +894,14 @@ async function fetchCryptoData() {
             localStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
             return;
         } catch (ge) {
+            console.error('[行情同步] CoinGecko也失败了:', ge);
             // E. 最终失败：如果有缓存数据，不显示红色错误框
             if (cryptoData.length > 0) {
+                console.log('[行情同步] 使用本地缓存数据');
                 dot.style.color = '#ef4444';
                 if (label) label.innerText = 'Sync Off (Local)';
             } else {
+                console.error('[行情同步] 完全失败，没有缓存数据');
                 // 完全失败UI
                 dot.style.color = '#ef4444';
                 tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: #ef4444;">

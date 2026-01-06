@@ -386,9 +386,13 @@ const rateAPIs = [
         url: 'https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY',
         timeout: 5000,
         handler: (data) => {
-            if (data && data.length > 0 && data[0].last) {
-                return parseFloat(data[0].last);
+            console.log('[Gate.io] 原始数据:', data);
+            if (data && Array.isArray(data) && data.length > 0 && data[0].last) {
+                const rate = parseFloat(data[0].last);
+                console.log('[Gate.io] 解析汇率:', rate);
+                return rate;
             }
+            console.error('[Gate.io] 数据格式不匹配');
             throw new Error('Invalid data');
         }
     },
@@ -397,9 +401,13 @@ const rateAPIs = [
         url: 'https://api.binance.com/api/v3/ticker/price?symbol=USDTCNY',
         timeout: 5000,
         handler: (data) => {
+            console.log('[Binance] 原始数据:', data);
             if (data && data.price) {
-                return parseFloat(data.price);
+                const rate = parseFloat(data.price);
+                console.log('[Binance] 解析汇率:', rate);
+                return rate;
             }
+            console.error('[Binance] 数据格式不匹配');
             throw new Error('Invalid data');
         }
     },
@@ -408,9 +416,14 @@ const rateAPIs = [
         url: 'https://www.okx.com/api/v5/market/ticker?instId=USDT-CNY',
         timeout: 5000,
         handler: (data) => {
-            if (data && data.data && data.data[0] && data.data[0].last) {
-                return parseFloat(data.data[0].last);
+            console.log('[OKX] 原始数据:', data);
+            console.log('[OKX] data.data:', data.data);
+            if (data && data.data && Array.isArray(data.data) && data.data.length > 0 && data.data[0].last) {
+                const rate = parseFloat(data.data[0].last);
+                console.log('[OKX] 解析汇率:', rate);
+                return rate;
             }
+            console.error('[OKX] 数据格式不匹配');
             throw new Error('Invalid data');
         }
     },
@@ -419,9 +432,14 @@ const rateAPIs = [
         url: 'https://api.bybit.com/v5/market/tickers?category=spot&symbol=USDTCNY',
         timeout: 5000,
         handler: (data) => {
-            if (data && data.result && data.result.list && data.result.list[0] && data.result.list[0].lastPrice) {
-                return parseFloat(data.result.list[0].lastPrice);
+            console.log('[Bybit] 原始数据:', data);
+            console.log('[Bybit] data.result:', data.result);
+            if (data && data.result && data.result.list && Array.isArray(data.result.list) && data.result.list.length > 0 && data.result.list[0].lastPrice) {
+                const rate = parseFloat(data.result.list[0].lastPrice);
+                console.log('[Bybit] 解析汇率:', rate);
+                return rate;
             }
+            console.error('[Bybit] 数据格式不匹配');
             throw new Error('Invalid data');
         }
     },
@@ -430,9 +448,14 @@ const rateAPIs = [
         url: 'https://api.huobi.pro/market/detail/merged?symbol=usdtcny',
         timeout: 5000,
         handler: (data) => {
+            console.log('[Huobi] 原始数据:', data);
+            console.log('[Huobi] data.tick:', data.tick);
             if (data && data.tick && data.tick.close) {
-                return parseFloat(data.tick.close);
+                const rate = parseFloat(data.tick.close);
+                console.log('[Huobi] 解析汇率:', rate);
+                return rate;
             }
+            console.error('[Huobi] 数据格式不匹配');
             throw new Error('Invalid data');
         }
     },
@@ -441,9 +464,13 @@ const rateAPIs = [
         url: 'https://api.exchangerate-api.com/v4/latest/USD',
         timeout: 5000,
         handler: (data) => {
+            console.log('[ExchangeRate-API] 原始数据:', data);
             if (data && data.rates && data.rates.CNY) {
-                return parseFloat(data.rates.CNY);
+                const rate = parseFloat(data.rates.CNY);
+                console.log('[ExchangeRate-API] 解析汇率:', rate);
+                return rate;
             }
+            console.error('[ExchangeRate-API] 数据格式不匹配');
             throw new Error('Invalid data');
         }
     }
@@ -947,11 +974,15 @@ const syncRate = async () => {
         for (const api of rateAPIs) {
             try {
                 console.log(`[汇率同步] 尝试 ${api.name}...`);
+                console.log(`[汇率同步] ${api.name} URL:`, api.url);
+
                 const res = await fetchWithTimeout(api.url, { timeout: api.timeout });
 
                 if (res.ok) {
                     const data = await res.json();
                     console.log(`[汇率同步] ${api.name} 响应状态:`, res.status);
+                    console.log(`[汇率同步] ${api.name} 原始响应数据:`, data);
+
                     const newRate = api.handler(data);
                     console.log(`[汇率同步] ${api.name} 返回汇率:`, newRate);
                     console.log(`[汇率同步] ${api.name} 返回汇率类型:`, typeof newRate);

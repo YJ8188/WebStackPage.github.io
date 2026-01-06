@@ -762,19 +762,27 @@ const syncRate = async () => {
     try {
         console.log('[汇率同步] 开始获取USDT/CNY汇率...');
         console.log('[汇率同步] 当前汇率:', USD_CNY_RATE);
-        
+
         // 尝试从多个API获取数据
         for (const api of rateAPIs) {
             try {
                 console.log(`[汇率同步] 尝试 ${api.name}...`);
                 const res = await fetchWithTimeout(api.url, { timeout: api.timeout });
-                
+
                 if (res.ok) {
                     const data = await res.json();
                     console.log(`[汇率同步] ${api.name} 响应状态:`, res.status);
                     const newRate = api.handler(data);
                     console.log(`[汇率同步] ${api.name} 返回汇率:`, newRate);
-                    
+                    console.log(`[汇率同步] ${api.name} 返回汇率类型:`, typeof newRate);
+                    console.log(`[汇率同步] ${api.name} 返回汇率是否有效:`, !isNaN(newRate) && newRate > 0);
+
+                    // 验证汇率值
+                    if (isNaN(newRate) || newRate <= 0) {
+                        console.error(`[汇率同步] ${api.name} 返回的汇率值无效:`, newRate);
+                        continue;
+                    }
+
                     const oldRate = USD_CNY_RATE;
                     console.log(`[汇率同步] 旧汇率: ${oldRate}, 新汇率: ${newRate}, 变化: ${oldRate !== null ? (newRate - oldRate).toFixed(6) : 'N/A'}`);
 
@@ -783,6 +791,7 @@ const syncRate = async () => {
                     lastRateUpdate = Date.now();
                     updateExchangeRateDisplay();
                     console.log('[汇率同步] 汇率已更新为:', USD_CNY_RATE);
+                    console.log('[汇率同步] 汇率显示值:', USD_CNY_RATE.toFixed(2));
 
                     // 汇率更新后，立即刷新所有CNY价格
                     if (currentCurrency === 'CNY') {
@@ -797,12 +806,12 @@ const syncRate = async () => {
 
                         // 显示页面内提醒消息（移动端友好）
                         showInlineRateMessage(oldRate, newRate);
-                        
+
                         console.log('[汇率同步] 汇率已更新，已发送提醒');
                     } else {
                         console.log('[汇率同步] 汇率已更新（首次获取或无变化）');
                     }
-                    
+
                     return;
                 } else {
                     console.log(`[汇率同步] ${api.name} HTTP错误: ${res.status}`);
@@ -811,7 +820,7 @@ const syncRate = async () => {
                 console.log(`[汇率同步] ${api.name} 失败:`, e);
             }
         }
-        
+
         console.error('[汇率同步] 所有API都失败了');
     } catch (e) {
         console.error('[汇率同步] 请求失败:', e);
@@ -895,6 +904,7 @@ async function fetchCryptoData() {
             onSuccess(dot, fastestResult.name, fastestResult.data);
             // 持久化到本地存储
             localStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
+            localStorage.setItem('crypto_market_cache_time', Date.now().toString());
             return;
         }
     } catch (e) {
@@ -907,6 +917,7 @@ async function fetchCryptoData() {
             cryptoData = geckoRes.data;
             onSuccess(dot, geckoRes.name, geckoRes.data);
             localStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
+            localStorage.setItem('crypto_market_cache_time', Date.now().toString());
             return;
         } catch (ge) {
             console.error('[行情同步] CoinGecko也失败了:', ge);
@@ -1531,6 +1542,26 @@ function initCryptoUI() {
 document.addEventListener('DOMContentLoaded', () => {
     console.log('[页面加载] DOMContentLoaded 事件触发');
     console.log('[页面加载] 开始初始化数字货币模块');
+
+    // 清除旧的缓存数据（确保获取最新数据）
+    console.log('[页面加载] 检查并清除旧缓存...');
+    const oldCache = localStorage.getItem('crypto_market_cache');
+    if (oldCache) {
+        try {
+            const parsed = JSON.parse(oldCache);
+            // 如果缓存数据超过1小时，清除它
+            const cacheTime = localStorage.getItem('crypto_market_cache_time');
+            if (cacheTime && (Date.now() - parseInt(cacheTime)) > 3600000) {
+                console.log('[页面加载] 缓存数据已过期，清除缓存');
+                localStorage.removeItem('crypto_market_cache');
+                localStorage.removeItem('crypto_market_cache_time');
+            }
+        } catch (e) {
+            console.error('[页面加载] 缓存数据解析失败，清除缓存');
+            localStorage.removeItem('crypto_market_cache');
+            localStorage.removeItem('crypto_market_cache_time');
+        }
+    }
 
     // 动态生成UI
     console.log('[页面加载] 调用 initCryptoUI()');

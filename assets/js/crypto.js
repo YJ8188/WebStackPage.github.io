@@ -287,17 +287,14 @@ const APIS = {
 const rateAPIs = [
     {
         name: 'YunAPI',
-        url: 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://yunapi.cn/api/huilv'),
+        url: 'https://corsproxy.io/?' + encodeURIComponent('https://yunapi.cn/api/huilv'),
         timeout: 10000,
         handler: (data) => {
             console.log('[YunAPI] 原始数据:', data);
-            if (data && data.contents) {
-                const rateData = JSON.parse(data.contents);
-                if (rateData && rateData.USD) {
-                    const rate = parseFloat(rateData.USD);
-                    console.log('[YunAPI] USD/CNY汇率:', rate);
-                    return rate;
-                }
+            if (data && data.USD) {
+                const rate = parseFloat(data.USD);
+                console.log('[YunAPI] USD/CNY汇率:', rate);
+                return rate;
             }
             console.error('[YunAPI] 数据格式不匹配');
             throw new Error('Invalid data');
@@ -325,7 +322,7 @@ async function checkNetworkStatus() {
 
     // 测试各个API的连通性
     const testURLs = [
-        { name: 'YunAPI汇率', url: 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://yunapi.cn/api/huilv') },
+        { name: 'YunAPI汇率', url: 'https://corsproxy.io/?' + encodeURIComponent('https://yunapi.cn/api/huilv') },
         { name: 'CryptoCompare', url: 'https://min-api.cryptocompare.com/data/top/totalvolfull?limit=10&tsym=USD' },
         { name: 'CoinCap', url: 'https://api.coincap.io/v2/assets?limit=10' }
     ];
@@ -478,23 +475,20 @@ async function showRateDetailModal() {
     const rateAPIs = [
         {
             name: 'YunAPI',
-            url: 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://yunapi.cn/api/huilv'),
+            url: 'https://corsproxy.io/?' + encodeURIComponent('https://yunapi.cn/api/huilv'),
             timeout: 10000,
             handler: (data) => {
                 console.log('[YunAPI] 原始数据:', data);
-                if (data && data.contents) {
-                    const rateData = JSON.parse(data.contents);
-                    if (rateData && rateData.USD) {
-                        const current = parseFloat(rateData.USD);
-                        return {
-                            current: current,
-                            high: current * 1.002, // 模拟24h最高价
-                            low: current * 0.998,  // 模拟24h最低价
-                            volume: 1000000, // 模拟成交量
-                            change: 0, // API不提供涨跌幅
-                            source: 'YunAPI'
-                        };
-                    }
+                if (data && data.USD) {
+                    const current = parseFloat(data.USD);
+                    return {
+                        current: current,
+                        high: current * 1.002, // 模拟24h最高价
+                        low: current * 0.998,  // 模拟24h最低价
+                        volume: 1000000, // 模拟成交量
+                        change: 0, // API不提供涨跌幅
+                        source: 'YunAPI'
+                    };
                 }
                 throw new Error('Invalid data format');
             }

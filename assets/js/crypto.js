@@ -495,52 +495,6 @@ async function showRateDetailModal() {
             }
         }
     ];
-                    };
-                }
-                throw new Error('Invalid data format');
-            }
-        },
-        {
-            name: 'Bybit',
-            url: 'https://api.bybit.com/v5/market/tickers?category=spot&symbol=USDTCNY',
-            timeout: 5000,
-            handler: (data) => {
-                console.log('[Bybit] 原始数据:', data);
-                if (data && data.result && data.result.list && data.result.list.length > 0) {
-                    const ticker = data.result.list[0];
-                    return {
-                        current: parseFloat(ticker.lastPrice),
-                        high: parseFloat(ticker.highPrice24h),
-                        low: parseFloat(ticker.lowPrice24h),
-                        volume: parseFloat(ticker.volume24h),
-                        change: parseFloat(ticker.price24hPcnt) * 100,
-                        source: 'Bybit'
-                    };
-                }
-                throw new Error('Invalid data format');
-            }
-        },
-        {
-            name: 'Huobi',
-            url: 'https://api.huobi.pro/market/detail/merged?symbol=usdtcny',
-            timeout: 5000,
-            handler: (data) => {
-                console.log('[Huobi] 原始数据:', data);
-                if (data && data.tick) {
-                    const tick = data.tick;
-                    return {
-                        current: parseFloat(tick.close),
-                        high: parseFloat(tick.high),
-                        low: parseFloat(tick.low),
-                        volume: parseFloat(tick.vol),
-                        change: ((parseFloat(tick.close) - parseFloat(tick.open)) / parseFloat(tick.open)) * 100,
-                        source: 'Huobi'
-                    };
-                }
-                throw new Error('Invalid data format');
-            }
-        }
-    ];
 
     // 尝试从API获取数据
     let successData = null;

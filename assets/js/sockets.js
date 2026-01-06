@@ -5,6 +5,15 @@ var uidStr = Utilss.getUUID()
 var wsUrl = Utilss.getWsURL()+uidStr;
 var connCount = 0;
 
+// 根据 HTTP/HTTPS 协议自动选择 WebSocket 协议
+if (window.location.protocol === 'https:') {
+    // HTTPS 页面使用 WSS
+    wsUrl = wsUrl.replace('ws://', 'wss://');
+    console.log('[WebSocket] 检测到 HTTPS，使用 WSS 协议');
+} else {
+    console.log('[WebSocket] 检测到 HTTP，使用 WS 协议');
+}
+
 createWebSocket(wsUrl);   //连接ws
 function createWebSocket(url) {
 

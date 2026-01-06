@@ -10,7 +10,6 @@
 // ==================== 全局变量 ====================
 let currentCurrency = 'USD'; // 当前货币类型：USD或CNY
 let cryptoData = []; // 加密货币数据数组
-let isSearching = false; // 是否正在搜索
 let USD_CNY_RATE = 7.25; // 美元兑人民币汇率（默认值，会动态更新）
 let lastRateUpdate = 0; // 上次汇率更新时间
 
@@ -200,36 +199,22 @@ async function fetchWithTimeout(resource, options = {}) {
 function onSuccess(dot, providerName, freshData) {
     const label = document.getElementById('api-provider-name');
     if (dot) dot.style.color = '#10b981';
-    if (label && !isSearching) label.innerText = providerName;
+    if (label) label.innerText = providerName;
 
     // Always update UI elements if they exist
     if (freshData) updateCryptoUI(freshData);
 
-    // If NOT searching, handle table sync
-    if (!isSearching) {
-        const tbody = document.getElementById('crypto-table-body');
-        const rowCount = tbody ? tbody.querySelectorAll('.main-row').length : 0;
+    // Handle table sync
+    const tbody = document.getElementById('crypto-table-body');
+    const rowCount = tbody ? tbody.querySelectorAll('.main-row').length : 0;
 
-        // Force re-render if coin count changed (e.g. from 12 to 50)
-        if (rowCount !== cryptoData.length) {
-            renderCryptoTable(cryptoData);
-        } else {
-            // Otherwise just update prices/changes
-            updateCryptoUI(freshData);
-        }
+    // Force re-render if coin count changed (e.g. from 12 to 50)
+    if (rowCount !== cryptoData.length) {
+        renderCryptoTable(cryptoData);
+    } else {
+        // Otherwise just update prices/changes
+        updateCryptoUI(freshData);
     }
-}
-
-// Add this new function to help search results update too
-async function updateSearchPrices() {
-    const query = document.getElementById('crypto-search').value.trim();
-    if (!query || !isSearching) return;
-
-    try {
-        // For search results, we just update what's in cryptoData or do another search
-        // Better: just fetch standard data and let updateCryptoUI do its job
-        fetchCryptoData();
-    } catch (e) { }
 }
 
 // API Strategies configuration
@@ -334,23 +319,66 @@ const APIS = {
     }
 };
 
-// ==================== 货币切换功能 ====================
+// ==================== 汇率显示功能 ====================
 /**
- * 切换显示货币（USD/CNY）
+ * 切换USD/CNY显示顺序（数字颠倒）
  */
-function toggleCurrency() {
-    const btn = document.getElementById('currency-toggle');
-    if (currentCurrency === 'USD') {
-        currentCurrency = 'CNY';
-        btn.innerText = 'CNY';
-        btn.className = 'btn btn-xs btn-warning';
+function toggleCurrencyDisplay() {
+    const rateEl = document.getElementById('exchange-rate-display');
+    if (!rateEl) return;
+
+    const currentRate = USD_CNY_RATE;
+    const reversedRate = 1 / currentRate;
+
+    // 检查当前显示的是哪种格式
+    if (rateEl.dataset.mode === 'usdt-cny') {
+        // 切换到 CNY-USDT
+        rateEl.innerHTML = `1 CNY = <span class="rate-value">${reversedRate.toFixed(4)}</span> USDT`;
+        rateEl.dataset.mode = 'cny-usdt';
     } else {
-        currentCurrency = 'USD';
-        btn.innerText = 'USD';
-        btn.className = 'btn btn-xs btn-primary';
+        // 切换到 USDT-CNY
+        rateEl.innerHTML = `1 USDT = <span class="rate-value">${currentRate.toFixed(2)}</span> CNY`;
+        rateEl.dataset.mode = 'usdt-cny';
     }
-    renderCryptoTable(cryptoData);
 }
+
+/**
+ * 更新汇率显示
+ */
+function updateExchangeRateDisplay() {
+    const rateEl = document.getElementById('exchange-rate-display');
+    if (!rateEl) return;
+
+    const currentRate = USD_CNY_RATE;
+    const reversedRate = 1 / currentRate;
+
+    // 根据当前模式更新显示
+    if (rateEl.dataset.mode === 'cny-usdt') {
+        rateEl.innerHTML = `1 CNY = <span class="rate-value">${reversedRate.toFixed(4)}</span> USDT`;
+    } else {
+        rateEl.innerHTML = `1 USDT = <span class="rate-value">${currentRate.toFixed(2)}</span> CNY`;
+        rateEl.dataset.mode = 'usdt-cny';
+    }
+}
+
+/**
+ * 同步并显示汇率（Gate.io USDT_CNY）
+ */
+const syncRate = async () => {
+    if (Date.now() - lastRateUpdate > 30000) {
+        try {
+            const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY', { timeout: 5000 });
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data[0] && data[0].last) {
+                    USD_CNY_RATE = parseFloat(data[0].last);
+                    lastRateUpdate = Date.now();
+                    updateExchangeRateDisplay();
+                }
+            }
+        } catch (e) { }
+    }
+};
 
 // ==================== 数据获取核心引擎 ====================
 /**
@@ -382,21 +410,7 @@ async function fetchCryptoData() {
         }
     }
 
-    // B. 后台同步汇率（Gate.io USDT_CNY）
-    const syncRate = async () => {
-        if (Date.now() - lastRateUpdate > 30000) {
-            try {
-                const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY', { timeout: 5000 });
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data && data[0] && data[0].last) {
-                        USD_CNY_RATE = parseFloat(data[0].last);
-                        lastRateUpdate = Date.now();
-                    }
-                }
-            } catch (e) { }
-        };
-    };
+    // 后台同步汇率（Gate.io USDT_CNY）
     syncRate();
 
     // C. 并行竞速模式（核心优化）
@@ -454,7 +468,6 @@ async function fetchCryptoData() {
 function renderCryptoTable(data) {
     if (!data || data.length === 0) return;
     const tbody = document.getElementById('crypto-table-body');
-    const searchQuery = document.getElementById('crypto-search').value.toLowerCase();
     tbody.innerHTML = '';
 
     const isCNY = currentCurrency === 'CNY';
@@ -470,10 +483,6 @@ function renderCryptoTable(data) {
     });
 
     data.forEach(coin => {
-        const searchName = coin.name || coin.symbol;
-        if (!searchName.toLowerCase().includes(searchQuery) && !coin.symbol.toLowerCase().includes(searchQuery))
-            return;
-
         const rawPrice = coin.current_price;
         const price = (rawPrice * rate).toLocaleString(undefined, {
             minimumFractionDigits: 2,
@@ -666,198 +675,367 @@ function updateCryptoUI(data) {
     });
 }
 
-// ==================== 搜索功能 ====================
-/**
- * 搜索逻辑（带防抖）
- */
-let searchTimeout;
-
-/**
- * 处理搜索输入事件
- */
-function handleSearchInput() {
-    const input = document.getElementById('crypto-search');
-    if (!input) return;
-    const query = input.value.trim();
-    if (!query) {
-        isSearching = false;
-        fetchCryptoData(); // 清空搜索时恢复主列表
-        return;
-    }
-    clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(searchCrypto, 1000);
-}
-
-/**
- * 处理搜索键盘事件
- */
-async function handleSearchKey(e) {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        clearTimeout(searchTimeout);
-        searchCrypto();
-    } else if (e.key === 'Escape') {
-        const input = document.getElementById('crypto-search');
-        if (input) input.value = '';
-        isSearching = false;
-        fetchCryptoData();
-    }
-}
-
-/**
- * 中文币种名称映射表（用于更好的搜索体验）
- */
-const CN_COIN_MAP = {
-    '比特币': 'bitcoin', '以太坊': 'ethereum', '泰达币': 'tether', '狗狗币': 'dogecoin',
-    '波卡': 'polkadot', '币安': 'binance', '瑞波': 'ripple', '索拉纳': 'solana',
-    '莱特币': 'litecoin', '艾达币': 'cardano', '波场': 'tron', '以太经典': 'ethereum-classic',
-    '佩佩': 'pepe', '链克': 'chainlink', '优尼': 'uniswap', '近': 'near-protocol',
-    '艾普特': 'aptos', '堆栈': 'stack', '奥普': 'optimism', '阿比特': 'arbitrum',
-    '天体': 'celestia', '赛伊': 'sei-network'
-};
-
-/**
- * 清除搜索
- */
-function clearCryptoSearch() {
-    const input = document.getElementById('crypto-search');
-    if (input) input.value = '';
-    isSearching = false;
-    const clearBtn = document.getElementById('crypto-search-clear');
-    if (clearBtn) clearBtn.style.display = 'none';
-    fetchCryptoData();
-}
-
-/**
- * 搜索币种
- */
-async function searchCrypto() {
-    const input = document.getElementById('crypto-search');
-    if (!input) return;
-    let query = input.value.trim().toLowerCase();
-    const dot = document.getElementById('api-status-dot');
-    const label = document.getElementById('api-provider-name');
-    const tbody = document.getElementById('crypto-table-body');
-    const clearBtn = document.getElementById('crypto-search-clear');
-
-    if (!query) {
-        clearCryptoSearch();
-        return;
-    }
-
-    if (clearBtn) clearBtn.style.display = 'block';
-    
-    // 中文转英文映射
-    if (CN_COIN_MAP[query]) query = CN_COIN_MAP[query];
-
-    if (label) label.innerText = '正在全量搜索: ' + query;
-    if (dot) dot.style.color = '#f59e0b';
-    isSearching = true;
-
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color: #888;">
-        <i class="fa fa-circle-o-notch fa-spin"></i> 正在深度检索全网币种...
-    </td></tr>`;
-
-    try {
-        // 1. 在Gate.io全量数据中高效搜索
-        const filtered = allGateTickers
-            .filter(item => {
-                const pair = item.currency_pair.toLowerCase();
-                const symbol = pair.split('_')[0];
-                return symbol.includes(query) && pair.endsWith('_usdt') && !pair.includes('3l_') && !pair.includes('3s_');
-            })
-            .sort((a, b) => parseFloat(b.quote_volume) - parseFloat(a.quote_volume))
-            .slice(0, 30); // 最多返回30个结果
-
-        if (filtered.length > 0) {
-            const mapped = filtered.map(item => {
-                const symbol = item.currency_pair.split('_')[0].toLowerCase();
-                return {
-                    id: symbol,
-                    symbol: symbol,
-                    name: symbol.toUpperCase(),
-                    image: `https://gimg2.gateimg.com/coin_icon/64/${symbol}.png`,
-                    current_price: parseFloat(item.last),
-                    price_change_percentage_24h: parseFloat(item.change_percentage),
-                    market_cap: parseFloat(item.quote_volume) * 7.5,
-                    total_volume: parseFloat(item.quote_volume),
-                    sparkline_in_7d: null
-                };
-            });
-            cryptoData = mapped;
-            renderCryptoTable(mapped);
-            if (label) label.innerText = `[Gate] 已找到 ${mapped.length} 个结果`;
-            if (dot) dot.style.color = '#10b981';
-            return;
-        }
-
-        // 2. 如果Gate数据无匹配，回退到CoinCap搜索
-        const directUrl = `https://api.coincap.io/v2/assets?search=${query}&limit=20`;
-        const res = await fetchWithTimeout(directUrl, { timeout: 5000 });
-        if (res.ok) {
-            const json = await res.json();
-            if (json.data && json.data.length > 0) {
-                const mapped = json.data.map(item => ({
-                    id: item.id,
-                    symbol: item.symbol.toLowerCase(),
-                    name: item.name,
-                    image: `https://gimg2.gateimg.com/coin_icon/64/${item.symbol.toLowerCase()}.png`,
-                    current_price: parseFloat(item.priceUsd),
-                    price_change_percentage_24h: parseFloat(item.changePercent24Hr),
-                    market_cap: parseFloat(item.marketCapUsd),
-                    total_volume: parseFloat(item.volumeUsd24Hr),
-                    sparkline_in_7d: null
-                }));
-                cryptoData = mapped;
-                renderCryptoTable(mapped);
-                if (label) label.innerText = `[CoinCap] 已找到 ${mapped.length} 个结果`;
-                if (dot) dot.style.color = '#34d399';
-                return;
-            }
-        }
-
-        // 3. 未找到
-        if (label) label.innerText = `未找到 "${query}"`;
-        if (dot) dot.style.color = '#ef4444';
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 60px; color: #888;">
-            <div style="font-size:32px; margin-bottom:15px;">🔍</div>
-            未找到 "${query}"<br>
-            <small style="color:#aaa">Gate.io 全网库中暂无此币种</small>
-        </td></tr>`;
-
-    } catch (e) {
-        console.error('Search error:', e);
-        if (label) label.innerText = 'Search Error';
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px; color: #ef4444;">搜索失败，请检查网络设置或稍后再试</td></tr>`;
-    }
-}
-
 // ==================== 页面初始化 ====================
+/**
+ * 动态生成数字货币板块UI
+ */
+function initCryptoUI() {
+    const placeholder = document.getElementById('crypto-section-placeholder');
+    if (!placeholder) return;
+
+    const cryptoHTML = `
+        <h4 class="text-gray">
+            <i class="linecons-money" style="margin-right: 7px;" id="数字货币"></i>数字货币行情 (Live Market)
+            <span style="float: right; display: flex; align-items: center; font-size: 13px;">
+                <button id="refresh-crypto-btn" class="btn btn-xs btn-white" onclick="fetchCryptoData()"
+                    style="margin-right: 10px; padding: 2px 6px;" title="刷新数据">
+                    <i class="fa fa-refresh"></i>
+                </button>
+                <span style="margin-right: 10px; color: #888;">汇率:</span>
+                <span id="exchange-rate-display" class="rate-display"
+                    style="font-size: 12px; font-weight: bold; color: #10b981; cursor: pointer;"
+                    onclick="toggleCurrencyDisplay()"
+                    title="点击切换汇率显示"
+                    data-mode="usdt-cny">
+                    1 USDT = <span class="rate-value">7.25</span> CNY
+                </span>
+            </span>
+        </h4>
+
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="crypto-table-container">
+                    <table class="table crypto-table">
+                        <thead>
+                            <tr>
+                                <th>币种 / 24h量</th>
+                                <th>最新价</th>
+                                <th>24h涨跌</th>
+                                <th class="table-market-cap">市值</th>
+                                <th style="text-align:center;">7日趋势</th>
+                            </tr>
+                        </thead>
+                        <tbody id="crypto-table-body">
+                            <tr>
+                                <td colspan="5" style="text-align:center; padding: 20px;">正在加载实时行情...
+                                    <i class="fa fa-spinner fa-spin"></i>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div style="font-size: 12px; color: #888; text-align: right; margin-top: 5px;">
+                    Data provided by <span id="api-provider-name">Crypto API</span>
+                    <span id="api-status-dot" style="color: #10b981;">●</span>
+                </div>
+            </div>
+        </div>
+
+        <style>
+            .crypto-table-container {
+                background: #fff;
+                border-radius: 12px;
+                overflow: hidden;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            }
+
+            .crypto-table {
+                margin-bottom: 0;
+                width: 100%;
+            }
+
+            .crypto-table th {
+                background: #fcfcfc;
+                font-weight: 500;
+                color: #888;
+                border-bottom: 1px solid #f0f0f0;
+                padding: 12px 15px !important;
+                font-size: 13px;
+            }
+
+            .crypto-table td {
+                vertical-align: middle !important;
+                padding: 12px 15px !important;
+                border-top: 1px solid #f8f8f8;
+                color: #333;
+            }
+
+            .coin-info {
+                display: flex;
+                align-items: center;
+            }
+
+            .coin-icon {
+                width: 32px;
+                height: 32px;
+                margin-right: 12px;
+                border-radius: 50%;
+            }
+
+            .coin-name-wrap {
+                display: flex;
+                flex-direction: column;
+            }
+
+            .coin-name {
+                font-weight: bold;
+                font-size: 14px;
+                color: #1a1a1a;
+            }
+
+            .coin-symbol {
+                color: #999;
+                font-size: 11px;
+                margin-top: 2px;
+            }
+
+            .coin-vol {
+                color: #888;
+                font-size: 11px;
+                margin-top: 2px;
+            }
+
+            .price-wrap {
+                display: flex;
+                flex-direction: column;
+            }
+
+            .main-price {
+                font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+                font-weight: 600;
+                font-size: 14px;
+            }
+
+            .converted-price {
+                color: #999;
+                font-size: 11px;
+                margin-top: 2px;
+            }
+
+            .change-box {
+                display: inline-block;
+                min-width: 75px;
+                padding: 6px 4px;
+                border-radius: 4px;
+                text-align: center;
+                font-weight: bold;
+                color: #fff;
+                font-size: 12px;
+            }
+
+            .change-up {
+                background-color: #ef4444;
+            }
+
+            .change-down {
+                background-color: #10b981;
+            }
+
+            .change-neutral {
+                background-color: #9ca3af;
+            }
+
+            .market_cap_cell {
+                font-size: 12px;
+                color: #666;
+            }
+
+            .price-update {
+                transition: background-color 0.8s ease;
+            }
+
+            .pulse-green {
+                background-color: rgba(239, 68, 68, 0.2) !important;
+            }
+
+            .pulse-red {
+                background-color: rgba(16, 185, 129, 0.2) !important;
+            }
+
+            body.dark-mode .pulse-green {
+                background-color: rgba(239, 68, 68, 0.15) !important;
+            }
+
+            body.dark-mode .pulse-red {
+                background-color: rgba(16, 185, 129, 0.15) !important;
+            }
+
+            body.dark-mode .crypto-table-container {
+                background: #1e1e1e;
+                box-shadow: none;
+            }
+
+            body.dark-mode .crypto-table th {
+                background: #252525;
+                color: #777;
+                border-bottom-color: #333;
+            }
+
+            body.dark-mode .crypto-table td {
+                border-top-color: #2a2a2a;
+                color: #ccc;
+            }
+
+            body.dark-mode .coin-name {
+                color: #eee;
+            }
+
+            body.dark-mode .main-price {
+                color: #fff;
+            }
+
+            body.dark-mode .market_cap_cell {
+                color: #888;
+            }
+
+            .sparkline-svg {
+                overflow: visible;
+            }
+
+            .sparkline-point-label {
+                font-size: 9px;
+                font-weight: 500;
+                fill: #888;
+            }
+
+            .rate-display {
+                display: inline-block;
+                padding: 4px 10px;
+                background: rgba(16, 185, 129, 0.1);
+                border: 1px solid #10b981;
+                border-radius: 4px;
+                transition: all 0.3s;
+            }
+
+            .rate-display:hover {
+                background: rgba(16, 185, 129, 0.2);
+                transform: scale(1.05);
+            }
+
+            .rate-value {
+                color: #10b981;
+                font-weight: bold;
+            }
+
+            @media screen and (max-width: 768px) {
+                .crypto-table th,
+                .crypto-table td {
+                    padding: 10px 8px !important;
+                }
+
+                .coin-icon {
+                    width: 24px;
+                    height: 24px;
+                    margin-right: 8px;
+                }
+
+                .change-box {
+                    min-width: 65px;
+                    font-size: 11px;
+                }
+
+                .table-market-cap,
+                .market_cap_cell {
+                    display: table-cell !important;
+                }
+
+                .detail-row td {
+                    padding: 15px !important;
+                }
+
+                .detail-container {
+                    flex-direction: column;
+                    gap: 15px;
+                    padding: 15px;
+                    margin: 5px 10px 15px 10px;
+                }
+
+                .detail-info {
+                    border-right: none;
+                    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+                    padding-right: 0;
+                    padding-bottom: 15px;
+                }
+
+                body.dark-mode .detail-info {
+                    border-bottom-color: rgba(255, 255, 255, 0.1);
+                }
+            }
+
+            .detail-row {
+                display: none;
+                background-color: transparent;
+                opacity: 0;
+                max-height: 0;
+                overflow: hidden;
+                transition: opacity 0.3s ease, max-height 0.3s ease;
+            }
+
+            .detail-container {
+                background: rgba(0, 0, 0, 0.03);
+                border-radius: 8px;
+                margin: 10px 15px 20px 15px;
+                padding: 20px;
+                display: flex;
+                gap: 30px;
+            }
+
+            .detail-info {
+                flex: 1;
+                border-right: 1px solid rgba(0, 0, 0, 0.05);
+                padding-right: 20px;
+            }
+
+            .detail-chart {
+                flex: 2;
+            }
+
+            body.dark-mode .detail-container {
+                background: rgba(255, 255, 255, 0.03);
+            }
+
+            body.dark-mode .detail-info {
+                border-right-color: rgba(255, 255, 255, 0.1);
+            }
+
+            body.dark-mode .detail-row {
+                background-color: rgba(255, 255, 255, 0.02);
+            }
+
+            .main-row {
+                cursor: pointer;
+                transition: background 0.2s;
+            }
+
+            .main-row:hover {
+                background-color: rgba(0, 0, 0, 0.01);
+            }
+
+            body.dark-mode .main-row:hover {
+                background-color: rgba(255, 255, 255, 0.01);
+            }
+        </style>
+    `;
+
+    placeholder.innerHTML = cryptoHTML;
+}
+
 /**
  * 页面加载完成后初始化
  */
 document.addEventListener('DOMContentLoaded', () => {
+    // 动态生成UI
+    initCryptoUI();
+
     // 初始加载数据
     fetchCryptoData();
 
-    // 绑定搜索输入事件
-    const searchInput = document.getElementById('crypto-search');
-    const searchTrigger = document.getElementById('crypto-search-trigger');
-
-    if (searchInput) {
-        searchInput.addEventListener('input', handleSearchInput);
-        searchInput.addEventListener('keydown', handleSearchKey);
-    }
-    if (searchTrigger) {
-        searchTrigger.addEventListener('click', (e) => {
-            e.preventDefault();
-            searchCrypto();
-        });
-    }
+    // 初始化汇率显示
+    updateExchangeRateDisplay();
 
     // 实时轮询更新（每3秒）
     setInterval(() => {
-        if (!isSearching) fetchCryptoData();
+        fetchCryptoData();
     }, 3000);
 
     // 后台刷新完整交易对列表（每60秒）
@@ -872,6 +1050,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (e) { }
     }, 60000);
+
+    // 定期更新汇率显示（每30秒）
+    setInterval(() => {
+        syncRate();
+    }, 30000);
 
     // 悬停时隐藏浮动按钮的优化
     const cryptoContainer = document.querySelector('.crypto-table-container');

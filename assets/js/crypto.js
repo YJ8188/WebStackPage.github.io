@@ -321,6 +321,107 @@ const APIS = {
 
 // ==================== 汇率显示功能 ====================
 /**
+ * 显示汇率更新提醒消息
+ */
+function showRateUpdateMessage(oldRate, newRate) {
+    // 检查是否支持通知
+    if (!('Notification' in window)) return;
+
+    // 如果已授权，显示通知
+    if (Notification.permission === 'granted') {
+        const change = newRate - oldRate;
+        const changePct = ((change / oldRate) * 100).toFixed(4);
+        const direction = change > 0 ? '上涨' : (change < 0 ? '下跌' : '持平');
+        const icon = change > 0 ? '📈' : (change < 0 ? '📉' : '➡️');
+
+        const notification = new Notification('USDT汇率更新', {
+            body: `${icon} 1 USDT = ${newRate.toFixed(2)} CNY (${direction} ${Math.abs(changePct)}%)`,
+            icon: 'https://gimg2.gateimg.com/coin_icon/64/usdt.png',
+            tag: 'usdt-cny-rate',
+            requireInteraction: false,
+            silent: false
+        });
+
+        // 5秒后自动关闭
+        setTimeout(() => notification.close(), 5000);
+    }
+}
+
+/**
+ * 显示页面内提醒消息（移动端友好）
+ */
+function showInlineRateMessage(oldRate, newRate) {
+    // 检查是否已有消息容器
+    let msgContainer = document.getElementById('rate-update-message');
+    if (!msgContainer) {
+        msgContainer = document.createElement('div');
+        msgContainer.id = 'rate-update-message';
+        msgContainer.style.cssText = `
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 10000;
+            background: rgba(16, 185, 129, 0.95);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            font-size: 14px;
+            font-weight: 500;
+            animation: slideIn 0.3s ease-out;
+            max-width: 300px;
+            cursor: pointer;
+        `;
+        document.body.appendChild(msgContainer);
+
+        // 添加动画样式
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    const change = newRate - oldRate;
+    const changePct = ((change / oldRate) * 100).toFixed(4);
+    const direction = change > 0 ? '📈 上涨' : (change < 0 ? '📉 下跌' : '➡️ 持平');
+    const color = change > 0 ? '#ef4444' : (change < 0 ? '#10b981' : '#f59e0b');
+
+    msgContainer.style.background = color;
+    msgContainer.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 18px;">${change > 0 ? '📈' : (change < 0 ? '📉' : '➡️')}</span>
+            <div>
+                <div style="font-weight: 600; font-size: 15px;">USDT汇率更新</div>
+                <div style="font-size: 13px; opacity: 0.9;">1 USDT = ${newRate.toFixed(2)} CNY</div>
+                <div style="font-size: 12px; opacity: 0.8;">${direction} ${Math.abs(changePct)}%</div>
+            </div>
+        </div>
+    `;
+
+    // 点击关闭
+    msgContainer.onclick = () => {
+        msgContainer.style.animation = 'slideOut 0.3s ease-in forwards';
+        setTimeout(() => msgContainer.remove(), 300);
+    };
+
+    // 8秒后自动关闭
+    setTimeout(() => {
+        if (msgContainer && msgContainer.parentNode) {
+            msgContainer.style.animation = 'slideOut 0.3s ease-in forwards';
+            setTimeout(() => msgContainer.remove(), 300);
+        }
+    }, 8000);
+}
+
+/**
  * 切换USD/CNY显示顺序（数字颠倒）
  */
 function toggleCurrencyDisplay() {
@@ -363,20 +464,36 @@ function updateExchangeRateDisplay() {
 
 /**
  * 同步并显示汇率（Gate.io USDT_CNY）
+ * 实时同步，每次获取最新数据
  */
 const syncRate = async () => {
-    if (Date.now() - lastRateUpdate > 30000) {
-        try {
-            const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY', { timeout: 5000 });
-            if (res.ok) {
-                const data = await res.json();
-                if (data && data[0] && data[0].last) {
-                    USD_CNY_RATE = parseFloat(data[0].last);
+    try {
+        const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY', { timeout: 5000 });
+        if (res.ok) {
+            const data = await res.json();
+            if (data && data[0] && data[0].last) {
+                const oldRate = USD_CNY_RATE;
+                const newRate = parseFloat(data[0].last);
+
+                // 只有汇率发生变化时才显示提醒
+                if (Math.abs(newRate - oldRate) > 0.0001) {
+                    USD_CNY_RATE = newRate;
                     lastRateUpdate = Date.now();
                     updateExchangeRateDisplay();
+
+                    // 显示桌面通知
+                    showRateUpdateMessage(oldRate, newRate);
+
+                    // 显示页面内提醒消息（移动端友好）
+                    showInlineRateMessage(oldRate, newRate);
+                } else {
+                    // 即使汇率没变，也更新时间戳
+                    lastRateUpdate = Date.now();
                 }
             }
-        } catch (e) { }
+        }
+    } catch (e) {
+        console.error('汇率同步失败:', e);
     }
 };
 
@@ -1051,10 +1168,19 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) { }
     }, 60000);
 
-    // 定期更新汇率显示（每30秒）
+    // 实时更新汇率显示（每10秒，更频繁）
     setInterval(() => {
         syncRate();
-    }, 30000);
+    }, 10000);
+
+    // 请求通知权限
+    if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission().then(permission => {
+            if (permission === 'granted') {
+                console.log('通知权限已授予');
+            }
+        });
+    }
 
     // 悬停时隐藏浮动按钮的优化
     const cryptoContainer = document.querySelector('.crypto-table-container');

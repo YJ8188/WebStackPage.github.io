@@ -13,7 +13,7 @@ var MetalsData = {
     },
 
     // 自动刷新配置
-    refreshInterval: 30000,   // 刷新间隔：30秒(黄金价格不会频繁变化)
+    refreshInterval: 3000,    // 刷新间隔：3秒
     refreshTimer: null,       // 定时器引用
     countdownTimer: null,     // 倒计时定时器
     nextRefreshTime: 0,       // 下次刷新时间
@@ -555,7 +555,7 @@ function initMetalsUI() {
                     <i class="fa fa-refresh"></i>
                 </button>
                 <span id="metals-countdown" style="color: #10b981; font-weight: 500;">
-                    <i class="fa fa-clock-o"></i> 30秒后刷新
+                    <i class="fa fa-clock-o"></i> 3秒后刷新
                 </span>
             </span>
         </h4>

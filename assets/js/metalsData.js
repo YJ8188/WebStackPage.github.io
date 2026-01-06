@@ -11,18 +11,169 @@ var MetalsData = {
         goldRecycle: [],       // 黄金回收价格
         preciousMetals: []     // 贵金属价格
     },
-    
+
+    // 自动刷新配置
+    refreshInterval: 3000,    // 刷新间隔：3秒
+    refreshTimer: null,       // 定时器引用
+    isRefreshing: false,      // 是否正在刷新
+
     // 初始化数据
     init: function() {
         console.log('%c[金银行情] 初始化数据模块', 'color: #10b981; font-weight: bold;');
         this.fetchGoldPrice();
+        this.startAutoRefresh();
+        this.checkDarkMode();
+    },
+
+    // 启动自动刷新
+    startAutoRefresh: function() {
+        var self = this;
+        if (this.refreshTimer) {
+            clearInterval(this.refreshTimer);
+        }
+        this.refreshTimer = setInterval(function() {
+            self.fetchGoldPrice();
+        }, this.refreshInterval);
+        console.log('%c[金银行情] 自动刷新已启动，间隔: ' + this.refreshInterval + 'ms', 'color: #10b981;');
+    },
+
+    // 停止自动刷新
+    stopAutoRefresh: function() {
+        if (this.refreshTimer) {
+            clearInterval(this.refreshTimer);
+            this.refreshTimer = null;
+            console.log('%c[金银行情] 自动刷新已停止', 'color: #f59e0b;');
+        }
+    },
+
+    // 检查黑暗模式
+    checkDarkMode: function() {
+        var body = document.body;
+        var isDark = body.classList.contains('dark-mode') ||
+                     body.getAttribute('data-theme') === 'dark' ||
+                     window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+        // 监听主题变化
+        var observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.attributeName === 'class' || mutation.attributeName === 'data-theme') {
+                    MetalsData.applyDarkMode();
+                }
+            });
+        });
+        observer.observe(body, { attributes: true });
+
+        // 监听系统主题变化
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function() {
+            MetalsData.applyDarkMode();
+        });
+
+        this.applyDarkMode();
+    },
+
+    // 应用黑暗模式样式
+    applyDarkMode: function() {
+        var body = document.body;
+        var isDark = body.classList.contains('dark-mode') ||
+                     body.getAttribute('data-theme') === 'dark' ||
+                     window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+        var containers = document.querySelectorAll('.metals-table-container');
+        containers.forEach(function(container) {
+            if (isDark) {
+                container.style.background = '#1e1e1e';
+                container.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.5)';
+            } else {
+                container.style.background = '#fff';
+                container.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.08)';
+            }
+        });
+
+        var headers = document.querySelectorAll('.metals-table-container > div:first-child');
+        headers.forEach(function(header) {
+            if (isDark) {
+                header.style.color = '#fff';
+                header.style.borderBottom = '1px solid #333';
+            } else {
+                header.style.color = '#333';
+                header.style.borderBottom = '1px solid #f0f0f0';
+            }
+        });
+
+        var theads = document.querySelectorAll('.metals-table th');
+        theads.forEach(function(th) {
+            if (isDark) {
+                th.style.background = '#2a2a2a';
+                th.style.color = '#aaa';
+                th.style.borderBottom = '1px solid #333';
+            } else {
+                th.style.background = '#fcfcfc';
+                th.style.color = '#888';
+                th.style.borderBottom = '1px solid #f0f0f0';
+            }
+        });
+
+        var tds = document.querySelectorAll('.metals-table td');
+        tds.forEach(function(td) {
+            if (isDark) {
+                td.style.color = '#e0e0e0';
+                td.style.borderTop = '1px solid #333';
+            } else {
+                td.style.color = '#333';
+                td.style.borderTop = '1px solid #f8f8f8';
+            }
+        });
+
+        var names = document.querySelectorAll('.jinjia_name');
+        names.forEach(function(name) {
+            if (isDark) {
+                name.style.color = '#e0e0e0';
+            } else {
+                name.style.color = '#333';
+            }
+        });
+
+        var prices = document.querySelectorAll('.f_hongse');
+        prices.forEach(function(price) {
+            if (isDark) {
+                price.style.color = '#ef4444';
+            }
+        });
+
+        var dates = document.querySelectorAll('.metals-table td:nth-child(3)');
+        dates.forEach(function(date) {
+            if (isDark) {
+                date.style.color = '#888';
+            } else {
+                date.style.color = '#999';
+            }
+        });
     },
 
     // 获取黄金价格数据
     fetchGoldPrice: function() {
         var self = this;
 
+        if (this.isRefreshing) {
+            console.log('%c[金银行情] 正在刷新中，跳过本次请求', 'color: #f59e0b;');
+            return;
+        }
+
+        this.isRefreshing = true;
         console.log('%c[金银行情] 开始获取黄金价格数据...', 'color: #10b981;');
+
+        // 更新刷新按钮状态
+        var refreshBtn = document.getElementById('refresh-metals-btn');
+        if (refreshBtn) {
+            refreshBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
+            refreshBtn.disabled = true;
+        }
+
+        // 更新API状态指示
+        var statusDot = document.getElementById('metals-api-status-dot');
+        if (statusDot) {
+            statusDot.style.color = '#f59e0b';
+        }
 
         fetch('https://v2.xxapi.cn/api/goldprice', {
             method: 'GET',
@@ -38,19 +189,43 @@ var MetalsData = {
         })
         .then(function(data) {
             console.log('%c[金银行情] 数据获取成功:', 'color: #10b981;', data);
-            
+
             if (data.code === 200 && data.data) {
                 self.prices.bankGoldBars = data.data.bank_gold_bar_price || [];
                 self.prices.goldRecycle = data.data.gold_recycle_price || [];
                 self.prices.preciousMetals = data.data.precious_metal_price || [];
-                
+
                 self.updateUI();
+
+                // 更新API状态指示为成功
+                if (statusDot) {
+                    statusDot.style.color = '#10b981';
+                }
             } else {
                 console.error('%c[金银行情] 数据格式错误:', 'color: #f59e0b;', data);
+
+                // 更新API状态指示为错误
+                if (statusDot) {
+                    statusDot.style.color = '#ef4444';
+                }
             }
         })
         .catch(function(error) {
             console.error('%c[金银行情] 数据获取失败:', 'color: #f59e0b;', error);
+
+            // 更新API状态指示为错误
+            if (statusDot) {
+                statusDot.style.color = '#ef4444';
+            }
+        })
+        .finally(function() {
+            self.isRefreshing = false;
+
+            // 恢复刷新按钮状态
+            if (refreshBtn) {
+                refreshBtn.innerHTML = '<i class="fa fa-refresh"></i>';
+                refreshBtn.disabled = false;
+            }
         });
     },
 
@@ -59,6 +234,39 @@ var MetalsData = {
         this.renderBankGoldBars();
         this.renderGoldRecycle();
         this.renderPreciousMetals();
+    },
+
+    // 数字跳动动画效果
+    animateNumber: function(element, newValue) {
+        var currentValue = parseFloat(element.innerText.replace(/[¥,]/g, '')) || 0;
+        var targetValue = parseFloat(newValue);
+        var duration = 500; // 动画持续时间(毫秒)
+        var startTime = null;
+
+        function update(currentTime) {
+            if (!startTime) startTime = currentTime;
+            var progress = Math.min((currentTime - startTime) / duration, 1);
+
+            // 使用缓动函数
+            var easeProgress = 1 - Math.pow(1 - progress, 3);
+            var current = currentValue + (targetValue - currentValue) * easeProgress;
+
+            element.innerText = '¥' + current.toFixed(2);
+
+            if (progress < 1) {
+                requestAnimationFrame(update);
+            } else {
+                element.innerText = '¥' + targetValue.toFixed(2);
+                // 添加闪烁效果
+                element.style.transition = 'color 0.2s ease';
+                element.style.color = '#ef4444';
+                setTimeout(function() {
+                    element.style.color = '';
+                }, 200);
+            }
+        }
+
+        requestAnimationFrame(update);
     },
 
     // 渲染银行投资金条价格
@@ -74,15 +282,40 @@ var MetalsData = {
             return;
         }
 
-        var html = '';
+        var self = this;
+        var isFirstRender = tbody.innerHTML.indexOf('正在加载') > -1;
+
         this.prices.bankGoldBars.forEach(function(item) {
-            html += '<tr>' +
-                '<td class="jinjia_name">' + item.bank + '</td>' +
-                '<td><span class="f_hongse">¥' + item.price + '</span></td>' +
-                '</tr>';
+            var existingRow = null;
+            var priceSpan = null;
+
+            // 查找是否已存在该银行的行
+            var rows = tbody.querySelectorAll('tr');
+            for (var i = 0; i < rows.length; i++) {
+                var nameCell = rows[i].querySelector('.jinjia_name');
+                if (nameCell && nameCell.innerText === item.bank) {
+                    existingRow = rows[i];
+                    priceSpan = existingRow.querySelector('.f_hongse');
+                    break;
+                }
+            }
+
+            if (existingRow && priceSpan) {
+                // 已存在,使用动画更新价格
+                var oldPrice = parseFloat(priceSpan.innerText.replace(/[¥,]/g, '')) || 0;
+                var newPrice = parseFloat(item.price);
+                if (oldPrice !== newPrice) {
+                    self.animateNumber(priceSpan, newPrice);
+                }
+            } else {
+                // 新增行
+                var row = document.createElement('tr');
+                row.innerHTML = '<td class="jinjia_name">' + item.bank + '</td>' +
+                    '<td><span class="f_hongse">¥' + item.price + '</span></td>';
+                tbody.appendChild(row);
+            }
         });
 
-        tbody.innerHTML = html;
         console.log('%c[金银行情] 银行金条表格渲染成功', 'color: #10b981;');
     },
 
@@ -99,16 +332,42 @@ var MetalsData = {
             return;
         }
 
-        var html = '';
+        var self = this;
+
         this.prices.goldRecycle.forEach(function(item) {
-            html += '<tr>' +
-                '<td class="jinjia_name">' + item.gold_type + '</td>' +
-                '<td><span class="f_hongse">¥' + item.recycle_price + '</span></td>' +
-                '<td style="font-size: 12px; color: #999;">' + item.updated_date + '</td>' +
-                '</tr>';
+            var existingRow = null;
+            var priceSpan = null;
+
+            var rows = tbody.querySelectorAll('tr');
+            for (var i = 0; i < rows.length; i++) {
+                var nameCell = rows[i].querySelector('.jinjia_name');
+                if (nameCell && nameCell.innerText === item.gold_type) {
+                    existingRow = rows[i];
+                    priceSpan = existingRow.querySelector('.f_hongse');
+                    break;
+                }
+            }
+
+            if (existingRow && priceSpan) {
+                var oldPrice = parseFloat(priceSpan.innerText.replace(/[¥,]/g, '')) || 0;
+                var newPrice = parseFloat(item.recycle_price);
+                if (oldPrice !== newPrice) {
+                    self.animateNumber(priceSpan, newPrice);
+                }
+                // 更新日期
+                var dateCell = existingRow.cells[2];
+                if (dateCell) {
+                    dateCell.innerText = item.updated_date;
+                }
+            } else {
+                var row = document.createElement('tr');
+                row.innerHTML = '<td class="jinjia_name">' + item.gold_type + '</td>' +
+                    '<td><span class="f_hongse">¥' + item.recycle_price + '</span></td>' +
+                    '<td style="font-size: 12px; color: #999;">' + item.updated_date + '</td>';
+                tbody.appendChild(row);
+            }
         });
 
-        tbody.innerHTML = html;
         console.log('%c[金银行情] 黄金回收表格渲染成功', 'color: #10b981;');
     },
 
@@ -125,17 +384,53 @@ var MetalsData = {
             return;
         }
 
-        var html = '';
+        var self = this;
+
         this.prices.preciousMetals.forEach(function(item) {
-            html += '<tr>' +
-                '<td class="jinjia_name">' + item.brand + '</td>' +
-                '<td><span class="f_hongse">¥' + item.bullion_price + '</span></td>' +
-                '<td><span class="f_hongse">¥' + item.gold_price + '</span></td>' +
-                '<td><span class="f_hongse">¥' + item.platinum_price + '</span></td>' +
-                '</tr>';
+            var existingRow = null;
+            var priceSpans = [];
+
+            var rows = tbody.querySelectorAll('tr');
+            for (var i = 0; i < rows.length; i++) {
+                var nameCell = rows[i].querySelector('.jinjia_name');
+                if (nameCell && nameCell.innerText === item.brand) {
+                    existingRow = rows[i];
+                    priceSpans = existingRow.querySelectorAll('.f_hongse');
+                    break;
+                }
+            }
+
+            if (existingRow && priceSpans.length === 3) {
+                // 更新金条价
+                var oldBullionPrice = parseFloat(priceSpans[0].innerText.replace(/[¥,]/g, '')) || 0;
+                var newBullionPrice = parseFloat(item.bullion_price);
+                if (oldBullionPrice !== newBullionPrice) {
+                    self.animateNumber(priceSpans[0], newBullionPrice);
+                }
+
+                // 更新黄金价
+                var oldGoldPrice = parseFloat(priceSpans[1].innerText.replace(/[¥,]/g, '')) || 0;
+                var newGoldPrice = parseFloat(item.gold_price);
+                if (oldGoldPrice !== newGoldPrice) {
+                    self.animateNumber(priceSpans[1], newGoldPrice);
+                }
+
+                // 更新铂金价
+                var oldPlatinumPrice = parseFloat(priceSpans[2].innerText.replace(/[¥,]/g, '')) || 0;
+                var newPlatinumPrice = parseFloat(item.platinum_price);
+                if (oldPlatinumPrice !== newPlatinumPrice) {
+                    self.animateNumber(priceSpans[2], newPlatinumPrice);
+                }
+            } else {
+                var row = document.createElement('tr');
+                row.innerHTML = '<td class="jinjia_name">' + item.brand + '</td>' +
+                    '<td><span class="f_hongse">¥' + item.bullion_price + '</span></td>' +
+                    '<td><span class="f_hongse">¥' + item.gold_price + '</span></td>' +
+                    '<td><span class="f_hongse">¥' + item.platinum_price + '</span></td>';
+                tbody.appendChild(row);
+            }
         });
 
-        tbody.innerHTML = html;
         console.log('%c[金银行情] 贵金属表格渲染成功', 'color: #10b981;');
     }
 };
@@ -244,6 +539,7 @@ function initMetalsUI() {
                 border-radius: 12px;
                 overflow: hidden;
                 box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+                transition: all 0.3s ease;
             }
 
             .metals-table {
@@ -258,6 +554,7 @@ function initMetalsUI() {
                 border-bottom: 1px solid #f0f0f0;
                 padding: 12px 15px !important;
                 font-size: 13px;
+                transition: all 0.3s ease;
             }
 
             .metals-table td {
@@ -265,6 +562,7 @@ function initMetalsUI() {
                 padding: 12px 15px !important;
                 border-top: 1px solid #f8f8f8;
                 color: #333;
+                transition: all 0.3s ease;
             }
 
             .metals-table tr:nth-child(even) {
@@ -283,6 +581,84 @@ function initMetalsUI() {
             .jinjia_name {
                 font-weight: 500;
                 color: #333;
+            }
+
+            /* 黑暗模式样式 */
+            body.dark-mode .metals-table-container,
+            body[data-theme="dark"] .metals-table-container {
+                background: #1e1e1e;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            }
+
+            body.dark-mode .metals-table-container > div:first-child,
+            body[data-theme="dark"] .metals-table-container > div:first-child {
+                color: #fff;
+                border-bottom: 1px solid #333;
+            }
+
+            body.dark-mode .metals-table th,
+            body[data-theme="dark"] .metals-table th {
+                background: #2a2a2a;
+                color: #aaa;
+                border-bottom: 1px solid #333;
+            }
+
+            body.dark-mode .metals-table td,
+            body[data-theme="dark"] .metals-table td {
+                color: #e0e0e0;
+                border-top: 1px solid #333;
+            }
+
+            body.dark-mode .metals-table tr:nth-child(even),
+            body[data-theme="dark"] .metals-table tr:nth-child(even) {
+                background-color: #252525;
+            }
+
+            body.dark-mode .metals-table tr:hover,
+            body[data-theme="dark"] .metals-table tr:hover {
+                background-color: #2a2a2a;
+            }
+
+            body.dark-mode .jinjia_name,
+            body[data-theme="dark"] .jinjia_name {
+                color: #e0e0e0;
+            }
+
+            body.dark-mode .metals-table td:nth-child(3),
+            body[data-theme="dark"] .metals-table td:nth-child(3) {
+                color: #888;
+            }
+
+            /* 刷新按钮样式 */
+            #refresh-metals-btn {
+                transition: all 0.3s ease;
+            }
+
+            #refresh-metals-btn:hover {
+                background-color: #e0e0e0;
+            }
+
+            #refresh-metals-btn:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+
+            /* 状态指示点动画 */
+            #metals-api-status-dot {
+                transition: color 0.3s ease;
+            }
+
+            /* 响应式优化 */
+            @media (max-width: 768px) {
+                .metals-table th,
+                .metals-table td {
+                    padding: 10px 12px !important;
+                    font-size: 12px;
+                }
+
+                .metals-table-container > div:first-child {
+                    font-size: 14px;
+                }
             }
         </style>
     `;
@@ -328,3 +704,20 @@ if (document.readyState === 'loading') {
         console.log('%c[金银行情] DOMContentLoaded 事件触发', 'color: #10b981;');
     });
 }
+
+// 页面可见性变化处理 - 隐藏时停止刷新，显示时恢复
+document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible') {
+        console.log('%c[金银行情] 页面可见，恢复自动刷新', 'color: #10b981;');
+        MetalsData.startAutoRefresh();
+        MetalsData.fetchGoldPrice();
+    } else if (document.visibilityState === 'hidden') {
+        console.log('%c[金银行情] 页面隐藏，暂停自动刷新', 'color: #f59e0b;');
+        MetalsData.stopAutoRefresh();
+    }
+});
+
+// 页面卸载时停止刷新
+window.addEventListener('beforeunload', function() {
+    MetalsData.stopAutoRefresh();
+});

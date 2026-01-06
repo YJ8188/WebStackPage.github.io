@@ -79,9 +79,21 @@ var MetalsData = {
 
     // 初始化所有表格
     initTables: function() {
+        // 尝试动态模式的 tbody ID
         var refTableBody = document.querySelector('#reference-prices-table-body');
         var recycleTableBody = document.querySelector('#recycle-prices-table-body');
         var shanghaiTableBody = document.querySelector('#shanghai-prices-table-body');
+
+        // 如果动态模式的 tbody 不存在，尝试静态模式的表格 tbody
+        if (!refTableBody) {
+            refTableBody = document.querySelector('#reference-prices-table tbody');
+        }
+        if (!recycleTableBody) {
+            recycleTableBody = document.querySelector('#recycle-prices-table tbody');
+        }
+        if (!shanghaiTableBody) {
+            shanghaiTableBody = document.querySelector('#shanghai-prices-table tbody');
+        }
 
         if (refTableBody) {
             refTableBody.innerHTML = this.renderReferencePrices();
@@ -99,11 +111,11 @@ var MetalsData = {
  * 动态生成金银行情板块UI
  */
 function initMetalsUI() {
-    console.log('[金银行情] initMetalsUI 开始执行');
+    console.log('%c[金银行情] initMetalsUI 开始执行', 'color: #10b981; font-weight: bold;');
     const placeholder = document.getElementById('metals-section-placeholder');
-    console.log('[金银行情] placeholder 元素:', !!placeholder);
+    console.log('%c[金银行情] placeholder 元素: ' + !!placeholder, 'color: #10b981;');
     if (!placeholder) {
-        console.error('[金银行情] 找不到 metals-section-placeholder 元素');
+        console.error('%c[金银行情] 找不到 metals-section-placeholder 元素', 'color: #f59e0b; font-weight: bold;');
         return;
     }
 
@@ -172,7 +184,7 @@ function initMetalsUI() {
     `;
 
     placeholder.innerHTML = metalsHTML;
-    console.log('[金银行情] UI 生成成功');
+    console.log('%c[金银行情] UI 生成成功', 'color: #10b981; font-weight: bold;');
 
     // 初始化表格数据
     initMetalsTableWithRetry();
@@ -180,21 +192,102 @@ function initMetalsUI() {
 
 // 页面加载完成后初始化表格（带重试机制）
 function initMetalsTableWithRetry(retryCount = 0) {
+    console.log('%c[金银行情] 开始初始化表格数据...', 'color: #10b981;');
+
     try {
-        MetalsData.initTables();
-        console.log('[金银行情] ✓ 表格初始化成功');
+        // 检查元素是否存在 - 先尝试动态模式的 tbody ID
+        var refTableBody = document.querySelector('#reference-prices-table-body');
+        var recycleTableBody = document.querySelector('#recycle-prices-table-body');
+        var shanghaiTableBody = document.querySelector('#shanghai-prices-table-body');
+
+        // 如果动态模式的 tbody 不存在，尝试静态模式的表格 tbody
+        if (!refTableBody) {
+            var refTable = document.getElementById('reference-prices-table');
+            if (refTable) {
+                refTableBody = refTable.querySelector('tbody');
+            }
+        }
+        if (!recycleTableBody) {
+            var recycleTable = document.getElementById('recycle-prices-table');
+            if (recycleTable) {
+                recycleTableBody = recycleTable.querySelector('tbody');
+            }
+        }
+        if (!shanghaiTableBody) {
+            var shanghaiTable = document.getElementById('shanghai-prices-table');
+            if (shanghaiTable) {
+                shanghaiTableBody = shanghaiTable.querySelector('tbody');
+            }
+        }
+
+        console.log('%c[金银行情] 元素检查:', 'color: #10b981;', {
+            refTableBody: !!refTableBody,
+            recycleTableBody: !!recycleTableBody,
+            shanghaiTableBody: !!shanghaiTableBody
+        });
+
+        // 渲染表格数据
+        if (refTableBody) {
+            var refHtml = MetalsData.renderReferencePrices();
+            refTableBody.innerHTML = refHtml;
+            console.log('%c[金银行情] 参考价格表格渲染成功，行数: ' + MetalsData.referencePrices.length, 'color: #10b981;');
+        } else {
+            console.error('%c[金银行情] 找不到参考价格表格元素', 'color: #f59e0b; font-weight: bold;');
+        }
+
+        if (recycleTableBody) {
+            var recycleHtml = MetalsData.renderRecyclePrices();
+            recycleTableBody.innerHTML = recycleHtml;
+            console.log('%c[金银行情] 旧料回收表格渲染成功，行数: ' + MetalsData.recyclePrices.length, 'color: #10b981;');
+        } else {
+            console.error('%c[金银行情] 找不到旧料回收表格元素', 'color: #f59e0b; font-weight: bold;');
+        }
+
+        if (shanghaiTableBody) {
+            var shanghaiHtml = MetalsData.renderShanghaiPrices();
+            shanghaiTableBody.innerHTML = shanghaiHtml;
+            console.log('%c[金银行情] 上海行情表格渲染成功，行数: ' + MetalsData.shanghaiPrices.length, 'color: #10b981;');
+        } else {
+            console.error('%c[金银行情] 找不到上海行情表格元素', 'color: #f59e0b; font-weight: bold;');
+        }
+
+        console.log('%c[金银行情] ✓ 所有表格初始化成功', 'color: #10b981; font-weight: bold;');
     } catch (e) {
-        console.error('[金银行情] ✗ 表格初始化失败:', e);
+        console.error('%c[金银行情] ✗ 表格初始化失败:', 'color: #f59e0b; font-weight: bold;', e);
+        console.error('%c[金银行情] 错误堆栈:', 'color: #f59e0b;', e.stack);
         if (retryCount < 3) {
-            console.log(`[金银行情] 正在重试初始化 (${retryCount + 1}/3)...`);
+            console.log('%c[金银行情] 正在重试初始化 (' + (retryCount + 1) + '/3)...', 'color: #f59e0b;');
             setTimeout(() => initMetalsTableWithRetry(retryCount + 1), 1000);
         }
     }
 }
 
 // 页面加载完成后初始化
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initMetalsUI);
-} else {
-    initMetalsUI();
-}
+console.log('%c[金银行情] 模块加载完成，当前状态: ' + document.readyState, 'color: #10b981; font-weight: bold;');
+
+// 使用 window.onload 确保页面完全加载
+window.addEventListener('load', function() {
+    console.log('%c[金银行情] window.load 事件触发', 'color: #10b981;');
+
+    // 检查是动态模式还是静态模式
+    var placeholder = document.getElementById('metals-section-placeholder');
+    var staticTable = document.getElementById('reference-prices-table');
+
+    if (placeholder) {
+        console.log('%c[金银行情] 检测到动态模式（index.html）', 'color: #10b981;');
+        // 延迟执行，确保所有资源都已加载完成
+        setTimeout(function() {
+            console.log('%c[金银行情] 开始执行初始化', 'color: #10b981;');
+            initMetalsUI();
+        }, 200);
+    } else if (staticTable) {
+        console.log('%c[金银行情] 检测到静态模式（1index.html）', 'color: #10b981;');
+        // 静态模式，直接初始化表格数据
+        setTimeout(function() {
+            console.log('%c[金银行情] 开始执行静态模式初始化', 'color: #10b981;');
+            initMetalsTableWithRetry();
+        }, 200);
+    } else {
+        console.error('%c[金银行情] 未找到金银行情容器元素', 'color: #f59e0b; font-weight: bold;');
+    }
+});

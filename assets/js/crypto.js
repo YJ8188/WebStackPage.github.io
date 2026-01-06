@@ -224,49 +224,6 @@ function onSuccess(dot, providerName, freshData) {
  * 使用竞速模式获取数据，优先返回最快的响应
  */
 const APIS = {
-    GATEIO: {
-        name: 'Gate.io (Official)',
-        url: 'https://api.gateio.ws/api/v4/spot/tickers',
-        handler: (data) => {
-            // 0. 备份所有交易对数据用于全局搜索
-            allGateTickers = data;
-
-            // 1. 同步汇率（修复USDT_CNY查找问题）
-            const usdtCny = data.find(item => item.currency_pair === 'USDT_CNY');
-            if (usdtCny && usdtCny.last) {
-                USD_CNY_RATE = parseFloat(usdtCny.last);
-                lastRateUpdate = Date.now();
-            }
-
-            // 2. 过滤USDT交易对并按成交量排序，取前50个
-            const sortedTickers = data
-                .filter(item => item.currency_pair.endsWith('_USDT'))
-                .filter(item => !item.currency_pair.includes('3L_') && !item.currency_pair.includes('3S_')) // 排除杠杆
-                .sort((a, b) => parseFloat(b.quote_volume) - parseFloat(a.quote_volume))
-                .slice(0, 50);
-
-            return sortedTickers.map(item => {
-                const symbol = item.currency_pair.split('_')[0].toLowerCase();
-                const nameMap = {
-                    'btc': 'Bitcoin', 'eth': 'Ethereum', 'usdt': 'Tether', 'bnb': 'BNB',
-                    'xrp': 'Ripple', 'sol': 'Solana', 'doge': 'Dogecoin', 'ada': 'Cardano',
-                    'trx': 'Tron', 'ton': 'Toncoin', 'shib': 'Shiba Inu', 'ltc': 'Litecoin',
-                    'pepe': 'PEPE', 'link': 'Chainlink', 'near': 'NEAR Protocol', 'apt': 'Aptos'
-                };
-                return {
-                    id: symbol,
-                    symbol: symbol,
-                    name: nameMap[symbol] || symbol.toUpperCase(),
-                    image: `https://gimg2.gateimg.com/coin_icon/64/${symbol}.png`,
-                    current_price: parseFloat(item.last),
-                    price_change_percentage_24h: parseFloat(item.change_percentage),
-                    market_cap: parseFloat(item.quote_volume) * 7.5, // 市值代理
-                    total_volume: parseFloat(item.quote_volume),
-                    sparkline_in_7d: null
-                };
-            });
-        }
-    },
     CRYPTOCOMPARE: {
         name: 'CryptoCompare',
         url: 'https://min-api.cryptocompare.com/data/top/totalvolfull?limit=50&tsym=USD',
@@ -897,7 +854,6 @@ async function fetchCryptoData() {
         // 优先竞速：同时启动所有主要数据源
         // 使用Promise.any获取最快响应
         const fastestResult = await Promise.any([
-            fetchSource(APIS.GATEIO),
             fetchSource(APIS.CRYPTOCOMPARE),
             fetchSource(APIS.COINCAP)
         ]);
@@ -1504,10 +1460,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // 初始化汇率显示
     updateExchangeRateDisplay();
 
-    // 实时轮询更新（每3秒）
+    // 实时轮询更新（每1秒，更频繁的实时同步）
     setInterval(() => {
         fetchCryptoData();
-    }, 3000);
+    }, 1000);
 
     // 后台刷新完整交易对列表（每60秒）
     setInterval(async () => {

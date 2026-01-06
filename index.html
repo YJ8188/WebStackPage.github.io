@@ -1,110 +1,141 @@
 <!DOCTYPE html>
+<!-- HTML文档类型声明，告诉浏览器这是一个HTML5文档 -->
 <html lang="zh">
+<!-- html标签的lang属性设置为"zh"，表示页面语言为中文 -->
 
 <head>
+    <!-- ==================== 基础设置 ==================== -->
+    <!-- 字符编码设置为UTF-8，支持中文等所有Unicode字符 -->
     <meta charset="utf-8">
+    <!-- 视口设置，确保页面在移动设备上正确显示和缩放 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- DNS预解析和预连接，加速资源加载 -->
+    <!-- ==================== DNS预解析和预连接 ==================== -->
+    <!-- DNS预解析：提前解析域名，加快资源加载速度 -->
     <link rel="dns-prefetch" href="//cdn.jsdelivr.net">
-    <link rel="dns-prefetch" href="//pagead2.googlesyndication.com">
     <link rel="dns-prefetch" href="//hm.baidu.com">
+    <!-- 预连接：提前建立TCP连接，减少请求延迟 -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 
+    <!-- ==================== 网站验证和SEO优化 ==================== -->
+    <!-- 微软Bing网站验证码，用于验证网站所有权 -->
     <meta name="msvalidate.01" content="B5E4CFF733488FD189098A7AC19D4EAF" />
 
-    <!-- 字体预加载，提升性能 -->
+    <!-- ==================== 字体资源 ==================== -->
+    <!-- 预加载HarmonyOS Sans字体，提升页面加载性能 -->
     <link rel="preload" href="https://cdn.jsdelivr.net/npm/harmonyos-sans@1.0.6/css/harmonyos-sans.min.css" as="style">
+    <!-- 引入HarmonyOS Sans字体样式 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/harmonyos-sans@1.0.6/css/harmonyos-sans.min.css">
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js">
-    </script>
-    <script>
-        (adsbygoogle = window.adsbygoogle || []).push({
-            google_ad_client: "ca-pub-8550836177608334",
-            enable_page_level_ads: true
-        });
-    </script>
-    <script>
-        var _hmt = _hmt || [];
+
+<!-- ==================== 百度统计代码 ==================== -->
+<!-- 百度统计用于网站访问数据分析 -->
+<script>
+        var _hmt = _hmt || []; // 创建百度统计对象
         (function () {
-            var hm = document.createElement("script");
-            hm.src = "https://hm.baidu.com/hm.js?c05bb16ea908292af9f6c513087a1cc3";
-            var s = document.getElementsByTagName("script")[0];
-            s.parentNode.insertBefore(hm, s);
+            var hm = document.createElement("script"); // 创建script元素
+            hm.src = "https://hm.baidu.com/hm.js?c05bb16ea908292af9f6c513087a1cc3"; // 设置百度统计脚本地址
+            var s = document.getElementsByTagName("script")[0]; // 获取第一个script标签
+            s.parentNode.insertBefore(hm, s); // 将统计脚本插入到页面中
         })();
     </script>
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="author" content="viggo" />
-    <title>何哥 - 技术员网址导航</title>
-    <meta name="keywords"
+    <!-- ==================== 浏览器兼容性和页面信息 ==================== -->
+<!-- X-UA-Compatible：指定IE浏览器使用最新的渲染模式 -->
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<!-- 页面作者信息 -->
+<meta name="author" content="viggo" />
+<!-- 页面标题，显示在浏览器标签页上 -->
+<title>何哥 - 技术员网址导航</title>
+<!-- 页面关键词，用于SEO优化 -->
+<meta name="keywords"
         content="UI设计,UI设计素材,设计导航,网址导航,设计资源,创意导航,创意网站导航,技术员网址大全,设计素材大全,技术员导航,UI设计资源,优秀UI设计欣赏,技术员导航,技术员网址大全,技术员网址导航,产品经理网址导航,交互技术员网址导航,hq168.dpdns.org">
-    <meta name="description" content="WebStack - 收集国内外优秀设计网站、UI设计资源网站、灵感创意网站、素材资源网站，定时更新分享优质产品设计书签。hq168.dpdns.org">
+<!-- 页面描述，用于SEO优化，显示在搜索结果中 -->
+<meta name="description" content="WebStack - 收集国内外优秀设计网站、UI设计资源网站、灵感创意网站、素材资源网站，定时更新分享优质产品设计书签。hq168.dpdns.org">
 
-    <!-- Favicon 多尺寸支持 -->
-    <link rel="icon" type="image/png" href="../assets/images/favicon.png">
-    <link rel="shortcut icon" href="../assets/images/favicon.png">
-    <link rel="apple-touch-icon" href="../assets/images/favicon.png">
+<!-- ==================== 网站图标（Favicon） ==================== -->
+<!-- 多尺寸支持，确保在不同设备和浏览器上都能正确显示图标 -->
+<link rel="icon" type="image/png" href="../assets/images/favicon.png">
+<link rel="shortcut icon" href="../assets/images/favicon.png">
+<link rel="apple-touch-icon" href="../assets/images/favicon.png">
 
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Arimo:400,700,400italic">
-    <link rel="stylesheet" href="../assets/css/fonts/linecons/css/linecons.css">
-    <link rel="stylesheet" href="../assets/css/fonts/fontawesome/css/font-awesome.min.css">
-    <link rel="stylesheet" href="../assets/css/bootstrap.css">
-    <link rel="stylesheet" href="../assets/css/xenon-core.css">
-    <link rel="stylesheet" href="../assets/css/xenon-components.css">
-    <link rel="stylesheet" href="../assets/css/xenon-skins.css">
-    <link rel="stylesheet" href="../assets/css/nav.css">
-    <script src="../assets/js/jquery-1.11.1.min.js"></script>
-    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
-    <!--[if lt IE 9]>
+<!-- ==================== CSS样式文件 ==================== -->
+<!-- Google Fonts：引入Arimo字体 -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Arimo:400,700,400italic">
+<!-- Linecons图标字体 -->
+<link rel="stylesheet" href="../assets/css/fonts/linecons/css/linecons.css">
+<!-- Font Awesome图标字体 -->
+<link rel="stylesheet" href="../assets/css/fonts/fontawesome/css/font-awesome.min.css">
+<!-- Bootstrap框架样式 -->
+<link rel="stylesheet" href="../assets/css/bootstrap.css">
+<!-- Xenon主题核心样式 -->
+<link rel="stylesheet" href="../assets/css/xenon-core.css">
+<!-- Xenon组件样式 -->
+<link rel="stylesheet" href="../assets/css/xenon-components.css">
+<!-- Xenon皮肤样式 -->
+<link rel="stylesheet" href="../assets/css/xenon-skins.css">
+<!-- 导航页面自定义样式 -->
+<link rel="stylesheet" href="../assets/css/nav.css">
+
+<!-- ==================== JavaScript库 ==================== -->
+<!-- jQuery库，用于DOM操作和事件处理 -->
+<script src="../assets/js/jquery-1.11.1.min.js"></script>
+    <!-- ==================== IE8兼容性支持 ==================== -->
+<!-- HTML5 shim：让IE8支持HTML5新标签 -->
+<!-- Respond.js：让IE8支持CSS3媒体查询（响应式设计） -->
+<!--[if lt IE 9]>
         <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
         <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
     <![endif]-->
-    <!-- / FB Open Graph -->
-    <meta property="og:type" content="article">
-    <meta property="og:url" content="http://hq168.dpdns.org/">
-    <meta property="og:title" content="WebStack - 收集国内外优秀设计网站、UI设计资源网站、灵感创意网站、素材资源网站，定时更新分享优质产品设计书签。hq168.dpdns.org">
-    <meta property="og:description"
-        content="UI设计,UI设计素材,设计导航,网址导航,设计资源,创意导航,创意网站导航,技术员网址大全,设计素材大全,技术员导航,UI设计资源,优秀UI设计欣赏,技术员导航,技术员网址大全,技术员网址导航,产品经理网址导航,交互技术员网址导航,hq168.dpdns.org">
-    <meta property="og:image" content="http://webstack.cc/assets/images/webstack_banner_cn.png">
-    <meta property="og:site_name"
-        content="WebStack - 收集国内外优秀设计网站、UI设计资源网站、灵感创意网站、素材资源网站，定时更新分享优质产品设计书签。hq168.dpdns.org">
-    <!-- / Twitter Cards -->
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="WebStack - 收集国内外优秀设计网站、UI设计资源网站、灵感创意网站、素材资源网站，定时更新分享优质产品设计书签。hq168.dpdns.org">
-    <meta name="twitter:description"
-        content="UI设计,UI设计素材,设计导航,网址导航,设计资源,创意导航,创意网站导航,技术员网址大全,设计素材大全,技术员导航,UI设计资源,优秀UI设计欣赏,技术员导航,技术员网址大全,技术员网址导航,产品经理网址导航,交互技术员网址导航,hq168.dpdns.org">
-    <meta name="twitter:image" content="http://www.webstack.cc/assets/images/webstack_banner_cn.png">
+
+<!-- ==================== Facebook Open Graph 元标签 ==================== -->
+<!-- 用于在Facebook分享时显示的预览信息 -->
+<meta property="og:type" content="article"> <!-- 内容类型 -->
+<meta property="og:url" content="http://hq168.dpdns.org/"> <!-- 页面URL -->
+<meta property="og:title" content="WebStack - 收集国内外优秀设计网站、UI设计资源网站、灵感创意网站、素材资源网站，定时更新分享优质产品设计书签。hq168.dpdns.org"> <!-- 分享标题 -->
+<meta property="og:description"
+        content="UI设计,UI设计素材,设计导航,网址导航,设计资源,创意导航,创意网站导航,技术员网址大全,设计素材大全,技术员导航,UI设计资源,优秀UI设计欣赏,技术员导航,技术员网址大全,技术员网址导航,产品经理网址导航,交互技术员网址导航,hq168.dpdns.org"> <!-- 分享描述 -->
+<meta property="og:image" content="http://webstack.cc/assets/images/webstack_banner_cn.png"> <!-- 分享图片 -->
+<meta property="og:site_name"
+        content="WebStack - 收集国内外优秀设计网站、UI设计资源网站、灵感创意网站、素材资源网站，定时更新分享优质产品设计书签。hq168.dpdns.org"> <!-- 网站名称 -->
+
+<!-- ==================== Twitter Cards 元标签 ==================== -->
+<!-- 用于在Twitter分享时显示的预览信息 -->
+<meta name="twitter:card" content="summary_large_image"> <!-- 卡片类型：大图模式 -->
+<meta name="twitter:title" content="WebStack - 收集国内外优秀设计网站、UI设计资源网站、灵感创意网站、素材资源网站，定时更新分享优质产品设计书签。hq168.dpdns.org"> <!-- 分享标题 -->
+<meta name="twitter:description"
+        content="UI设计,UI设计素材,设计导航,网址导航,设计资源,创意导航,创意网站导航,技术员网址大全,设计素材大全,技术员导航,UI设计资源,优秀UI设计欣赏,技术员导航,技术员网址大全,技术员网址导航,产品经理网址导航,交互技术员网址导航,hq168.dpdns.org"> <!-- 分享描述 -->
+<meta name="twitter:image" content="http://www.webstack.cc/assets/images/webstack_banner_cn.png"> <!-- 分享图片 -->
     <style>
-        /* ========== 全局字体优化 ========== */
+        /* ==================== 全局字体优化 ==================== */
+        /* 设置页面主体字体，优先使用HarmonyOS Sans，依次降级到系统字体 */
         body {
             font-family:
-                "HarmonyOS Sans",
-                -apple-system,
-                BlinkMacSystemFont,
-                "Segoe UI",
-                "PingFang SC",
-                "Hiragino Sans GB",
-                "Microsoft YaHei",
-                "Source Han Sans CN",
-                "Noto Sans CJK SC",
-                Arial,
-                sans-serif;
+                "HarmonyOS Sans", /* 鸿蒙字体，优先使用 */
+                -apple-system, /* Apple系统字体 */
+                BlinkMacSystemFont, /* macOS Chrome字体 */
+                "Segoe UI", /* Windows系统字体 */
+                "PingFang SC", /* 苹方中文字体 */
+                "Hiragino Sans GB", /* 苹果中文字体 */
+                "Microsoft YaHei", /* 微软雅黑 */
+                "Source Han Sans CN", /* 思源黑体 */
+                "Noto Sans CJK SC", /* Noto思源黑体 */
+                Arial, /* 通用字体 */
+                sans-serif; /* 无衬线字体族 */
 
-            font-weight: 400;
-            font-size: 14px;
-            line-height: 1.6;
-            letter-spacing: 0.02em;
+            font-weight: 400; /* 字体粗细：正常 */
+            font-size: 14px; /* 字体大小：14像素 */
+            line-height: 1.6; /* 行高：1.6倍，提高可读性 */
+            letter-spacing: 0.02em; /* 字间距：稍微增加 */
 
-            /* 优化字体渲染 */
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-            text-rendering: optimizeLegibility;
-            font-feature-settings: "kern" 1;
+            /* 优化字体渲染效果 */
+            -webkit-font-smoothing: antialiased; /* Chrome/Safari字体平滑 */
+            -moz-osx-font-smoothing: grayscale; /* Firefox字体平滑 */
+            text-rendering: optimizeLegibility; /* 优化文本渲染 */
+            font-feature-settings: "kern" 1; /* 启用字距调整 */
         }
 
-        /* 中文字体优化 */
+        /* 中文字体特殊优化 */
         :lang(zh) {
-            font-weight: 400;
+            font-weight: 400; /* 中文字体使用正常粗细 */
         }
 
         /* 标题字体优化 */
@@ -114,416 +145,390 @@
         h4,
         h5,
         h6 {
-            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
-            font-weight: 600;
-            letter-spacing: 0.03em;
+            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif; /* 使用清晰易读的字体 */
+            font-weight: 600; /* 标题使用半粗体 */
+            letter-spacing: 0.03em; /* 标题字间距稍微增加 */
         }
 
         /* 按钮和小标签字体 */
         button,
         .btn,
         .label {
-            font-family: "HarmonyOS Sans", -apple-system, sans-serif;
-            font-weight: 500;
+            font-family: "HarmonyOS Sans", -apple-system, sans-serif; /* 使用系统字体 */
+            font-weight: 500; /* 按钮使用中等粗细 */
         }
 
         /* ===================================================
    最终版视觉风格（封版）
    =================================================== */
 
-        /* ---------- 全局节奏 ---------- */
-
+        /* ==================== 全局布局节奏 ==================== */
+        /* 主内容区域顶部内边距 */
         .main-content {
-            padding-top: 24px;
+            padding-top: 24px; /* 与顶部保持24px间距 */
         }
 
-        /* ---------- 卡片基础 ---------- */
-
+        /* ==================== 卡片基础样式 ==================== */
+        /* 网站导航卡片的基本样式 */
         .xe-widget {
-            border-radius: 10px;
-            background-color: rgba(255, 255, 255, 0.02);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            margin-bottom: 20px;
-            position: relative;
+            border-radius: 10px; /* 圆角：10像素 */
+            background-color: rgba(255, 255, 255, 0.02); /* 背景色：半透明白色 */
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35); /* 阴影效果 */
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* 过渡动画效果 */
+            margin-bottom: 20px; /* 底部外边距 */
+            position: relative; /* 相对定位，为内部绝对定位元素提供参考 */
         }
 
+        /* ==================== 提示框（Tooltip）样式 ==================== */
         /* 确保tooltip显示在最上层 */
         .tooltip {
-            z-index: 10000 !important;
-            pointer-events: none;
+            z-index: 10000 !important; /* 最高层级 */
+            pointer-events: none; /* 不响应鼠标事件 */
         }
 
+        /* Tooltip内部样式 */
         .tooltip-inner {
-            max-width: 300px;
-            word-break: break-all;
-            font-size: 12px;
-            background-color: rgba(0, 0, 0, 0.9);
-            padding: 8px 12px;
+            max-width: 300px; /* 最大宽度 */
+            word-break: break-all; /* 强制换行 */
+            font-size: 12px; /* 字体大小 */
+            background-color: rgba(0, 0, 0, 0.9); /* 背景色：深色半透明 */
+            padding: 8px 12px; /* 内边距 */
         }
 
-        /* ---------- 卡片 hover ---------- */
-
+        /* ==================== 卡片悬停效果 ==================== */
+        /* 鼠标悬停时的卡片动画效果 */
         .xe-widget:hover {
-            transform: translateY(-6px) scale(1.01);
-            box-shadow: 0 14px 32px rgba(0, 0, 0, 0.55);
-            z-index: 2;
+            transform: translateY(-6px) scale(1.01); /* 向上移动并轻微放大 */
+            box-shadow: 0 14px 32px rgba(0, 0, 0, 0.55); /* 阴影加深 */
+            z-index: 2; /* 提升层级 */
         }
 
-        /* ---------- 卡片状态指示器 ---------- */
-        .card-status-indicator {
-            position: absolute;
-            bottom: 8px;
-            right: 8px;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #6b7280;
-            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
-            transition: all 0.3s ease;
-            z-index: 5;
-        }
-
-        .card-status-indicator.online {
-            background: #10b981;
-            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3), 0 0 8px rgba(16, 185, 129, 0.5);
-            animation: pulse-green 2s infinite;
-        }
-
-        .card-status-indicator.offline {
-            background: #ef4444;
-            box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3);
-        }
-
-        .card-status-indicator.checking {
-            background: #6b7280;
-            animation: pulse-gray 1.5s infinite;
-        }
-
-        @keyframes pulse-green {
-
-            0%,
-            100% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.6;
-            }
-        }
-
-        @keyframes pulse-gray {
-
-            0%,
-            100% {
-                transform: scale(1);
-            }
-
-            50% {
-                transform: scale(1.2);
-            }
-        }
+        
 
 
-        /* ---------- 卡片隐藏按钮 ---------- */
+        /* ==================== 卡片隐藏按钮 ==================== */
+        /* 隐藏卡片的红色删除按钮 */
         .card-hide-btn {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            width: 28px;
-            height: 28px;
-            background: rgba(239, 68, 68, 0.9);
-            color: #fff;
-            border: none;
-            border-radius: 50%;
-            cursor: pointer;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-            z-index: 10;
-            transition: all 0.2s ease;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            position: absolute; /* 绝对定位 */
+            top: 8px; /* 距离顶部8px */
+            right: 8px; /* 距离右侧8px */
+            width: 28px; /* 宽度 */
+            height: 28px; /* 高度 */
+            background: rgba(239, 68, 68, 0.9); /* 背景色：红色半透明 */
+            color: #fff; /* 文字颜色：白色 */
+            border: none; /* 无边框 */
+            border-radius: 50%; /* 圆形按钮 */
+            cursor: pointer; /* 鼠标指针：手型 */
+            display: none; /* 默认隐藏 */
+            align-items: center; /* 垂直居中 */
+            justify-content: center; /* 水平居中 */
+            font-size: 14px; /* 字体大小 */
+            z-index: 10; /* 层级 */
+            transition: all 0.2s ease; /* 过渡动画 */
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); /* 阴影 */
         }
 
+        /* 隐藏按钮悬停效果 */
         .card-hide-btn:hover {
-            background: rgba(220, 38, 38, 1);
-            transform: scale(1.1);
+            background: rgba(220, 38, 38, 1); /* 背景色加深 */
+            transform: scale(1.1); /* 放大1.1倍 */
         }
 
+        /* 卡片悬停时显示删除按钮 */
         .xe-widget:hover .card-hide-btn {
-            display: flex;
+            display: flex; /* 显示按钮 */
         }
 
-        /* 隐藏的卡片 */
+        /* 隐藏的卡片样式 */
         .card-hidden {
-            display: none !important;
+            display: none !important; /* 完全隐藏 */
         }
 
-        /* 卡片容器拖拽样式 */
+        /* ==================== 卡片拖拽功能样式 ==================== */
+        /* 可拖拽的卡片容器样式 */
         .col-sm-3[draggable="true"] {
-            cursor: grab;
-            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
+            cursor: grab; /* 鼠标指针：抓取手势 */
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease; /* 过渡动画 */
         }
 
+        /* 拖拽时的鼠标指针 */
         .col-sm-3[draggable="true"]:active {
-            cursor: grabbing;
+            cursor: grabbing; /* 鼠标指针：抓取中 */
         }
 
+        /* 可拖拽卡片悬停效果 */
         .col-sm-3[draggable="true"]:hover {
-            transform: translateY(-2px);
+            transform: translateY(-2px); /* 向上移动2px */
         }
 
         /* 拖动中的卡片样式 */
         .col-sm-3.dragging {
-            opacity: 0.4;
-            transform: scale(0.95) rotate(2deg);
-            transition: none;
-            z-index: 1000;
+            opacity: 0.4; /* 透明度降低 */
+            transform: scale(0.95) rotate(2deg); /* 缩小并旋转 */
+            transition: none; /* 无过渡效果 */
+            z-index: 1000; /* 最高层级 */
         }
 
-        /* 拖动占位符效果 */
+        /* 拖动时的占位符效果 */
         .col-sm-3.drag-over {
-            border: 2px dashed #3b82f6;
-            border-radius: 10px;
-            background: rgba(59, 130, 246, 0.1);
-            transform: scale(1.02);
+            border: 2px dashed #3b82f6; /* 蓝色虚线边框 */
+            border-radius: 10px; /* 圆角 */
+            background: rgba(59, 130, 246, 0.1); /* 蓝色半透明背景 */
+            transform: scale(1.02); /* 轻微放大 */
         }
 
-        /* 拖动时的占位符（插入位置指示） */
+        /* 拖动时的插入位置指示线 */
         .col-sm-3.drag-insert-before::before,
         .col-sm-3.drag-insert-after::after {
-            content: '';
-            position: absolute;
-            left: -2px;
-            right: -2px;
-            height: 3px;
-            background: #3b82f6;
-            border-radius: 2px;
-            z-index: 1001;
-            animation: pulse 1s infinite;
+            content: ''; /* 空内容 */
+            position: absolute; /* 绝对定位 */
+            left: -2px; /* 左侧超出2px */
+            right: -2px; /* 右侧超出2px */
+            height: 3px; /* 高度3px */
+            background: #3b82f6; /* 蓝色 */
+            border-radius: 2px; /* 圆角 */
+            z-index: 1001; /* 最高层级 */
+            animation: pulse 1s infinite; /* 脉冲动画 */
         }
 
+        /* 插入位置指示线 - 顶部 */
         .col-sm-3.drag-insert-before::before {
-            top: -2px;
+            top: -2px; /* 顶部位置 */
         }
 
+        /* 插入位置指示线 - 底部 */
         .col-sm-3.drag-insert-after::after {
-            bottom: -2px;
+            bottom: -2px; /* 底部位置 */
         }
 
+        /* 脉冲动画关键帧 */
         @keyframes pulse {
-
-            0%,
-            100% {
-                opacity: 0.6;
-                transform: scaleY(1);
+            0%, 100% {
+                opacity: 0.6; /* 透明度 */
+                transform: scaleY(1); /* 垂直缩放 */
             }
-
             50% {
-                opacity: 1;
-                transform: scaleY(1.2);
+                opacity: 1; /* 不透明 */
+                transform: scaleY(1.2); /* 垂直放大 */
             }
         }
 
         /* 拖动时的卡片阴影效果 */
         .col-sm-3.dragging .xe-widget {
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-            transform: scale(1.05);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4); /* 深阴影 */
+            transform: scale(1.05); /* 放大 */
         }
 
-        /* ---------- 卡片内容 ---------- */
-
+        /* ==================== 卡片内容样式 ==================== */
+        /* 卡片内容区域 */
         .xe-widget .xe-content {
-            padding: 18px 16px;
+            padding: 18px 16px; /* 内边距 */
         }
 
+        /* 卡片图标 */
         .xe-widget .xe-icon {
-            margin-bottom: 6px;
-            opacity: 0.9;
+            margin-bottom: 6px; /* 底部外边距 */
+            opacity: 0.9; /* 透明度 */
         }
 
-        /* ---------- 字体层级 ---------- */
-
+        /* ==================== 卡片字体层级 ==================== */
+        /* 卡片标题 */
         .xe-widget .xe-title {
-            font-size: 15px;
-            font-weight: 600;
-            letter-spacing: 0.3px;
+            font-size: 15px; /* 字体大小 */
+            font-weight: 600; /* 字体粗细 */
+            letter-spacing: 0.3px; /* 字间距 */
         }
 
+        /* 卡片描述文字 */
         .xe-widget .xe-comment {
-            font-size: 12px;
-            opacity: 0.75;
+            font-size: 12px; /* 字体大小 */
+            opacity: 0.75; /* 透明度 */
         }
 
-        /* ---------- 左侧菜单 ---------- */
-
+        /* ==================== 左侧菜单样式 ==================== */
+        /* 菜单项链接 */
         .sidebar-menu li>a {
-            border-radius: 10px;
+            border-radius: 10px; /* 圆角 */
         }
 
+        /* 激活的菜单项 */
         .sidebar-menu li.active>a {
-            background-color: rgba(255, 255, 255, 0.12);
-            font-weight: 600;
-            position: relative;
+            background-color: rgba(255, 255, 255, 0.12); /* 背景色 */
+            font-weight: 600; /* 字体粗细 */
+            position: relative; /* 相对定位 */
         }
 
+        /* 激活菜单项左侧指示条 */
         .sidebar-menu li.active>a::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 3px;
-            background-color: rgba(255, 255, 255, 0.6);
+            content: ''; /* 空内容 */
+            position: absolute; /* 绝对定位 */
+            left: 0; /* 左侧 */
+            top: 0; /* 顶部 */
+            bottom: 0; /* 底部 */
+            width: 3px; /* 宽度3px */
+            background-color: rgba(255, 255, 255, 0.6); /* 背景色 */
         }
 
+        /* 菜单项悬停效果 */
         .sidebar-menu li>a:hover {
-            background-color: rgba(255, 255, 255, 0.08);
+            background-color: rgba(255, 255, 255, 0.08); /* 背景色 */
         }
 
+        /* 菜单图标样式 */
         .sidebar-menu li>a i {
-            opacity: 0.85;
+            opacity: 0.85; /* 透明度 */
         }
 
-        /* ---------- navbar 干净化 ---------- */
-
+        /* ==================== 导航栏样式优化 ==================== */
+        /* 移除导航栏按钮和链接的边框和轮廓 */
         .navbar .navbar-toggle,
         .navbar .user-info-menu>li>a {
-            border: none !important;
-            outline: none !important;
-            box-shadow: none !important;
+            border: none !important; /* 无边框 */
+            outline: none !important; /* 无轮廓 */
+            box-shadow: none !important; /* 无阴影 */
         }
 
-        /* ================= 返回顶部按钮 ================= */
-
-        /* 回到顶部按钮 */
+        /* ==================== 返回顶部按钮 ==================== */
+        /* 回到顶部按钮样式 */
         .back-to-top {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            background: #3b82f6;
-            color: #fff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            box-shadow: 0 6px 16px rgba(59, 130, 246, .35);
-            transition: all .3s ease;
-            opacity: 0;
-            visibility: hidden;
-            z-index: 9999;
+            position: fixed; /* 固定定位 */
+            bottom: 24px; /* 距离底部24px */
+            right: 24px; /* 距离右侧24px */
+            width: 48px; /* 宽度 */
+            height: 48px; /* 高度 */
+            border-radius: 50%; /* 圆形 */
+            background: #3b82f6; /* 背景色：蓝色 */
+            color: #fff; /* 文字颜色：白色 */
+            display: flex; /* Flex布局 */
+            align-items: center; /* 垂直居中 */
+            justify-content: center; /* 水平居中 */
+            cursor: pointer; /* 鼠标指针：手型 */
+            box-shadow: 0 6px 16px rgba(59, 130, 246, .35); /* 阴影 */
+            transition: all .3s ease; /* 过渡动画 */
+            opacity: 0; /* 默认透明 */
+            visibility: hidden; /* 默认隐藏 */
+            z-index: 9999; /* 最高层级 */
         }
 
+        /* 显示返回顶部按钮 */
         .back-to-top.visible {
-            opacity: 1;
-            visibility: visible;
+            opacity: 1; /* 不透明 */
+            visibility: visible; /* 可见 */
         }
 
+        /* 返回顶部按钮悬停效果 */
         .back-to-top:hover {
-            background: #2563eb;
-            transform: translateY(-4px);
+            background: #2563eb; /* 背景色加深 */
+            transform: translateY(-4px); /* 向上移动 */
         }
 
+        /* 返回顶部按钮图标 */
         .back-to-top i {
-            font-size: 20px;
-            line-height: 1;
+            font-size: 20px; /* 字体大小 */
+            line-height: 1; /* 行高 */
         }
 
-        /* 移动端回到顶部按钮调整 */
+        /* 移动端返回顶部按钮调整（平板） */
         @media (max-width: 768px) {
             .back-to-top {
-                width: 48px;
-                height: 48px;
-                bottom: 24px;
-                right: 24px;
+                width: 48px; /* 宽度 */
+                height: 48px; /* 高度 */
+                bottom: 24px; /* 距离底部 */
+                right: 24px; /* 距离右侧 */
             }
         }
 
+        /* 移动端返回顶部按钮调整（手机） */
         @media (max-width: 480px) {
             .back-to-top {
-                width: 44px;
-                height: 44px;
-                bottom: 20px;
-                right: 16px;
+                width: 44px; /* 宽度减小 */
+                height: 44px; /* 高度减小 */
+                bottom: 20px; /* 距离底部调整 */
+                right: 16px; /* 距离右侧调整 */
             }
 
             .back-to-top i {
-                font-size: 18px;
+                font-size: 18px; /* 图标大小减小 */
             }
         }
 
-        /* 全局顶部搜索 */
+        /* ==================== 全局顶部搜索框 ==================== */
+        /* 搜索框容器 */
         .global-search {
-            position: fixed;
-            top: 16px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 9999;
+            position: fixed; /* 固定定位 */
+            top: 16px; /* 距离顶部16px */
+            left: 50%; /* 水平居中 */
+            transform: translateX(-50%); /* 水平居中修正 */
+            z-index: 9999; /* 最高层级 */
         }
 
+        /* 搜索框样式 */
         .global-search-box {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 14px;
-            background: rgba(20, 20, 20, 0.9);
-            border-radius: 999px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
-            backdrop-filter: blur(8px);
+            display: flex; /* Flex布局 */
+            align-items: center; /* 垂直居中 */
+            gap: 8px; /* 元素间距 */
+            padding: 8px 14px; /* 内边距 */
+            background: rgba(20, 20, 20, 0.9); /* 背景色：深色半透明 */
+            border-radius: 999px; /* 圆角：胶囊形 */
+            box-shadow: 0 10px 30px rgba(0, 0, 0, .35); /* 阴影 */
+            backdrop-filter: blur(8px); /* 背景模糊效果 */
         }
 
+        /* 搜索框图标 */
         .global-search-box i {
-            color: #9ca3af;
-            font-size: 16px;
+            color: #9ca3af; /* 图标颜色 */
+            font-size: 16px; /* 图标大小 */
         }
 
+        /* 搜索框输入框 */
         .global-search-box input {
-            width: 180px;
-            background: transparent;
-            border: none;
-            outline: none;
-            color: #fff;
-            font-size: 14px;
+            width: 180px; /* 宽度 */
+            background: transparent; /* 透明背景 */
+            border: none; /* 无边框 */
+            outline: none; /* 无轮廓 */
+            color: #fff; /* 文字颜色：白色 */
+            font-size: 14px; /* 字体大小 */
         }
 
+        /* 移动端搜索框输入框调整 */
         @media (max-width: 768px) {
             .global-search-box input {
-                width: 120px;
+                width: 120px; /* 宽度减小 */
             }
         }
 
-        /* 搜索引擎切换按钮 */
+        /* ==================== 搜索引擎切换按钮 ==================== */
+        /* 搜索引擎按钮样式 */
         .search-engine-btn {
-            background: rgba(59, 130, 246, 0.2);
-            border: 1px solid rgba(59, 130, 246, 0.3);
-            color: #9ca3af;
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-size: 11px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            white-space: nowrap;
+            background: rgba(59, 130, 246, 0.2); /* 背景色：蓝色半透明 */
+            border: 1px solid rgba(59, 130, 246, 0.3); /* 边框 */
+            color: #9ca3af; /* 文字颜色 */
+            padding: 4px 10px; /* 内边距 */
+            border-radius: 6px; /* 圆角 */
+            font-size: 11px; /* 字体大小 */
+            cursor: pointer; /* 鼠标指针：手型 */
+            transition: all 0.2s ease; /* 过渡动画 */
+            white-space: nowrap; /* 不换行 */
         }
 
+        /* 激活的搜索引擎按钮 */
         .search-engine-btn.active {
-            background: #3b82f6;
-            border-color: #3b82f6;
-            color: #fff;
+            background: #3b82f6; /* 背景色：蓝色 */
+            border-color: #3b82f6; /* 边框颜色 */
+            color: #fff; /* 文字颜色：白色 */
         }
 
+        /* 搜索引擎按钮悬停效果 */
         .search-engine-btn:hover {
-            background: rgba(59, 130, 246, 0.4);
-            color: #fff;
+            background: rgba(59, 130, 246, 0.4); /* 背景色加深 */
+            color: #fff; /* 文字颜色：白色 */
         }
 
+        /* 移动端搜索引擎按钮调整 */
         @media (max-width: 768px) {
             .search-engine-btn {
-                font-size: 10px;
-                padding: 3px 8px;
+                font-size: 10px; /* 字体大小减小 */
+                padding: 3px 8px; /* 内边距减小 */
             }
         }
     </style>
@@ -531,54 +536,70 @@
 </head>
 
 <body>
+    <!-- ==================== 页面容器 ==================== -->
     <div class="page-container">
+        <!-- ==================== 左侧侧边栏菜单 ==================== -->
         <div class="sidebar-menu toggle-others fixed">
             <div class="sidebar-menu-inner">
+                <!-- Logo区域 -->
                 <header class="logo-env">
-                    <!-- logo -->
+                    <!-- Logo展示 -->
                     <div class="logo">
+                        <!-- 展开状态的Logo -->
                         <a href="index.html" class="logo-expanded">
                             <img src="../assets/images/logo@2x.png" width="100%" alt="" />
                         </a>
+                        <!-- 收缩状态的Logo -->
                         <a href="index.html" class="logo-collapsed">
                             <img src="../assets/images/logo-collapsed@2x.png" width="40" alt="" />
                         </a>
                     </div>
+                    <!-- 移动端菜单切换按钮 -->
                     <div class="mobile-menu-toggle visible-xs">
                         <a href="#" data-toggle="user-info-menu">
-                            <i class="linecons-cog"></i>
+                            <i class="linecons-cog"></i> <!-- 设置图标 -->
                         </a>
                         <a href="#" data-toggle="mobile-menu">
-                            <i class="fa-bars"></i>
+                            <i class="fa-bars"></i> <!-- 菜单图标 -->
                         </a>
                     </div>
                 </header>
+
+                <!-- ==================== 主菜单列表 ==================== -->
                 <ul id="main-menu" class="main-menu">
+                    <!-- 菜单项：我的收藏 -->
                     <li>
                         <a href="#我的收藏" class="smooth">
-                            <i class="linecons-heart"></i>
+                            <i class="linecons-heart"></i> <!-- 心形图标 -->
                             <span class="title">我的收藏</span>
-                            <span class="label label-primary pull-right hidden-collapsed">New</span>
+                            <span class="label label-primary pull-right hidden-collapsed">New</span> <!-- New标签 -->
                         </a>
                     </li>
+
+                    <!-- 菜单项：工作常用 -->
                     <li>
                         <a href="#工作常用" class="smooth">
-                            <i class="linecons-star"></i>
+                            <i class="linecons-star"></i> <!-- 星形图标 -->
                             <span class="title">工作常用</span>
-                            <span class="label label-pink pull-right hidden-collapsed">Hot</span>
+                            <span class="label label-pink pull-right hidden-collapsed">Hot</span> <!-- Hot标签 -->
                         </a>
                     </li>
+
+                    <!-- 菜单项：常用AI -->
                     <li>
                         <a href="#常用AI" class="smooth">
-                            <i class="linecons-doc"></i>
+                            <i class="linecons-doc"></i> <!-- 文档图标 -->
                             <span class="title">常用AI</span>
                         </a>
                     </li>
+
+                    <!-- 菜单项：工作工具（有子菜单） -->
                     <li>
                         <a>
-                            <i class="linecons-lightbulb"></i>
+                            <i class="linecons-lightbulb"></i> <!-- 灯泡图标 -->
                             <span class="title">工作工具</span>
                         </a>
+                        <!-- 子菜单 -->
                         <ul>
                             <li>
                                 <a href="#常用AI-API" class="smooth">
@@ -755,14 +776,6 @@
                 </ul>
                 <ul class="user-info-menu right-links list-inline list-unstyled"
                     style="display: flex; align-items: center; margin-bottom: 0; height: 100%;">
-                    <!-- 天气组件 -->
-                    <li class="hidden-xs" style="height: 100%; display: flex; align-items: center;">
-                        <div id="weather-widget"
-                            style="color: #666; font-size: 13px; margin-right: 15px; display: flex; align-items: center; cursor: pointer; height: 100%;"
-                            onclick="window.open('https://wttr.in', '_blank')" title="点击查看详情">
-                            <i class="fa fa-spinner fa-spin"></i> Loading...
-                        </div>
-                    </li>
                     <!-- 暗黑模式开关 -->
                     <li class="hidden-xs" style="height: 100%; display: flex; align-items: center;">
                         <a href="javascript:void(0)" onclick="toggleDarkMode()" title="切换暗黑模式/日间模式"
@@ -7366,126 +7379,7 @@
         });
     </script>
 
-    <!-- 卡片状态检测 -->
-    <script>
-        (function () {
-            document.addEventListener('DOMContentLoaded', function () {
-                const cards = document.querySelectorAll('.xe-widget');
-                const isHttps = location.protocol === 'https:';
-
-                cards.forEach((card, index) => {
-                    const indicator = document.createElement('div');
-                    indicator.className = 'card-status-indicator checking';
-                    indicator.title = '检测中...';
-                    card.appendChild(indicator);
-
-                    const link = card.getAttribute('onclick');
-                    if (!link) return;
-                    const urlMatch = link.match(/window\.open\(['"]([^'"]+)['"]/);
-                    if (!urlMatch) return;
-                    const url = urlMatch[1];
-
-                    // 协议检查：HTTPS页面下无法检测HTTP链接
-                    if (isHttps && url.startsWith('http:')) {
-                        indicator.className = 'card-status-indicator unknown';
-                        indicator.title = 'HTTP站点 (HTTPS下无法检测)';
-                        indicator.style.background = '#f59e0b'; // 黄色
-                        return;
-                    }
-
-                    // 错峰检测
-                    setTimeout(() => {
-                        checkUrlWithFallback(url, indicator);
-                    }, index * 200);
-                });
-            });
-
-            // 双重检测机制：Fetch -> 失败 -> Favicon -> 失败 -> 重试 -> 离线
-            async function checkUrlWithFallback(url, indicator) {
-                // 尝试次数
-                const maxRetries = 2;
-
-                for (let i = 0; i <= maxRetries; i++) {
-                    try {
-                        // 尝试并行检测（Fetch 和 Favicon 哪个快用哪个）
-                        await Promise.any([
-                            checkUrlFetch(url),
-                            checkFavicon(url)
-                        ]);
-
-                        // 成功
-                        setOnline(indicator, '连接正常');
-                        return;
-                    } catch (e) {
-                        // 如果是最后一次尝试，且都失败了
-                        if (i === maxRetries) {
-                            indicator.className = 'card-status-indicator offline';
-                            indicator.title = '无法连接 (由于浏览器安全策略，可能存在误判)';
-                        } else {
-                            // 等待1秒后重试
-                            await new Promise(r => setTimeout(r, 1000));
-                        }
-                    }
-                }
-            }
-
-            function setOnline(indicator, msg) {
-                indicator.className = 'card-status-indicator online';
-                indicator.title = msg;
-            }
-
-            function checkUrlFetch(url) {
-                return new Promise((resolve, reject) => {
-                    const controller = new AbortController();
-                    // 延长超时到 8 秒
-                    const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-                    fetch(url, {
-                        method: 'GET',
-                        mode: 'no-cors',
-                        cache: 'no-cache',
-                        referrerPolicy: 'no-referrer',
-                        signal: controller.signal
-                    })
-                        .then(() => {
-                            clearTimeout(timeoutId);
-                            resolve();
-                        })
-                        .catch((err) => {
-                            clearTimeout(timeoutId);
-                            reject(err);
-                        });
-                });
-            }
-
-            function checkFavicon(url) {
-                return new Promise((resolve, reject) => {
-                    const img = new Image();
-                    // 延长图片加载超时到 8 秒
-                    const timeoutId = setTimeout(() => {
-                        img.src = '';
-                        reject();
-                    }, 8000);
-
-                    img.onload = () => {
-                        clearTimeout(timeoutId);
-                        resolve();
-                    };
-                    img.onerror = () => {
-                        clearTimeout(timeoutId);
-                        reject();
-                    };
-
-                    try {
-                        const urlObj = new URL(url);
-                        img.src = `${urlObj.protocol}//${urlObj.host}/favicon.ico?t=${Date.now()}`;
-                    } catch (e) {
-                        reject();
-                    }
-                });
-            }
-        })();
-    </script>
+    
     <!-- 添加链接模态框 -->
     <div class="panel-overlay" id="addCardOverlay"></div>
     <div class="hidden-cards-panel" id="addCardModal">
@@ -7836,52 +7730,57 @@
         }
     </style>
     <style>
-        /* ========== 暗黑模式样式 ========== */
+        /* ==================== 暗黑模式样式 ==================== */
+        /* 页面主体暗黑模式 */
         body.dark-mode {
-            background-color: #1a1a1a;
-            color: #b0b0b0;
+            background-color: #1a1a1a; /* 背景色：深灰色 */
+            color: #b0b0b0; /* 文字颜色：浅灰色 */
         }
 
+        /* 侧边栏暗黑模式 */
         body.dark-mode .page-container .sidebar-menu {
-            background-color: #222;
+            background-color: #222; /* 背景色：深灰色 */
         }
 
+        /* 主内容区域暗黑模式 */
         body.dark-mode .page-container .main-content {
-            background-color: #1a1a1a;
+            background-color: #1a1a1a; /* 背景色：深灰色 */
         }
 
+        /* 导航栏暗黑模式 */
         body.dark-mode .navbar {
-            background-color: #222;
-            border-bottom: 1px solid #333;
+            background-color: #222; /* 背景色：深灰色 */
+            border-bottom: 1px solid #333; /* 底部边框 */
         }
 
+        /* 标题暗黑模式 */
         body.dark-mode h1,
         body.dark-mode h2,
         body.dark-mode h3,
         body.dark-mode h4,
         body.dark-mode h5,
         body.dark-mode h6 {
-            color: #e0e0e0 !important;
+            color: #e0e0e0 !important; /* 文字颜色：浅灰色 */
         }
 
-        /* 卡片暗黑样式 */
+        /* ==================== 卡片暗黑样式 ==================== */
         body.dark-mode .xe-widget {
-            background: #252525;
-            border-color: #333;
+            background: #252525; /* 背景色：深灰色 */
+            border-color: #333; /* 边框颜色 */
         }
 
         body.dark-mode .xe-widget .xe-comment-entry .xe-user-name strong {
-            color: #ddd;
+            color: #ddd; /* 用户名颜色：浅灰色 */
         }
 
         body.dark-mode .xe-widget .xe-comment-entry p {
-            color: #888;
+            color: #888; /* 描述文字颜色：灰色 */
         }
 
-        /* 搜索框暗黑样式 */
+        /* ==================== 搜索框暗黑样式 ==================== */
         body.dark-mode .global-search-box {
-            background: rgba(255, 255, 255, 0.08);
-            border-color: #444;
+            background: rgba(255, 255, 255, 0.08); /* 背景色：白色半透明 */
+            border-color: #444; /* 边框颜色 */
         }
 
         body.dark-mode #globalSearchInput {
@@ -7926,249 +7825,182 @@
         }
     </style>
 
-    <script>
-        // ========== 天气组件 ==========
-        (function () {
-            const widget = document.getElementById('weather-widget');
-            if (!widget) return;
+    
 
-            // 优先使用国内源 (教书先生 API - 基于高德/百度)
-            // 备用: wttr.in
-            const weatherAPI = 'https://api.oioweb.cn/api/weather/weather';
-
-            fetch(weatherAPI)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.code === 200) {
-                        const res = data.result;
-                        const city = res.city_name; // 例如：北京市
-                        const weather = res.current_condition; // 例如：多云
-                        const temp = res.current_temperature; // 例如：25
-
-                        // 简单图标映射
-                        let iconClass = 'fa-cloud';
-                        if (weather.includes('晴')) iconClass = 'fa-sun-o';
-                        else if (weather.includes('雨')) iconClass = 'fa-tint';
-                        else if (weather.includes('雪')) iconClass = 'fa-snowflake-o';
-                        else if (weather.includes('阴')) iconClass = 'fa-cloud';
-                        else if (weather.includes('雷')) iconClass = 'fa-bolt';
-                        else if (weather.includes('雾') || weather.includes('霾')) iconClass = 'fa-align-justify';
-
-                        widget.innerHTML = `<span style="margin-right: 5px;">${city}</span> <i class="fa ${iconClass}" style="margin-right:4px"></i> ${weather} ${temp}°C`;
-                        widget.title = `更新时间: ${res.update_time} | ${res.dat_condition}`;
-                    } else {
-                        throw new Error('API Error');
-                    }
-                })
-                .catch(() => {
-                    // 失败则回退到 wttr.in
-                    fetch('https://wttr.in/?format=j1&lang=zh')
-                        .then(response => response.json())
-                        .then(data => {
-                            try {
-                                const current = data.current_condition[0];
-                                const weatherDesc = current.lang_zh ? current.lang_zh[0].value : current.weatherDesc[0].value;
-                                const temp = current.temp_C;
-                                let originCity = data.nearest_area[0].areaName[0].value;
-
-                                // 常用城市汉化映射 (wttr.in通常返回拼音或英文)
-                                const cityMap = {
-                                    'Beijing': '北京', 'Shanghai': '上海', 'Tianjin': '天津', 'Chongqing': '重庆',
-                                    'Guangzhou': '广州', 'Shenzhen': '深圳', 'Zhuhai': '珠海', 'Foshan': '佛山', 'Dongguan': '东莞',
-                                    'Hangzhou': '杭州', 'Ningbo': '宁波', 'Wenzhou': '温州', 'Nanjing': '南京', 'Suzhou': '苏州', 'Wuxi': '无锡',
-                                    'Chengdu': '成都', 'Wuhan': '武汉', 'Changsha': '长沙', 'Zhengzhou': '郑州', 'Xi\'an': '西安', 'Xian': '西安',
-                                    'Qingdao': '青岛', 'Dalian': '大连', 'Xiamen': '厦门', 'Sanya': '三亚', 'Haikou': '海口',
-                                    'Jinan': '济南', 'Shijiazhuang': '石家庄', 'Taiyuan': '太原', 'Hefei': '合肥', 'Fuzhou': '福州',
-                                    'Nanchang': '南昌', 'Kunming': '昆明', 'Guiyang': '贵阳', 'Lanzhou': '兰州', 'Nanning': '南宁',
-                                    'Harbin': '哈尔滨', 'Changchun': '长春', 'Shenyang': '沈阳', 'Huhehaote': '呼和浩特', 'Urumqi': '乌鲁木齐',
-                                    'Lhasa': '拉萨', 'Xining': '西宁', 'Yinchuan': '银川', 'Hong Kong': '香港', 'Macau': '澳门', 'Taipei': '台北',
-                                    'Coffee': '咖啡县(IP定位)' // 特殊处理
-                                };
-
-                                let city = originCity;
-                                const lowerCity = originCity.toLowerCase();
-                                for (let k in cityMap) {
-                                    if (k.toLowerCase() === lowerCity) {
-                                        city = cityMap[k];
-                                        break;
-                                    }
-                                }
-
-                                widget.innerHTML = `<span style="margin-right: 5px;">${city}</span> <i class="fa fa-cloud" style="margin-right:4px"></i> ${weatherDesc} ${temp}°C`;
-                                widget.title = `源: wttr.in | 城市: ${originCity}`;
-                            } catch (e) { widget.innerHTML = '天气暂不可用'; }
-                        })
-                        .catch(() => {
-                            widget.innerHTML = `<span style="cursor:pointer" onclick="window.open('https://weather.cma.cn/','_blank')">点击查看天气</span>`;
-                        });
-                });
-        })();
-
-        // ========== 暗黑模式逻辑 ==========
+        // ==================== 暗黑模式逻辑 ====================
+        /**
+         * 切换暗黑模式/日间模式
+         * 功能：切换页面的主题模式，并保存用户偏好到本地存储
+         */
         function toggleDarkMode() {
-            const body = document.body;
-            body.classList.toggle('dark-mode');
+            const body = document.body; // 获取body元素
+            body.classList.toggle('dark-mode'); // 切换dark-mode类
 
-            const isDark = body.classList.contains('dark-mode');
+            const isDark = body.classList.contains('dark-mode'); // 检查当前是否为暗黑模式
 
-            // 切换图标
-            const icon = document.getElementById('darkModeIcon');
+            // 切换图标显示
+            const icon = document.getElementById('darkModeIcon'); // 获取图标元素
             if (icon) {
+                // 如果是暗黑模式显示太阳图标，否则显示月亮图标
                 icon.className = isDark ? 'fa fa-sun-o' : 'fa fa-moon-o';
             }
 
-            // 保存设置
+            // 保存用户偏好到本地存储
             localStorage.setItem('theme_mode', isDark ? 'dark' : 'light');
         }
 
-        // 初始化暗黑模式
+        // ==================== 初始化暗黑模式 ====================
+        /**
+         * 页面加载时初始化暗黑模式
+         * 功能：根据用户之前的选择或系统偏好自动应用暗黑模式
+         */
         (function () {
-            const savedMode = localStorage.getItem('theme_mode');
-            // 如果用户之前设置了 Dark，或者没设置但系统是 Dark
+            const savedMode = localStorage.getItem('theme_mode'); // 获取用户保存的模式设置
+            // 检查系统是否偏好暗黑模式（用于首次访问）
             const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
 
+            // 如果用户之前设置了暗黑模式，或者没有设置但系统偏好暗黑模式
             if (savedMode === 'dark' || (!savedMode && sysDark)) {
-                toggleDarkMode(); // 切换过去
+                toggleDarkMode(); // 自动切换到暗黑模式
             }
         })();
     </script>
-    <!-- 移动端防遮挡优化补丁 -->
+    <!-- ==================== 移动端防遮挡优化补丁 ==================== -->
     <style>
+        /* 移动端样式适配（屏幕宽度小于等于768px） */
         @media screen and (max-width: 768px) {
 
-            /* 
-               增加页面底部内边距，确保内容可以滚动到浮动按钮上方 
-               给 body 和 main-content 都加，双重保险
-            */
+            /* 增加页面底部内边距，确保内容可以滚动到浮动按钮上方 */
+            /* 给body和main-content都加，双重保险 */
             body,
             .main-content {
-                padding-bottom: 150px !important;
+                padding-bottom: 150px !important; /* 底部内边距150px */
             }
 
             /* 调整返回顶部等浮动按钮的位置或样式，使其不那么碍事 */
             .go-top,
             #showHiddenCards,
             #resetOrder {
-                bottom: 80px !important;
-                /* 稍微抬高一点，避开某些手机浏览器的底部栏 */
-                opacity: 0.8;
-                /*半透明，减少遮挡感*/
-                transform: scale(0.9);
-                /*缩小一点*/
+                bottom: 80px !important; /* 稍微抬高一点，避开某些手机浏览器的底部栏 */
+                opacity: 0.8; /* 半透明，减少遮挡感 */
+                transform: scale(0.9); /* 缩小一点 */
             }
 
-            /* 如果有特定的浮动操作栏，也可以抬高 */
+            /* 显示隐藏卡片按钮的位置调整 */
             #showHiddenCards {
-                bottom: 120px !important;
+                bottom: 120px !important; /* 更高的位置 */
             }
 
+            /* 重置顺序按钮的位置调整 */
             #resetOrder {
-                bottom: 160px !important;
+                bottom: 160px !important; /* 最高的位置 */
             }
 
-            /* 针对数字货币表格，确保其容器也有底部间距 (可选，页面已有padding-bottom通常足够) */
+            /* 针对数字货币表格，确保其容器也有底部间距（可选，页面已有padding-bottom通常足够） */
             .crypto-table-container {
-                margin-bottom: 30px;
+                margin-bottom: 30px; /* 底部外边距30px */
             }
 
             /* 确保移动端侧边栏切换按钮可见 */
             .mobile-menu-toggle {
-                display: block !important;
-                visibility: visible !important;
+                display: block !important; /* 显示 */
+                visibility: visible !important; /* 可见 */
             }
 
             /* 针对移动端侧边栏的优化：防止收缩状态在手机端漏出 */
             .sidebar-menu.collapsed {
-                width: 0 !important;
-                display: none !important;
+                width: 0 !important; /* 宽度为0 */
+                display: none !important; /* 不显示 */
             }
 
+            /* 移动端侧边栏显示状态 */
             .sidebar-menu.mobile-is-visible {
-                width: 280px !important;
-                display: block !important;
+                width: 280px !important; /* 宽度280px */
+                display: block !important; /* 显示 */
             }
 
             /* 移动端主内容区域适配 */
             .main-content {
-                margin-left: 0 !important;
-                padding-bottom: 120px !important;
-                padding-left: 10px !important;
-                padding-right: 10px !important;
+                margin-left: 0 !important; /* 左边距为0 */
+                padding-bottom: 120px !important; /* 底部内边距120px */
+                padding-left: 10px !important; /* 左侧内边距10px */
+                padding-right: 10px !important; /* 右侧内边距10px */
             }
 
-            /* 移动端币种表格竖屏展示优化 */
+            /* 移动端币种表格竖屏展示优化（屏幕宽度小于等于600px） */
             @media screen and (max-width: 600px) {
                 .crypto-table-container {
-                    padding: 0 !important;
-                    margin-left: -5px;
-                    margin-right: -5px;
-                    width: calc(100% + 10px);
-                    overflow-x: auto !important;
-                    -webkit-overflow-scrolling: touch;
+                    padding: 0 !important; /* 无内边距 */
+                    margin-left: -5px; /* 左边距负值，让表格占满宽度 */
+                    margin-right: -5px; /* 右边距负值 */
+                    width: calc(100% + 10px); /* 宽度计算，确保占满 */
+                    overflow-x: auto !important; /* 横向滚动 */
+                    -webkit-overflow-scrolling: touch; /* iOS平滑滚动 */
                 }
 
                 .crypto-table {
-                    min-width: 500px;
-                    /* Force minimum width to enable scrolling */
+                    min-width: 500px; /* 强制最小宽度，启用滚动 */
                 }
 
+                /* 表格单元格样式优化 */
                 .crypto-table th,
                 .crypto-table td {
-                    padding: 8px 6px !important;
-                    font-size: 11px !important;
+                    padding: 8px 6px !important; /* 内边距减小 */
+                    font-size: 11px !important; /* 字体大小减小 */
                 }
 
-                /* Restore the hidden columns but keep them compact */
+                /* 恢复隐藏的列，但保持紧凑 */
                 .crypto-table th:nth-child(4),
                 .crypto-table td:nth-child(4),
                 .crypto-table th:nth-child(5),
                 .crypto-table td:nth-child(5) {
-                    display: table-cell !important;
+                    display: table-cell !important; /* 显示 */
                 }
 
+                /* 币种名称字体优化 */
                 .coin-name {
-                    font-size: 10px !important;
+                    font-size: 10px !important; /* 字体大小减小 */
                 }
 
+                /* 主价格字体优化 */
                 .main-price {
-                    font-size: 12px !important;
+                    font-size: 12px !important; /* 字体大小减小 */
                 }
             }
         }
 
-        /* 浮动按钮淡出效果 */
+        /* ==================== 浮动按钮淡出效果 ==================== */
         .fade-out {
-            opacity: 0 !important;
-            visibility: hidden !important;
-            pointer-events: none !important;
-            transition: opacity 0.4s ease, visibility 0.4s ease !important;
+            opacity: 0 !important; /* 透明 */
+            visibility: hidden !important; /* 不可见 */
+            pointer-events: none !important; /* 不响应鼠标事件 */
+            transition: opacity 0.4s ease, visibility 0.4s ease !important; /* 过渡动画 */
         }
 
-        /* 回到顶部按钮移动端位置微调 */
+        /* ==================== 回到顶部按钮移动端位置微调 ==================== */
         @media screen and (max-width: 768px) {
-
             .go-top,
             .back-to-top {
-                right: 20px !important;
-                bottom: 24px !important;
-                z-index: 9999 !important;
+                right: 20px !important; /* 距离右侧20px */
+                bottom: 24px !important; /* 距离底部24px */
+                z-index: 9999 !important; /* 最高层级 */
             }
         }
 
-        /* 页脚暗黑模式补丁 */
+        /* ==================== 页脚暗黑模式补丁 ==================== */
         body.dark-mode .main-footer {
-            background-color: #1a1a1a !important;
-            color: #666 !important;
-            border-top: 1px solid #333 !important;
+            background-color: #1a1a1a !important; /* 背景色 */
+            color: #666 !important; /* 文字颜色 */
+            border-top: 1px solid #333 !important; /* 顶部边框 */
         }
 
         body.dark-mode .main-footer a,
         body.dark-mode .main-footer strong {
-            color: #888 !important;
+            color: #888 !important; /* 链接和加粗文字颜色 */
         }
 
         body.dark-mode .footer-inner {
-            background: transparent !important;
+            background: transparent !important; /* 透明背景 */
         }
     </style>
     <!-- 行情功能模块 -->

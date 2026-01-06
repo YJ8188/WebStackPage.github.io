@@ -562,7 +562,7 @@ function initMetalsUI() {
 
         <div class="row">
             <div class="col-sm-12">
-                <p class="states" style="font-size: 12px; color: #666; padding: 10px; background-color: #fff; text-align: center; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">声明：以下行情仅供参考，如有咨询请联系相关人员。</p>
+                <p class="states metals-notice" style="font-size: 12px; color: #666; padding: 10px; text-align: center; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">声明：以下行情仅供参考，如有咨询请联系相关人员。</p>
 
                 <!-- 银行投资金条价格 -->
                 <div class="metals-table-container" style="margin-bottom: 20px;">
@@ -690,6 +690,11 @@ function initMetalsUI() {
                 color: #333;
             }
 
+            /* 声明文字样式 */
+            .metals-notice {
+                background-color: #fff;
+            }
+
             /* 黑暗模式样式 */
             body.dark-mode .metals-table-container,
             body[data-theme="dark"] .metals-table-container {
@@ -734,6 +739,14 @@ function initMetalsUI() {
             body.dark-mode .metals-table td:nth-child(3),
             body[data-theme="dark"] .metals-table td:nth-child(3) {
                 color: #888;
+            }
+
+            /* 声明文字暗黑模式 */
+            body.dark-mode .metals-notice,
+            body[data-theme="dark"] .metals-notice {
+                background-color: #2a2a2a !important;
+                color: #aaa !important;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
             }
 
             /* 刷新按钮样式 */

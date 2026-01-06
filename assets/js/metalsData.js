@@ -13,9 +13,12 @@ var MetalsData = {
     },
 
     // 自动刷新配置
-    refreshInterval: 3000,    // 刷新间隔：3秒
+    refreshInterval: 30000,   // 刷新间隔：30秒(黄金价格不会频繁变化)
     refreshTimer: null,       // 定时器引用
+    countdownTimer: null,     // 倒计时定时器
+    nextRefreshTime: 0,       // 下次刷新时间
     isRefreshing: false,      // 是否正在刷新
+    cachedData: null,         // 缓存的数据
 
     // 初始化数据
     init: function() {
@@ -23,6 +26,7 @@ var MetalsData = {
         this.fetchGoldPrice();
         this.startAutoRefresh();
         this.checkDarkMode();
+        this.startCountdown();
     },
 
     // 启动自动刷新
@@ -34,7 +38,34 @@ var MetalsData = {
         this.refreshTimer = setInterval(function() {
             self.fetchGoldPrice();
         }, this.refreshInterval);
-        console.log('%c[金银行情] 自动刷新已启动，间隔: ' + this.refreshInterval + 'ms', 'color: #10b981;');
+        this.nextRefreshTime = Date.now() + this.refreshInterval;
+        console.log('%c[金银行情] 自动刷新已启动，间隔: ' + (this.refreshInterval / 1000) + '秒', 'color: #10b981;');
+    },
+
+    // 启动倒计时显示
+    startCountdown: function() {
+        var self = this;
+        if (this.countdownTimer) {
+            clearInterval(this.countdownTimer);
+        }
+        this.countdownTimer = setInterval(function() {
+            self.updateCountdownDisplay();
+        }, 1000);
+    },
+
+    // 更新倒计时显示
+    updateCountdownDisplay: function() {
+        var countdownEl = document.getElementById('metals-countdown');
+        if (!countdownEl) return;
+
+        var remaining = Math.max(0, this.nextRefreshTime - Date.now());
+        var seconds = Math.ceil(remaining / 1000);
+
+        if (seconds <= 0) {
+            countdownEl.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 刷新中...';
+        } else {
+            countdownEl.innerHTML = '<i class="fa fa-clock-o"></i> ' + seconds + '秒后刷新';
+        }
     },
 
     // 停止自动刷新
@@ -169,6 +200,12 @@ var MetalsData = {
             refreshBtn.disabled = true;
         }
 
+        // 更新倒计时显示
+        var countdownEl = document.getElementById('metals-countdown');
+        if (countdownEl) {
+            countdownEl.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 刷新中...';
+        }
+
         // 更新API状态指示
         var statusDot = document.getElementById('metals-api-status-dot');
         if (statusDot) {
@@ -191,11 +228,44 @@ var MetalsData = {
             console.log('%c[金银行情] 数据获取成功:', 'color: #10b981;', data);
 
             if (data.code === 200 && data.data) {
-                self.prices.bankGoldBars = data.data.bank_gold_bar_price || [];
-                self.prices.goldRecycle = data.data.gold_recycle_price || [];
-                self.prices.preciousMetals = data.data.precious_metal_price || [];
+                // 检查数据是否合理,避免异常波动
+                var newData = data.data;
+                var oldData = self.cachedData;
+
+                // 如果有缓存数据,检查价格变化是否合理
+                if (oldData && oldData.gold_recycle_price) {
+                    var old24K = oldData.gold_recycle_price.find(function(item) {
+                        return item.gold_type === '24K金回收';
+                    });
+                    var new24K = newData.gold_recycle_price.find(function(item) {
+                        return item.gold_type === '24K金回收';
+                    });
+
+                    if (old24K && new24K) {
+                        var oldPrice = parseFloat(old24K.recycle_price);
+                        var newPrice = parseFloat(new24K.recycle_price);
+                        var changePercent = Math.abs((newPrice - oldPrice) / oldPrice * 100);
+
+                        // 如果价格变化超过5%,可能是API异常,使用缓存数据
+                        if (changePercent > 5) {
+                            console.warn('%c[金银行情] 检测到异常价格波动: ' + changePercent.toFixed(2) + '%, 使用缓存数据', 'color: #f59e0b;');
+                            newData = oldData;
+                        }
+                    }
+                }
+
+                // 更新数据
+                self.prices.bankGoldBars = newData.bank_gold_bar_price || [];
+                self.prices.goldRecycle = newData.gold_recycle_price || [];
+                self.prices.preciousMetals = newData.precious_metal_price || [];
+
+                // 缓存数据
+                self.cachedData = JSON.parse(JSON.stringify(newData));
 
                 self.updateUI();
+
+                // 更新下次刷新时间
+                self.nextRefreshTime = Date.now() + self.refreshInterval;
 
                 // 更新API状态指示为成功
                 if (statusDot) {
@@ -213,6 +283,15 @@ var MetalsData = {
         .catch(function(error) {
             console.error('%c[金银行情] 数据获取失败:', 'color: #f59e0b;', error);
 
+            // 如果有缓存数据,使用缓存
+            if (self.cachedData) {
+                console.log('%c[金银行情] 使用缓存数据', 'color: #10b981;');
+                self.prices.bankGoldBars = self.cachedData.bank_gold_bar_price || [];
+                self.prices.goldRecycle = self.cachedData.gold_recycle_price || [];
+                self.prices.preciousMetals = self.cachedData.precious_metal_price || [];
+                self.updateUI();
+            }
+
             // 更新API状态指示为错误
             if (statusDot) {
                 statusDot.style.color = '#ef4444';
@@ -226,6 +305,9 @@ var MetalsData = {
                 refreshBtn.innerHTML = '<i class="fa fa-refresh"></i>';
                 refreshBtn.disabled = false;
             }
+
+            // 更新倒计时显示
+            self.updateCountdownDisplay();
         });
     },
 
@@ -283,7 +365,12 @@ var MetalsData = {
         }
 
         var self = this;
-        var isFirstRender = tbody.innerHTML.indexOf('正在加载') > -1;
+        var loadingEl = document.getElementById('bank-gold-loading');
+
+        // 移除加载提示
+        if (loadingEl) {
+            tbody.innerHTML = '';
+        }
 
         this.prices.bankGoldBars.forEach(function(item) {
             var existingRow = null;
@@ -333,6 +420,12 @@ var MetalsData = {
         }
 
         var self = this;
+        var loadingEl = document.getElementById('gold-recycle-loading');
+
+        // 移除加载提示
+        if (loadingEl) {
+            tbody.innerHTML = '';
+        }
 
         this.prices.goldRecycle.forEach(function(item) {
             var existingRow = null;
@@ -385,6 +478,12 @@ var MetalsData = {
         }
 
         var self = this;
+        var loadingEl = document.getElementById('precious-metals-loading');
+
+        // 移除加载提示
+        if (loadingEl) {
+            tbody.innerHTML = '';
+        }
 
         this.prices.preciousMetals.forEach(function(item) {
             var existingRow = null;
@@ -450,12 +549,14 @@ function initMetalsUI() {
     const metalsHTML = `
         <h4 class="text-gray">
             <i class="linecons-diamond" style="margin-right: 7px;" id="金银行情"></i>金银行情
-            <span style="float: right; display: flex; align-items: center; font-size: 12px;">
+            <span style="float: right; display: flex; align-items: center; font-size: 12px; gap: 8px;">
                 <button id="refresh-metals-btn" class="btn btn-xs btn-white" onclick="MetalsData.init()"
                     style="margin-right: 0; padding: 4px 8px;" title="刷新数据">
                     <i class="fa fa-refresh"></i>
                 </button>
-                <span style="margin-left: 8px; color: #888;">实时行情</span>
+                <span id="metals-countdown" style="color: #10b981; font-weight: 500;">
+                    <i class="fa fa-clock-o"></i> 30秒后刷新
+                </span>
             </span>
         </h4>
 
@@ -476,7 +577,9 @@ function initMetalsUI() {
                         <tbody id="bank-gold-bars-body">
                             <tr>
                                 <td colspan="2" style="text-align:center; padding: 20px;">
-                                    正在加载行情数据... <i class="fa fa-spinner fa-spin"></i>
+                                    <div id="bank-gold-loading">
+                                        <i class="fa fa-spinner fa-spin"></i> 正在加载行情数据...
+                                    </div>
                                 </td>
                             </tr>
                         </tbody>
@@ -497,7 +600,9 @@ function initMetalsUI() {
                         <tbody id="gold-recycle-body">
                             <tr>
                                 <td colspan="3" style="text-align:center; padding: 20px;">
-                                    正在加载行情数据... <i class="fa fa-spinner fa-spin"></i>
+                                    <div id="gold-recycle-loading">
+                                        <i class="fa fa-spinner fa-spin"></i> 正在加载行情数据...
+                                    </div>
                                 </td>
                             </tr>
                         </tbody>
@@ -519,7 +624,9 @@ function initMetalsUI() {
                         <tbody id="precious-metals-body">
                             <tr>
                                 <td colspan="4" style="text-align:center; padding: 20px;">
-                                    正在加载行情数据... <i class="fa fa-spinner fa-spin"></i>
+                                    <div id="precious-metals-loading">
+                                        <i class="fa fa-spinner fa-spin"></i> 正在加载行情数据...
+                                    </div>
                                 </td>
                             </tr>
                         </tbody>

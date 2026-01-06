@@ -1022,7 +1022,7 @@ function renderCryptoTable(data) {
                 <td>
                     <div class="price-wrap">
                         <span id="price-${coin.symbol}" class="main-price price-update" data-val="${rawPrice * rate}">${symbol}${price}</span>
-                        <span class="converted-price">${secondarySymbol}${secondaryPrice}</span>
+                        <span class="converted-price">${secondarySymbol}${secondaryPriceText}</span>
                     </div>
                 </td>
                 <td>

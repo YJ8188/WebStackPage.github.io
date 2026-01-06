@@ -2,7 +2,16 @@ var lockReconnect = false;  //避免ws重复连接
 var isConn = false;
 var ws = null;          // 判断当前浏览器是否支持WebSocket
 var uidStr = Utilss.getUUID()
-var wsUrl = Utilss.getWsURL()+uidStr;
+
+// Cloudflare Workers 代理配置（免费 HTTPS → WS 桥接）
+var CF_WORKER_URL = 'https://ws-relay-ysxnew.a34296407-5cc.workers.dev';
+var USE_PROXY = true;  // 是否使用代理（HTTPS 页面必须用代理）
+
+// 使用代理 URL
+var wsUrl = USE_PROXY 
+    ? CF_WORKER_URL + '/push?cname=ysxnew&uid=' + uidStr
+    : Utilss.getWsURL() + uidStr;
+
 var connCount = 0;
 
 // 智能降级配置

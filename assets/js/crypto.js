@@ -283,20 +283,24 @@ const APIS = {
 
 // ==================== 汇率显示功能 ====================
 
-// 汇率API配置（使用yunapi.cn通过CORS代理）
+// 汇率API配置（使用xxapi.cn）
 const rateAPIs = [
     {
-        name: 'YunAPI',
-        url: 'https://corsproxy.io/?' + encodeURIComponent('https://yunapi.cn/api/huilv'),
+        name: 'XXAPI',
+        url: 'https://v2.xxapi.cn/api/allrates?key=b83b2580c8ea95ca',
         timeout: 10000,
         handler: (data) => {
-            console.log('[YunAPI] 原始数据:', data);
-            if (data && data.USD) {
-                const rate = parseFloat(data.USD);
-                console.log('[YunAPI] USD/CNY汇率:', rate);
-                return rate;
+            console.log('[XXAPI] 原始数据:', data);
+            if (data && data.data && data.data.rates && data.data.rates.CNY) {
+                const cnyRate = data.data.rates.CNY.rate;
+                // API返回的是 1 CNY = ? USD
+                // 我们需要 1 USD = ? CNY
+                const usdToCnyRate = 1 / cnyRate;
+                console.log('[XXAPI] CNY汇率:', cnyRate);
+                console.log('[XXAPI] USD/CNY汇率:', usdToCnyRate);
+                return usdToCnyRate;
             }
-            console.error('[YunAPI] 数据格式不匹配');
+            console.error('[XXAPI] 数据格式不匹配');
             throw new Error('Invalid data');
         }
     }
@@ -322,7 +326,7 @@ async function checkNetworkStatus() {
 
     // 测试各个API的连通性
     const testURLs = [
-        { name: 'YunAPI汇率', url: 'https://corsproxy.io/?' + encodeURIComponent('https://yunapi.cn/api/huilv') },
+        { name: 'XXAPI汇率', url: 'https://v2.xxapi.cn/api/allrates?key=b83b2580c8ea95ca' },
         { name: 'CryptoCompare', url: 'https://min-api.cryptocompare.com/data/top/totalvolfull?limit=10&tsym=USD' },
         { name: 'CoinCap', url: 'https://api.coincap.io/v2/assets?limit=10' }
     ];
@@ -471,23 +475,26 @@ async function showRateDetailModal() {
 
     modal.style.display = 'flex';
 
-    // 使用YunAPI汇率API（通过CORS代理）
+    // 使用XXAPI汇率API
     const rateAPIs = [
         {
-            name: 'YunAPI',
-            url: 'https://corsproxy.io/?' + encodeURIComponent('https://yunapi.cn/api/huilv'),
+            name: 'XXAPI',
+            url: 'https://v2.xxapi.cn/api/allrates?key=b83b2580c8ea95ca',
             timeout: 10000,
             handler: (data) => {
-                console.log('[YunAPI] 原始数据:', data);
-                if (data && data.USD) {
-                    const current = parseFloat(data.USD);
+                console.log('[XXAPI] 原始数据:', data);
+                if (data && data.data && data.data.rates && data.data.rates.CNY) {
+                    const cnyRate = data.data.rates.CNY.rate;
+                    // API返回的是 1 CNY = ? USD
+                    // 我们需要 1 USD = ? CNY
+                    const current = 1 / cnyRate;
                     return {
                         current: current,
                         high: current * 1.002, // 模拟24h最高价
                         low: current * 0.998,  // 模拟24h最低价
                         volume: 1000000, // 模拟成交量
                         change: 0, // API不提供涨跌幅
-                        source: 'YunAPI'
+                        source: 'XXAPI'
                     };
                 }
                 throw new Error('Invalid data format');

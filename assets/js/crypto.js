@@ -899,7 +899,7 @@ function renderCryptoTable(data) {
     tbody.innerHTML = '';
 
     const isCNY = currentCurrency === 'CNY';
-    const rate = isCNY ? USD_CNY_RATE : 1;
+    const rate = isCNY ? (USD_CNY_RATE || 1) : 1;
     const symbol = isCNY ? '¥' : '$';
 
     const orderMap = { 'btc': 1, 'eth': 2, 'usdt': 3, 'bnb': 4, 'sol': 5, 'xrp': 6, 'etc': 7, 'doge': 8 };
@@ -918,7 +918,7 @@ function renderCryptoTable(data) {
         });
 
         const secondarySymbol = isCNY ? '$' : '¥';
-        const secondaryPrice = (rawPrice * (isCNY ? 1 : USD_CNY_RATE)).toLocaleString(undefined, {
+        const secondaryPrice = (rawPrice * (isCNY ? 1 : (USD_CNY_RATE || 1))).toLocaleString(undefined, {
             minimumFractionDigits: 2,
             maximumFractionDigits: (rawPrice < 1 ? 4 : 2)
         });
@@ -1036,7 +1036,7 @@ function coal(val) {
 function updateCryptoUI(data) {
     if (!data) return;
     const isCNY = currentCurrency === 'CNY';
-    const rate = isCNY ? USD_CNY_RATE : 1;
+    const rate = isCNY ? (USD_CNY_RATE || 1) : 1;
     const symbol = isCNY ? '¥' : '$';
 
     data.forEach(coin => {
@@ -1072,7 +1072,7 @@ function updateCryptoUI(data) {
                 const secondaryEl = priceEl.nextElementSibling;
                 if (secondaryEl && secondaryEl.classList.contains('converted-price')) {
                     const secondarySymbol = isCNY ? '$' : '¥';
-                    const secondaryPrice = (rawPrice * (isCNY ? 1 : USD_CNY_RATE)).toLocaleString(undefined, {
+                    const secondaryPrice = (rawPrice * (isCNY ? 1 : (USD_CNY_RATE || 1))).toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: (rawPrice < 1 ? 4 : 2)
                     });

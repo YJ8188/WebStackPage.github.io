@@ -61,6 +61,67 @@
 <!-- jQuery库，用于DOM操作和事件处理 -->
     <script src="../assets/js/jquery-1.11.1.min.js"></script>
 
+<!-- CORS 代理拦截器：解决 HTTPS 页面访问 HTTP 请求的问题 -->
+<script>
+(function() {
+    if (window._corsInterceptorInstalled) return;
+    window._corsInterceptorInstalled = true;
+
+    var CORS_PROXIES = [
+        'https://corsproxy.io/?',
+        'https://api.allorigins.win/raw?url='
+    ];
+
+    function installInterceptor() {
+        if (typeof $ === 'undefined' || !$.ajax) {
+            setTimeout(installInterceptor, 100);
+            return;
+        }
+
+        var originalAjax = $.ajax;
+
+        $.ajax = function(options) {
+            var originalUrl = options.url;
+            var isHttpUrl = originalUrl && originalUrl.indexOf('http://') === 0;
+            var isHttpsPage = window.location.protocol === 'https:';
+
+            if (isHttpUrl && isHttpsPage) {
+                var proxyUrl = CORS_PROXIES[0] + encodeURIComponent(originalUrl);
+
+                var proxyOptions = $.extend({}, options, {
+                    url: proxyUrl,
+                    crossDomain: true,
+                    dataType: 'text'
+                });
+
+                var deferred = $.Deferred();
+
+                originalAjax(proxyOptions)
+                    .done(function(data) {
+                        try {
+                            var response = JSON.parse(data);
+                            if (response.contents) {
+                                deferred.resolve(response.contents);
+                                return;
+                            }
+                        } catch (e) {}
+                        deferred.resolve(data);
+                    })
+                    .fail(function(jqXHR, textStatus) {
+                        deferred.reject(jqXHR, textStatus);
+                    });
+
+                return deferred.promise();
+            }
+
+            return originalAjax(options);
+        };
+    }
+
+    installInterceptor();
+})();
+</script>
+
 <!-- ==================== Facebook Open Graph 元标签 ==================== --><!-- 用于在Facebook分享时显示的预览信息 -->
 <meta property="og:type" content="article"> <!-- 内容类型 -->
 <meta property="og:title" content="何哥的网站导航系统 - 收集国内外优秀设计网站、UI设计资源网站、灵感创意网站、素材资源网站"> <!-- 分享标题 -->
@@ -5111,12 +5172,9 @@
             <div id="metals-section-placeholder"></div>
             <!--END 金银行情 -->
 
-            <!-- AJAX 拦截器 - 必须在所有 AJAX 请求之前加载 -->
-            <script src="../assets/js/ajax-interceptor.js"></script>
-            
             <!-- 金银行情JavaScript模块 -->
             <script src="../assets/js/metalsData.js"></script>
-            
+
             <!-- 金银行情数据获取模块 -->
             <script src="../assets/js/parserData.js"></script>
             <script src="../assets/js/Plaintext.js"></script>
@@ -5124,7 +5182,15 @@
             <script src="../jquery/crypto-js.js"></script>
             <script src="../assets/js/dataSettings.js"></script>
             <script src="../assets/js/bases.js"></script>
+
+            <!-- 金银行情轮询模块（用于 GitHub Pages 等 HTTPS 环境） -->
+            <script src="../assets/js/metals-polling.js"></script>
+
+            <!-- WebSocket 连接模块（本地 HTTP 环境使用） -->
             <script src="../assets/js/sockets.js"></script>
+
+            <!-- AJAX 拦截器（仅在本地 HTTP 环境使用，GitHub Pages 已禁用） -->
+            <!-- <script src="../assets/js/ajax-interceptor.js"></script> -->
             <!-- Main Footer -->
             <!-- Choose between footer styles: "footer-type-1" or "footer-type-2" -->
             <!-- Add class "sticky" to  always stick the footer to the end of page (if page contents is small) -->

@@ -4,6 +4,9 @@
  * 优先尝试 HTTPS，失败后降级到 HTTP
  */
 
+// 立即执行，不等待 jQuery
+console.log('[AJAX拦截器] 文件已加载！');
+
 (function() {
     // 检查是否已经拦截过
     if (window._ajaxInterceptorInstalled) {

@@ -482,10 +482,9 @@ async function showRateDetailModal() {
             handler: (data) => {
                 console.log('[XXAPI] 原始数据:', data);
                 if (data && data.data && data.data.rates && data.data.rates.CNY) {
-                    const cnyRate = data.data.rates.CNY.rate;
-                    // API返回的是 1 CNY = ? USD
-                    // 我们需要 1 USD = ? CNY
-                    const current = 1 / cnyRate;
+                    // API返回的rate表示：1 USD = ? 该货币
+                    // 所以CNY.rate = 7.33 表示 1 USD = 7.33 CNY
+                    const current = data.data.rates.CNY.rate;
                     return {
                         current: current,
                         high: current * 1.002, // 模拟24h最高价

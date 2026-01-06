@@ -379,10 +379,10 @@ const APIS = {
 
 // ==================== 汇率显示功能 ====================
 
-// 汇率API配置（按优先级排序）
+// 汇率API配置（只使用CoinGecko）
 const rateAPIs = [
     {
-        name: 'CoinGecko (USD/CNY)',
+        name: 'CoinGecko',
         url: 'https://api.coingecko.com/api/v3/exchange_rates',
         timeout: 5000,
         handler: (data) => {
@@ -405,99 +405,6 @@ const rateAPIs = [
                 }
             }
             console.error('[CoinGecko] 数据格式不匹配');
-            throw new Error('Invalid data');
-        }
-    },
-    {
-        name: 'Gate.io',
-        url: 'https://api.gateio.ws/api/v4/spot/tickers?currency_pair=USDT_CNY',
-        timeout: 5000,
-        handler: (data) => {
-            console.log('[Gate.io] 原始数据:', data);
-            if (data && Array.isArray(data) && data.length > 0 && data[0].last) {
-                const rate = parseFloat(data[0].last);
-                console.log('[Gate.io] 解析汇率:', rate);
-                return rate;
-            }
-            console.error('[Gate.io] 数据格式不匹配');
-            throw new Error('Invalid data');
-        }
-    },
-    {
-        name: 'Binance',
-        url: 'https://api.binance.com/api/v3/ticker/price?symbol=USDTCNY',
-        timeout: 5000,
-        handler: (data) => {
-            console.log('[Binance] 原始数据:', data);
-            if (data && data.price) {
-                const rate = parseFloat(data.price);
-                console.log('[Binance] 解析汇率:', rate);
-                return rate;
-            }
-            console.error('[Binance] 数据格式不匹配');
-            throw new Error('Invalid data');
-        }
-    },
-    {
-        name: 'OKX',
-        url: 'https://www.okx.com/api/v5/market/ticker?instId=USDT-CNY',
-        timeout: 5000,
-        handler: (data) => {
-            console.log('[OKX] 原始数据:', data);
-            console.log('[OKX] data.data:', data.data);
-            if (data && data.data && Array.isArray(data.data) && data.data.length > 0 && data.data[0].last) {
-                const rate = parseFloat(data.data[0].last);
-                console.log('[OKX] 解析汇率:', rate);
-                return rate;
-            }
-            console.error('[OKX] 数据格式不匹配');
-            throw new Error('Invalid data');
-        }
-    },
-    {
-        name: 'Bybit',
-        url: 'https://api.bybit.com/v5/market/tickers?category=spot&symbol=USDTCNY',
-        timeout: 5000,
-        handler: (data) => {
-            console.log('[Bybit] 原始数据:', data);
-            console.log('[Bybit] data.result:', data.result);
-            if (data && data.result && data.result.list && Array.isArray(data.result.list) && data.result.list.length > 0 && data.result.list[0].lastPrice) {
-                const rate = parseFloat(data.result.list[0].lastPrice);
-                console.log('[Bybit] 解析汇率:', rate);
-                return rate;
-            }
-            console.error('[Bybit] 数据格式不匹配');
-            throw new Error('Invalid data');
-        }
-    },
-    {
-        name: 'Huobi',
-        url: 'https://api.huobi.pro/market/detail/merged?symbol=usdtcny',
-        timeout: 5000,
-        handler: (data) => {
-            console.log('[Huobi] 原始数据:', data);
-            console.log('[Huobi] data.tick:', data.tick);
-            if (data && data.tick && data.tick.close) {
-                const rate = parseFloat(data.tick.close);
-                console.log('[Huobi] 解析汇率:', rate);
-                return rate;
-            }
-            console.error('[Huobi] 数据格式不匹配');
-            throw new Error('Invalid data');
-        }
-    },
-    {
-        name: 'ExchangeRate-API',
-        url: 'https://api.exchangerate-api.com/v4/latest/USD',
-        timeout: 5000,
-        handler: (data) => {
-            console.log('[ExchangeRate-API] 原始数据:', data);
-            if (data && data.rates && data.rates.CNY) {
-                const rate = parseFloat(data.rates.CNY);
-                console.log('[ExchangeRate-API] 解析汇率:', rate);
-                return rate;
-            }
-            console.error('[ExchangeRate-API] 数据格式不匹配');
             throw new Error('Invalid data');
         }
     }
@@ -979,7 +886,7 @@ function updateExchangeRateDisplay() {
     if (currentRate === null) {
         rateEl.innerHTML = `<span style="opacity: 0.6;">加载中...</span>`;
     } else {
-        rateEl.innerHTML = `1 USDT = <span class="rate-value">${currentRate.toFixed(2)}</span> CNY`;
+        rateEl.innerHTML = `1 USDT = <span class="rate-value">${currentRate.toFixed(4)}</span> CNY`;
         rateEl.dataset.mode = 'usdt-cny';
     }
 }
@@ -1441,7 +1348,7 @@ function initCryptoUI() {
                     style="margin-right: 10px; padding: 2px 6px;" title="刷新数据">
                     <i class="fa fa-refresh"></i>
                 </button>
-                <span style="margin-right: 10px; color: #888;">汇率:</span>
+                <span style="margin-right: 8px; color: #888; font-size: 12px;">汇率:</span>
                 <span id="exchange-rate-display" class="rate-display"
                     style="font-size: 12px; font-weight: bold; color: #10b981; cursor: pointer;"
                     onclick="showRateDetailModal()"
@@ -1457,11 +1364,11 @@ function initCryptoUI() {
                     <table class="table crypto-table">
                         <thead>
                             <tr>
-                                <th>币种 / 24h量</th>
-                                <th>最新价</th>
-                                <th>24h涨跌</th>
-                                <th class="table-market-cap">市值</th>
-                                <th style="text-align:center;">7日趋势</th>
+                                <th style="width: 28%;">币种 / 24h量</th>
+                                <th style="width: 18%;">最新价</th>
+                                <th style="width: 14%;">24h涨跌</th>
+                                <th class="table-market-cap" style="width: 18%;">市值</th>
+                                <th style="width: 22%; text-align:center;">7日趋势</th>
                             </tr>
                         </thead>
                         <tbody id="crypto-table-body">
@@ -1666,10 +1573,49 @@ function initCryptoUI() {
                 font-weight: bold;
             }
 
+            /* 移动端标题区域优化 */
             @media screen and (max-width: 768px) {
+                .text-gray {
+                    font-size: 16px !important;
+                    line-height: 1.4;
+                }
+
+                .text-gray span {
+                    font-size: 11px !important;
+                    flex-wrap: wrap;
+                    gap: 5px;
+                }
+
+                #refresh-crypto-btn {
+                    padding: 3px 8px !important;
+                    font-size: 11px !important;
+                }
+
+                .rate-display {
+                    padding: 3px 8px !important;
+                    font-size: 11px !important;
+                }
+            }
+
+            @media screen and (max-width: 768px) {
+                /* 移动端表格容器添加横向滚动 */
+                .crypto-table-container {
+                    overflow-x: auto;
+                    -webkit-overflow-scrolling: touch;
+                }
+
+                .crypto-table {
+                    min-width: 600px;
+                }
+
                 .crypto-table th,
                 .crypto-table td {
-                    padding: 10px 8px !important;
+                    padding: 8px 6px !important;
+                    white-space: nowrap;
+                }
+
+                .crypto-table th {
+                    font-size: 11px !important;
                 }
 
                 .coin-icon {
@@ -1678,9 +1624,30 @@ function initCryptoUI() {
                     margin-right: 8px;
                 }
 
+                .coin-name {
+                    font-size: 12px !important;
+                }
+
+                .coin-vol {
+                    font-size: 10px !important;
+                }
+
+                .main-price {
+                    font-size: 12px !important;
+                }
+
+                .converted-price {
+                    font-size: 10px !important;
+                }
+
                 .change-box {
-                    min-width: 65px;
-                    font-size: 11px;
+                    min-width: 60px;
+                    padding: 4px 3px !important;
+                    font-size: 10px !important;
+                }
+
+                .market_cap_cell {
+                    font-size: 10px !important;
                 }
 
                 .table-market-cap,
@@ -1708,6 +1675,37 @@ function initCryptoUI() {
 
                 body.dark-mode .detail-info {
                     border-bottom-color: rgba(255, 255, 255, 0.1);
+                }
+            }
+
+            @media screen and (max-width: 480px) {
+                /* 超小屏幕进一步优化 */
+                .crypto-table {
+                    min-width: 550px;
+                }
+
+                .crypto-table th,
+                .crypto-table td {
+                    padding: 6px 4px !important;
+                }
+
+                .coin-icon {
+                    width: 20px;
+                    height: 20px;
+                    margin-right: 6px;
+                }
+
+                .coin-name {
+                    font-size: 11px !important;
+                }
+
+                .main-price {
+                    font-size: 11px !important;
+                }
+
+                .change-box {
+                    min-width: 55px;
+                    font-size: 9px !important;
                 }
             }
 

@@ -79,9 +79,9 @@ var MetalsData = {
 
     // 初始化所有表格
     initTables: function() {
-        var refTableBody = document.querySelector('#reference-prices-table tbody');
-        var recycleTableBody = document.querySelector('#recycle-prices-table tbody');
-        var shanghaiTableBody = document.querySelector('#shanghai-prices-table tbody');
+        var refTableBody = document.querySelector('#reference-prices-table-body');
+        var recycleTableBody = document.querySelector('#recycle-prices-table-body');
+        var shanghaiTableBody = document.querySelector('#shanghai-prices-table-body');
 
         if (refTableBody) {
             refTableBody.innerHTML = this.renderReferencePrices();

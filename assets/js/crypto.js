@@ -235,17 +235,28 @@ let stableCoinCount = 0; // 稳定的币种数量计数器
  * 初始化币安WebSocket连接
  */
 function initBinanceWebSocket() {
-    console.log('[币安API] 正在连接WebSocket...');
+    console.log('[币安API] 🔄 正在初始化WebSocket连接...');
 
     if (binanceWS && binanceConnected) {
-        console.log('[币安API] WebSocket已连接,跳过重复连接');
+        console.log('[币安API] ✅ WebSocket已连接，跳过重复连接');
         return;
     }
 
-    binanceWS = new WebSocket('wss://stream.binance.com:9443/ws/!ticker@arr');
+    // 如果已有连接但未连接，先关闭
+    if (binanceWS) {
+        console.log('[币anceAPI] ⚠️ 检测到旧连接，正在关闭...');
+        binanceWS.close();
+        binanceWS = null;
+    }
+
+    const wsUrl = 'wss://stream.binance.com:9443/ws/!ticker@arr';
+    console.log('[币安API] 📡 连接地址:', wsUrl);
+
+    binanceWS = new WebSocket(wsUrl);
 
     binanceWS.onopen = function() {
         console.log('[币安API] ✅ WebSocket连接已建立');
+        console.log('[币安API] 📡 等待接收数据...');
         binanceConnected = true;
         updateAPIStatus('Binance WebSocket', true);
     };
@@ -259,18 +270,14 @@ function initBinanceWebSocket() {
                 return;
             }
 
-            console.log(`[币安API] 📦 接收到 ${data.length} 个交易对数据`);
-
-            // 验证数据有效性
-            const validItems = data.filter(item => item && item.s && typeof item.s === 'string');
-            console.log(`[币安API] ✅ 有效数据: ${validItems.length} 个交易对`);
-
-            // 统计 USDT 交易对
-            const usdtItems = validItems.filter(item => item.s.endsWith('USDT'));
-            console.log(`[币安API] 💰 USDT交易对: ${usdtItems.length} 个`);
+            // 只在首次加载时显示详细日志
+            if (binanceMarketData.length === 0) {
+                console.log(`[币安API] 📦 首次接收到 ${data.length} 个交易对数据`);
+            }
 
             // 将币安API字段映射到标准格式，并过滤无效数据
-            binanceMarketData = usdtItems
+            const newData = data
+                .filter(item => item && item.s && typeof item.s === 'string' && item.s.endsWith('USDT'))
                 .filter(item => {
                     // 过滤掉价格为0或异常的交易对
                     const price = parseFloat(item.c);
@@ -280,7 +287,7 @@ function initBinanceWebSocket() {
                 .map(item => {
                     const symbol = item.s.replace('USDT', '').toLowerCase();
                     const symbolUpper = symbol.toUpperCase();
-                    
+
                     // 创建精美的SVG渐变图标
                     const firstLetter = symbolUpper.charAt(0);
                     const gradients = [
@@ -318,7 +325,7 @@ function initBinanceWebSocket() {
                         ['#4080FF', '#80A0FF'], // ICP蓝
                         ['#00E5FF', '#40E0FF']  // MNT青
                     ];
-                    
+
                     const gradientIndex = symbol.length % gradients.length;
                     const [color1, color2] = gradients[gradientIndex];
                     const gradientId = `grad-${symbol}-${gradientIndex}`;
@@ -342,15 +349,15 @@ function initBinanceWebSocket() {
                         </svg>
                     `;
                     const svgIcon = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svgString)))}`;
-                    
+
                     // 获取币种ID映射
                     const coinIds = COIN_ID_MAP[symbol] || {};
-                    
+
                     // 在线logo URL（按优先级排序）
                     const logo1 = `https://assets.coincap.io/assets/icons/${symbol}@2x.png`;  // CoinCap
                     const logo2 = coinIds.coinmarketcap ? `https://s2.coinmarketcap.com/static/img/coins/64x64/${coinIds.coinmarketcap}.png` : null;  // CoinMarketCap
                     const logo3 = coinIds.coingecko_id ? `https://assets.coingecko.com/coins/images/${coinIds.coingecko_id}/small/${coinIds.coingecko}.png` : null;  // CoinGecko
-                    
+
                     return {
                         symbol: symbol,
                         name: item.s.replace('USDT', ''),
@@ -367,15 +374,26 @@ function initBinanceWebSocket() {
                     };
                 });
 
-            console.log(`[币安API] ✅ 成功处理 ${binanceMarketData.length} 个USDT交易对`);
-            if (binanceMarketData.length > 0) {
+            // 更新现有数据或添加新数据
+            newData.forEach(newCoin => {
+                const existingIndex = binanceMarketData.findIndex(c => c.symbol === newCoin.symbol);
+                if (existingIndex !== -1) {
+                    binanceMarketData[existingIndex] = newCoin;
+                } else {
+                    binanceMarketData.push(newCoin);
+                }
+            });
+
+            // 只在首次加载或数据量显著变化时显示日志
+            if (binanceMarketData.length > 0 && binanceMarketData.length !== stableCoinCount) {
+                console.log(`[币安API] ✅ 当前已收集 ${binanceMarketData.length} 个USDT交易对`);
                 console.log(`[币安API] 📊 前10个币种:`, binanceMarketData.slice(0, 10).map(c => c.symbol.toUpperCase()).join(', '));
             }
 
             // 更新API状态（包括币种计数）
             updateAPIStatus('Binance WebSocket', true);
 
-            // 实时更新UI（只更新价格，不重新渲染整个表格）
+            // 实时更新UI
             if (binanceMarketData.length > 0) {
                 updateCryptoUI(binanceMarketData);
             }

@@ -70,38 +70,30 @@ let isChinaNetwork = false;
 
 /**
  * 检测是否为国内网络
- * 通过检测时区、语言和浏览器设置来判断
+ * 只在移动端检测，PC端不限制
  */
 function detectChinaNetwork() {
-    // 方法1: 检测时区（中国标准时间 UTC+8）
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const isChinaTimezone = timezone === 'Asia/Shanghai' || 
-                            timezone === 'Asia/Beijing' || 
-                            timezone === 'Asia/Hong_Kong';
-    
-    // 方法2: 检测浏览器语言
-    const language = navigator.language || navigator.userLanguage;
-    const isChineseLanguage = language.startsWith('zh-CN') || 
-                              language.startsWith('zh-Hans') ||
-                              language.startsWith('zh');
-    
-    // 方法3: 检测系统语言
-    const systemLanguage = navigator.systemLanguage || '';
-    const isChineseSystem = systemLanguage.startsWith('zh');
-    
-    // 综合判断：满足多个条件才认为是国内网络
-    const isChina = (isChinaTimezone && isChineseLanguage) || 
-                    (isChinaTimezone && isChineseSystem) ||
-                    (isChineseLanguage && isChineseSystem);
-    
-    if (isChina) {
-        console.log('[网络检测] ⚠️ 检测到国内网络环境');
-        console.log('[网络检测] 时区:', timezone, '语言:', language, '系统语言:', systemLanguage);
-    } else {
-        console.log('[网络检测] ✅ 检测到国际网络环境');
+    // PC端不限制，直接返回false
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (!isMobile) {
+        console.log('[网络检测] 💻 PC端环境，不进行网络检测');
+        return false;
     }
     
-    return isChina;
+    // 移动端检测：只检测时区
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const isChinaTimezone = timezone === 'Asia/Shanghai' || 
+                            timezone === 'Asia/Beijing';
+    
+    if (isChinaTimezone) {
+        console.log('[网络检测] 📱 移动端 + 中国时区，限制访问');
+        console.log('[网络检测] 时区:', timezone);
+    } else {
+        console.log('[网络检测] 📱 移动端 + 国际时区，允许访问');
+        console.log('[网络检测] 时区:', timezone);
+    }
+    
+    return isChinaTimezone;
 }
 
 /**

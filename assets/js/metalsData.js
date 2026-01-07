@@ -296,8 +296,9 @@ var MetalsData = {
     },
 
     // 数字跳动动画效果
-    animateNumber: function(element, newValue) {
-        var currentValue = parseFloat(element.innerText.replace(/[¥,]/g, '')) || 0;
+    animateNumber: function(element, newValue, currencySymbol) {
+        currencySymbol = currencySymbol || '¥';
+        var currentValue = parseFloat(element.innerText.replace(/[¥HK$,]/g, '')) || 0;
         var targetValue = parseFloat(newValue);
         var duration = 500; // 动画持续时间(毫秒)
         var startTime = null;
@@ -310,12 +311,12 @@ var MetalsData = {
             var easeProgress = 1 - Math.pow(1 - progress, 3);
             var current = currentValue + (targetValue - currentValue) * easeProgress;
 
-            element.innerText = '¥' + current.toFixed(2);
+            element.innerText = currencySymbol + current.toFixed(2);
 
             if (progress < 1) {
                 requestAnimationFrame(update);
             } else {
-                element.innerText = '¥' + targetValue.toFixed(2);
+                element.innerText = currencySymbol + targetValue.toFixed(2);
                 // 添加闪烁效果
                 element.style.transition = 'color 0.2s ease';
                 element.style.color = '#ef4444';
@@ -379,24 +380,33 @@ var MetalsData = {
 
             if (existingRow && priceSpans.length === 3) {
                 // 更新黄金价
-                var oldGoldPrice = parseFloat(priceSpans[0].innerText.replace(/[¥HK$,]/g, '')) || 0;
-                var newGoldPrice = parseFloat(item.黄金价格);
-                if (oldGoldPrice !== newGoldPrice && newGoldPrice !== '-') {
-                    self.animateNumber(priceSpans[0], newGoldPrice);
+                var oldGoldPriceText = priceSpans[0].innerText;
+                var oldGoldPrice = parseFloat(oldGoldPriceText.replace(/[¥HK$,]/g, '')) || 0;
+                var newGoldPrice = item.黄金价格;
+                if (newGoldPrice !== '-' && oldGoldPrice !== parseFloat(newGoldPrice)) {
+                    self.animateNumber(priceSpans[0], newGoldPrice, currencySymbol);
+                } else if (newGoldPrice === '-' && oldGoldPriceText !== '-') {
+                    priceSpans[0].innerText = '-';
                 }
 
                 // 更新铂金价
-                var oldPlatinumPrice = parseFloat(priceSpans[1].innerText.replace(/[¥HK$,]/g, '')) || 0;
-                var newPlatinumPrice = parseFloat(item.铂金价格);
-                if (oldPlatinumPrice !== newPlatinumPrice && newPlatinumPrice !== '-') {
-                    self.animateNumber(priceSpans[1], newPlatinumPrice);
+                var oldPlatinumPriceText = priceSpans[1].innerText;
+                var oldPlatinumPrice = parseFloat(oldPlatinumPriceText.replace(/[¥HK$,]/g, '')) || 0;
+                var newPlatinumPrice = item.铂金价格;
+                if (newPlatinumPrice !== '-' && oldPlatinumPrice !== parseFloat(newPlatinumPrice)) {
+                    self.animateNumber(priceSpans[1], newPlatinumPrice, currencySymbol);
+                } else if (newPlatinumPrice === '-' && oldPlatinumPriceText !== '-') {
+                    priceSpans[1].innerText = '-';
                 }
 
                 // 更新金条价
-                var oldBullionPrice = parseFloat(priceSpans[2].innerText.replace(/[¥HK$,]/g, '')) || 0;
-                var newBullionPrice = parseFloat(item.金条价格);
-                if (oldBullionPrice !== newBullionPrice && newBullionPrice !== '-') {
-                    self.animateNumber(priceSpans[2], newBullionPrice);
+                var oldBullionPriceText = priceSpans[2].innerText;
+                var oldBullionPrice = parseFloat(oldBullionPriceText.replace(/[¥HK$,]/g, '')) || 0;
+                var newBullionPrice = item.金条价格;
+                if (newBullionPrice !== '-' && oldBullionPrice !== parseFloat(newBullionPrice)) {
+                    self.animateNumber(priceSpans[2], newBullionPrice, currencySymbol);
+                } else if (newBullionPrice === '-' && oldBullionPriceText !== '-') {
+                    priceSpans[2].innerText = '-';
                 }
 
                 // 更新报价时间

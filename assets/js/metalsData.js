@@ -212,7 +212,7 @@ var MetalsData = {
             statusDot.style.color = '#f59e0b';
         }
 
-        fetch('https://v2.xxapi.cn/api/goldprice', {
+        fetch('https://api.lolimi.cn/api/huangjin', {
             method: 'GET',
             headers: {
                 'Accept': 'application/json'
@@ -227,14 +227,14 @@ var MetalsData = {
         .then(function(data) {
             console.log('%c[金价行情] 数据获取成功:', 'color: #10b981;', data);
 
-            if (data.code === 200 && data.data) {
+            if (data.code === 200) {
                 // 直接使用API返回的最新数据
-                var newData = data.data;
+                var newData = data;
 
-                // 更新数据
-                self.prices.bankGoldBars = newData.bank_gold_bar_price || [];
-                self.prices.goldRecycle = newData.gold_recycle_price || [];
-                self.prices.preciousMetals = newData.precious_metal_price || [];
+                // 更新数据 - 适配新的API结构
+                self.prices.bankGoldBars = newData['国内十大金店'] || [];
+                self.prices.goldRecycle = newData['国内黄金'] || [];
+                self.prices.preciousMetals = newData['国内十大金店'] || [];
 
                 // 缓存数据
                 self.cachedData = JSON.parse(JSON.stringify(newData));
@@ -328,7 +328,7 @@ var MetalsData = {
         requestAnimationFrame(update);
     },
 
-    // 渲染银行投资金条价格
+    // 渲染银行投资金条价格（国内十大金店）
     renderBankGoldBars: function() {
         var tbody = document.getElementById('bank-gold-bars-body');
         if (!tbody) {
@@ -349,10 +349,10 @@ var MetalsData = {
             tbody.innerHTML = '';
         }
 
-        // 去重处理：每个银行只保留一条记录
+        // 去重处理：每个品牌只保留一条记录
         var uniqueBankGoldBars = {};
         this.prices.bankGoldBars.forEach(function(item) {
-            var key = item.bank;
+            var key = item.品牌;
             if (!uniqueBankGoldBars[key]) {
                 uniqueBankGoldBars[key] = item;
             }
@@ -363,11 +363,11 @@ var MetalsData = {
             var existingRow = null;
             var priceSpan = null;
 
-            // 查找是否已存在该银行的行
+            // 查找是否已存在该品牌的行
             var rows = tbody.querySelectorAll('tr');
             for (var i = 0; i < rows.length; i++) {
                 var nameCell = rows[i].querySelector('.jinjia_name');
-                if (nameCell && nameCell.innerText === item.bank) {
+                if (nameCell && nameCell.innerText === item.品牌) {
                     existingRow = rows[i];
                     priceSpan = existingRow.querySelector('.f_hongse');
                     break;
@@ -377,23 +377,24 @@ var MetalsData = {
             if (existingRow && priceSpan) {
                 // 已存在,使用动画更新价格
                 var oldPrice = parseFloat(priceSpan.innerText.replace(/[¥,]/g, '')) || 0;
-                var newPrice = parseFloat(item.price);
-                if (oldPrice !== newPrice) {
+                var newPrice = parseFloat(item.金条价格);
+                if (oldPrice !== newPrice && newPrice !== '-') {
                     self.animateNumber(priceSpan, newPrice);
                 }
             } else {
                 // 新增行
+                var priceDisplay = item.金条价格 === '-' ? '-' : '¥' + item.金条价格;
                 var row = document.createElement('tr');
-                row.innerHTML = '<td class="jinjia_name">' + item.bank + '</td>' +
-                    '<td><span class="f_hongse">¥' + item.price + '</span></td>';
+                row.innerHTML = '<td class="jinjia_name">' + item.品牌 + '</td>' +
+                    '<td><span class="f_hongse">' + priceDisplay + '</span></td>';
                 tbody.appendChild(row);
             }
         });
 
-        console.log('%c[金价行情] 银行金条表格渲染成功', 'color: #10b981;');
+        console.log('%c[金价行情] 国内十大金店表格渲染成功', 'color: #10b981;');
     },
 
-    // 渲染黄金回收价格
+    // 渲染黄金回收价格（国内黄金）
     renderGoldRecycle: function() {
         var tbody = document.getElementById('gold-recycle-body');
         if (!tbody) {
@@ -414,11 +415,11 @@ var MetalsData = {
             tbody.innerHTML = '';
         }
 
-        // 去重处理：每个金种只保留最新的一条记录（按日期排序）
+        // 去重处理：每个品种只保留一条记录
         var uniqueGoldRecycle = {};
         this.prices.goldRecycle.forEach(function(item) {
-            var key = item.gold_type;
-            if (!uniqueGoldRecycle[key] || item.updated_date > uniqueGoldRecycle[key].updated_date) {
+            var key = item.品种;
+            if (!uniqueGoldRecycle[key]) {
                 uniqueGoldRecycle[key] = item;
             }
         });
@@ -431,7 +432,7 @@ var MetalsData = {
             var rows = tbody.querySelectorAll('tr');
             for (var i = 0; i < rows.length; i++) {
                 var nameCell = rows[i].querySelector('.jinjia_name');
-                if (nameCell && nameCell.innerText === item.gold_type) {
+                if (nameCell && nameCell.innerText === item.品种) {
                     existingRow = rows[i];
                     priceSpan = existingRow.querySelector('.f_hongse');
                     break;
@@ -440,28 +441,28 @@ var MetalsData = {
 
             if (existingRow && priceSpan) {
                 var oldPrice = parseFloat(priceSpan.innerText.replace(/[¥,]/g, '')) || 0;
-                var newPrice = parseFloat(item.recycle_price);
+                var newPrice = parseFloat(item.最新价);
                 if (oldPrice !== newPrice) {
                     self.animateNumber(priceSpan, newPrice);
                 }
                 // 更新日期
                 var dateCell = existingRow.cells[2];
                 if (dateCell) {
-                    dateCell.innerText = item.updated_date;
+                    dateCell.innerText = item.报价时间;
                 }
             } else {
                 var row = document.createElement('tr');
-                row.innerHTML = '<td class="jinjia_name">' + item.gold_type + '</td>' +
-                    '<td><span class="f_hongse">¥' + item.recycle_price + '</span></td>' +
-                    '<td style="font-size: 12px; color: #999;">' + item.updated_date + '</td>';
+                row.innerHTML = '<td class="jinjia_name">' + item.品种 + '</td>' +
+                    '<td><span class="f_hongse">¥' + item.最新价 + '</span></td>' +
+                    '<td style="font-size: 12px; color: #999;">' + item.报价时间 + '</td>';
                 tbody.appendChild(row);
             }
         });
 
-        console.log('%c[金价行情] 黄金回收表格渲染成功', 'color: #10b981;');
+        console.log('%c[金价行情] 国内黄金表格渲染成功', 'color: #10b981;');
     },
 
-    // 渲染贵金属价格
+    // 渲染贵金属价格（国内十大金店）
     renderPreciousMetals: function() {
         var tbody = document.getElementById('precious-metals-body');
         if (!tbody) {
@@ -482,11 +483,11 @@ var MetalsData = {
             tbody.innerHTML = '';
         }
 
-        // 去重处理：每个品牌只保留最新的一条记录（按日期排序）
+        // 去重处理：每个品牌只保留一条记录
         var uniquePreciousMetals = {};
         this.prices.preciousMetals.forEach(function(item) {
-            var key = item.brand;
-            if (!uniquePreciousMetals[key] || item.updated_date > uniquePreciousMetals[key].updated_date) {
+            var key = item.品牌;
+            if (!uniquePreciousMetals[key]) {
                 uniquePreciousMetals[key] = item;
             }
         });
@@ -499,7 +500,7 @@ var MetalsData = {
             var rows = tbody.querySelectorAll('tr');
             for (var i = 0; i < rows.length; i++) {
                 var nameCell = rows[i].querySelector('.jinjia_name');
-                if (nameCell && nameCell.innerText === item.brand) {
+                if (nameCell && nameCell.innerText === item.品牌) {
                     existingRow = rows[i];
                     priceSpans = existingRow.querySelectorAll('.f_hongse');
                     break;
@@ -509,30 +510,34 @@ var MetalsData = {
             if (existingRow && priceSpans.length === 3) {
                 // 更新金条价
                 var oldBullionPrice = parseFloat(priceSpans[0].innerText.replace(/[¥,]/g, '')) || 0;
-                var newBullionPrice = parseFloat(item.bullion_price);
-                if (oldBullionPrice !== newBullionPrice) {
+                var newBullionPrice = parseFloat(item.金条价格);
+                if (oldBullionPrice !== newBullionPrice && newBullionPrice !== '-') {
                     self.animateNumber(priceSpans[0], newBullionPrice);
                 }
 
                 // 更新黄金价
                 var oldGoldPrice = parseFloat(priceSpans[1].innerText.replace(/[¥,]/g, '')) || 0;
-                var newGoldPrice = parseFloat(item.gold_price);
-                if (oldGoldPrice !== newGoldPrice) {
+                var newGoldPrice = parseFloat(item.黄金价格);
+                if (oldGoldPrice !== newGoldPrice && newGoldPrice !== '-') {
                     self.animateNumber(priceSpans[1], newGoldPrice);
                 }
 
                 // 更新铂金价
                 var oldPlatinumPrice = parseFloat(priceSpans[2].innerText.replace(/[¥,]/g, '')) || 0;
-                var newPlatinumPrice = parseFloat(item.platinum_price);
-                if (oldPlatinumPrice !== newPlatinumPrice) {
+                var newPlatinumPrice = parseFloat(item.铂金价格);
+                if (oldPlatinumPrice !== newPlatinumPrice && newPlatinumPrice !== '-') {
                     self.animateNumber(priceSpans[2], newPlatinumPrice);
                 }
             } else {
+                var bullionDisplay = item.金条价格 === '-' ? '-' : '¥' + item.金条价格;
+                var goldDisplay = item.黄金价格 === '-' ? '-' : '¥' + item.黄金价格;
+                var platinumDisplay = item.铂金价格 === '-' ? '-' : '¥' + item.铂金价格;
+                
                 var row = document.createElement('tr');
-                row.innerHTML = '<td class="jinjia_name">' + item.brand + '</td>' +
-                    '<td><span class="f_hongse">¥' + item.bullion_price + '</span></td>' +
-                    '<td><span class="f_hongse">¥' + item.gold_price + '</span></td>' +
-                    '<td><span class="f_hongse">¥' + item.platinum_price + '</span></td>';
+                row.innerHTML = '<td class="jinjia_name">' + item.品牌 + '</td>' +
+                    '<td><span class="f_hongse">' + bullionDisplay + '</span></td>' +
+                    '<td><span class="f_hongse">' + goldDisplay + '</span></td>' +
+                    '<td><span class="f_hongse">' + platinumDisplay + '</span></td>';
                 tbody.appendChild(row);
             }
         });
@@ -571,9 +576,9 @@ function initMetalsUI() {
             <div class="col-sm-12">
                 <p class="states metals-notice" style="font-size: 12px; color: #666; padding: 10px; text-align: center; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">声明：以下行情仅供参考，如有咨询请联系相关人员。</p>
 
-                <!-- 银行投资金条价格 -->
+                <!-- 国内十大金店 -->
                 <div class="metals-table-container" style="margin-bottom: 20px;">
-                    <div style="padding: 12px 15px; font-size: 15px; font-weight: 600; color: #333; border-bottom: 1px solid #f0f0f0; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;">银行投资金条价格</div>
+                    <div style="padding: 12px 15px; font-size: 15px; font-weight: 600; color: #333; border-bottom: 1px solid #f0f0f0; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;">国内十大金店</div>
                     <table class="table metals-table">
                         <thead>
                             <tr>
@@ -593,9 +598,9 @@ function initMetalsUI() {
                     </table>
                 </div>
 
-                <!-- 黄金回收价格 -->
+                <!-- 国内黄金 -->
                 <div class="metals-table-container" style="margin-bottom: 20px;">
-                    <div style="padding: 12px 15px; font-size: 15px; font-weight: 600; color: #333; border-bottom: 1px solid #f0f0f0; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;">黄金回收价格</div>
+                    <div style="padding: 12px 15px; font-size: 15px; font-weight: 600; color: #333; border-bottom: 1px solid #f0f0f0; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;">国内黄金</div>
                     <table class="table metals-table">
                         <thead>
                             <tr>
@@ -616,9 +621,9 @@ function initMetalsUI() {
                     </table>
                 </div>
 
-                <!-- 贵金属价格 -->
+                <!-- 金店价格详情 -->
                 <div class="metals-table-container">
-                    <div style="padding: 12px 15px; font-size: 15px; font-weight: 600; color: #333; border-bottom: 1px solid #f0f0f0; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;">贵金属价格</div>
+                    <div style="padding: 12px 15px; font-size: 15px; font-weight: 600; color: #333; border-bottom: 1px solid #f0f0f0; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;">金店价格详情</div>
                     <table class="table metals-table">
                         <thead>
                             <tr>
@@ -641,7 +646,7 @@ function initMetalsUI() {
                 </div>
 
                 <div style="font-size: 12px; color: #888; text-align: right; margin-top: 5px;">
-                    Data provided by <span id="metals-api-provider">XXAPI</span>
+                    Data provided by <span id="metals-api-provider">Lolimi</span>
                     <span id="metals-api-status-dot" style="color: #10b981;">●</span>
                 </div>
             </div>

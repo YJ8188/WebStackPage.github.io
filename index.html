@@ -59,68 +59,7 @@
 
 <!-- ==================== JavaScript库 ==================== -->
 <!-- jQuery库，用于DOM操作和事件处理 -->
-    <script src="../assets/js/jquery-1.11.1.min.js"></script>
-
-<!-- CORS 代理拦截器：解决 HTTPS 页面访问 HTTP 请求的问题 -->
-<script>
-(function() {
-    if (window._corsInterceptorInstalled) return;
-    window._corsInterceptorInstalled = true;
-
-    var CORS_PROXIES = [
-        'https://corsproxy.io/?',
-        'https://api.allorigins.win/raw?url='
-    ];
-
-    function installInterceptor() {
-        if (typeof $ === 'undefined' || !$.ajax) {
-            setTimeout(installInterceptor, 100);
-            return;
-        }
-
-        var originalAjax = $.ajax;
-
-        $.ajax = function(options) {
-            var originalUrl = options.url;
-            var isHttpUrl = originalUrl && originalUrl.indexOf('http://') === 0;
-            var isHttpsPage = window.location.protocol === 'https:';
-
-            if (isHttpUrl && isHttpsPage) {
-                var proxyUrl = CORS_PROXIES[0] + encodeURIComponent(originalUrl);
-
-                var proxyOptions = $.extend({}, options, {
-                    url: proxyUrl,
-                    crossDomain: true,
-                    dataType: 'text'
-                });
-
-                var deferred = $.Deferred();
-
-                originalAjax(proxyOptions)
-                    .done(function(data) {
-                        try {
-                            var response = JSON.parse(data);
-                            if (response.contents) {
-                                deferred.resolve(response.contents);
-                                return;
-                            }
-                        } catch (e) {}
-                        deferred.resolve(data);
-                    })
-                    .fail(function(jqXHR, textStatus) {
-                        deferred.reject(jqXHR, textStatus);
-                    });
-
-                return deferred.promise();
-            }
-
-            return originalAjax(options);
-        };
-    }
-
-    installInterceptor();
-})();
-</script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
 
 <!-- ==================== Facebook Open Graph 元标签 ==================== --><!-- 用于在Facebook分享时显示的预览信息 -->
 <meta property="og:type" content="article"> <!-- 内容类型 -->

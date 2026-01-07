@@ -495,7 +495,17 @@ var MetalsData = {
             tbody.innerHTML = '';
         }
 
+        // 去重处理：每个品牌只保留最新的一条记录（按日期排序）
+        var uniquePreciousMetals = {};
         this.prices.preciousMetals.forEach(function(item) {
+            var key = item.brand;
+            if (!uniquePreciousMetals[key] || item.updated_date > uniquePreciousMetals[key].updated_date) {
+                uniquePreciousMetals[key] = item;
+            }
+        });
+        var deduplicatedData = Object.values(uniquePreciousMetals);
+
+        deduplicatedData.forEach(function(item) {
             var existingRow = null;
             var priceSpans = [];
 

@@ -65,6 +65,44 @@ const COIN_ID_MAP = {
 const expandedCoins = new Set();
 // 所有币种数据（用于搜索）
 let allCryptoData = [];
+// 是否为国内网络
+let isChinaNetwork = false;
+
+/**
+ * 检测是否为国内网络
+ * 通过检测时区、语言和浏览器设置来判断
+ */
+function detectChinaNetwork() {
+    // 方法1: 检测时区（中国标准时间 UTC+8）
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const isChinaTimezone = timezone === 'Asia/Shanghai' || 
+                            timezone === 'Asia/Beijing' || 
+                            timezone === 'Asia/Hong_Kong';
+    
+    // 方法2: 检测浏览器语言
+    const language = navigator.language || navigator.userLanguage;
+    const isChineseLanguage = language.startsWith('zh-CN') || 
+                              language.startsWith('zh-Hans') ||
+                              language.startsWith('zh');
+    
+    // 方法3: 检测系统语言
+    const systemLanguage = navigator.systemLanguage || '';
+    const isChineseSystem = systemLanguage.startsWith('zh');
+    
+    // 综合判断：满足多个条件才认为是国内网络
+    const isChina = (isChinaTimezone && isChineseLanguage) || 
+                    (isChinaTimezone && isChineseSystem) ||
+                    (isChineseLanguage && isChineseSystem);
+    
+    if (isChina) {
+        console.log('[网络检测] ⚠️ 检测到国内网络环境');
+        console.log('[网络检测] 时区:', timezone, '语言:', language, '系统语言:', systemLanguage);
+    } else {
+        console.log('[网络检测] ✅ 检测到国际网络环境');
+    }
+    
+    return isChina;
+}
 
 /**
  * 加载K线图数据
@@ -2144,6 +2182,19 @@ function initCryptoUI() {
 document.addEventListener('DOMContentLoaded', () => {
     console.log('[页面加载] DOMContentLoaded 事件触发');
     console.log('[页面加载] 开始初始化数字货币模块');
+
+    // 检测是否为国内网络
+    isChinaNetwork = detectChinaNetwork();
+    
+    // 如果是国内网络，不加载数字货币模块
+    if (isChinaNetwork) {
+        console.log('[页面加载] ⛔ 国内网络环境，跳过数字货币模块加载');
+        const placeholder = document.getElementById('crypto-section-placeholder');
+        if (placeholder) {
+            placeholder.innerHTML = '<div style="text-align:center; padding: 20px; color: #999;">数字货币行情功能暂不可用</div>';
+        }
+        return;
+    }
 
     // 检测网络状态
     console.log('[页面加载] 检测网络状态...');

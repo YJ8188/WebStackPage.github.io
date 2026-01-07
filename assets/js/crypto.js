@@ -98,17 +98,19 @@ async function loadSparkline(id, symbol, changePct) {
 
     async function tryFetch() {
         let prices = null;
-        // 只使用CryptoCompare API (Fastest chart API)
+        // 使用币安K线API（获取7天数据）
         try {
-            const res = await fetchWithTimeout(`https://min-api.cryptocompare.com/data/v2/histohour?fsym=${symbol.toUpperCase()}&tsym=USD&limit=168`, { timeout: 10000 });
+            const res = await fetchWithTimeout(`https://api.binance.com/api/v3/klines?symbol=${symbol.toUpperCase()}USDT&interval=1d&limit=7`, { timeout: 10000 });
             if (res.ok) {
                 const json = await res.json();
-                if (json.Data && json.Data.Data && json.Data.Data.length > 0) {
-                    prices = json.Data.Data.map(d => d.close).filter(p => !isNaN(p));
+                if (Array.isArray(json) && json.length > 0) {
+                    // 币安K线数据格式: [开盘时间, 开盘价, 最高价, 最低价, 收盘价, 成交量, ...]
+                    // 我们只需要收盘价（索引4）
+                    prices = json.map(d => parseFloat(d[4])).filter(p => !isNaN(p));
                 }
             }
         } catch (e) {
-            console.log(`[K线图] ${symbol} CryptoCompare请求失败:`, e.message);
+            console.log(`[K线图] ${symbol} 币安API请求失败:`, e.message);
         }
         return prices;
     }

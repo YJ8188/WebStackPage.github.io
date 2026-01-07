@@ -1726,10 +1726,16 @@ function initCryptoUI() {
 
             body.dark-mode .coin-name {
                 color: #eee;
+                font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+                font-weight: 600;
+                font-size: 14px;
             }
 
             body.dark-mode .main-price {
                 color: #fff;
+                font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+                font-weight: 600;
+                font-size: 14px;
             }
 
             body.dark-mode .market_cap_cell {

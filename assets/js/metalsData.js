@@ -374,23 +374,26 @@ var MetalsData = {
                 }
             }
 
+            // 根据单位判断货币符号
+            var currencySymbol = (item.单位 && item.单位.includes('港币')) ? 'HK$' : '¥';
+
             if (existingRow && priceSpans.length === 3) {
                 // 更新黄金价
-                var oldGoldPrice = parseFloat(priceSpans[0].innerText.replace(/[¥,]/g, '')) || 0;
+                var oldGoldPrice = parseFloat(priceSpans[0].innerText.replace(/[¥HK$,]/g, '')) || 0;
                 var newGoldPrice = parseFloat(item.黄金价格);
                 if (oldGoldPrice !== newGoldPrice && newGoldPrice !== '-') {
                     self.animateNumber(priceSpans[0], newGoldPrice);
                 }
 
                 // 更新铂金价
-                var oldPlatinumPrice = parseFloat(priceSpans[1].innerText.replace(/[¥,]/g, '')) || 0;
+                var oldPlatinumPrice = parseFloat(priceSpans[1].innerText.replace(/[¥HK$,]/g, '')) || 0;
                 var newPlatinumPrice = parseFloat(item.铂金价格);
                 if (oldPlatinumPrice !== newPlatinumPrice && newPlatinumPrice !== '-') {
                     self.animateNumber(priceSpans[1], newPlatinumPrice);
                 }
 
                 // 更新金条价
-                var oldBullionPrice = parseFloat(priceSpans[2].innerText.replace(/[¥,]/g, '')) || 0;
+                var oldBullionPrice = parseFloat(priceSpans[2].innerText.replace(/[¥HK$,]/g, '')) || 0;
                 var newBullionPrice = parseFloat(item.金条价格);
                 if (oldBullionPrice !== newBullionPrice && newBullionPrice !== '-') {
                     self.animateNumber(priceSpans[2], newBullionPrice);
@@ -403,9 +406,9 @@ var MetalsData = {
                 }
             } else {
                 // 新增行
-                var goldDisplay = item.黄金价格 === '-' ? '-' : '¥' + item.黄金价格;
-                var platinumDisplay = item.铂金价格 === '-' ? '-' : '¥' + item.铂金价格;
-                var bullionDisplay = item.金条价格 === '-' ? '-' : '¥' + item.金条价格;
+                var goldDisplay = item.黄金价格 === '-' ? '-' : currencySymbol + item.黄金价格;
+                var platinumDisplay = item.铂金价格 === '-' ? '-' : currencySymbol + item.铂金价格;
+                var bullionDisplay = item.金条价格 === '-' ? '-' : currencySymbol + item.金条价格;
                 var timeDisplay = item.报价时间 || '-';
 
                 var row = document.createElement('tr');

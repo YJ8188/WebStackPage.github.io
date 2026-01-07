@@ -22,7 +22,7 @@ var MetalsData = {
 
     // 初始化数据
     init: function() {
-        console.log('%c[金银行情] 初始化数据模块', 'color: #10b981; font-weight: bold;');
+        console.log('%c[金价行情] 初始化数据模块', 'color: #10b981; font-weight: bold;');
         this.fetchGoldPrice();
         this.startAutoRefresh();
         this.checkDarkMode();
@@ -39,7 +39,7 @@ var MetalsData = {
             self.fetchGoldPrice();
         }, this.refreshInterval);
         this.nextRefreshTime = Date.now() + this.refreshInterval;
-        console.log('%c[金银行情] 自动刷新已启动，间隔: ' + (this.refreshInterval / 1000) + '秒', 'color: #10b981;');
+        console.log('%c[金价行情] 自动刷新已启动，间隔: ' + (this.refreshInterval / 1000) + '秒', 'color: #10b981;');
     },
 
     // 启动倒计时显示
@@ -73,7 +73,7 @@ var MetalsData = {
         if (this.refreshTimer) {
             clearInterval(this.refreshTimer);
             this.refreshTimer = null;
-            console.log('%c[金银行情] 自动刷新已停止', 'color: #f59e0b;');
+            console.log('%c[金价行情] 自动刷新已停止', 'color: #f59e0b;');
         }
     },
 
@@ -186,12 +186,12 @@ var MetalsData = {
         var self = this;
 
         if (this.isRefreshing) {
-            console.log('%c[金银行情] 正在刷新中，跳过本次请求', 'color: #f59e0b;');
+            console.log('%c[金价行情] 正在刷新中，跳过本次请求', 'color: #f59e0b;');
             return;
         }
 
         this.isRefreshing = true;
-        console.log('%c[金银行情] 开始获取黄金价格数据...', 'color: #10b981;');
+        console.log('%c[金价行情] 开始获取黄金价格数据...', 'color: #10b981;');
 
         // 更新刷新按钮状态
         var refreshBtn = document.getElementById('refresh-metals-btn');
@@ -225,7 +225,7 @@ var MetalsData = {
             return response.json();
         })
         .then(function(data) {
-            console.log('%c[金银行情] 数据获取成功:', 'color: #10b981;', data);
+            console.log('%c[金价行情] 数据获取成功:', 'color: #10b981;', data);
 
             if (data.code === 200 && data.data) {
                 // 检查数据是否合理,避免异常波动
@@ -248,7 +248,7 @@ var MetalsData = {
 
                         // 如果价格变化超过5%,可能是API异常,使用缓存数据
                         if (changePercent > 5) {
-                            console.warn('%c[金银行情] 检测到异常价格波动: ' + changePercent.toFixed(2) + '%, 使用缓存数据', 'color: #f59e0b;');
+                            console.warn('%c[金价行情] 检测到异常价格波动: ' + changePercent.toFixed(2) + '%, 使用缓存数据', 'color: #f59e0b;');
                             newData = oldData;
                         }
                     }
@@ -272,7 +272,7 @@ var MetalsData = {
                     statusDot.style.color = '#10b981';
                 }
             } else {
-                console.error('%c[金银行情] 数据格式错误:', 'color: #f59e0b;', data);
+                console.error('%c[金价行情] 数据格式错误:', 'color: #f59e0b;', data);
 
                 // 更新API状态指示为错误
                 if (statusDot) {
@@ -281,11 +281,11 @@ var MetalsData = {
             }
         })
         .catch(function(error) {
-            console.error('%c[金银行情] 数据获取失败:', 'color: #f59e0b;', error);
+            console.error('%c[金价行情] 数据获取失败:', 'color: #f59e0b;', error);
 
             // 如果有缓存数据,使用缓存
             if (self.cachedData) {
-                console.log('%c[金银行情] 使用缓存数据', 'color: #10b981;');
+                console.log('%c[金价行情] 使用缓存数据', 'color: #10b981;');
                 self.prices.bankGoldBars = self.cachedData.bank_gold_bar_price || [];
                 self.prices.goldRecycle = self.cachedData.gold_recycle_price || [];
                 self.prices.preciousMetals = self.cachedData.precious_metal_price || [];
@@ -355,7 +355,7 @@ var MetalsData = {
     renderBankGoldBars: function() {
         var tbody = document.getElementById('bank-gold-bars-body');
         if (!tbody) {
-            console.warn('%c[金银行情] 找不到银行金条表格元素', 'color: #f59e0b;');
+            console.warn('%c[金价行情] 找不到银行金条表格元素', 'color: #f59e0b;');
             return;
         }
 
@@ -403,14 +403,14 @@ var MetalsData = {
             }
         });
 
-        console.log('%c[金银行情] 银行金条表格渲染成功', 'color: #10b981;');
+        console.log('%c[金价行情] 银行金条表格渲染成功', 'color: #10b981;');
     },
 
     // 渲染黄金回收价格
     renderGoldRecycle: function() {
         var tbody = document.getElementById('gold-recycle-body');
         if (!tbody) {
-            console.warn('%c[金银行情] 找不到黄金回收表格元素', 'color: #f59e0b;');
+            console.warn('%c[金价行情] 找不到黄金回收表格元素', 'color: #f59e0b;');
             return;
         }
 
@@ -461,14 +461,14 @@ var MetalsData = {
             }
         });
 
-        console.log('%c[金银行情] 黄金回收表格渲染成功', 'color: #10b981;');
+        console.log('%c[金价行情] 黄金回收表格渲染成功', 'color: #10b981;');
     },
 
     // 渲染贵金属价格
     renderPreciousMetals: function() {
         var tbody = document.getElementById('precious-metals-body');
         if (!tbody) {
-            console.warn('%c[金银行情] 找不到贵金属表格元素', 'color: #f59e0b;');
+            console.warn('%c[金价行情] 找不到贵金属表格元素', 'color: #f59e0b;');
             return;
         }
 
@@ -530,25 +530,25 @@ var MetalsData = {
             }
         });
 
-        console.log('%c[金银行情] 贵金属表格渲染成功', 'color: #10b981;');
+        console.log('%c[金价行情] 贵金属表格渲染成功', 'color: #10b981;');
     }
 };
 
 /**
- * 动态生成金银行情板块UI
+ * 动态生成金价行情板块UI
  */
 function initMetalsUI() {
-    console.log('%c[金银行情] initMetalsUI 开始执行', 'color: #10b981; font-weight: bold;');
+    console.log('%c[金价行情] initMetalsUI 开始执行', 'color: #10b981; font-weight: bold;');
     const placeholder = document.getElementById('metals-section-placeholder');
-    console.log('%c[金银行情] placeholder 元素: ' + !!placeholder, 'color: #10b981;');
+    console.log('%c[金价行情] placeholder 元素: ' + !!placeholder, 'color: #10b981;');
     if (!placeholder) {
-        console.error('%c[金银行情] 找不到 metals-section-placeholder 元素', 'color: #f59e0b; font-weight: bold;');
+        console.error('%c[金价行情] 找不到 metals-section-placeholder 元素', 'color: #f59e0b; font-weight: bold;');
         return;
     }
 
     const metalsHTML = `
         <h4 class="text-gray">
-            <i class="linecons-diamond" style="margin-right: 7px;" id="金银行情"></i>金银行情
+            <i class="linecons-diamond" style="margin-right: 7px;" id="金价行情"></i>金价行情
             <span style="float: right; display: flex; align-items: center; font-size: 12px; gap: 8px;">
                 <button id="refresh-metals-btn" class="btn btn-xs btn-white" onclick="MetalsData.init()"
                     style="margin-right: 0; padding: 4px 8px;" title="刷新数据">
@@ -784,55 +784,55 @@ function initMetalsUI() {
     `;
 
     placeholder.innerHTML = metalsHTML;
-    console.log('%c[金银行情] UI 生成成功', 'color: #10b981; font-weight: bold;');
+    console.log('%c[金价行情] UI 生成成功', 'color: #10b981; font-weight: bold;');
 
     // 初始化数据
     MetalsData.init();
 }
 
 // 页面加载完成后初始化
-console.log('%c[金银行情] 模块加载完成，当前状态: ' + document.readyState, 'color: #10b981; font-weight: bold;');
+console.log('%c[金价行情] 模块加载完成，当前状态: ' + document.readyState, 'color: #10b981; font-weight: bold;');
 
 // 立即检查元素是否存在
 var placeholder = document.getElementById('metals-section-placeholder');
-console.log('%c[金银行情] 元素检查 - placeholder: ' + !!placeholder, 'color: #10b981;');
+console.log('%c[金价行情] 元素检查 - placeholder: ' + !!placeholder, 'color: #10b981;');
 
 // 使用 window.onload 确保页面完全加载
 window.addEventListener('load', function() {
-    console.log('%c[金银行情] window.load 事件触发', 'color: #10b981;');
+    console.log('%c[金价行情] window.load 事件触发', 'color: #10b981;');
 
     // 再次检查元素
     placeholder = document.getElementById('metals-section-placeholder');
-    console.log('%c[金银行情] load 事件后元素检查 - placeholder: ' + !!placeholder, 'color: #10b981;');
+    console.log('%c[金价行情] load 事件后元素检查 - placeholder: ' + !!placeholder, 'color: #10b981;');
 
     // 检查是动态模式还是静态模式
     if (placeholder) {
-        console.log('%c[金银行情] 检测到动态模式（index.html）', 'color: #10b981;');
+        console.log('%c[金价行情] 检测到动态模式（index.html）', 'color: #10b981;');
         // 延迟执行，确保所有资源都已加载完成
         setTimeout(function() {
-            console.log('%c[金银行情] 开始执行初始化', 'color: #10b981;');
+            console.log('%c[金价行情] 开始执行初始化', 'color: #10b981;');
             initMetalsUI();
         }, 200);
     } else {
-        console.error('%c[金银行情] 未找到金银行情容器元素', 'color: #f59e0b; font-weight: bold;');
+        console.error('%c[金价行情] 未找到金价行情容器元素', 'color: #f59e0b; font-weight: bold;');
     }
 });
 
 // 备用：如果 window.onload 不触发，使用 DOMContentLoaded
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('%c[金银行情] DOMContentLoaded 事件触发', 'color: #10b981;');
+        console.log('%c[金价行情] DOMContentLoaded 事件触发', 'color: #10b981;');
     });
 }
 
 // 页面可见性变化处理 - 隐藏时停止刷新，显示时恢复
 document.addEventListener('visibilitychange', function() {
     if (document.visibilityState === 'visible') {
-        console.log('%c[金银行情] 页面可见，恢复自动刷新', 'color: #10b981;');
+        console.log('%c[金价行情] 页面可见，恢复自动刷新', 'color: #10b981;');
         MetalsData.startAutoRefresh();
         MetalsData.fetchGoldPrice();
     } else if (document.visibilityState === 'hidden') {
-        console.log('%c[金银行情] 页面隐藏，暂停自动刷新', 'color: #f59e0b;');
+        console.log('%c[金价行情] 页面隐藏，暂停自动刷新', 'color: #f59e0b;');
         MetalsData.stopAutoRefresh();
     }
 });

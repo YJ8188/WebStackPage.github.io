@@ -25,14 +25,39 @@ const sparklineCacheOrder = []; // 记录缓存顺序，用于LRU清理
 const sparklineRequests = new Set();
 // 币种ID映射表（用于从不同API获取数据）
 const COIN_ID_MAP = {
-    'btc': 'bitcoin', 'eth': 'ethereum', 'usdt': 'tether', 'bnb': 'binance-coin',
-    'xrp': 'ripple', 'sol': 'solana', 'doge': 'dogecoin', 'ada': 'cardano',
-    'trx': 'tron', 'ton': 'toncoin', 'shib': 'shiba-inu', 'ltc': 'litecoin',
-    'etc': 'ethereum-classic', 'link': 'chainlink', 'uni': 'uniswap', 'bch': 'bitcoin-cash',
-    'arb': 'arbitrum', 'op': 'optimism', 'tia': 'celestia', 'sei': 'sei-network',
-    'pepe': 'pepe', 'stx': 'stacks', 'apt': 'aptos', 'floki': 'floki', 'fet': 'fetch-ai',
-    'bonk': 'bonk', 'kas': 'kaspa', 'rndr': 'render-token', 'inj': 'injective',
-    'near': 'near-protocol', 'ldo': 'lido-dao', 'icp': 'internet-computer', 'mnt': 'mantle'
+    'btc': { coingecko: 'bitcoin', coinmarketcap: 1, coingecko_id: 1 },
+    'eth': { coingecko: 'ethereum', coinmarketcap: 1027, coingecko_id: 279 },
+    'usdt': { coingecko: 'tether', coinmarketcap: 825, coingecko_id: 325 },
+    'bnb': { coingecko: 'binance-coin', coinmarketcap: 1839, coingecko_id: 1839 },
+    'xrp': { coingecko: 'ripple', coinmarketcap: 52, coingecko_id: 44 },
+    'sol': { coingecko: 'solana', coinmarketcap: 5426, coingecko_id: 4128 },
+    'doge': { coingecko: 'dogecoin', coinmarketcap: 74, coingecko_id: 5 },
+    'ada': { coingecko: 'cardano', coinmarketcap: 2010, coingecko_id: 975 },
+    'trx': { coingecko: 'tron', coinmarketcap: 1958, coingecko_id: 1958 },
+    'ton': { coingecko: 'toncoin', coinmarketcap: 11419, coingecko_id: 11419 },
+    'shib': { coingecko: 'shiba-inu', coinmarketcap: 5994, coingecko_id: 11939 },
+    'ltc': { coingecko: 'litecoin', coinmarketcap: 2, coingecko_id: 2 },
+    'etc': { coingecko: 'ethereum-classic', coinmarketcap: 1321, coingecko_id: 1321 },
+    'link': { coingecko: 'chainlink', coinmarketcap: 1975, coingecko_id: 877 },
+    'uni': { coingecko: 'uniswap', coinmarketcap: 7083, coingecko_id: 7083 },
+    'bch': { coingecko: 'bitcoin-cash', coinmarketcap: 1831, coingecko_id: 780 },
+    'arb': { coingecko: 'arbitrum', coinmarketcap: 11841, coingecko_id: 11841 },
+    'op': { coingecko: 'optimism', coinmarketcap: 11840, coingecko_id: 11840 },
+    'tia': { coingecko: 'celestia', coinmarketcap: 23753, coingecko_id: 23753 },
+    'sei': { coingecko: 'sei-network', coinmarketcap: 24278, coingecko_id: 24278 },
+    'pepe': { coingecko: 'pepe', coinmarketcap: 24478, coingecko_id: 24478 },
+    'stx': { coingecko: 'stacks', coinmarketcap: 3886, coingecko_id: 3886 },
+    'apt': { coingecko: 'aptos', coinmarketcap: 21794, coingecko_id: 21794 },
+    'floki': { coingecko: 'floki', coinmarketcap: 10683, coingecko_id: 10683 },
+    'fet': { coingecko: 'fetch-ai', coinmarketcap: 2684, coingecko_id: 2684 },
+    'bonk': { coingecko: 'bonk', coinmarketcap: 23095, coingecko_id: 23095 },
+    'kas': { coingecko: 'kaspa', coinmarketcap: 26702, coingecko_id: 26702 },
+    'rndr': { coingecko: 'render-token', coinmarketcap: 14747, coingecko_id: 14747 },
+    'inj': { coingecko: 'injective', coinmarketcap: 7226, coingecko_id: 7226 },
+    'near': { coingecko: 'near-protocol', coinmarketcap: 6535, coingecko_id: 6535 },
+    'ldo': { coingecko: 'lido-dao', coinmarketcap: 7301, coingecko_id: 7301 },
+    'icp': { coingecko: 'internet-computer', coinmarketcap: 7181, coingecko_id: 7181 },
+    'mnt': { coingecko: 'mantle', coinmarketcap: 24769, coingecko_id: 24769 }
 };
 
 // ==================== 数据持久化和缓存 ====================
@@ -298,10 +323,21 @@ function initBinanceWebSocket() {
                         </svg>
                     `)}`;
                     
+                    // 获取币种ID映射
+                    const coinIds = COIN_ID_MAP[symbol] || {};
+                    
+                    // 在线logo URL（按优先级排序）
+                    const logo1 = `https://assets.coincap.io/assets/icons/${symbol}@2x.png`;  // CoinCap
+                    const logo2 = coinIds.coinmarketcap ? `https://s2.coinmarketcap.com/static/img/coins/64x64/${coinIds.coinmarketcap}.png` : null;  // CoinMarketCap
+                    const logo3 = coinIds.coingecko_id ? `https://assets.coingecko.com/coins/images/${coinIds.coingecko_id}/small/${coinIds.coingecko}.png` : null;  // CoinGecko
+                    
                     return {
                         symbol: symbol,
                         name: item.s.replace('USDT', ''),
-                        image: svgIcon,
+                        image: logo1,  // 优先使用CoinCap
+                        fallbackIcon1: logo2,  // CoinMarketCap作为第二选择
+                        fallbackIcon2: logo3,  // CoinGecko作为第三选择
+                        fallbackIcon3: svgIcon,  // SVG作为最后选择
                         current_price: parseFloat(item.c) || 0,
                         price_change_percentage_24h: parseFloat(item.P) || 0,
                         market_cap: parseFloat(item.c) * parseFloat(item.v) || 0,
@@ -1057,7 +1093,8 @@ function renderCryptoTable(data) {
             <tr class="main-row" onclick="toggleCoinDetail('${coin.symbol}')">
                 <td>
                     <div class="coin-info">
-                        <img src="${coin.image}" class="coin-icon" alt="${coin.symbol}">
+                        <img src="${coin.image}" class="coin-icon" alt="${coin.symbol}"
+                             onerror="this.src='${coin.fallbackIcon1}'; this.onerror=function(){this.src='${coin.fallbackIcon2}'; this.onerror=function(){this.src='${coin.fallbackIcon3}';}}">
                         <div class="coin-name-wrap">
                             <div class="coin-name">${coin.symbol.toUpperCase()}<span style="color:#888;font-size:10px;font-weight:normal;margin-left:4px;">/USDT</span></div>
                             <div class="coin-vol">${volume}</div>

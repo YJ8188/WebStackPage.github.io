@@ -221,160 +221,140 @@ async function fetchWithTimeout(resource, options = {}) {
     }
 }
 
-// ==================== 币安WebSocket API配置 ====================
+// ==================== 币安REST API配置 ====================
 /**
- * 币安实时WebSocket行情API
- * 使用WebSocket获取实时数据,无需刷新
+ * 币安实时行情REST API
+ * 使用REST API获取实时数据,在国内环境更稳定
  */
-let binanceWS = null;
 let binanceMarketData = [];
 let binanceConnected = false;
+let refreshInterval = null;
 
 /**
- * 初始化币安WebSocket连接
+ * 从币安REST API获取24小时行情数据
  */
-function initBinanceWebSocket() {
-    console.log('[币安API] 正在连接WebSocket...');
-
-    if (binanceWS && binanceConnected) {
-        console.log('[币安API] WebSocket已连接,跳过重复连接');
-        return;
-    }
-
-    binanceWS = new WebSocket('wss://holy-tree-9924.a34296407-5cc.workers.dev/');
-
-    binanceWS.onopen = function() {
-        console.log('[币安API] ✅ WebSocket连接已建立');
-        binanceConnected = true;
-        updateAPIStatus('Binance WebSocket', true);
-    };
-
-    binanceWS.onmessage = function(event) {
-        try {
-            const data = JSON.parse(event.data);
-
-            if (!Array.isArray(data)) {
-                console.warn('[币安API] ⚠️ 接收到的数据格式不正确');
-                return;
-            }
-
-            // 将币安API字段映射到标准格式
-            binanceMarketData = data
-                .filter(item => item && item.s && typeof item.s === 'string' && item.s.endsWith('USDT'))
-                .map(item => {
-                    const symbol = item.s.replace('USDT', '').toLowerCase();
-                    const symbolUpper = symbol.toUpperCase();
-                    
-                    // 创建精美的SVG渐变图标
-                    const firstLetter = symbolUpper.charAt(0);
-                    const gradients = [
-                        ['#F7931A', '#FFAB40'], // BTC橙
-                        ['#627EEA', '#8294FF'], // ETH蓝
-                        ['#26A17B', '#3DD5BF'], // USDT绿
-                        ['#F3BA2F', '#FFD54F'], // BNB黄
-                        ['#2A5ADA', '#5275FF'], // XRP蓝
-                        ['#14F195', '#00FFA3'], // SOL绿
-                        ['#C2A633', '#FFD700'], // DOGE金
-                        ['#0033AD', '#0055FF'], // ADA蓝
-                        ['#E91E63', '#FF4081'], // TRX粉
-                        ['#0098EA', '#00BCD4'], // TON青
-                        ['#000000', '#424242'], // SHIB黑
-                        ['#345D9D', '#5C8BC0'], // LTC蓝
-                        ['#3CC8D8', '#00E5FF'], // ETC青
-                        ['#2A5ADA', '#5275FF'], // LINK蓝
-                        ['#FF007A', '#FF4081'], // UNI粉
-                        ['#8DC351', '#AED581'], // BCH绿
-                        ['#9D4EDD', '#BA68C8'], // ARB紫
-                        ['#FF0420', '#FF5252'], // OP红
-                        ['#FF6B00', '#FF9100'], // TIA橙
-                        ['#00D1FF', '#40E0FF'], // SEI青
-                        ['#FF8F00', '#FFB300'], // PEPE橙
-                        ['#00E676', '#69F0AE'], // STX绿
-                        ['#5E17EB', '#8B5CF6'], // APT紫
-                        ['#00A3E0', '#00D4FF'], // FLOKI蓝
-                        ['#00D4FF', '#40E0FF'], // FET青
-                        ['#FFD700', '#FFEB3B'], // BONK黄
-                        ['#FF6B35', '#FF8A65'], // KAS橙
-                        ['#FF4D4D', '#FF8080'], // RNDR红
-                        ['#00E5FF', '#40E0FF'], // INJ青
-                        ['#00D4FF', '#40E0FF'], // NEAR青
-                        ['#5E17EB', '#8B5CF6'], // LDO紫
-                        ['#4080FF', '#80A0FF'], // ICP蓝
-                        ['#00E5FF', '#40E0FF']  // MNT青
-                    ];
-                    
-                    const gradientIndex = symbol.length % gradients.length;
-                    const [color1, color2] = gradients[gradientIndex];
-                    const gradientId = `grad-${symbol}-${gradientIndex}`;
-                    
-                    const svgIcon = `data:image/svg+xml;base64,${btoa(`
-                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-                            <defs>
-                                <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="100%" y2="100%">
-                                    <stop offset="0%" style="stop-color:${color1}"/>
-                                    <stop offset="100%" style="stop-color:${color2}"/>
-                                </linearGradient>
-                            </defs>
-                            <circle cx="16" cy="16" r="15" fill="url(#${gradientId})"/>
-                            <text x="50%" y="50%" dy=".35em" text-anchor="middle" dominant-baseline="middle" 
-                                  font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="white" 
-                                  style="text-shadow: 0 1px 2px rgba(0,0,0,0.3);">
-                                ${firstLetter}
-                            </text>
-                            <circle cx="16" cy="16" r="15" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
-                        </svg>
-                    `)}`;
-                    
-                    // 获取币种ID映射
-                    const coinIds = COIN_ID_MAP[symbol] || {};
-                    
-                    // 在线logo URL（按优先级排序）
-                    const logo1 = `https://assets.coincap.io/assets/icons/${symbol}@2x.png`;  // CoinCap
-                    const logo2 = coinIds.coinmarketcap ? `https://s2.coinmarketcap.com/static/img/coins/64x64/${coinIds.coinmarketcap}.png` : null;  // CoinMarketCap
-                    const logo3 = coinIds.coingecko_id ? `https://assets.coingecko.com/coins/images/${coinIds.coingecko_id}/small/${coinIds.coingecko}.png` : null;  // CoinGecko
-                    
-                    return {
-                        symbol: symbol,
-                        name: item.s.replace('USDT', ''),
-                        image: logo1,  // 优先使用CoinCap
-                        fallbackIcon1: logo2,  // CoinMarketCap作为第二选择
-                        fallbackIcon2: logo3,  // CoinGecko作为第三选择
-                        fallbackIcon3: svgIcon,  // SVG作为最后选择
-                        current_price: parseFloat(item.c) || 0,
-                        price_change_percentage_24h: parseFloat(item.P) || 0,
-                        market_cap: parseFloat(item.c) * parseFloat(item.v) || 0,
-                        total_volume: parseFloat(item.q) || 0,
-                        quoteVolume: parseFloat(item.q) || 0,
-                        volume: parseFloat(item.v) || 0
-                    };
-                });
-
-            // 实时更新UI
-            if (binanceMarketData.length > 0) {
-                updateCryptoUI(binanceMarketData);
-            }
-        } catch (error) {
-            console.error('[币安API] ❌ 解析数据失败:', error);
+async function fetchBinanceMarketData() {
+    console.log('[币安API] 正在获取24小时行情数据...');
+    
+    try {
+        // 使用币安REST API获取所有USDT交易对的24小时行情
+        const response = await fetchWithTimeout('https://api.binance.com/api/v3/ticker/24hr', { 
+            timeout: 10000 
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-    };
-
-    binanceWS.onerror = function(error) {
-        console.error('[币安API] ❌ WebSocket错误:', error);
-        updateAPIStatus('Binance WebSocket', false);
-    };
-
-    binanceWS.onclose = function(event) {
-        console.log('[币安API] 🔴 WebSocket连接已关闭');
-        console.log(`关闭代码: ${event.code}, 原因: ${event.reason || '无'}`);
+        
+        const data = await response.json();
+        console.log('[币安API] 获取到数据:', data.length, '个交易对');
+        
+        if (!Array.isArray(data)) {
+            throw new Error('返回数据格式不正确');
+        }
+        
+        // 将币安API字段映射到标准格式
+        binanceMarketData = data
+            .filter(item => item && item.symbol && typeof item.symbol === 'string' && item.symbol.endsWith('USDT'))
+            .map(item => {
+                const symbol = item.symbol.replace('USDT', '').toLowerCase();
+                const symbolUpper = symbol.toUpperCase();
+                
+                // 创建精美的SVG渐变图标
+                const firstLetter = symbolUpper.charAt(0);
+                const gradients = [
+                    ['#F7931A', '#FFAB40'], // BTC橙
+                    ['#627EEA', '#8294FF'], // ETH蓝
+                    ['#26A17B', '#3DD5BF'], // USDT绿
+                    ['#F3BA2F', '#FFD54F'], // BNB黄
+                    ['#2A5ADA', '#5275FF'], // XRP蓝
+                    ['#14F195', '#00FFA3'], // SOL绿
+                    ['#C2A633', '#FFD700'], // DOGE金
+                    ['#0033AD', '#0055FF'], // ADA蓝
+                    ['#E91E63', '#FF4081'], // TRX粉
+                    ['#0098EA', '#00BCD4'], // TON青
+                    ['#000000', '#424242'], // SHIB黑
+                    ['#345D9D', '#5C8BC0'], // LTC蓝
+                    ['#3CC8D8', '#00E5FF'], // ETC青
+                    ['#2A5ADA', '#5275FF'], // LINK蓝
+                    ['#FF007A', '#FF4081'], // UNI粉
+                    ['#8DC351', '#AED581'], // BCH绿
+                    ['#9D4EDD', '#BA68C8'], // ARB紫
+                    ['#FF0420', '#FF5252'], // OP红
+                    ['#FF6B00', '#FF9100'], // TIA橙
+                    ['#00D1FF', '#40E0FF'], // SEI青
+                    ['#FF8F00', '#FFB300'], // PEPE橙
+                    ['#00E676', '#69F0AE'], // STX绿
+                    ['#5E17EB', '#8B5CF6'], // APT紫
+                    ['#00A3E0', '#00D4FF'], // FLOKI蓝
+                    ['#00D4FF', '#40E0FF'], // FET青
+                    ['#FFD700', '#FFEB3B'], // BONK黄
+                    ['#FF6B35', '#FF8A65'], // KAS橙
+                    ['#FF4D4D', '#FF8080'], // RNDR红
+                    ['#00E5FF', '#40E0FF'], // INJ青
+                    ['#00D4FF', '#40E0FF'], // NEAR青
+                    ['#5E17EB', '#8B5CF6'], // LDO紫
+                    ['#4080FF', '#80A0FF'], // ICP蓝
+                    ['#00E5FF', '#40E0FF']  // MNT青
+                ];
+                
+                const gradientIndex = symbol.length % gradients.length;
+                const [color1, color2] = gradients[gradientIndex];
+                const gradientId = `grad-${symbol}-${gradientIndex}`;
+                
+                const svgIcon = `data:image/svg+xml;base64,${btoa(`
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+                        <defs>
+                            <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:${color1}"/>
+                                <stop offset="100%" style="stop-color:${color2}"/>
+                            </linearGradient>
+                        </defs>
+                        <circle cx="16" cy="16" r="15" fill="url(#${gradientId})"/>
+                        <text x="50%" y="50%" dy=".35em" text-anchor="middle" dominant-baseline="middle" 
+                              font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="white" 
+                              style="text-shadow: 0 1px 2px rgba(0,0,0,0.3);">
+                            ${firstLetter}
+                        </text>
+                        <circle cx="16" cy="16" r="15" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+                    </svg>
+                `)}`;
+                
+                // 获取币种ID映射
+                const coinIds = COIN_ID_MAP[symbol] || {};
+                
+                // 在线logo URL（按优先级排序）
+                const logo1 = `https://assets.coincap.io/assets/icons/${symbol}@2x.png`;  // CoinCap
+                const logo2 = coinIds.coinmarketcap ? `https://s2.coinmarketcap.com/static/img/coins/64x64/${coinIds.coinmarketcap}.png` : null;  // CoinMarketCap
+                const logo3 = coinIds.coingecko_id ? `https://assets.coingecko.com/coins/images/${coinIds.coingecko_id}/small/${coinIds.coingecko}.png` : null;  // CoinGecko
+                
+                return {
+                    symbol: symbol,
+                    name: item.symbol.replace('USDT', ''),
+                    image: logo1,  // 优先使用CoinCap
+                    fallbackIcon1: logo2,  // CoinMarketCap作为第二选择
+                    fallbackIcon2: logo3,  // CoinGecko作为第三选择
+                    fallbackIcon3: svgIcon,  // SVG作为最后选择
+                    current_price: parseFloat(item.lastPrice) || 0,
+                    price_change_percentage_24h: parseFloat(item.priceChangePercent) || 0,
+                    market_cap: parseFloat(item.lastPrice) * parseFloat(item.volume) || 0,
+                    total_volume: parseFloat(item.quoteVolume) || 0,
+                    quoteVolume: parseFloat(item.quoteVolume) || 0,
+                    volume: parseFloat(item.volume) || 0
+                };
+            });
+        
+        binanceConnected = true;
+        updateAPIStatus('Binance REST API', true);
+        console.log('[币安API] ✅ 数据获取成功:', binanceMarketData.length, '个币种');
+        
+        return binanceMarketData;
+    } catch (error) {
+        console.error('[币安API] ❌ 获取数据失败:', error);
         binanceConnected = false;
-        updateAPIStatus('Binance WebSocket', false);
-
-        // 5秒后自动重连
-        setTimeout(() => {
-            console.log('[币安API] 🔄 正在重新连接...');
-            initBinanceWebSocket();
-        }, 5000);
-    };
+        updateAPIStatus('Binance REST API', false);
+        throw error;
+    }
 }
 
 /**
@@ -385,6 +365,44 @@ function updateAPIStatus(name, isConnected) {
     const label = document.getElementById('api-provider-name');
     if (dot) dot.style.color = isConnected ? '#10b981' : '#ef4444';
     if (label) label.innerText = isConnected ? name : 'Disconnected';
+}
+
+/**
+ * 启动自动刷新（每3秒刷新一次）
+ */
+function startAutoRefresh() {
+    // 清除之前的定时器
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+    }
+    
+    // 每3秒刷新一次数据
+    refreshInterval = setInterval(async () => {
+        // 只在页面可见时刷新
+        if (!document.hidden) {
+            try {
+                const data = await fetchBinanceMarketData();
+                if (data && data.length > 0) {
+                    updateCryptoUI(data);
+                }
+            } catch (error) {
+                console.error('[自动刷新] 刷新失败:', error);
+            }
+        }
+    }, 3000);
+    
+    console.log('[自动刷新] 已启动，每3秒刷新一次');
+}
+
+/**
+ * 停止自动刷新
+ */
+function stopAutoRefresh() {
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+        console.log('[自动刷新] 已停止');
+    }
 }
 
 // ==================== 汇率显示功能 ====================
@@ -935,7 +953,7 @@ const syncRate = async () => {
 
 // ==================== 数据获取核心引擎 ====================
 /**
- * 获取数字货币数据（使用币安WebSocket实时数据）
+ * 获取数字货币数据（使用币安REST API）
  */
 async function fetchCryptoData() {
     console.log('[行情同步] fetchCryptoData 开始执行');
@@ -951,42 +969,32 @@ async function fetchCryptoData() {
     // 设置为获取中状态
     if (refreshIcon) refreshIcon.classList.add('fa-spin');
 
-    // 初始化币安WebSocket连接
-    if (!binanceConnected) {
-        initBinanceWebSocket();
-    }
-
     // 后台同步汇率
     syncRate();
 
-    // 如果WebSocket已连接且有数据,立即渲染
-    if (binanceMarketData.length > 0) {
-        cryptoData = binanceMarketData;
-        renderCryptoTable(cryptoData);
-        updateCryptoUI(cryptoData);
-        console.log('[行情同步] 已渲染币安实时数据:', cryptoData.length, '个币种');
-    } else {
-        // 等待WebSocket连接
-        console.log('[行情同步] 等待WebSocket连接...');
-        let retryCount = 0;
-        const maxRetries = 10;
-        const checkInterval = setInterval(() => {
-            retryCount++;
-            if (binanceMarketData.length > 0) {
-                clearInterval(checkInterval);
-                cryptoData = binanceMarketData;
-                renderCryptoTable(cryptoData);
-                updateCryptoUI(cryptoData);
-                console.log('[行情同步] WebSocket数据已加载:', cryptoData.length, '个币种');
-            } else if (retryCount >= maxRetries) {
-                clearInterval(checkInterval);
-                console.error('[行情同步] WebSocket连接超时');
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: #ef4444;">
-                    <i class="fa fa-exclamation-triangle"></i> 连接超时，请检查网络。<br>
-                    <button class="btn btn-xs btn-primary" style="margin-top:10px" onclick="fetchCryptoData()">重试连接</button>
-                </td></tr>`;
-            }
-        }, 500);
+    try {
+        // 使用REST API获取数据
+        console.log('[行情同步] 正在从币安REST API获取数据...');
+        const data = await fetchBinanceMarketData();
+        
+        if (data && data.length > 0) {
+            cryptoData = data;
+            renderCryptoTable(cryptoData);
+            updateCryptoUI(cryptoData);
+            console.log('[行情同步] 已渲染币安实时数据:', cryptoData.length, '个币种');
+            
+            // 启动自动刷新
+            startAutoRefresh();
+        } else {
+            throw new Error('获取到的数据为空');
+        }
+    } catch (error) {
+        console.error('[行情同步] 获取数据失败:', error);
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: #ef4444;">
+            <i class="fa fa-exclamation-triangle"></i> 连接失败，请检查网络。<br>
+            <div style="margin-top: 10px; font-size: 12px; color: #888;">${error.message}</div>
+            <button class="btn btn-xs btn-primary" style="margin-top:10px" onclick="fetchCryptoData()">重试连接</button>
+        </td></tr>`;
     }
 
     if (refreshIcon) refreshIcon.classList.remove('fa-spin');
@@ -1884,11 +1892,7 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('[页面加载] 调用 initCryptoUI()');
     initCryptoUI();
 
-    // 初始化币安WebSocket连接
-    console.log('[页面加载] 初始化币安WebSocket连接...');
-    initBinanceWebSocket();
-
-    // 初始加载数据
+    // 初始加载数据（使用REST API）
     console.log('[页面加载] 调用 fetchCryptoData()');
     fetchCryptoData();
 
@@ -1949,4 +1953,9 @@ document.addEventListener('DOMContentLoaded', () => {
             cryptoContainer.classList.add('scrolled');
         }, { passive: true });
     }
+    
+    // 页面卸载时停止自动刷新
+    window.addEventListener('beforeunload', () => {
+        stopAutoRefresh();
+    });
 });

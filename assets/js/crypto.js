@@ -65,36 +65,6 @@ const COIN_ID_MAP = {
 const expandedCoins = new Set();
 // 所有币种数据（用于搜索）
 let allCryptoData = [];
-// 是否为国内网络
-let isChinaNetwork = false;
-
-/**
- * 检测是否为国内网络
- * 只在移动端检测，PC端不限制
- */
-function detectChinaNetwork() {
-    // PC端不限制，直接返回false
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    if (!isMobile) {
-        console.log('[网络检测] 💻 PC端环境，不进行网络检测');
-        return false;
-    }
-    
-    // 移动端检测：只检测时区
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const isChinaTimezone = timezone === 'Asia/Shanghai' || 
-                            timezone === 'Asia/Beijing';
-    
-    if (isChinaTimezone) {
-        console.log('[网络检测] 📱 移动端 + 中国时区，限制访问');
-        console.log('[网络检测] 时区:', timezone);
-    } else {
-        console.log('[网络检测] 📱 移动端 + 国际时区，允许访问');
-        console.log('[网络检测] 时区:', timezone);
-    }
-    
-    return isChinaTimezone;
-}
 
 /**
  * 加载K线图数据
@@ -1387,16 +1357,12 @@ function filterCryptoTable(searchText) {
 
     rows.forEach(row => {
         const coinSymbol = row.querySelector('.coin-symbol')?.textContent.toLowerCase() || '';
-        const coinSymbolClean = coinSymbol.replace('/usdt', '').trim();
         const coinName = row.querySelector('.coin-name')?.textContent.toLowerCase() || '';
-        const coinNameClean = coinName.replace('/usdt', '').trim();
 
-        // 搜索匹配：币种符号（带/不带USDT）或名称
+        // 搜索匹配：币种符号或名称
         const matches = searchLower === '' ||
                        coinSymbol.includes(searchLower) ||
-                       coinSymbolClean.includes(searchLower) ||
-                       coinName.includes(searchLower) ||
-                       coinNameClean.includes(searchLower);
+                       coinName.includes(searchLower);
 
         if (matches) {
             row.classList.remove('hidden');
@@ -1404,7 +1370,7 @@ function filterCryptoTable(searchText) {
             visibleCount++;
 
             // 同时显示对应的详情行
-            const symbol = row.dataset.symbol || row.querySelector('.coin-symbol')?.textContent.toLowerCase().replace('/usdt', '');
+            const symbol = row.querySelector('.coin-symbol')?.textContent.toLowerCase();
             const detailRow = document.getElementById(`detail-${symbol}`);
             if (detailRow) {
                 detailRow.classList.remove('hidden');
@@ -1414,7 +1380,7 @@ function filterCryptoTable(searchText) {
             row.classList.remove('filtered-in');
 
             // 同时隐藏对应的详情行
-            const symbol = row.dataset.symbol || row.querySelector('.coin-symbol')?.textContent.toLowerCase().replace('/usdt', '');
+            const symbol = row.querySelector('.coin-symbol')?.textContent.toLowerCase();
             const detailRow = document.getElementById(`detail-${symbol}`);
             if (detailRow) {
                 detailRow.classList.add('hidden');
@@ -1562,10 +1528,6 @@ function initCryptoUI() {
             #crypto-search-input {
                 outline: none;
                 background: #fff;
-                font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
-                font-weight: 600;
-                font-size: 14px;
-                color: #333;
             }
 
             #crypto-search-input:focus {
@@ -1576,7 +1538,6 @@ function initCryptoUI() {
 
             #crypto-search-input::placeholder {
                 color: #999;
-                font-weight: normal;
             }
 
             /* 表格行动画 */
@@ -1655,8 +1616,7 @@ function initCryptoUI() {
             }
 
             .coin-name {
-                font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
-                font-weight: 600;
+                font-weight: bold;
                 font-size: 14px;
                 color: #1a1a1a;
             }
@@ -1756,16 +1716,10 @@ function initCryptoUI() {
 
             body.dark-mode .coin-name {
                 color: #eee;
-                font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
-                font-weight: 600;
-                font-size: 14px;
             }
 
             body.dark-mode .main-price {
                 color: #fff;
-                font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
-                font-weight: 600;
-                font-size: 14px;
             }
 
             body.dark-mode .market_cap_cell {
@@ -2174,19 +2128,6 @@ function initCryptoUI() {
 document.addEventListener('DOMContentLoaded', () => {
     console.log('[页面加载] DOMContentLoaded 事件触发');
     console.log('[页面加载] 开始初始化数字货币模块');
-
-    // 检测是否为国内网络
-    isChinaNetwork = detectChinaNetwork();
-    
-    // 如果是国内网络，不加载数字货币模块
-    if (isChinaNetwork) {
-        console.log('[页面加载] ⛔ 国内网络环境，跳过数字货币模块加载');
-        const placeholder = document.getElementById('crypto-section-placeholder');
-        if (placeholder) {
-            placeholder.innerHTML = '<div style="text-align:center; padding: 20px; color: #999;">数字货币行情功能暂不可用</div>';
-        }
-        return;
-    }
 
     // 检测网络状态
     console.log('[页面加载] 检测网络状态...');

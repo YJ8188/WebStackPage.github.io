@@ -73,30 +73,17 @@ async function loadSparkline(id, symbol, changePct) {
 
     async function tryFetch() {
         let prices = null;
-        // 1. Try CryptoCompare (Fastest chart API)
+        // 只使用CryptoCompare API (Fastest chart API)
         try {
-            const res = await fetchWithTimeout(`https://min-api.cryptocompare.com/data/v2/histohour?fsym=${symbol.toUpperCase()}&tsym=USD&limit=168`, { timeout: 7000 });
+            const res = await fetchWithTimeout(`https://min-api.cryptocompare.com/data/v2/histohour?fsym=${symbol.toUpperCase()}&tsym=USD&limit=168`, { timeout: 10000 });
             if (res.ok) {
                 const json = await res.json();
                 if (json.Data && json.Data.Data && json.Data.Data.length > 0) {
                     prices = json.Data.Data.map(d => d.close).filter(p => !isNaN(p));
                 }
             }
-        } catch (e) { }
-
-        // 2. Fallback to CoinCap
-        if (!prices) {
-            try {
-                const end = Date.now();
-                const start = end - (7 * 24 * 60 * 60 * 1000);
-                const res = await fetchWithTimeout(`https://api.coincap.io/v2/assets/${finalId}/history?interval=h2&start=${start}&end=${end}`, { timeout: 5000 });
-                if (res.ok) {
-                    const json = await res.json();
-                    if (json.data && json.data.length > 0) {
-                        prices = json.data.map(d => parseFloat(d.priceUsd));
-                    }
-                }
-            } catch (e) { }
+        } catch (e) {
+            console.log(`[K线图] ${symbol} CryptoCompare请求失败:`, e.message);
         }
         return prices;
     }
@@ -107,19 +94,6 @@ async function loadSparkline(id, symbol, changePct) {
         if (!prices) {
             await new Promise(r => setTimeout(r, 3000));
             prices = await tryFetch();
-        }
-
-        // 3. Last Resort: CoinGecko (Backup)
-        if (!prices) {
-            try {
-                const geckoRes = await fetchWithTimeout(`https://api.coingecko.com/api/v3/coins/${finalId}/market_chart?vs_currency=usd&days=7&interval=daily`, { timeout: 5000 });
-                if (geckoRes.ok) {
-                    const json = await geckoRes.json();
-                    if (json.prices && json.prices.length > 0) {
-                        prices = json.prices.map(p => p[1]);
-                    }
-                }
-            } catch (e) { }
         }
 
         if (prices && prices.length > 2) {
@@ -262,12 +236,11 @@ function initBinanceWebSocket() {
                 .filter(item => item && item.s && typeof item.s === 'string' && item.s.endsWith('USDT'))
                 .map(item => {
                     const symbol = item.s.replace('USDT', '').toLowerCase();
-                    const symbolUpper = symbol.toUpperCase();
-                    // 使用币安官方logo服务 - 从币安公共资源获取
+                    // 使用CoinCap的logo服务 - 支持所有币种
                     return {
                         symbol: symbol,
                         name: item.s.replace('USDT', ''),
-                        image: `https://www.binance.com/coin-assets/icon/bnb/${symbolUpper}.png`,
+                        image: `https://assets.coincap.io/assets/icons/${symbol}@2x.png`,
                         current_price: parseFloat(item.c) || 0,
                         price_change_percentage_24h: parseFloat(item.P) || 0,
                         market_cap: parseFloat(item.c) * parseFloat(item.v) || 0,

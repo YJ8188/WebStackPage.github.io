@@ -306,8 +306,9 @@ function initBinanceWebSocket() {
                     const gradientIndex = symbol.length % gradients.length;
                     const [color1, color2] = gradients[gradientIndex];
                     const gradientId = `grad-${symbol}-${gradientIndex}`;
-                    
-                    const svgIcon = `data:image/svg+xml;base64,${btoa(`
+
+                    // 使用 UTF-8 兼容的 base64 编码
+                    const svgString = `
                         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
                             <defs>
                                 <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -316,14 +317,15 @@ function initBinanceWebSocket() {
                                 </linearGradient>
                             </defs>
                             <circle cx="16" cy="16" r="15" fill="url(#${gradientId})"/>
-                            <text x="50%" y="50%" dy=".35em" text-anchor="middle" dominant-baseline="middle" 
-                                  font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="white" 
+                            <text x="50%" y="50%" dy=".35em" text-anchor="middle" dominant-baseline="middle"
+                                  font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="white"
                                   style="text-shadow: 0 1px 2px rgba(0,0,0,0.3);">
                                 ${firstLetter}
                             </text>
                             <circle cx="16" cy="16" r="15" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
                         </svg>
-                    `)}`;
+                    `;
+                    const svgIcon = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svgString)))}`;
                     
                     // 获取币种ID映射
                     const coinIds = COIN_ID_MAP[symbol] || {};

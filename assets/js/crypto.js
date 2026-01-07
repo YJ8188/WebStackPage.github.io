@@ -383,8 +383,25 @@ function initBinanceWebSocket() {
 function updateAPIStatus(name, isConnected) {
     const dot = document.getElementById('api-status-dot');
     const label = document.getElementById('api-provider-name');
+    const countDisplay = document.getElementById('coin-count-display');
+
     if (dot) dot.style.color = isConnected ? '#10b981' : '#ef4444';
     if (label) label.innerText = isConnected ? name : 'Disconnected';
+
+    // 更新币种计数
+    if (countDisplay && binanceMarketData.length > 0) {
+        countDisplay.innerText = `(${binanceMarketData.length} 币种)`;
+    } else if (countDisplay) {
+        countDisplay.innerText = '(加载中...)';
+    }
+
+    // 更新标题中的币种计数
+    const coinCountTitle = document.getElementById('coin-count-title');
+    if (coinCountTitle && binanceMarketData.length > 0) {
+        coinCountTitle.innerText = `（已展现${binanceMarketData.length}币种）`;
+    } else if (coinCountTitle) {
+        coinCountTitle.innerText = '（已展现0币种）';
+    }
 }
 
 // ==================== 汇率显示功能 ====================
@@ -1018,6 +1035,12 @@ function renderCryptoTable(data) {
         return;
     }
 
+    // 更新标题中的币种计数
+    const coinCountTitle = document.getElementById('coin-count-title');
+    if (coinCountTitle) {
+        coinCountTitle.innerText = `（已展现${data.length}币种）`;
+    }
+
     const tbody = document.getElementById('crypto-table-body');
     if (!tbody) {
         console.error('[渲染表格] 找不到 tbody 元素');
@@ -1181,6 +1204,13 @@ function coal(val) {
 
 function updateCryptoUI(data) {
     if (!data) return;
+
+    // 更新标题中的币种计数
+    const coinCountTitle = document.getElementById('coin-count-title');
+    if (coinCountTitle) {
+        coinCountTitle.innerText = `（已展现${data.length}币种）`;
+    }
+
     const isCNY = currentCurrency === 'CNY';
     const rate = isCNY ? (USD_CNY_RATE || 1) : 1;
     const symbol = isCNY ? '¥' : '$';
@@ -1270,7 +1300,7 @@ function initCryptoUI() {
 
     const cryptoHTML = `
         <h4 class="text-gray">
-            <i class="linecons-money" style="margin-right: 7px;" id="数字货币"></i>数字货币行情
+            <i class="linecons-money" style="margin-right: 7px;" id="数字货币"></i>数字货币行情<span id="coin-count-title" style="margin-left: 8px; color: #888; font-size: 13px; font-weight: normal;">（已展现0币种）</span>
             <span style="float: right; display: flex; align-items: center; font-size: 13px; flex-wrap: wrap; gap: 8px;">
                 <button id="refresh-crypto-btn" class="btn btn-xs btn-white" onclick="fetchCryptoData()"
                     style="margin-right: 0; padding: 4px 8px;" title="刷新数据">

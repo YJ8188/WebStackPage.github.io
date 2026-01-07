@@ -757,7 +757,7 @@
                     <li class="hidden-xs" style="height: 100%; display: flex; align-items: center;">
                         <a href="javascript:void(0)" onclick="toggleDarkMode()" title="切换暗黑模式/日间模式"
                             style="height: 100%; display: flex; align-items: center; padding: 0 15px;">
-                            <i class="fa fa-moon-o" id="darkModeIcon" style="font-size: 16px;"></i>
+                            <i class="fa fa-moon-o dark-mode-icon" id="darkModeIcon"></i>
                         </a>
                     </li>
                     <li class="hidden-sm hidden-xs" style="height: 100%; display: flex; align-items: center;">
@@ -774,13 +774,11 @@
                 <i class="linecons-heart" style="margin-right: 7px;" id="我的收藏"></i>我的收藏
                 <span style="float: right; font-size: 13px; margin-top: 2px;">
                     <a href="javascript:;" onclick="exportFavorites()" title="备份收藏数据"
-                        style="color: #888; margin-right: 15px; text-decoration: none; transition: color 0.3s;"
-                        onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#888'">
+                        class="backup-btn">
                         <i class="fa fa-download"></i> 备份
                     </a>
                     <a href="javascript:;" onclick="document.getElementById('importFile').click()" title="恢复收藏数据"
-                        style="color: #888; text-decoration: none; transition: color 0.3s;"
-                        onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#888'">
+                        class="backup-btn">
                         <i class="fa fa-upload"></i> 恢复
                     </a>
                 </span>
@@ -5582,9 +5580,6 @@
                         widget: widget.outerHTML
                     });
                     localStorage.setItem('hiddenCards', JSON.stringify(hiddenCards));
-                    console.log('已隐藏卡片:', cardId, '总数:', hiddenCards.length);
-                } else {
-                    console.log('卡片已存在，跳过:', cardId);
                 }
 
                 // 更新管理面板
@@ -5615,10 +5610,15 @@
                 if (!listContainer) return;
 
                 // 清空容器
-                listContainer.innerHTML = '';
+                while (listContainer.firstChild) {
+                    listContainer.removeChild(listContainer.firstChild);
+                }
 
                 if (hiddenCards.length === 0) {
-                    listContainer.innerHTML = '<p style="color: #999; text-align: center;">暂无隐藏的卡片</p>';
+                    const emptyMsg = document.createElement('p');
+                    emptyMsg.className = 'empty-state';
+                    emptyMsg.textContent = '暂无隐藏的卡片';
+                    listContainer.appendChild(emptyMsg);
                     return;
                 }
 
@@ -5627,7 +5627,6 @@
                 hiddenCards.forEach((card, index) => {
                     // 验证卡片数据完整性
                     if (!card || !card.id) {
-                        console.warn('发现无效的隐藏卡片数据:', card);
                         return;
                     }
 
@@ -5651,8 +5650,6 @@
                     listContainer.appendChild(item);
                 });
 
-                // 调试信息
-                console.log('已显示隐藏卡片数量:', hiddenCards.length);
             }
 
             // ========== 6. 恢复卡片（全局函数） ==========
@@ -5831,8 +5828,8 @@
             // ========== 9. 恢复默认排序按钮 ==========
             const resetBtn = document.getElementById('resetOrder');
             if (resetBtn) {
-                resetBtn.addEventListener('click', function () {
-                    if (confirm('确定要恢复默认排序吗？')) {
+                resetBtn.addEventListener('click', async function () {
+                    if (await showConfirm('确定要恢复默认排序吗？')) {
                         allRows.forEach((container, rowIndex) => {
                             const defaultKey = `defaultOrder_${rowIndex}`;
                             const defaultOrder = localStorage.getItem(defaultKey);
@@ -5938,7 +5935,7 @@
                 <label>网站链接 (URL)</label>
                 <input type="text" id="cardUrl" class="form-control" placeholder="https://example.com"
                     onblur="autoFillFavicon()">
-                <small style="color: #666; display: block; margin-top: 5px;">输入链接后移开鼠标，尝试自动获取图标</small>
+                <small class="help-text">输入链接后移开鼠标，尝试自动获取图标</small>
             </div>
             <div class="form-group">
                 <label>描述 (可选)</label>
@@ -5948,8 +5945,7 @@
                 <label>图标链接 (可选)</label>
                 <div style="display: flex; gap: 10px; align-items: center;">
                     <img id="cardIconPreview" src="../assets/images/logos/pinterest.png" width="40" height="40"
-                        style="border-radius: 50%; background: #333;">
-                    <input type="text" id="cardIcon" class="form-control" placeholder="图标URL，留空则自动获取">
+                                             class="img-circle" style="border-radius: 50%; background: #333;">                    <input type="text" id="cardIcon" class="form-control" placeholder="图标URL，留空则自动获取">
                 </div>
             </div>
             <button class="btn-save-card" onclick="saveNewCard()">保存链接</button>
@@ -6108,7 +6104,7 @@
             let icon = document.getElementById('cardIcon').value.trim();
 
             if (!title || !url) {
-                alert('请填写标题和链接！');
+                showToast('请填写标题和链接！', 'error');
                 return;
             }
 
@@ -6138,9 +6134,9 @@
             closeAddCardModal();
         }
 
-        function deleteFavCard(id, e) {
+        async function deleteFavCard(id, e) {
             e.stopPropagation(); // 防止触发点击跳转
-            if (confirm('确定要删除这个收藏吗？')) {
+            if (await showConfirm('确定要删除这个收藏吗？')) {
                 let favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
                 favs = favs.filter(c => c.id !== id);
                 localStorage.setItem(FAV_KEY, JSON.stringify(favs));
@@ -6208,7 +6204,7 @@
         function exportFavorites() {
             const favs = localStorage.getItem(FAV_KEY);
             if (!favs || favs === '[]') {
-                alert('还没有收藏任何链接哦！');
+                showToast('还没有收藏任何链接哦！', 'info');
                 return;
             }
             const blob = new Blob([favs], { type: 'application/json' });
@@ -6228,22 +6224,22 @@
             if (!file) return;
 
             const reader = new FileReader();
-            reader.onload = function (e) {
+            reader.onload = async function (e) {
                 try {
                     const json = e.target.result;
                     const data = JSON.parse(json);
                     if (Array.isArray(data)) {
-                        if (confirm('导入将覆盖当前的收藏数据，确定要继续吗？')) {
+                        if (await showConfirm('导入将覆盖当前的收藏数据，确定要继续吗？')) {
                             localStorage.setItem(FAV_KEY, JSON.stringify(data));
                             renderFavorites();
-                            alert('导入成功！');
+                            showToast('导入成功！', 'success');
                             closeAddCardModal();
                         }
                     } else {
-                        alert('文件格式不正确！');
+                        showToast('文件格式不正确！', 'error');
                     }
                 } catch (err) {
-                    alert('无法解析文件，请确保是有效的备份文件。');
+                    showToast('无法解析文件，请确保是有效的备份文件。', 'error');
                 }
                 // 清重input，防止同名文件不触发onchange
                 input.value = '';
@@ -6692,7 +6688,272 @@
                 display: none !important;
             }
         }
+
+        /* ==================== 自定义 Toast 提示 ==================== */
+        .toast-container {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 100000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .toast {
+            min-width: 300px;
+            padding: 16px 20px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: toastSlideIn 0.3s ease-out;
+            opacity: 0;
+            transform: translateX(100%);
+        }
+
+        body.dark-mode .toast {
+            background: rgba(42, 42, 42, 0.95);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .toast.hide {
+            opacity: 0;
+            transform: translateX(100%);
+        }
+
+        .toast-icon {
+            font-size: 20px;
+        }
+
+        .toast-message {
+            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-size: 14px;
+            color: #2d3748;
+            flex: 1;
+        }
+
+        body.dark-mode .toast-message {
+            color: #e0e0e0;
+        }
+
+        .toast-success {
+            border-left: 4px solid #10b981;
+        }
+
+        .toast-success .toast-icon {
+            color: #10b981;
+        }
+
+        .toast-error {
+            border-left: 4px solid #ef4444;
+        }
+
+        .toast-error .toast-icon {
+            color: #ef4444;
+        }
+
+        .toast-info {
+            border-left: 4px solid #3b82f6;
+        }
+
+        .toast-info .toast-icon {
+            color: #3b82f6;
+        }
+
+        .toast-warning {
+            border-left: 4px solid #f59e0b;
+        }
+
+        .toast-warning .toast-icon {
+            color: #f59e0b;
+        }
+
+        @keyframes toastSlideIn {
+            from {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes toastSlideOut {
+            from {
+                opacity: 1;
+                transform: translateX(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+        }
+
+        /* ==================== 自定义 Modal 确认框 ==================== */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 100001;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-dialog {
+            width: 400px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            animation: modalScaleIn 0.2s ease-out;
+        }
+
+        body.dark-mode .modal-dialog {
+            background: rgba(42, 42, 42, 0.95);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-title {
+            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-size: 18px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 12px;
+        }
+
+        body.dark-mode .modal-title {
+            color: #e0e0e0;
+        }
+
+        .modal-message {
+            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-size: 14px;
+            color: #718096;
+            line-height: 1.6;
+            margin-bottom: 24px;
+        }
+
+        body.dark-mode .modal-message {
+            color: #a0aec0;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        .modal-btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+        }
+
+        .modal-btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .modal-btn-primary:hover {
+            background: #2563eb;
+        }
+
+        .modal-btn-secondary {
+            background: rgba(0, 0, 0, 0.05);
+            color: #4a5568;
+        }
+
+        body.dark-mode .modal-btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: #cbd5e0;
+        }
+
+        .modal-btn-secondary:hover {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        body.dark-mode .modal-btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        @keyframes modalScaleIn {
+            from {
+                transform: scale(0.9);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        /* ==================== 备份恢复按钮样式 ==================== */
+        .backup-btn {
+            color: #888;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .backup-btn:hover {
+            color: #fff;
+        }
+
+        /* ==================== 空状态提示样式 ==================== */
+        .empty-state {
+            color: #999;
+            text-align: center;
+            padding: 20px;
+        }
+
+        /* ==================== 帮助文本样式 ==================== */
+        .help-text {
+            color: #666;
+            display: block;
+            margin-top: 5px;
+            font-size: 12px;
+        }
+
+        /* ==================== 暗黑模式图标样式 ==================== */
+        .dark-mode-icon {
+            font-size: 16px;
+        }
     </style>
+
+    <!-- Toast 容器 -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Modal 确认框 -->
+    <div class="modal-overlay" id="confirmModal">
+        <div class="modal-dialog">
+            <div class="modal-title" id="modalTitle">确认操作</div>
+            <div class="modal-message" id="modalMessage">确定要执行此操作吗？</div>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-secondary" id="modalCancel">取消</button>
+                <button class="modal-btn modal-btn-primary" id="modalConfirm">确定</button>
+            </div>
+        </div>
+    </div>
 
     <!-- 移动端跳转提示弹窗 -->
     <div class="mobile-redirect-overlay" id="mobileRedirectOverlay">
@@ -6767,6 +7028,82 @@
             document.addEventListener('DOMContentLoaded', checkMobileRedirect);
         } else {
             checkMobileRedirect();
+        }
+
+        // ==================== 自定义 Toast 功能 ====================
+        function showToast(message, type = 'info', duration = 3000) {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+
+            const icons = {
+                success: '✓',
+                error: '✕',
+                info: 'ℹ',
+                warning: '⚠'
+            };
+
+            toast.innerHTML = `
+                <span class="toast-icon">${icons[type] || icons.info}</span>
+                <span class="toast-message">${message}</span>
+            `;
+
+            container.appendChild(toast);
+
+            // 强制重绘以触发动画
+            requestAnimationFrame(() => {
+                toast.classList.add('show');
+            });
+
+            // 自动隐藏
+            setTimeout(() => {
+                toast.classList.remove('show');
+                toast.classList.add('hide');
+                setTimeout(() => {
+                    if (container.contains(toast)) {
+                        container.removeChild(toast);
+                    }
+                }, 300);
+            }, duration);
+        }
+
+        // ==================== 自定义 Modal 确认框功能 ====================
+        function showConfirm(title, message) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('confirmModal');
+                const modalTitle = document.getElementById('modalTitle');
+                const modalMessage = document.getElementById('modalMessage');
+                const modalConfirm = document.getElementById('modalConfirm');
+                const modalCancel = document.getElementById('modalCancel');
+
+                if (!modal) {
+                    resolve(false);
+                    return;
+                }
+
+                modalTitle.textContent = title;
+                modalMessage.textContent = message;
+                modal.style.display = 'flex';
+
+                const handleConfirm = () => {
+                    modal.style.display = 'none';
+                    modalConfirm.removeEventListener('click', handleConfirm);
+                    modalCancel.removeEventListener('click', handleCancel);
+                    resolve(true);
+                };
+
+                const handleCancel = () => {
+                    modal.style.display = 'none';
+                    modalConfirm.removeEventListener('click', handleConfirm);
+                    modalCancel.removeEventListener('click', handleCancel);
+                    resolve(false);
+                };
+
+                modalConfirm.addEventListener('click', handleConfirm);
+                modalCancel.addEventListener('click', handleCancel);
+            });
         }
     </script>
 

@@ -6632,6 +6632,17 @@
             transform: translateY(-2px);
         }
 
+        /* 添加到主屏幕按钮 */
+        .mobile-redirect-option.homescreen {
+            background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);
+            color: #fff;
+        }
+
+        .mobile-redirect-option.homescreen:hover {
+            background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);
+            transform: scale(1.02);
+        }
+
         body.dark-mode .mobile-redirect-option.gold {
             background: rgba(251, 191, 36, 0.15);
             color: #fbbf24;
@@ -6971,6 +6982,10 @@
                     <span>📈</span>
                     <span>跳转金价行情</span>
                 </button>
+                <button class="mobile-redirect-option homescreen" onclick="handleMobileRedirect('homescreen')">
+                    <span>📱</span>
+                    <span>添加到主屏幕</span>
+                </button>
                 <button class="mobile-redirect-cancel" onclick="handleMobileRedirect('cancel')">
                     取消，继续浏览
                 </button>
@@ -7003,8 +7018,78 @@
                 if (goldSection) {
                     goldSection.scrollIntoView({ behavior: 'smooth' });
                 }
+            } else if (option === 'homescreen') {
+                // 添加到主屏幕
+                showAddToHomeScreenInstructions();
             }
             // 如果是 'cancel'，则不做任何操作，关闭弹窗即可
+        }
+
+        // 显示添加到主屏幕的说明
+        function showAddToHomeScreenInstructions() {
+            const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+            let instructions = '';
+            let title = '';
+
+            // 检测 iOS
+            if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
+                title = 'iOS 添加到主屏幕';
+                instructions = '1. 点击底部的"分享"按钮（方框向上箭头图标）<br>2. 向下滑动并点击"添加到主屏幕"<br>3. 点击右上角的"添加"按钮';
+            }
+            // 检测 Android
+            else if (/Android/.test(userAgent)) {
+                title = 'Android 添加到主屏幕';
+                instructions = '1. 点击右上角的菜单按钮（三个点）<br>2. 点击"添加到主屏幕"或"安装应用"<br>3. 点击"添加"或"安装"按钮';
+            }
+            // 其他设备
+            else {
+                title = '添加到主屏幕';
+                instructions = '请使用浏览器菜单中的"添加到主屏幕"或"安装应用"功能';
+            }
+
+            // 使用自定义 Modal 显示说明
+            showInstructionsModal(title, instructions);
+        }
+
+        // 显示说明 Modal
+        function showInstructionsModal(title, message) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('confirmModal');
+                const modalTitle = document.getElementById('modalTitle');
+                const modalMessage = document.getElementById('modalMessage');
+                const modalConfirm = document.getElementById('modalConfirm');
+                const modalCancel = document.getElementById('modalCancel');
+
+                if (!modal) {
+                    resolve(false);
+                    return;
+                }
+
+                modalTitle.textContent = title;
+                modalMessage.innerHTML = message;
+                modalConfirm.textContent = '知道了';
+                modalCancel.style.display = 'none';
+                modal.style.display = 'flex';
+
+                const handleConfirm = () => {
+                    modal.style.display = 'none';
+                    modalCancel.style.display = 'block';
+                    modalConfirm.removeEventListener('click', handleConfirm);
+                    modalCancel.removeEventListener('click', handleCancel);
+                    resolve(true);
+                };
+
+                const handleCancel = () => {
+                    modal.style.display = 'none';
+                    modalCancel.style.display = 'block';
+                    modalConfirm.removeEventListener('click', handleConfirm);
+                    modalCancel.removeEventListener('click', handleCancel);
+                    resolve(false);
+                };
+
+                modalConfirm.addEventListener('click', handleConfirm);
+                modalCancel.addEventListener('click', handleCancel);
+            });
         }
 
         // 检查是否需要显示弹窗

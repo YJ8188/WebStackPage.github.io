@@ -788,6 +788,35 @@ function initMetalsUI() {
 
     // 初始化数据
     MetalsData.init();
+
+    // 悬停时隐藏浮动按钮的优化（与数字货币模块保持一致）
+    const metalsContainer = document.querySelector('.metals-table-container');
+    if (metalsContainer) {
+        const metalsSection = metalsContainer.closest('.row');
+        const floatBtns = ['#showHiddenCards', '#resetOrder', '.xp-panel'];
+
+        const hideFloats = () => {
+            floatBtns.forEach(selector => {
+                document.querySelectorAll(selector).forEach(el => el.classList.add('fade-out'));
+            });
+        };
+        const showFloats = () => {
+            floatBtns.forEach(selector => {
+                document.querySelectorAll(selector).forEach(el => el.classList.remove('fade-out'));
+            });
+        };
+
+        if (metalsSection) {
+            metalsSection.addEventListener('mouseenter', hideFloats);
+            metalsSection.addEventListener('mouseleave', showFloats);
+            metalsSection.addEventListener('touchstart', hideFloats, { passive: true });
+            console.log('%c[金价行情] 浮动按钮隐藏功能已启用', 'color: #10b981;');
+        } else {
+            console.warn('%c[金价行情] 未找到 metalsSection', 'color: #f59e0b;');
+        }
+    } else {
+        console.warn('%c[金价行情] 未找到 metals-table-container', 'color: #f59e0b;');
+    }
 }
 
 // 页面加载完成后初始化
@@ -841,27 +870,3 @@ document.addEventListener('visibilitychange', function() {
 window.addEventListener('beforeunload', function() {
     MetalsData.stopAutoRefresh();
 });
-
-// 悬停时隐藏浮动按钮的优化（与数字货币模块保持一致）
-const metalsContainer = document.querySelector('.metals-table-container');
-if (metalsContainer) {
-    const metalsSection = metalsContainer.closest('.row');
-    const floatBtns = ['#showHiddenCards', '#resetOrder', '.xp-panel'];
-
-    const hideFloats = () => {
-        floatBtns.forEach(selector => {
-            document.querySelectorAll(selector).forEach(el => el.classList.add('fade-out'));
-        });
-    };
-    const showFloats = () => {
-        floatBtns.forEach(selector => {
-            document.querySelectorAll(selector).forEach(el => el.classList.remove('fade-out'));
-        });
-    };
-
-    if (metalsSection) {
-        metalsSection.addEventListener('mouseenter', hideFloats);
-        metalsSection.addEventListener('mouseleave', showFloats);
-        metalsSection.addEventListener('touchstart', hideFloats, { passive: true });
-    }
-}

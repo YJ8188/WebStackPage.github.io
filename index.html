@@ -6454,6 +6454,7 @@
 
             /* 确保移动端侧边栏切换按钮可见 */
             .mobile-menu-toggle {
+                z-index: 10000 !important; /* 最高层级 */
                 display: block !important; /* 显示 */
                 visibility: visible !important; /* 可见 */
             }
@@ -6512,7 +6513,248 @@
         body.dark-mode .footer-inner {
             background: transparent !important; /* 透明背景 */
         }
+
+        /* ==================== 移动端跳转提示弹窗 ==================== */
+        /* 弹窗遮罩层 */
+        .mobile-redirect-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 99999;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(5px);
+        }
+
+        /* 圆形弹窗容器 */
+        .mobile-redirect-dialog {
+            width: 320px;
+            min-height: 320px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 40px 30px;
+            text-align: center;
+            animation: scaleIn 0.3s ease-out;
+            position: relative;
+        }
+
+        /* 暗黑模式下的弹窗 */
+        body.dark-mode .mobile-redirect-dialog {
+            background: rgba(42, 42, 42, 0.95);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+        }
+
+        /* 弹窗图标 */
+        .mobile-redirect-icon {
+            font-size: 48px;
+            color: #3b82f6;
+            margin-bottom: 15px;
+        }
+
+        /* 弹窗标题 */
+        .mobile-redirect-title {
+            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-size: 18px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 10px;
+            z-index: 1000; /* 确保标题显示在弹窗最前面 */
+        }
+
+        body.dark-mode .mobile-redirect-title {
+            color: #e0e0e0;
+        }
+
+        /* 弹窗描述 */
+        .mobile-redirect-desc {
+            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+            z-index: 1000; /* 确保文本显示在弹窗最前面 */
+            font-size: 14px;
+            color: #718096;
+            line-height: 1.6;
+            margin-bottom: 25px;
+            padding: 0 10px;
+        }
+
+        body.dark-mode .mobile-redirect-desc {
+            color: #a0aec0;
+        }
+
+        /* 按钮组 */
+        .mobile-redirect-buttons {
+            display: flex;
+            gap: 12px;
+            flex-direction: column;
+            z-index: 1000; /* 确保按钮组显示在弹窗最前面 */
+            width: 100%;
+        }
+
+        /* 跳转按钮 */
+        .mobile-redirect-btn {
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+            width: 100%;
+        }
+
+        /* 是按钮 */
+        .mobile-redirect-btn.yes {
+            z-index: 1000; /* 确保按钮显示在弹窗最前面 */
+            background: #3b82f6;
+            color: white;
+        }
+
+        .mobile-redirect-btn.yes:hover {
+            background: #2563eb;
+            transform: scale(1.02);
+        }
+
+        /* 否按钮 */
+        .mobile-redirect-btn.no {
+            z-index: 1000; /* 确保按钮显示在弹窗最前面 */
+            background: rgba(0, 0, 0, 0.05);
+            color: #4a5568;
+        }
+
+        body.dark-mode .mobile-redirect-btn.no {
+            background: rgba(255, 255, 255, 0.1);
+            color: #cbd5e0;
+        }
+        
+        /* 否按钮悬停效果 */
+        .mobile-redirect-btn.no:hover {
+            background: rgba(0, 0, 0, 0.1);
+            transform: scale(1.02);
+        }
+
+        body.dark-mode .mobile-redirect-btn.no:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        /* 缩放动画 */
+        @keyframes scaleIn {
+            from {
+                transform: scale(0.8);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        /* 仅在移动端显示 */
+        @media screen and (min-width: 769px) {
+            .mobile-redirect-overlay {
+                display: none !important;
+            }
+        }
     </style>
+
+    <!-- 移动端跳转提示弹窗 -->
+    <div class="mobile-redirect-overlay" id="mobileRedirectOverlay">
+        <div class="mobile-redirect-dialog">
+            <div class="mobile-redirect-icon">📱</div>
+            <div class="mobile-redirect-title">欢迎使用移动端导航</div>
+            <div class="mobile-redirect-desc">
+                检测到您正在使用移动设备访问。<br>
+                是否直接跳转到数字货币或金价行情？
+            </div>
+            <div class="mobile-redirect-buttons">
+                <button class="mobile-redirect-btn yes" onclick="handleMobileRedirect(true)">
+                    是，立即跳转
+                </button>
+                <button class="mobile-redirect-btn no" onclick="handleMobileRedirect(false)">
+                    否，继续浏览
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 移动端跳转逻辑 -->
+    <script>
+        // 检测是否为移动设备
+        function isMobileDevice() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                   window.innerWidth <= 768;
+        }
+
+        // 处理移动端跳转
+        function handleMobileRedirect(shouldRedirect) {
+            const overlay = document.getElementById('mobileRedirectOverlay');
+            overlay.style.display = 'none';
+
+            // 保存用户选择（7天内不再询问）
+            localStorage.setItem('mobile_redirect_choice', shouldRedirect ? 'yes' : 'no');
+            localStorage.setItem('mobile_redirect_timestamp', Date.now());
+
+            if (shouldRedirect) {
+                // 跳转到数字货币或金价行情
+                const cryptoSection = document.getElementById('数字货币');
+                const goldSection = document.getElementById('金价行情');
+
+                if (cryptoSection) {
+                    cryptoSection.scrollIntoView({ behavior: 'smooth' });
+                } else if (goldSection) {
+                    goldSection.scrollIntoView({ behavior: 'smooth' });
+                }
+            }
+        }
+
+        // 检查是否需要显示弹窗
+        function checkMobileRedirect() {
+            // 只在移动端显示
+            if (!isMobileDevice()) {
+                return;
+            }
+
+            // 检查用户之前的选择
+            const choice = localStorage.getItem('mobile_redirect_choice');
+            const timestamp = localStorage.getItem('mobile_redirect_timestamp');
+            const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+
+            // 如果用户之前选择了"否"且未超过7天，则不再询问
+            if (choice === 'no' && timestamp && (Date.now() - parseInt(timestamp)) < SEVEN_DAYS) {
+                return;
+            }
+
+            // 如果用户之前选择了"是"且未超过7天，则自动跳转
+            if (choice === 'yes' && timestamp && (Date.now() - parseInt(timestamp)) < SEVEN_DAYS) {
+                handleMobileRedirect(true);
+                return;
+            }
+
+            // 显示弹窗
+            setTimeout(() => {
+                const overlay = document.getElementById('mobileRedirectOverlay');
+                if (overlay) {
+                    overlay.style.display = 'flex';
+                }
+            }, 1000); // 延迟1秒显示，让页面先加载
+        }
+
+        // 页面加载完成后检查
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', checkMobileRedirect);
+        } else {
+            checkMobileRedirect();
+        }
+    </script>
+
     <!-- 行情功能模块 -->
 
 </body>

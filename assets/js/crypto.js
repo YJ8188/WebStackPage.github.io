@@ -229,6 +229,7 @@ async function fetchWithTimeout(resource, options = {}) {
 let binanceWS = null;
 let binanceMarketData = [];
 let binanceConnected = false;
+let stableCoinCount = 0; // 稳定的币种数量计数器
 
 /**
  * 初始化币安WebSocket连接
@@ -258,9 +259,24 @@ function initBinanceWebSocket() {
                 return;
             }
 
-            // 将币安API字段映射到标准格式
-            binanceMarketData = data
-                .filter(item => item && item.s && typeof item.s === 'string' && item.s.endsWith('USDT'))
+            console.log(`[币安API] 📦 接收到 ${data.length} 个交易对数据`);
+
+            // 验证数据有效性
+            const validItems = data.filter(item => item && item.s && typeof item.s === 'string');
+            console.log(`[币安API] ✅ 有效数据: ${validItems.length} 个交易对`);
+
+            // 统计 USDT 交易对
+            const usdtItems = validItems.filter(item => item.s.endsWith('USDT'));
+            console.log(`[币安API] 💰 USDT交易对: ${usdtItems.length} 个`);
+
+            // 将币安API字段映射到标准格式，并过滤无效数据
+            binanceMarketData = usdtItems
+                .filter(item => {
+                    // 过滤掉价格为0或异常的交易对
+                    const price = parseFloat(item.c);
+                    const volume = parseFloat(item.v);
+                    return price > 0 && volume > 0 && item.c && item.v;
+                })
                 .map(item => {
                     const symbol = item.s.replace('USDT', '').toLowerCase();
                     const symbolUpper = symbol.toUpperCase();
@@ -351,12 +367,21 @@ function initBinanceWebSocket() {
                     };
                 });
 
-            // 实时更新UI
+            console.log(`[币安API] ✅ 成功处理 ${binanceMarketData.length} 个USDT交易对`);
+            if (binanceMarketData.length > 0) {
+                console.log(`[币安API] 📊 前10个币种:`, binanceMarketData.slice(0, 10).map(c => c.symbol.toUpperCase()).join(', '));
+            }
+
+            // 更新API状态（包括币种计数）
+            updateAPIStatus('Binance WebSocket', true);
+
+            // 实时更新UI（只更新价格，不重新渲染整个表格）
             if (binanceMarketData.length > 0) {
                 updateCryptoUI(binanceMarketData);
             }
         } catch (error) {
             console.error('[币安API] ❌ 解析数据失败:', error);
+            console.error('[币安API] 错误堆栈:', error.stack);
         }
     };
 
@@ -390,17 +415,22 @@ function updateAPIStatus(name, isConnected) {
     if (dot) dot.style.color = isConnected ? '#10b981' : '#ef4444';
     if (label) label.innerText = isConnected ? name : 'Disconnected';
 
-    // 更新币种计数
+    // 更新币种计数（只在数量变化时更新）
     if (countDisplay && binanceMarketData.length > 0) {
-        countDisplay.innerText = `(${binanceMarketData.length} 币种)`;
+        if (binanceMarketData.length !== stableCoinCount) {
+            stableCoinCount = binanceMarketData.length;
+            countDisplay.innerText = `(${stableCoinCount} 币种)`;
+        }
     } else if (countDisplay) {
         countDisplay.innerText = '(加载中...)';
     }
 
-    // 更新标题中的币种计数
+    // 更新标题中的币种计数（只在数量变化时更新）
     const coinCountTitle = document.getElementById('coin-count-title');
     if (coinCountTitle && binanceMarketData.length > 0) {
-        coinCountTitle.innerText = `（已展现${binanceMarketData.length}币种）`;
+        if (binanceMarketData.length !== stableCoinCount) {
+            coinCountTitle.innerText = `（已展现${stableCoinCount}币种）`;
+        }
     } else if (coinCountTitle) {
         coinCountTitle.innerText = '（已展现0币种）';
     }

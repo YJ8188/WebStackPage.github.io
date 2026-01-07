@@ -241,7 +241,7 @@ function initBinanceWebSocket() {
         return;
     }
 
-    binanceWS = new WebSocket('wss://holy-tree-9924.a34296407-5cc.workers.dev');
+    binanceWS = new WebSocket('wss://holy-tree-9924.a34296407-5cc.workers.dev/');
 
     binanceWS.onopen = function() {
         console.log('[币安API] ✅ WebSocket连接已建立');

@@ -1532,6 +1532,10 @@ function initCryptoUI() {
             #crypto-search-input {
                 outline: none;
                 background: #fff;
+                font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+                font-weight: 600;
+                font-size: 14px;
+                color: #333;
             }
 
             #crypto-search-input:focus {
@@ -1542,6 +1546,7 @@ function initCryptoUI() {
 
             #crypto-search-input::placeholder {
                 color: #999;
+                font-weight: normal;
             }
 
             /* 表格行动画 */

@@ -6188,7 +6188,11 @@
 
             // 重新初始化 tooltip
             if (window.jQuery && window.jQuery.fn.tooltip) {
-                $('[data-toggle="tooltip"]').tooltip();
+                $('[data-toggle="tooltip"]').tooltip({
+                    container: 'body',
+                    placement: 'bottom',
+                    trigger: 'hover'
+                });
             }
         }
 

@@ -573,7 +573,7 @@ function initMetalsUI() {
 
                 <!-- 银行投资金条价格 -->
                 <div class="metals-table-container" style="margin-bottom: 20px;">
-                    <div style="padding: 12px 15px; font-size: 15px; font-weight: 600; color: #333; border-bottom: 1px solid #f0f0f0;">银行投资金条价格</div>
+                    <div style="padding: 12px 15px; font-size: 15px; font-weight: 600; color: #333; border-bottom: 1px solid #f0f0f0; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;">银行投资金条价格</div>
                     <table class="table metals-table">
                         <thead>
                             <tr>
@@ -595,7 +595,7 @@ function initMetalsUI() {
 
                 <!-- 黄金回收价格 -->
                 <div class="metals-table-container" style="margin-bottom: 20px;">
-                    <div style="padding: 12px 15px; font-size: 15px; font-weight: 600; color: #333; border-bottom: 1px solid #f0f0f0;">黄金回收价格</div>
+                    <div style="padding: 12px 15px; font-size: 15px; font-weight: 600; color: #333; border-bottom: 1px solid #f0f0f0; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;">黄金回收价格</div>
                     <table class="table metals-table">
                         <thead>
                             <tr>
@@ -618,7 +618,7 @@ function initMetalsUI() {
 
                 <!-- 贵金属价格 -->
                 <div class="metals-table-container">
-                    <div style="padding: 12px 15px; font-size: 15px; font-weight: 600; color: #333; border-bottom: 1px solid #f0f0f0;">贵金属价格</div>
+                    <div style="padding: 12px 15px; font-size: 15px; font-weight: 600; color: #333; border-bottom: 1px solid #f0f0f0; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;">贵金属价格</div>
                     <table class="table metals-table">
                         <thead>
                             <tr>
@@ -659,6 +659,7 @@ function initMetalsUI() {
             .metals-table {
                 margin-bottom: 0;
                 width: 100%;
+                font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
             }
 
             .metals-table th {
@@ -688,11 +689,13 @@ function initMetalsUI() {
             }
 
             .f_hongse {
+                font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
                 color: #ef4444;
                 font-weight: 600;
             }
 
             .jinjia_name {
+                font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
                 font-weight: 500;
                 color: #333;
             }

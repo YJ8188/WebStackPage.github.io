@@ -75,25 +75,27 @@ async function loadSparkline(id, symbol, changePct) {
 
     async function tryFetch() {
         let prices = null;
-        // 1. Try Gate.io K-line (国内可访问)
+        // 1. Try CryptoCompare (Fastest chart API)
         try {
-            const res = await fetchWithTimeout(`https://api.gateio.ws/api/v4/spot/candlesticks?currency_pair=${symbol.toUpperCase()}_USDT&interval=1h&limit=168`, { timeout: 7000 });
+            const res = await fetchWithTimeout(`https://min-api.cryptocompare.com/data/v2/histohour?fsym=${symbol.toUpperCase()}&tsym=USD&limit=168`, { timeout: 7000 });
             if (res.ok) {
                 const json = await res.json();
-                if (Array.isArray(json) && json.length > 0) {
-                    prices = json.map(d => parseFloat(d.close));
+                if (json.Data && json.Data.Data && json.Data.Data.length > 0) {
+                    prices = json.Data.Data.map(d => d.close).filter(p => !isNaN(p));
                 }
             }
         } catch (e) { }
 
-        // 2. Fallback to OKX K-line
+        // 2. Fallback to CoinCap
         if (!prices) {
             try {
-                const res = await fetchWithTimeout(`https://www.okx.com/api/v5/market/history-candles?instId=${symbol.toUpperCase()}-USDT&bar=1H&limit=168`, { timeout: 5000 });
+                const end = Date.now();
+                const start = end - (7 * 24 * 60 * 60 * 1000);
+                const res = await fetchWithTimeout(`https://api.coincap.io/v2/assets/${finalId}/history?interval=h2&start=${start}&end=${end}`, { timeout: 5000 });
                 if (res.ok) {
                     const json = await res.json();
                     if (json.data && json.data.length > 0) {
-                        prices = json.data.map(d => parseFloat(d[4])); // close price
+                        prices = json.data.map(d => parseFloat(d.priceUsd));
                     }
                 }
             } catch (e) { }
@@ -247,60 +249,28 @@ function onSuccess(dot, providerName, freshData) {
 /**
  * 多API数据源配置
  * 使用竞速模式获取数据，优先返回最快的响应
- * 优先使用国内可访问的 API
  */
 const APIS = {
-    // Gate.io API - 国内可访问
-    GATEIO: {
-        name: 'Gate.io',
-        url: 'https://api.gateio.ws/api/v4/spot/tickers',
+    CRYPTOCOMPARE: {
+        name: 'CryptoCompare',
+        url: 'https://min-api.cryptocompare.com/data/top/totalvolfull?limit=50&tsym=USD',
         handler: (data) => {
-            if (!Array.isArray(data)) throw new Error("Invalid Gate.io Data");
-            // 过滤出主流币种
-            const mainCoins = ['BTC', 'ETH', 'USDT', 'BNB', 'XRP', 'SOL', 'DOGE', 'ADA', 'TRX', 'TON', 'SHIB', 'LTC', 'ETC', 'LINK', 'UNI', 'BCH', 'ARB', 'OP', 'AVAX', 'DOT'];
-            return data.filter(item => mainCoins.includes(item.currency_pair.replace('_USDT', '').replace('_USD', '')))
-                .slice(0, 50)
-                .map(item => {
-                    const symbol = item.currency_pair.replace('_USDT', '').replace('_USD', '').toLowerCase();
-                    return {
-                        id: symbol,
-                        symbol: symbol,
-                        name: getCoinName(symbol),
-                        image: `https://gimg2.gateimg.com/coin_icon/64/${symbol}.png`,
-                        current_price: parseFloat(item.last),
-                        price_change_percentage_24h: parseFloat(item.change_percentage_24h),
-                        market_cap: 0, // Gate.io 不提供市值
-                        sparkline_in_7d: null
-                    };
-                });
+            if (!data.Data) throw new Error("Invalid CC Data");
+            return data.Data.map(item => {
+                const coin = item.RAW.USD;
+                return {
+                    id: item.CoinInfo.Name.toLowerCase(),
+                    symbol: item.CoinInfo.Name.toLowerCase(),
+                    name: item.CoinInfo.FullName,
+                    image: 'https://www.cryptocompare.com' + coin.IMAGEURL,
+                    current_price: coin.PRICE,
+                    price_change_percentage_24h: coin.CHANGEPCT24HOUR,
+                    market_cap: coin.MKTCAP,
+                    sparkline_in_7d: null
+                };
+            });
         }
     },
-    // OKX API - 国内可访问
-    OKX: {
-        name: 'OKX',
-        url: 'https://www.okx.com/api/v5/market/tickers?instType=SPOT',
-        handler: (data) => {
-            if (!data.data) throw new Error("Invalid OKX Data");
-            // 过滤出主流币种
-            const mainCoins = ['BTC-USDT', 'ETH-USDT', 'USDT-USDT', 'BNB-USDT', 'XRP-USDT', 'SOL-USDT', 'DOGE-USDT', 'ADA-USDT', 'TRX-USDT', 'TON-USDT', 'SHIB-USDT', 'LTC-USDT', 'ETC-USDT', 'LINK-USDT', 'UNI-USDT', 'BCH-USDT', 'ARB-USDT', 'OP-USDT', 'AVAX-USDT', 'DOT-USDT'];
-            return data.data.filter(item => mainCoins.includes(item.instId))
-                .slice(0, 50)
-                .map(item => {
-                    const symbol = item.instId.replace('-USDT', '').replace('-USD', '').toLowerCase();
-                    return {
-                        id: symbol,
-                        symbol: symbol,
-                        name: getCoinName(symbol),
-                        image: `https://static.okx.com/cdn/assets/imgs/icon/coin/icon/${symbol.toUpperCase()}_large.png`,
-                        current_price: parseFloat(item.last),
-                        price_change_percentage_24h: parseFloat(item.change24h),
-                        market_cap: 0, // OKX 不提供市值
-                        sparkline_in_7d: null
-                    };
-                });
-        }
-    },
-    // CoinCap API - 备用（可能需要代理）
     COINCAP: {
         name: 'CoinCap',
         url: 'https://api.coincap.io/v2/assets?limit=50',
@@ -317,7 +287,6 @@ const APIS = {
             }));
         }
     },
-    // CoinGecko API - 备用（可能需要代理）
     COINGECKO: {
         name: 'CoinGecko',
         url: 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=50&page=1&sparkline=false&price_change_percentage=24h',
@@ -333,33 +302,6 @@ const APIS = {
         }))
     }
 };
-
-// ==================== 币种名称映射 ====================
-function getCoinName(symbol) {
-    const coinNames = {
-        'btc': 'Bitcoin 比特币',
-        'eth': 'Ethereum 以太坊',
-        'usdt': 'Tether USDt',
-        'bnb': 'BNB 币安币',
-        'xrp': 'XRP 瑞波币',
-        'sol': 'Solana 索拉纳',
-        'doge': 'Dogecoin 狗狗币',
-        'ada': 'Cardano 艾达币',
-        'trx': 'TRON 波场',
-        'ton': 'Toncoin Open Network',
-        'shib': 'Shiba Inu 柴犬币',
-        'ltc': 'Litecoin 莱特币',
-        'etc': 'Ethereum Classic 以太坊经典',
-        'link': 'Chainlink 链环',
-        'uni': 'Uniswap',
-        'bch': 'Bitcoin Cash 比特币现金',
-        'arb': 'Arbitrum',
-        'op': 'Optimism',
-        'avax': 'Avalanche 雪崩',
-        'dot': 'Polkadot 波卡'
-    };
-    return coinNames[symbol] || symbol.toUpperCase();
-}
 
 // ==================== 汇率显示功能 ====================
 
@@ -971,11 +913,11 @@ async function fetchCryptoData() {
 
     try {
         console.log('[行情同步] 开始并行竞速模式...');
-        // 优化：优先使用国内可访问的 API（Gate.io 和 OKX）
+        // 优化：只启动2个主要数据源进行竞速，减少并发请求
         // 使用Promise.any获取最快响应
         const fastestResult = await Promise.any([
-            fetchSource(APIS.GATEIO),
-            fetchSource(APIS.OKX)
+            fetchSource(APIS.CRYPTOCOMPARE),
+            fetchSource(APIS.COINCAP)
         ]);
 
         if (fastestResult && fastestResult.data) {
@@ -995,18 +937,18 @@ async function fetchCryptoData() {
         }
     } catch (e) {
         console.error('[行情同步] 并行竞速失败:', e);
-        // D. 如果所有初始竞速失败，回退到 CoinCap（备用）
+        // D. 如果所有初始竞速失败，回退到CoinGecko
         try {
-            console.log('[行情同步] 回退到 CoinCap...');
-            if (label) label.innerText = 'Fallback (CC)...';
-            const capRes = await fetchSource(APIS.COINCAP);
-            cryptoData = capRes.data;
-            onSuccess(dot, capRes.name, capRes.data);
+            console.log('[行情同步] 回退到CoinGecko...');
+            if (label) label.innerText = 'Fallback (CG)...';
+            const geckoRes = await fetchSource(APIS.COINGECKO);
+            cryptoData = geckoRes.data;
+            onSuccess(dot, geckoRes.name, geckoRes.data);
             localStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
             localStorage.setItem('crypto_market_cache_time', Date.now().toString());
             return;
-        } catch (cap) {
-            console.error('[行情同步] CoinCap也失败了:', cap);
+        } catch (ge) {
+            console.error('[行情同步] CoinGecko也失败了:', ge);
             // E. 最终失败：如果有缓存数据，重新渲染表格并显示离线状态
             if (cryptoData.length > 0) {
                 console.log('[行情同步] 使用本地缓存数据，重新渲染表格');

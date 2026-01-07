@@ -65,6 +65,61 @@ const COIN_ID_MAP = {
 const expandedCoins = new Set();
 // 所有币种数据（用于搜索）
 let allCryptoData = [];
+// 是否使用代理
+let isUsingProxy = false;
+
+/**
+ * 检测是否使用代理（如 Clash Verge）
+ * 通过检测时区和网络连接来判断
+ */
+async function detectProxy() {
+    // 检测时区
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const isChinaTimezone = timezone === 'Asia/Shanghai' || 
+                            timezone === 'Asia/Beijing';
+    
+    // 检测是否为移动端
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    // 如果是PC端，默认认为可以使用
+    if (!isMobile) {
+        console.log('[代理检测] 💻 PC端环境，默认允许访问');
+        return true;
+    }
+    
+    // 移动端：检测时区
+    if (isChinaTimezone) {
+        console.log('[代理检测] 📱 移动端 + 中国时区，尝试检测代理...');
+        
+        // 尝试快速检测是否能访问币安API
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000); // 3秒超时
+            
+            const response = await fetch('https://api.binance.com/api/v3/ping', {
+                method: 'GET',
+                signal: controller.signal,
+                cache: 'no-cache'
+            });
+            
+            clearTimeout(timeoutId);
+            
+            if (response.ok) {
+                console.log('[代理检测] ✅ 检测到代理，允许访问');
+                return true;
+            } else {
+                console.log('[代理检测] ❌ 未检测到代理');
+                return false;
+            }
+        } catch (error) {
+            console.log('[代理检测] ❌ 无法访问币安API，未检测到代理');
+            return false;
+        }
+    } else {
+        console.log('[代理检测] 📱 移动端 + 国际时区，允许访问');
+        return true;
+    }
+}
 
 /**
  * 加载K线图数据
@@ -254,9 +309,27 @@ function initBinanceWebSocket() {
     const wsUrl = 'wss://stream.binance.com:9443/ws/!ticker@arr';
     console.log('[币安API] 📡 连接地址:', wsUrl);
 
+    // 设置连接超时（10秒）
+    const connectionTimeout = setTimeout(() => {
+        if (!binanceConnected) {
+            console.log('[币安API] ⏰ WebSocket连接超时');
+            updateAPIStatus('Binance WebSocket', false);
+            
+            // 显示连接超时提示
+            const tbody = document.getElementById('crypto-table-body');
+            if (tbody) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: #999;">
+                    <i class="fa fa-clock-o" style="font-size: 24px; margin-bottom: 8px;"></i>
+                    <p style="font-size: 14px;">连接超时，请检查网络或代理设置</p>
+                </td></tr>`;
+            }
+        }
+    }, 10000);
+
     binanceWS = new WebSocket(wsUrl);
 
     binanceWS.onopen = function() {
+        clearTimeout(connectionTimeout);
         console.log('[币安API] ✅ WebSocket连接已建立');
         console.log('[币安API] 📡 等待接收数据...');
         binanceConnected = true;
@@ -2125,9 +2198,29 @@ function initCryptoUI() {
 /**
  * 页面加载完成后初始化
  */
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     console.log('[页面加载] DOMContentLoaded 事件触发');
     console.log('[页面加载] 开始初始化数字货币模块');
+
+    // 检测是否使用代理
+    console.log('[页面加载] 检测代理状态...');
+    isUsingProxy = await detectProxy();
+    
+    // 如果未使用代理，显示提示信息
+    if (!isUsingProxy) {
+        console.log('[页面加载] ⛔ 未检测到代理，显示提示信息');
+        const placeholder = document.getElementById('crypto-section-placeholder');
+        if (placeholder) {
+            placeholder.innerHTML = `
+                <div style="text-align:center; padding: 40px 20px; color: #999;">
+                    <i class="fa fa-shield" style="font-size: 48px; margin-bottom: 16px; color: #888;"></i>
+                    <p style="font-size: 16px; font-weight: 500; color: #666; margin-bottom: 8px;">WebSocket数字货币移动端禁用</p>
+                    <p style="font-size: 14px; color: #999;">可访问其他内容</p>
+                </div>
+            `;
+        }
+        return;
+    }
 
     // 检测网络状态
     console.log('[页面加载] 检测网络状态...');
@@ -2137,7 +2230,7 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('[页面加载] 调用 initCryptoUI()');
     initCryptoUI();
 
-    // 初始化币安WebSocket连接
+    // 初始化币安WebSocket连接（带超时）
     console.log('[页面加载] 初始化币安WebSocket连接...');
     initBinanceWebSocket();
 

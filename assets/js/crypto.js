@@ -236,11 +236,11 @@ function initBinanceWebSocket() {
                 .filter(item => item && item.s && typeof item.s === 'string' && item.s.endsWith('USDT'))
                 .map(item => {
                     const symbol = item.s.replace('USDT', '').toLowerCase();
-                    // 使用CoinCap的logo服务 - 支持所有币种
+                    // 使用Blocknative的logo服务
                     return {
                         symbol: symbol,
                         name: item.s.replace('USDT', ''),
-                        image: `https://assets.coincap.io/assets/icons/${symbol}@2x.png`,
+                        image: `https://tokens.1inch.io/${symbol}.png`,
                         current_price: parseFloat(item.c) || 0,
                         price_change_percentage_24h: parseFloat(item.P) || 0,
                         market_cap: parseFloat(item.c) * parseFloat(item.v) || 0,

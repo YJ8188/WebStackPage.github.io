@@ -13,7 +13,7 @@ var MetalsData = {
     },
 
     // 自动刷新配置
-    refreshInterval: 3000,    // 刷新间隔：3秒
+    refreshInterval: 60000,    // 刷新间隔：60秒（减少API请求频率）
     refreshTimer: null,       // 定时器引用
     countdownTimer: null,     // 倒计时定时器
     nextRefreshTime: 0,       // 下次刷新时间
@@ -228,31 +228,8 @@ var MetalsData = {
             console.log('%c[金价行情] 数据获取成功:', 'color: #10b981;', data);
 
             if (data.code === 200 && data.data) {
-                // 检查数据是否合理,避免异常波动
+                // 直接使用API返回的最新数据
                 var newData = data.data;
-                var oldData = self.cachedData;
-
-                // 如果有缓存数据,检查价格变化是否合理
-                if (oldData && oldData.gold_recycle_price) {
-                    var old24K = oldData.gold_recycle_price.find(function(item) {
-                        return item.gold_type === '24K金回收';
-                    });
-                    var new24K = newData.gold_recycle_price.find(function(item) {
-                        return item.gold_type === '24K金回收';
-                    });
-
-                    if (old24K && new24K) {
-                        var oldPrice = parseFloat(old24K.recycle_price);
-                        var newPrice = parseFloat(new24K.recycle_price);
-                        var changePercent = Math.abs((newPrice - oldPrice) / oldPrice * 100);
-
-                        // 如果价格变化超过5%,可能是API异常,使用缓存数据
-                        if (changePercent > 5) {
-                            console.warn('%c[金价行情] 检测到异常价格波动: ' + changePercent.toFixed(2) + '%, 使用缓存数据', 'color: #f59e0b;');
-                            newData = oldData;
-                        }
-                    }
-                }
 
                 // 更新数据
                 self.prices.bankGoldBars = newData.bank_gold_bar_price || [];
@@ -372,7 +349,17 @@ var MetalsData = {
             tbody.innerHTML = '';
         }
 
+        // 去重处理：每个银行只保留一条记录
+        var uniqueBankGoldBars = {};
         this.prices.bankGoldBars.forEach(function(item) {
+            var key = item.bank;
+            if (!uniqueBankGoldBars[key]) {
+                uniqueBankGoldBars[key] = item;
+            }
+        });
+        var deduplicatedData = Object.values(uniqueBankGoldBars);
+
+        deduplicatedData.forEach(function(item) {
             var existingRow = null;
             var priceSpan = null;
 

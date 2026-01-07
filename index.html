@@ -6483,6 +6483,14 @@
                 bottom: 80px !important; /* 稍微抬高一点，避开某些手机浏览器的底部栏 */
                 opacity: 0.8; /* 半透明，减少遮挡感 */
                 transform: scale(0.9); /* 缩小一点 */
+                transition: opacity 0.3s ease, visibility 0.3s ease;
+            }
+
+            /* 浮动按钮淡出动画 */
+            .fade-out {
+                opacity: 0 !important;
+                visibility: hidden !important;
+                transition: opacity 0.3s ease, visibility 0.3s ease;
             }
 
             /* 显示隐藏卡片按钮的位置调整 */

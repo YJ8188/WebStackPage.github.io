@@ -1357,12 +1357,16 @@ function filterCryptoTable(searchText) {
 
     rows.forEach(row => {
         const coinSymbol = row.querySelector('.coin-symbol')?.textContent.toLowerCase() || '';
+        const coinSymbolClean = coinSymbol.replace('/usdt', '').trim();
         const coinName = row.querySelector('.coin-name')?.textContent.toLowerCase() || '';
+        const coinNameClean = coinName.replace('/usdt', '').trim();
 
-        // 搜索匹配：币种符号或名称
+        // 搜索匹配：币种符号（带/不带USDT）或名称
         const matches = searchLower === '' ||
                        coinSymbol.includes(searchLower) ||
-                       coinName.includes(searchLower);
+                       coinSymbolClean.includes(searchLower) ||
+                       coinName.includes(searchLower) ||
+                       coinNameClean.includes(searchLower);
 
         if (matches) {
             row.classList.remove('hidden');
@@ -1370,7 +1374,7 @@ function filterCryptoTable(searchText) {
             visibleCount++;
 
             // 同时显示对应的详情行
-            const symbol = row.querySelector('.coin-symbol')?.textContent.toLowerCase();
+            const symbol = row.dataset.symbol || row.querySelector('.coin-symbol')?.textContent.toLowerCase().replace('/usdt', '');
             const detailRow = document.getElementById(`detail-${symbol}`);
             if (detailRow) {
                 detailRow.classList.remove('hidden');
@@ -1380,7 +1384,7 @@ function filterCryptoTable(searchText) {
             row.classList.remove('filtered-in');
 
             // 同时隐藏对应的详情行
-            const symbol = row.querySelector('.coin-symbol')?.textContent.toLowerCase();
+            const symbol = row.dataset.symbol || row.querySelector('.coin-symbol')?.textContent.toLowerCase().replace('/usdt', '');
             const detailRow = document.getElementById(`detail-${symbol}`);
             if (detailRow) {
                 detailRow.classList.add('hidden');

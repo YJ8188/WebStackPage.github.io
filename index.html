@@ -153,7 +153,7 @@
         /* ==================== 提示框（Tooltip）样式 ==================== */
         /* 确保tooltip显示在最上层 */
         .tooltip {
-            z-index: 10000 !important; /* 最高层级 */
+            z-index: 20000 !important; /* 最高层级 - 确保不被任何元素遮挡 */
             pointer-events: none; /* 不响应鼠标事件 */
         }
 
@@ -164,6 +164,12 @@
             font-size: 12px; /* 字体大小 */
             background-color: rgba(0, 0, 0, 0.9); /* 背景色：深色半透明 */
             padding: 8px 12px; /* 内边距 */
+            border-radius: 6px; /* 圆角 */
+        }
+
+        /* Tooltip箭头样式 */
+        .tooltip-arrow {
+            z-index: 20000 !important; /* 与tooltip同级 */
         }
 
         /* ==================== 卡片悬停效果 ==================== */

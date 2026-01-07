@@ -337,7 +337,7 @@ var MetalsData = {
         }
 
         if (!this.prices.bankGoldBars || this.prices.bankGoldBars.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px; color: #999;">暂无数据</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 20px; color: #999;">暂无数据</td></tr>';
             return;
         }
 
@@ -395,17 +395,25 @@ var MetalsData = {
                 if (oldBullionPrice !== newBullionPrice && newBullionPrice !== '-') {
                     self.animateNumber(priceSpans[2], newBullionPrice);
                 }
+
+                // 更新报价时间
+                var timeCell = existingRow.cells[4];
+                if (timeCell) {
+                    timeCell.innerText = item.报价时间 || '-';
+                }
             } else {
                 // 新增行
                 var goldDisplay = item.黄金价格 === '-' ? '-' : '¥' + item.黄金价格;
                 var platinumDisplay = item.铂金价格 === '-' ? '-' : '¥' + item.铂金价格;
                 var bullionDisplay = item.金条价格 === '-' ? '-' : '¥' + item.金条价格;
-                
+                var timeDisplay = item.报价时间 || '-';
+
                 var row = document.createElement('tr');
                 row.innerHTML = '<td class="jinjia_name">' + item.品牌 + '</td>' +
                     '<td><span class="f_hongse">' + goldDisplay + '</span></td>' +
                     '<td><span class="f_hongse">' + platinumDisplay + '</span></td>' +
-                    '<td><span class="f_hongse">' + bullionDisplay + '</span></td>';
+                    '<td><span class="f_hongse">' + bullionDisplay + '</span></td>' +
+                    '<td style="font-size: 12px; color: #999;">' + timeDisplay + '</td>';
                 tbody.appendChild(row);
             }
         });
@@ -422,7 +430,7 @@ var MetalsData = {
         }
 
         if (!this.prices.goldRecycle || this.prices.goldRecycle.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px; color: #999;">暂无数据</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 20px; color: #999;">暂无数据</td></tr>';
             return;
         }
 
@@ -485,18 +493,25 @@ var MetalsData = {
                     rangeCell.innerText = rangeValue;
                     rangeCell.style.color = rangeColor;
                 }
+                // 更新报价时间
+                var timeCell = existingRow.cells[4];
+                if (timeCell) {
+                    timeCell.innerText = item.报价时间 || '-';
+                }
             } else {
                 // 根据涨跌设置颜色
                 var changeValue = item.涨跌;
                 var changeColor = changeValue >= 0 ? '#ef4444' : '#10b981';
                 var rangeValue = item.幅度;
                 var rangeColor = rangeValue >= 0 ? '#ef4444' : '#10b981';
-                
+                var timeDisplay = item.报价时间 || '-';
+
                 var row = document.createElement('tr');
                 row.innerHTML = '<td class="jinjia_name">' + item.品种 + '</td>' +
                     '<td><span class="f_hongse">¥' + item.最新价 + '</span></td>' +
                     '<td style="color: ' + changeColor + ';">' + changeValue + '</td>' +
-                    '<td style="color: ' + rangeColor + ';">' + rangeValue + '</td>';
+                    '<td style="color: ' + rangeColor + ';">' + rangeValue + '</td>' +
+                    '<td style="font-size: 12px; color: #999;">' + timeDisplay + '</td>';
                 tbody.appendChild(row);
             }
         });
@@ -513,7 +528,7 @@ var MetalsData = {
         }
 
         if (!this.prices.preciousMetals || this.prices.preciousMetals.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px; color: #999;">暂无数据</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 20px; color: #999;">暂无数据</td></tr>';
             return;
         }
 
@@ -576,18 +591,25 @@ var MetalsData = {
                     rangeCell.innerText = rangeValue;
                     rangeCell.style.color = rangeColor;
                 }
+                // 更新报价时间
+                var timeCell = existingRow.cells[4];
+                if (timeCell) {
+                    timeCell.innerText = item.报价时间 || '-';
+                }
             } else {
                 // 根据涨跌设置颜色
                 var changeValue = item.涨跌;
                 var changeColor = changeValue >= 0 ? '#ef4444' : '#10b981';
                 var rangeValue = item.幅度;
                 var rangeColor = rangeValue >= 0 ? '#ef4444' : '#10b981';
-                
+                var timeDisplay = item.报价时间 || '-';
+
                 var row = document.createElement('tr');
                 row.innerHTML = '<td class="jinjia_name">' + item.品种 + '</td>' +
                     '<td><span class="f_hongse">¥' + item.最新价 + '</span></td>' +
                     '<td style="color: ' + changeColor + ';">' + changeValue + '</td>' +
-                    '<td style="color: ' + rangeColor + ';">' + rangeValue + '</td>';
+                    '<td style="color: ' + rangeColor + ';">' + rangeValue + '</td>' +
+                    '<td style="font-size: 12px; color: #999;">' + timeDisplay + '</td>';
                 tbody.appendChild(row);
             }
         });
@@ -632,15 +654,16 @@ function initMetalsUI() {
                     <table class="table metals-table">
                         <thead>
                             <tr>
-                                <th style="width: 30%;">品牌</th>
-                                <th style="width: 25%;">黄金价(元/克)</th>
-                                <th style="width: 25%;">铂金价(元/克)</th>
+                                <th style="width: 25%;">品牌</th>
+                                <th style="width: 20%;">黄金价(元/克)</th>
+                                <th style="width: 20%;">铂金价(元/克)</th>
                                 <th style="width: 20%;">金条价(元/克)</th>
+                                <th style="width: 15%;">报价时间</th>
                             </tr>
                         </thead>
                         <tbody id="bank-gold-bars-body">
                             <tr>
-                                <td colspan="2" style="text-align:center; padding: 20px;">
+                                <td colspan="5" style="text-align:center; padding: 20px;">
                                     <div id="bank-gold-loading">
                                         <i class="fa fa-spinner fa-spin"></i> 正在加载行情数据...
                                     </div>
@@ -656,15 +679,16 @@ function initMetalsUI() {
                     <table class="table metals-table">
                         <thead>
                             <tr>
-                                <th style="width: 25%;">品种</th>
-                                <th style="width: 25%;">最新价(元/克)</th>
-                                <th style="width: 25%;">涨跌</th>
-                                <th style="width: 25%;">幅度</th>
+                                <th style="width: 20%;">品种</th>
+                                <th style="width: 20%;">最新价(元/克)</th>
+                                <th style="width: 20%;">涨跌</th>
+                                <th style="width: 20%;">幅度</th>
+                                <th style="width: 20%;">报价时间</th>
                             </tr>
                         </thead>
                         <tbody id="gold-recycle-body">
                             <tr>
-                                <td colspan="3" style="text-align:center; padding: 20px;">
+                                <td colspan="5" style="text-align:center; padding: 20px;">
                                     <div id="gold-recycle-loading">
                                         <i class="fa fa-spinner fa-spin"></i> 正在加载行情数据...
                                     </div>
@@ -680,10 +704,11 @@ function initMetalsUI() {
                     <table class="table metals-table">
                         <thead>
                             <tr>
-                                <th style="width: 25%;">品种</th>
-                                <th style="width: 25%;">最新价</th>
-                                <th style="width: 25%;">涨跌</th>
-                                <th style="width: 25%;">幅度</th>
+                                <th style="width: 20%;">品种</th>
+                                <th style="width: 20%;">最新价</th>
+                                <th style="width: 20%;">涨跌</th>
+                                <th style="width: 20%;">幅度</th>
+                                <th style="width: 20%;">报价时间</th>
                             </tr>
                         </thead>
                         <tbody id="precious-metals-body">

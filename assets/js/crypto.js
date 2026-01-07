@@ -263,7 +263,8 @@ function initBinanceWebSocket() {
                 .map(item => ({
                     symbol: item.s.replace('USDT', '').toLowerCase(),
                     name: item.s.replace('USDT', ''),
-                    image: `https://gimg2.gateimg.com/coin_icon/64/${item.s.replace('USDT', '').toLowerCase()}.png`,
+                    // 使用币安官方logo服务
+                    image: `https://bin.bnbstatic.com/image/admin_mgs_image_upload/20280419/64-${item.s.replace('USDT', '').toLowerCase()}.png`,
                     current_price: parseFloat(item.c) || 0,
                     price_change_percentage_24h: parseFloat(item.P) || 0,
                     market_cap: parseFloat(item.c) * parseFloat(item.v) || 0,

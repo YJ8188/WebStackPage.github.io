@@ -36,8 +36,6 @@ const COIN_ID_MAP = {
 };
 
 // ==================== 数据持久化和缓存 ====================
-// Gate.io的所有交易对数据（用于全局搜索）
-let allGateTickers = [];
 // 已展开详情的币种集合
 const expandedCoins = new Set();
 
@@ -222,86 +220,95 @@ async function fetchWithTimeout(resource, options = {}) {
     }
 }
 
-// Success Handler
-function onSuccess(dot, providerName, freshData) {
-    const label = document.getElementById('api-provider-name');
-    if (dot) dot.style.color = '#10b981';
-    if (label) label.innerText = providerName;
+// ==================== 币安WebSocket API配置 ====================
+/**
+ * 币安实时WebSocket行情API
+ * 使用WebSocket获取实时数据,无需刷新
+ */
+let binanceWS = null;
+let binanceMarketData = [];
+let binanceConnected = false;
 
-    // Always update UI elements if they exist
-    if (freshData) updateCryptoUI(freshData);
+/**
+ * 初始化币安WebSocket连接
+ */
+function initBinanceWebSocket() {
+    console.log('[币安API] 正在连接WebSocket...');
 
-    // Handle table sync
-    const tbody = document.getElementById('crypto-table-body');
-    const rowCount = tbody ? tbody.querySelectorAll('.main-row').length : 0;
-
-    // Force re-render if coin count changed (e.g. from 12 to 50)
-    if (rowCount !== cryptoData.length) {
-        renderCryptoTable(cryptoData);
-    } else {
-        // Otherwise just update prices/changes (不重新渲染表格，保持展开状态)
-        updateCryptoUI(freshData);
+    if (binanceWS && binanceConnected) {
+        console.log('[币安API] WebSocket已连接,跳过重复连接');
+        return;
     }
+
+    binanceWS = new WebSocket('wss://stream.binance.com:9443/ws/!ticker@arr');
+
+    binanceWS.onopen = function() {
+        console.log('[币安API] ✅ WebSocket连接已建立');
+        binanceConnected = true;
+        updateAPIStatus('Binance WebSocket', true);
+    };
+
+    binanceWS.onmessage = function(event) {
+        try {
+            const data = JSON.parse(event.data);
+
+            if (!Array.isArray(data)) {
+                console.warn('[币安API] ⚠️ 接收到的数据格式不正确');
+                return;
+            }
+
+            // 将币安API字段映射到标准格式
+            binanceMarketData = data
+                .filter(item => item && item.s && typeof item.s === 'string' && item.s.endsWith('USDT'))
+                .map(item => ({
+                    symbol: item.s.replace('USDT', '').toLowerCase(),
+                    name: item.s.replace('USDT', ''),
+                    image: `https://gimg2.gateimg.com/coin_icon/64/${item.s.replace('USDT', '').toLowerCase()}.png`,
+                    current_price: parseFloat(item.c) || 0,
+                    price_change_percentage_24h: parseFloat(item.P) || 0,
+                    market_cap: parseFloat(item.c) * parseFloat(item.v) || 0,
+                    total_volume: parseFloat(item.q) || 0,
+                    quoteVolume: parseFloat(item.q) || 0,
+                    volume: parseFloat(item.v) || 0
+                }));
+
+            // 实时更新UI
+            if (binanceMarketData.length > 0) {
+                updateCryptoUI(binanceMarketData);
+            }
+        } catch (error) {
+            console.error('[币安API] ❌ 解析数据失败:', error);
+        }
+    };
+
+    binanceWS.onerror = function(error) {
+        console.error('[币安API] ❌ WebSocket错误:', error);
+        updateAPIStatus('Binance WebSocket', false);
+    };
+
+    binanceWS.onclose = function(event) {
+        console.log('[币安API] 🔴 WebSocket连接已关闭');
+        console.log(`关闭代码: ${event.code}, 原因: ${event.reason || '无'}`);
+        binanceConnected = false;
+        updateAPIStatus('Binance WebSocket', false);
+
+        // 5秒后自动重连
+        setTimeout(() => {
+            console.log('[币安API] 🔄 正在重新连接...');
+            initBinanceWebSocket();
+        }, 5000);
+    };
 }
 
-// API Strategies configuration
-// ==================== API配置 ====================
 /**
- * 多API数据源配置
- * 使用竞速模式获取数据，优先返回最快的响应
+ * 更新API状态显示
  */
-const APIS = {
-    CRYPTOCOMPARE: {
-        name: 'CryptoCompare',
-        url: 'https://min-api.cryptocompare.com/data/top/totalvolfull?limit=50&tsym=USD',
-        handler: (data) => {
-            if (!data.Data) throw new Error("Invalid CC Data");
-            return data.Data.map(item => {
-                const coin = item.RAW.USD;
-                return {
-                    id: item.CoinInfo.Name.toLowerCase(),
-                    symbol: item.CoinInfo.Name.toLowerCase(),
-                    name: item.CoinInfo.FullName,
-                    image: 'https://www.cryptocompare.com' + coin.IMAGEURL,
-                    current_price: coin.PRICE,
-                    price_change_percentage_24h: coin.CHANGEPCT24HOUR,
-                    market_cap: coin.MKTCAP,
-                    sparkline_in_7d: null
-                };
-            });
-        }
-    },
-    COINCAP: {
-        name: 'CoinCap',
-        url: 'https://api.coincap.io/v2/assets?limit=50',
-        handler: (data) => {
-            return data.data.map(item => ({
-                id: item.id,
-                symbol: item.symbol.toLowerCase(),
-                name: item.name,
-                image: `https://gimg2.gateimg.com/coin_icon/64/${item.symbol.toLowerCase()}.png`,
-                current_price: parseFloat(item.priceUsd),
-                price_change_percentage_24h: parseFloat(item.changePercent24Hr),
-                market_cap: parseFloat(item.marketCapUsd),
-                sparkline_in_7d: null
-            }));
-        }
-    },
-    COINGECKO: {
-        name: 'CoinGecko',
-        url: 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=50&page=1&sparkline=false&price_change_percentage=24h',
-        handler: (data) => data.map(item => ({
-            id: item.id,
-            symbol: item.symbol.toLowerCase(),
-            name: item.name,
-            image: item.image,
-            current_price: item.current_price,
-            price_change_percentage_24h: item.price_change_percentage_24h,
-            market_cap: item.market_cap,
-            sparkline_in_7d: null
-        }))
-    }
-};
+function updateAPIStatus(name, isConnected) {
+    const dot = document.getElementById('api-status-dot');
+    const label = document.getElementById('api-provider-name');
+    if (dot) dot.style.color = isConnected ? '#10b981' : '#ef4444';
+    if (label) label.innerText = isConnected ? name : 'Disconnected';
+}
 
 // ==================== 汇率显示功能 ====================
 
@@ -851,128 +858,61 @@ const syncRate = async () => {
 
 // ==================== 数据获取核心引擎 ====================
 /**
- * 获取数字货币数据（竞速模式 + 本地缓存回退）
- * 优先使用本地缓存实现即时加载，同时后台更新数据
+ * 获取数字货币数据（使用币安WebSocket实时数据）
  */
 async function fetchCryptoData() {
     console.log('[行情同步] fetchCryptoData 开始执行');
-    console.log('[行情同步] 当前 cryptoData 数量:', cryptoData.length);
 
-    const dot = document.getElementById('api-status-dot');
-    const label = document.getElementById('api-provider-name');
     const tbody = document.getElementById('crypto-table-body');
     const refreshIcon = document.querySelector('#refresh-crypto-btn i');
 
     console.log('[行情同步] 检查DOM元素:', {
-        dot: !!dot,
-        label: !!label,
         tbody: !!tbody,
         refreshIcon: !!refreshIcon
     });
 
     // 设置为获取中状态
-    dot.style.color = '#f59e0b';
     if (refreshIcon) refreshIcon.classList.add('fa-spin');
 
-    // A. 立即尝试从本地存储加载（实现即时加载效果）
-    if (cryptoData.length === 0) {
-        const cached = localStorage.getItem('crypto_market_cache');
-        if (cached) {
-            try {
-                const parsed = JSON.parse(cached);
-                if (parsed && parsed.length > 0) {
-                    console.log('[行情同步] 从缓存加载数据:', parsed.length, '个币种');
-                    cryptoData = parsed;
-                    renderCryptoTable(cryptoData);
-                    updateCryptoUI(cryptoData);
-                    if (label) label.innerText = 'Cached Source';
-                    console.log('[行情同步] 缓存数据已加载并渲染');
-                }
-            } catch (e) {
-                console.error('[行情同步] 缓存数据解析失败:', e);
-            }
-        }
+    // 初始化币安WebSocket连接
+    if (!binanceConnected) {
+        initBinanceWebSocket();
     }
 
-    // 后台同步汇率（Gate.io USDT_CNY）
+    // 后台同步汇率
     syncRate();
 
-    // C. 并行竞速模式（核心优化）
-    const fetchSource = async (apiObj) => {
-        console.log(`[行情同步] 尝试 ${apiObj.name}...`);
-        console.log(`[行情同步] ${apiObj.name} URL:`, apiObj.url);
-        const res = await fetchWithTimeout(apiObj.url, { timeout: 15000 });
-        console.log(`[行情同步] ${apiObj.name} 响应状态:`, res.status);
-        if (!res.ok) throw new Error(`${apiObj.name} Failed: HTTP ${res.status}`);
-        const data = await res.json();
-        console.log(`[行情同步] ${apiObj.name} 响应数据:`, data);
-        const processedData = apiObj.handler(data);
-        console.log(`[行情同步] ${apiObj.name} 处理后数据:`, processedData);
-        return { name: apiObj.name, data: processedData };
-    };
-
-    try {
-        console.log('[行情同步] 开始并行竞速模式...');
-        // 优化：只启动2个主要数据源进行竞速，减少并发请求
-        // 使用Promise.any获取最快响应
-        const fastestResult = await Promise.any([
-            fetchSource(APIS.CRYPTOCOMPARE),
-            fetchSource(APIS.COINCAP)
-        ]);
-
-        if (fastestResult && fastestResult.data) {
-            console.log(`[行情同步] 成功！最快响应来自: ${fastestResult.name}`);
-            cryptoData = fastestResult.data;
-            onSuccess(dot, fastestResult.name, fastestResult.data);
-
-            // 节流localStorage写入：每10秒最多写入一次
-            const now = Date.now();
-            if (now - lastLocalStorageUpdate >= LOCAL_STORAGE_UPDATE_INTERVAL) {
-                localStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
-                localStorage.setItem('crypto_market_cache_time', Date.now().toString());
-                lastLocalStorageUpdate = now;
-                console.log('[行情同步] 数据已保存到localStorage');
-            }
-            return;
-        }
-    } catch (e) {
-        console.error('[行情同步] 并行竞速失败:', e);
-        // D. 如果所有初始竞速失败，回退到CoinGecko
-        try {
-            console.log('[行情同步] 回退到CoinGecko...');
-            if (label) label.innerText = 'Fallback (CG)...';
-            const geckoRes = await fetchSource(APIS.COINGECKO);
-            cryptoData = geckoRes.data;
-            onSuccess(dot, geckoRes.name, geckoRes.data);
-            localStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
-            localStorage.setItem('crypto_market_cache_time', Date.now().toString());
-            return;
-        } catch (ge) {
-            console.error('[行情同步] CoinGecko也失败了:', ge);
-            // E. 最终失败：如果有缓存数据，重新渲染表格并显示离线状态
-            if (cryptoData.length > 0) {
-                console.log('[行情同步] 使用本地缓存数据，重新渲染表格');
-                // 重新渲染表格以确保数据正确显示
+    // 如果WebSocket已连接且有数据,立即渲染
+    if (binanceMarketData.length > 0) {
+        cryptoData = binanceMarketData;
+        renderCryptoTable(cryptoData);
+        updateCryptoUI(cryptoData);
+        console.log('[行情同步] 已渲染币安实时数据:', cryptoData.length, '个币种');
+    } else {
+        // 等待WebSocket连接
+        console.log('[行情同步] 等待WebSocket连接...');
+        let retryCount = 0;
+        const maxRetries = 10;
+        const checkInterval = setInterval(() => {
+            retryCount++;
+            if (binanceMarketData.length > 0) {
+                clearInterval(checkInterval);
+                cryptoData = binanceMarketData;
                 renderCryptoTable(cryptoData);
-                // 更新价格显示
                 updateCryptoUI(cryptoData);
-                // 更新状态指示器
-                dot.style.color = '#ef4444';
-                if (label) label.innerText = 'Sync Off (Local)';
-                console.log('[行情同步] 离线模式已启用，表格已重新渲染');
-            } else {
-                console.error('[行情同步] 完全失败，没有缓存数据');
-                // 完全失败UI
-                dot.style.color = '#ef4444';
+                console.log('[行情同步] WebSocket数据已加载:', cryptoData.length, '个币种');
+            } else if (retryCount >= maxRetries) {
+                clearInterval(checkInterval);
+                console.error('[行情同步] WebSocket连接超时');
                 tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: #ef4444;">
-                    <i class="fa fa-exclamation-triangle"></i> 连接超时，请检查网络或代理。<br>
+                    <i class="fa fa-exclamation-triangle"></i> 连接超时，请检查网络。<br>
                     <button class="btn btn-xs btn-primary" style="margin-top:10px" onclick="fetchCryptoData()">重试连接</button>
                 </td></tr>`;
             }
-        }
-    } finally {
-        if (refreshIcon) refreshIcon.classList.remove('fa-spin');
+        }, 500);
     }
+
+    if (refreshIcon) refreshIcon.classList.remove('fa-spin');
 }
 
 // ==================== localStorage节流写入函数 ====================
@@ -1014,12 +954,22 @@ function renderCryptoTable(data) {
     const rate = isCNY ? (USD_CNY_RATE || 1) : 1;
     const symbol = isCNY ? '¥' : '$';
 
-    const orderMap = { 'btc': 1, 'eth': 2, 'usdt': 3, 'bnb': 4, 'sol': 5, 'xrp': 6, 'etc': 7, 'doge': 8 };
+    // 排序逻辑: BTC第一, ETH第二, 其他按币安API推送顺序(即按交易量排序)
     data.sort((a, b) => {
-        const scoreA = orderMap[a.symbol] || 999;
-        const scoreB = orderMap[b.symbol] || 999;
-        if (scoreA !== scoreB) return scoreA - scoreB;
-        return (b.market_cap || 0) - (a.market_cap || 0);
+        // BTC排第一
+        if (a.symbol === 'btc') return -1;
+        if (b.symbol === 'btc') return 1;
+
+        // ETH排第二
+        if (a.symbol === 'eth') {
+            return b.symbol === 'btc' ? 1 : -1;
+        }
+        if (b.symbol === 'eth') {
+            return a.symbol === 'btc' ? -1 : 1;
+        }
+
+        // 其他按币安API推送顺序(已按交易量排序)
+        return 0;
     });
 
     data.forEach(coin => {
@@ -1856,6 +1806,10 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('[页面加载] 调用 initCryptoUI()');
     initCryptoUI();
 
+    // 初始化币安WebSocket连接
+    console.log('[页面加载] 初始化币安WebSocket连接...');
+    initBinanceWebSocket();
+
     // 初始加载数据
     console.log('[页面加载] 调用 fetchCryptoData()');
     fetchCryptoData();
@@ -1864,29 +1818,8 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('[页面加载] 调用 updateExchangeRateDisplay()');
     updateExchangeRateDisplay();
 
-    // 实时轮询更新（每3秒，平衡实时性和性能）
-    let cryptoRefreshInterval = setInterval(() => {
-        // 只在页面可见时刷新
-        if (!document.hidden) {
-            fetchCryptoData();
-        }
-    }, 3000);
-
-    // 后台刷新完整交易对列表（每60秒，只在页面可见时刷新）
-    setInterval(async () => {
-        // 只在页面可见时刷新
-        if (!document.hidden) {
-            try {
-                const res = await fetchWithTimeout('https://api.gateio.ws/api/v4/spot/tickers', { timeout: 10000 });
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data && data.length > 500) {
-                        allGateTickers = data;
-                    }
-                }
-            } catch (e) { }
-        }
-    }, 60000);
+    // 页面加载时立即同步一次汇率
+    syncRate();
 
     // 实时更新汇率显示（每5秒，只在页面可见时刷新）
     setInterval(() => {
@@ -1895,9 +1828,6 @@ document.addEventListener('DOMContentLoaded', () => {
             syncRate();
         }
     }, 5000);
-
-    // 页面加载时立即同步一次汇率
-    syncRate();
 
     // 请求通知权限
     if ('Notification' in window && Notification.permission === 'default') {

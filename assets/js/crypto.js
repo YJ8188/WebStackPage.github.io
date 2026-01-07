@@ -238,7 +238,10 @@ function initBinanceWebSocket() {
                     const symbol = item.s.replace('USDT', '').toLowerCase();
                     const symbolUpper = symbol.toUpperCase();
                     
-                    // 创建精美的SVG渐变图标
+                    // 优先使用CoinGecko在线logo
+                    const onlineLogo = `https://assets.coingecko.com/coins/images/1/small/${symbol}.png`;
+                    
+                    // 创建精美的SVG渐变图标作为fallback
                     const firstLetter = symbolUpper.charAt(0);
                     const gradients = [
                         ['#F7931A', '#FFAB40'], // BTC橙
@@ -301,7 +304,8 @@ function initBinanceWebSocket() {
                     return {
                         symbol: symbol,
                         name: item.s.replace('USDT', ''),
-                        image: svgIcon,
+                        image: onlineLogo,
+                        fallbackIcon: svgIcon,
                         current_price: parseFloat(item.c) || 0,
                         price_change_percentage_24h: parseFloat(item.P) || 0,
                         market_cap: parseFloat(item.c) * parseFloat(item.v) || 0,
@@ -1057,7 +1061,7 @@ function renderCryptoTable(data) {
             <tr class="main-row" onclick="toggleCoinDetail('${coin.symbol}')">
                 <td>
                     <div class="coin-info">
-                        <img src="${coin.image}" class="coin-icon" alt="${coin.symbol}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSI+PGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTYiIGZpbGw9IiMzMzMiLz48dGV4dCB4PSIxNiIgeT0iMjAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNmZmYiIGZvbnQtc2l6ZT0iMTIiIGZvbnQtZmFtaWx5PSJBcmlhbCI+JiM4MzYzOzwvdGV4dD48L3N2Zz4='">
+                        <img src="${coin.image}" class="coin-icon" alt="${coin.symbol}" onerror="this.src='${coin.fallbackIcon}'">
                         <div class="coin-name-wrap">
                             <div class="coin-name">${coin.symbol.toUpperCase()}<span style="color:#888;font-size:10px;font-weight:normal;margin-left:4px;">/USDT</span></div>
                             <div class="coin-vol">${volume}</div>

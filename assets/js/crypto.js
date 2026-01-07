@@ -15,24 +15,6 @@ let lastRateUpdate = 0; // 上次汇率更新时间
 let lastLocalStorageUpdate = 0; // 上次localStorage更新时间
 const LOCAL_STORAGE_UPDATE_INTERVAL = 10000; // localStorage更新间隔：10秒
 
-// ==================== 代理池配置 ====================
-// 免费代理池（支持 HTTPS 的 CORS 代理）
-const PROXY_POOL = [
-    // AllOrigins - 免费的 CORS 代理，支持所有网站
-    'https://api.allorigins.win/raw?url=',
-    // CORS Anywhere - 免费的 CORS 代理
-    'https://cors-anywhere.herokuapp.com/',
-    // ThingProxy - 免费的代理服务
-    'https://thingproxy.freeboard.io/fetch/',
-    // ProxyCrawl - 免费代理
-    'https://api.proxycrawl.com/?url='
-];
-
-// 代理状态
-let currentProxy = null;
-let proxyIndex = 0;
-let proxyFailures = new Map(); // 记录每个代理的失败次数
-
 // ==================== 缓存和工具 ====================
 // K线图缓存（限制最多缓存20个币种，防止内存泄漏）
 const sparklineCache = {};
@@ -58,127 +40,6 @@ const COIN_ID_MAP = {
 let allGateTickers = [];
 // 已展开详情的币种集合
 const expandedCoins = new Set();
-
-/**
- * 选择最佳代理
- * @returns {string|null} 代理URL，如果没有可用代理则返回null
- */
-function selectBestProxy() {
-    // 过滤掉失败次数过多的代理（超过3次）
-    const availableProxies = PROXY_POOL.filter(proxy => {
-        const failures = proxyFailures.get(proxy) || 0;
-        return failures < 3;
-    });
-
-    if (availableProxies.length === 0) {
-        console.log('[代理池] 没有可用的代理');
-        return null;
-    }
-
-    // 选择失败次数最少的代理
-    const bestProxy = availableProxies.reduce((best, current) => {
-        const bestFailures = proxyFailures.get(best) || 0;
-        const currentFailures = proxyFailures.get(current) || 0;
-        return currentFailures < bestFailures ? current : best;
-    });
-
-    console.log(`[代理池] 选择代理: ${bestProxy}`);
-    return bestProxy;
-}
-
-/**
- * 通过代理发送请求
- * @param {string} url - 目标URL
- * @param {Object} options - fetch选项
- * @returns {Promise<Response>}
- */
-async function fetchWithProxy(url, options = {}) {
-    const proxy = selectBestProxy();
-    
-    if (!proxy) {
-        // 如果没有可用代理，直接请求
-        console.log('[代理池] 无可用代理，直接请求');
-        return fetch(url, options);
-    }
-
-    try {
-        // 使用代理请求
-        const proxyUrl = proxy + encodeURIComponent(url);
-        console.log(`[代理池] 通过代理请求: ${proxy}`);
-        const response = await fetch(proxyUrl, options);
-        
-        // 成功后重置失败计数
-        proxyFailures.set(proxy, 0);
-        
-        return response;
-    } catch (error) {
-        // 记录失败
-        const failures = (proxyFailures.get(proxy) || 0) + 1;
-        proxyFailures.set(proxy, failures);
-        console.error(`[代理池] 代理失败 (${failures}/${3}): ${proxy}`, error);
-        
-        // 尝试下一个代理
-        proxyIndex = (proxyIndex + 1) % PROXY_POOL.length;
-        throw error;
-    }
-}
-
-/**
- * 测试代理可用性
- * @returns {Promise<boolean>}
- */
-async function testProxyAvailability() {
-    const testUrl = 'https://api.coingecko.com/api/v3/ping';
-    
-    for (const proxy of PROXY_POOL) {
-        try {
-            console.log(`[代理池] 测试代理: ${proxy}`);
-            const proxyUrl = proxy + encodeURIComponent(testUrl);
-            const response = await fetch(proxyUrl, { 
-                method: 'GET',
-                timeout: 5000 
-            });
-            
-            if (response.ok) {
-                console.log(`[代理池] ✅ 代理可用: ${proxy}`);
-                proxyFailures.set(proxy, 0);
-                return proxy;
-            }
-        } catch (error) {
-            console.log(`[代理池] ❌ 代理不可用: ${proxy}`);
-            proxyFailures.set(proxy, (proxyFailures.get(proxy) || 0) + 1);
-        }
-    }
-    
-    console.log('[代理池] 所有代理均不可用');
-    return null;
-}
-
-// Helper: Fetch with Timeout to prevent hanging
-async function fetchWithTimeout(resource, options = {}) {
-    // Reset timeout to 8s for slower proxies
-    const { timeout = 8000, useProxy = false } = options;
-    const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), timeout);
-    
-    try {
-        let response;
-        
-        if (useProxy) {
-            // 使用代理请求
-            response = await fetchWithProxy(resource, { ...options, signal: controller.signal });
-        } else {
-            // 直接请求
-            response = await fetch(resource, { ...options, signal: controller.signal });
-        }
-        
-        clearTimeout(id);
-        return response;
-    } catch (error) {
-        clearTimeout(id);
-        throw error;
-    }
-}
 
 /**
  * 加载K线图数据
@@ -214,26 +75,27 @@ async function loadSparkline(id, symbol, changePct) {
 
     async function tryFetch() {
         let prices = null;
-        // 1. Try Gate.io K-line (国内可访问)
+        // 1. Try CryptoCompare (Fastest chart API)
         try {
-            const res = await fetchWithTimeout(`https://api.gateio.ws/api/v4/spot/candlesticks?currency_pair=${symbol.toUpperCase()}_USDT&interval=1h&limit=168`, { timeout: 7000 });
+            const res = await fetchWithTimeout(`https://min-api.cryptocompare.com/data/v2/histohour?fsym=${symbol.toUpperCase()}&tsym=USD&limit=168`, { timeout: 7000 });
             if (res.ok) {
                 const json = await res.json();
-                if (Array.isArray(json) && json.length > 0) {
-                    prices = json.map(d => parseFloat(d.close));
+                if (json.Data && json.Data.Data && json.Data.Data.length > 0) {
+                    prices = json.Data.Data.map(d => d.close).filter(p => !isNaN(p));
                 }
             }
         } catch (e) { }
 
-        // 2. Fallback to OKX K-line
+        // 2. Fallback to CoinCap
         if (!prices) {
             try {
-                // 添加useProxy参数，根据API配置决定是否使用代理
-                const res = await fetchWithTimeout(`https://www.okx.com/api/v5/market/history-candles?instId=${symbol.toUpperCase()}-USDT&bar=1H&limit=168`, { timeout: 5000, useProxy: true });
+                const end = Date.now();
+                const start = end - (7 * 24 * 60 * 60 * 1000);
+                const res = await fetchWithTimeout(`https://api.coincap.io/v2/assets/${finalId}/history?interval=h2&start=${start}&end=${end}`, { timeout: 5000 });
                 if (res.ok) {
                     const json = await res.json();
                     if (json.data && json.data.length > 0) {
-                        prices = json.data.map(d => parseFloat(d[4])); // close price
+                        prices = json.data.map(d => parseFloat(d.priceUsd));
                     }
                 }
             } catch (e) { }
@@ -252,8 +114,7 @@ async function loadSparkline(id, symbol, changePct) {
         // 3. Last Resort: CoinGecko (Backup)
         if (!prices) {
             try {
-                // 为CoinGecko请求添加useProxy参数
-                const geckoRes = await fetchWithTimeout(`https://api.coingecko.com/api/v3/coins/${finalId}/market_chart?vs_currency=usd&days=7&interval=daily`, { timeout: 5000, useProxy: true });
+                const geckoRes = await fetchWithTimeout(`https://api.coingecko.com/api/v3/coins/${finalId}/market_chart?vs_currency=usd&days=7&interval=daily`, { timeout: 5000 });
                 if (geckoRes.ok) {
                     const json = await geckoRes.json();
                     if (json.prices && json.prices.length > 0) {
@@ -345,22 +206,27 @@ function generateSparklineSvg(prices, changePct, width = 100) {
     </svg>`;
 }
 
+// Helper: Fetch with Timeout to prevent hanging
+async function fetchWithTimeout(resource, options = {}) {
+    // Reset timeout to 8s for slower proxies
+    const { timeout = 8000 } = options;
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    try {
+        const response = await fetch(resource, { ...options, signal: controller.signal });
+        clearTimeout(id);
+        return response;
+    } catch (error) {
+        clearTimeout(id);
+        throw error;
+    }
+}
+
 // Success Handler
 function onSuccess(dot, providerName, freshData) {
     const label = document.getElementById('api-provider-name');
-    const proxyStatus = document.getElementById('proxy-status');
-    
     if (dot) dot.style.color = '#10b981';
     if (label) label.innerText = providerName;
-    
-    // 显示代理状态
-    if (proxyStatus) {
-        const isUsingProxy = currentProxy !== null;
-        proxyStatus.style.display = isUsingProxy ? 'inline' : 'none';
-        if (isUsingProxy) {
-            proxyStatus.innerText = '(代理)';
-        }
-    }
 
     // Always update UI elements if they exist
     if (freshData) updateCryptoUI(freshData);
@@ -383,66 +249,31 @@ function onSuccess(dot, providerName, freshData) {
 /**
  * 多API数据源配置
  * 使用竞速模式获取数据，优先返回最快的响应
- * 优先使用国内可访问的 API
  */
 const APIS = {
-    // Gate.io API - 国内可访问（不需要代理）
-    GATEIO: {
-        name: 'Gate.io',
-        url: 'https://api.gateio.ws/api/v4/spot/tickers',
-        useProxy: false,
+    CRYPTOCOMPARE: {
+        name: 'CryptoCompare',
+        url: 'https://min-api.cryptocompare.com/data/top/totalvolfull?limit=50&tsym=USD',
         handler: (data) => {
-            if (!Array.isArray(data)) throw new Error("Invalid Gate.io Data");
-            // 过滤出主流币种
-            const mainCoins = ['BTC', 'ETH', 'USDT', 'BNB', 'XRP', 'SOL', 'DOGE', 'ADA', 'TRX', 'TON', 'SHIB', 'LTC', 'ETC', 'LINK', 'UNI', 'BCH', 'ARB', 'OP', 'AVAX', 'DOT'];
-            return data.filter(item => mainCoins.includes(item.currency_pair.replace('_USDT', '').replace('_USD', '')))
-                .slice(0, 50)
-                .map(item => {
-                    const symbol = item.currency_pair.replace('_USDT', '').replace('_USD', '').toLowerCase();
-                    return {
-                        id: symbol,
-                        symbol: symbol,
-                        name: getCoinName(symbol),
-                        image: `https://gimg2.gateimg.com/coin_icon/64/${symbol}.png`,
-                        current_price: parseFloat(item.last),
-                        price_change_percentage_24h: parseFloat(item.change_percentage_24h),
-                        market_cap: 0, // Gate.io 不提供市值
-                        sparkline_in_7d: null
-                    };
-                });
+            if (!data.Data) throw new Error("Invalid CC Data");
+            return data.Data.map(item => {
+                const coin = item.RAW.USD;
+                return {
+                    id: item.CoinInfo.Name.toLowerCase(),
+                    symbol: item.CoinInfo.Name.toLowerCase(),
+                    name: item.CoinInfo.FullName,
+                    image: 'https://www.cryptocompare.com' + coin.IMAGEURL,
+                    current_price: coin.PRICE,
+                    price_change_percentage_24h: coin.CHANGEPCT24HOUR,
+                    market_cap: coin.MKTCAP,
+                    sparkline_in_7d: null
+                };
+            });
         }
     },
-    // OKX API - 国内可访问（不需要代理）
-    OKX: {
-        name: 'OKX',
-        url: 'https://www.okx.com/api/v5/market/tickers?instType=SPOT',
-        useProxy: false,
-        handler: (data) => {
-            if (!data.data) throw new Error("Invalid OKX Data");
-            // 过滤出主流币种
-            const mainCoins = ['BTC-USDT', 'ETH-USDT', 'USDT-USDT', 'BNB-USDT', 'XRP-USDT', 'SOL-USDT', 'DOGE-USDT', 'ADA-USDT', 'TRX-USDT', 'TON-USDT', 'SHIB-USDT', 'LTC-USDT', 'ETC-USDT', 'LINK-USDT', 'UNI-USDT', 'BCH-USDT', 'ARB-USDT', 'OP-USDT', 'AVAX-USDT', 'DOT-USDT'];
-            return data.data.filter(item => mainCoins.includes(item.instId))
-                .slice(0, 50)
-                .map(item => {
-                    const symbol = item.instId.replace('-USDT', '').replace('-USD', '').toLowerCase();
-                    return {
-                        id: symbol,
-                        symbol: symbol,
-                        name: getCoinName(symbol),
-                        image: `https://static.okx.com/cdn/assets/imgs/icon/coin/icon/${symbol.toUpperCase()}_large.png`,
-                        current_price: parseFloat(item.last),
-                        price_change_percentage_24h: parseFloat(item.change24h),
-                        market_cap: 0, // OKX 不提供市值
-                        sparkline_in_7d: null
-                    };
-                });
-        }
-    },
-    // CoinCap API - 备用（使用代理）
     COINCAP: {
         name: 'CoinCap',
         url: 'https://api.coincap.io/v2/assets?limit=50',
-        useProxy: true,
         handler: (data) => {
             return data.data.map(item => ({
                 id: item.id,
@@ -456,11 +287,9 @@ const APIS = {
             }));
         }
     },
-    // CoinGecko API - 备用（使用代理）
     COINGECKO: {
         name: 'CoinGecko',
         url: 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=50&page=1&sparkline=false&price_change_percentage=24h',
-        useProxy: true,
         handler: (data) => data.map(item => ({
             id: item.id,
             symbol: item.symbol.toLowerCase(),
@@ -473,33 +302,6 @@ const APIS = {
         }))
     }
 };
-
-// ==================== 币种名称映射 ====================
-function getCoinName(symbol) {
-    const coinNames = {
-        'btc': 'Bitcoin 比特币',
-        'eth': 'Ethereum 以太坊',
-        'usdt': 'Tether USDt',
-        'bnb': 'BNB 币安币',
-        'xrp': 'XRP 瑞波币',
-        'sol': 'Solana 索拉纳',
-        'doge': 'Dogecoin 狗狗币',
-        'ada': 'Cardano 艾达币',
-        'trx': 'TRON 波场',
-        'ton': 'Toncoin Open Network',
-        'shib': 'Shiba Inu 柴犬币',
-        'ltc': 'Litecoin 莱特币',
-        'etc': 'Ethereum Classic 以太坊经典',
-        'link': 'Chainlink 链环',
-        'uni': 'Uniswap',
-        'bch': 'Bitcoin Cash 比特币现金',
-        'arb': 'Arbitrum',
-        'op': 'Optimism',
-        'avax': 'Avalanche 雪崩',
-        'dot': 'Polkadot 波卡'
-    };
-    return coinNames[symbol] || symbol.toUpperCase();
-}
 
 // ==================== 汇率显示功能 ====================
 
@@ -1099,11 +901,7 @@ async function fetchCryptoData() {
     const fetchSource = async (apiObj) => {
         console.log(`[行情同步] 尝试 ${apiObj.name}...`);
         console.log(`[行情同步] ${apiObj.name} URL:`, apiObj.url);
-        
-        // 根据API配置决定是否使用代理
-        const useProxy = apiObj.useProxy || false;
-        const res = await fetchWithTimeout(apiObj.url, { timeout: 15000, useProxy: useProxy });
-        
+        const res = await fetchWithTimeout(apiObj.url, { timeout: 15000 });
         console.log(`[行情同步] ${apiObj.name} 响应状态:`, res.status);
         if (!res.ok) throw new Error(`${apiObj.name} Failed: HTTP ${res.status}`);
         const data = await res.json();
@@ -1115,11 +913,11 @@ async function fetchCryptoData() {
 
     try {
         console.log('[行情同步] 开始并行竞速模式...');
-        // 优化：优先使用国内可访问的 API（Gate.io 和 OKX）
+        // 优化：只启动2个主要数据源进行竞速，减少并发请求
         // 使用Promise.any获取最快响应
         const fastestResult = await Promise.any([
-            fetchSource(APIS.GATEIO),
-            fetchSource(APIS.OKX)
+            fetchSource(APIS.CRYPTOCOMPARE),
+            fetchSource(APIS.COINCAP)
         ]);
 
         if (fastestResult && fastestResult.data) {
@@ -1139,18 +937,18 @@ async function fetchCryptoData() {
         }
     } catch (e) {
         console.error('[行情同步] 并行竞速失败:', e);
-        // D. 如果所有初始竞速失败，回退到 CoinCap（备用）
+        // D. 如果所有初始竞速失败，回退到CoinGecko
         try {
-            console.log('[行情同步] 回退到 CoinCap...');
-            if (label) label.innerText = 'Fallback (CC)...';
-            const capRes = await fetchSource(APIS.COINCAP);
-            cryptoData = capRes.data;
-            onSuccess(dot, capRes.name, capRes.data);
+            console.log('[行情同步] 回退到CoinGecko...');
+            if (label) label.innerText = 'Fallback (CG)...';
+            const geckoRes = await fetchSource(APIS.COINGECKO);
+            cryptoData = geckoRes.data;
+            onSuccess(dot, geckoRes.name, geckoRes.data);
             localStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
             localStorage.setItem('crypto_market_cache_time', Date.now().toString());
             return;
-        } catch (cap) {
-            console.error('[行情同步] CoinCap也失败了:', cap);
+        } catch (ge) {
+            console.error('[行情同步] CoinGecko也失败了:', ge);
             // E. 最终失败：如果有缓存数据，重新渲染表格并显示离线状态
             if (cryptoData.length > 0) {
                 console.log('[行情同步] 使用本地缓存数据，重新渲染表格');
@@ -1161,17 +959,11 @@ async function fetchCryptoData() {
                 // 更新状态指示器
                 dot.style.color = '#ef4444';
                 if (label) label.innerText = 'Sync Off (Local)';
-                // 隐藏代理状态
-                const proxyStatus = document.getElementById('proxy-status');
-                if (proxyStatus) proxyStatus.style.display = 'none';
                 console.log('[行情同步] 离线模式已启用，表格已重新渲染');
             } else {
                 console.error('[行情同步] 完全失败，没有缓存数据');
                 // 完全失败UI
                 dot.style.color = '#ef4444';
-                // 隐藏代理状态
-                const proxyStatus = document.getElementById('proxy-status');
-                if (proxyStatus) proxyStatus.style.display = 'none';
                 tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: #ef4444;">
                     <i class="fa fa-exclamation-triangle"></i> 连接超时，请检查网络或代理。<br>
                     <button class="btn btn-xs btn-primary" style="margin-top:10px" onclick="fetchCryptoData()">重试连接</button>
@@ -1492,7 +1284,6 @@ function initCryptoUI() {
                 <div style="font-size: 12px; color: #888; text-align: right; margin-top: 5px;">
                     Data provided by <span id="api-provider-name">Crypto API</span>
                     <span id="api-status-dot" style="color: #10b981;">●</span>
-                    <span id="proxy-status" style="margin-left: 10px; display: none; color: #f59e0b;">(代理)</span>
                 </div>
             </div>
         </div>

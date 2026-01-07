@@ -427,7 +427,17 @@ var MetalsData = {
             tbody.innerHTML = '';
         }
 
+        // 去重处理：每个金种只保留最新的一条记录（按日期排序）
+        var uniqueGoldRecycle = {};
         this.prices.goldRecycle.forEach(function(item) {
+            var key = item.gold_type;
+            if (!uniqueGoldRecycle[key] || item.updated_date > uniqueGoldRecycle[key].updated_date) {
+                uniqueGoldRecycle[key] = item;
+            }
+        });
+        var deduplicatedData = Object.values(uniqueGoldRecycle);
+
+        deduplicatedData.forEach(function(item) {
             var existingRow = null;
             var priceSpan = null;
 

@@ -98,9 +98,9 @@ async function loadSparkline(id, symbol, changePct) {
 
     async function tryFetch() {
         let prices = null;
-        // 使用币安K线API（获取7天数据）
+        // 使用Cloudflare Pages Functions代理访问币安API（解决国内访问问题）
         try {
-            const res = await fetchWithTimeout(`https://api.binance.com/api/v3/klines?symbol=${symbol.toUpperCase()}USDT&interval=1d&limit=7`, { timeout: 10000 });
+            const res = await fetchWithTimeout(`/api/binance/klines?symbol=${symbol.toUpperCase()}USDT&interval=1d&limit=7`, { timeout: 10000 });
             if (res.ok) {
                 const json = await res.json();
                 if (Array.isArray(json) && json.length > 0) {

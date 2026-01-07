@@ -413,7 +413,7 @@ var MetalsData = {
                     '<td><span class="f_hongse">' + goldDisplay + '</span></td>' +
                     '<td><span class="f_hongse">' + platinumDisplay + '</span></td>' +
                     '<td><span class="f_hongse">' + bullionDisplay + '</span></td>' +
-                    '<td style="font-size: 12px; color: #999;">' + timeDisplay + '</td>';
+                    '<td style="font-family: \'PingFang SC\', \'Microsoft YaHei\', sans-serif; color: #999;">' + timeDisplay + '</td>';
                 tbody.appendChild(row);
             }
         });
@@ -511,7 +511,7 @@ var MetalsData = {
                     '<td><span class="f_hongse">¥' + item.最新价 + '</span></td>' +
                     '<td style="color: ' + changeColor + ';">' + changeValue + '</td>' +
                     '<td style="color: ' + rangeColor + ';">' + rangeValue + '</td>' +
-                    '<td style="font-size: 12px; color: #999;">' + timeDisplay + '</td>';
+                    '<td style="font-family: \'PingFang SC\', \'Microsoft YaHei\', sans-serif; color: #999;">' + timeDisplay + '</td>';
                 tbody.appendChild(row);
             }
         });
@@ -609,7 +609,7 @@ var MetalsData = {
                     '<td><span class="f_hongse">¥' + item.最新价 + '</span></td>' +
                     '<td style="color: ' + changeColor + ';">' + changeValue + '</td>' +
                     '<td style="color: ' + rangeColor + ';">' + rangeValue + '</td>' +
-                    '<td style="font-size: 12px; color: #999;">' + timeDisplay + '</td>';
+                    '<td style="font-family: \'PingFang SC\', \'Microsoft YaHei\', sans-serif; color: #999;">' + timeDisplay + '</td>';
                 tbody.appendChild(row);
             }
         });

@@ -300,99 +300,6 @@ const APIS = {
             market_cap: item.market_cap,
             sparkline_in_7d: null
         }))
-    },
-    GATEIO: {
-        name: 'Gate.io',
-        url: 'https://api.gateio.ws/api/v4/spot/tickers',
-        handler: (data) => {
-            const topCoins = ['BTC', 'ETH', 'USDT', 'BNB', 'XRP', 'SOL', 'DOGE', 'ADA', 'TRX', 'TON', 'SHIB', 'LTC', 'ETC', 'LINK', 'UNI', 'BCH', 'ARB', 'OP', 'TIA', 'SEI', 'PEPE', 'STX', 'APT', 'FLOKI', 'FET', 'BONK', 'KAS', 'RNDR', 'INJ', 'NEAR', 'LDO', 'ICP', 'MNT'];
-            const coinNames = {
-                'BTC': 'Bitcoin', 'ETH': 'Ethereum', 'USDT': 'Tether', 'BNB': 'Binance Coin',
-                'XRP': 'Ripple', 'SOL': 'Solana', 'DOGE': 'Dogecoin', 'ADA': 'Cardano',
-                'TRX': 'Tron', 'TON': 'Toncoin', 'SHIB': 'Shiba Inu', 'LTC': 'Litecoin',
-                'ETC': 'Ethereum Classic', 'LINK': 'Chainlink', 'UNI': 'Uniswap', 'BCH': 'Bitcoin Cash',
-                'ARB': 'Arbitrum', 'OP': 'Optimism', 'TIA': 'Celestia', 'SEI': 'Sei Network',
-                'PEPE': 'Pepe', 'STX': 'Stacks', 'APT': 'Aptos', 'FLOKI': 'Floki', 'FET': 'Fetch.ai',
-                'BONK': 'Bonk', 'KAS': 'Kaspa', 'RNDR': 'Render', 'INJ': 'Injective',
-                'NEAR': 'Near Protocol', 'LDO': 'Lido DAO', 'ICP': 'Internet Computer', 'MNT': 'Mantle'
-            };
-            return data.filter(item => item.currency_pair.endsWith('_USDT') && topCoins.includes(item.currency_pair.split('_')[0])).map(item => {
-                const symbol = item.currency_pair.split('_')[0].toLowerCase();
-                return {
-                    id: symbol,
-                    symbol: symbol,
-                    name: coinNames[item.currency_pair.split('_')[0]] || item.currency_pair.split('_')[0],
-                    image: `https://gimg2.gateimg.com/coin_icon/64/${symbol}.png`,
-                    current_price: parseFloat(item.last),
-                    price_change_percentage_24h: parseFloat(item.change_percentage),
-                    market_cap: 0,
-                    sparkline_in_7d: null
-                };
-            }).sort((a, b) => topCoins.indexOf(a.symbol.toUpperCase()) - topCoins.indexOf(b.symbol.toUpperCase()));
-        }
-    },
-    OKX: {
-        name: 'OKX',
-        url: 'https://www.okx.com/api/v5/market/tickers?instType=SPOT',
-        handler: (data) => {
-            const topCoins = ['BTC', 'ETH', 'USDT', 'BNB', 'XRP', 'SOL', 'DOGE', 'ADA', 'TRX', 'TON', 'SHIB', 'LTC', 'ETC', 'LINK', 'UNI', 'BCH', 'ARB', 'OP', 'TIA', 'SEI', 'PEPE', 'STX', 'APT', 'FLOKI', 'FET', 'BONK', 'KAS', 'RNDR', 'INJ', 'NEAR', 'LDO', 'ICP', 'MNT'];
-            const coinNames = {
-                'BTC': 'Bitcoin', 'ETH': 'Ethereum', 'USDT': 'Tether', 'BNB': 'Binance Coin',
-                'XRP': 'Ripple', 'SOL': 'Solana', 'DOGE': 'Dogecoin', 'ADA': 'Cardano',
-                'TRX': 'Tron', 'TON': 'Toncoin', 'SHIB': 'Shiba Inu', 'LTC': 'Litecoin',
-                'ETC': 'Ethereum Classic', 'LINK': 'Chainlink', 'UNI': 'Uniswap', 'BCH': 'Bitcoin Cash',
-                'ARB': 'Arbitrum', 'OP': 'Optimism', 'TIA': 'Celestia', 'SEI': 'Sei Network',
-                'PEPE': 'Pepe', 'STX': 'Stacks', 'APT': 'Aptos', 'FLOKI': 'Floki', 'FET': 'Fetch.ai',
-                'BONK': 'Bonk', 'KAS': 'Kaspa', 'RNDR': 'Render', 'INJ': 'Injective',
-                'NEAR': 'Near Protocol', 'LDO': 'Lido DAO', 'ICP': 'Internet Computer', 'MNT': 'Mantle'
-            };
-            if (data && data.data) {
-                return data.data.filter(item => item.instId.endsWith('-USDT') && topCoins.includes(item.instId.split('-')[0])).map(item => {
-                    const symbol = item.instId.split('-')[0].toLowerCase();
-                    return {
-                        id: symbol,
-                        symbol: symbol,
-                        name: coinNames[item.instId.split('-')[0]] || item.instId.split('-')[0],
-                        image: `https://gimg2.gateimg.com/coin_icon/64/${symbol}.png`,
-                        current_price: parseFloat(item.last),
-                        price_change_percentage_24h: parseFloat(item.change24h),
-                        market_cap: 0,
-                        sparkline_in_7d: null
-                    };
-                }).sort((a, b) => topCoins.indexOf(a.symbol.toUpperCase()) - topCoins.indexOf(b.symbol.toUpperCase()));
-            }
-            return [];
-        }
-    },
-    BINANCE: {
-        name: 'Binance',
-        url: 'https://api.binance.com/api/v3/ticker/24hr',
-        handler: (data) => {
-            const topCoins = ['BTC', 'ETH', 'USDT', 'BNB', 'XRP', 'SOL', 'DOGE', 'ADA', 'TRX', 'TON', 'SHIB', 'LTC', 'ETC', 'LINK', 'UNI', 'BCH', 'ARB', 'OP', 'TIA', 'SEI', 'PEPE', 'STX', 'APT', 'FLOKI', 'FET', 'BONK', 'KAS', 'RNDR', 'INJ', 'NEAR', 'LDO', 'ICP', 'MNT'];
-            const coinNames = {
-                'BTC': 'Bitcoin', 'ETH': 'Ethereum', 'USDT': 'Tether', 'BNB': 'Binance Coin',
-                'XRP': 'Ripple', 'SOL': 'Solana', 'DOGE': 'Dogecoin', 'ADA': 'Cardano',
-                'TRX': 'Tron', 'TON': 'Toncoin', 'SHIB': 'Shiba Inu', 'LTC': 'Litecoin',
-                'ETC': 'Ethereum Classic', 'LINK': 'Chainlink', 'UNI': 'Uniswap', 'BCH': 'Bitcoin Cash',
-                'ARB': 'Arbitrum', 'OP': 'Optimism', 'TIA': 'Celestia', 'SEI': 'Sei Network',
-                'PEPE': 'Pepe', 'STX': 'Stacks', 'APT': 'Aptos', 'FLOKI': 'Floki', 'FET': 'Fetch.ai',
-                'BONK': 'Bonk', 'KAS': 'Kaspa', 'RNDR': 'Render', 'INJ': 'Injective',
-                'NEAR': 'Near Protocol', 'LDO': 'Lido DAO', 'ICP': 'Internet Computer', 'MNT': 'Mantle'
-            };
-            return data.filter(item => item.symbol.endsWith('USDT') && topCoins.includes(item.symbol.replace('USDT', ''))).map(item => {
-                const symbol = item.symbol.replace('USDT', '').toLowerCase();
-                return {
-                    id: symbol,
-                    symbol: symbol,
-                    name: coinNames[item.symbol.replace('USDT', '')] || item.symbol.replace('USDT', ''),
-                    image: `https://gimg2.gateimg.com/coin_icon/64/${symbol}.png`,
-                    current_price: parseFloat(item.lastPrice),
-                    price_change_percentage_24h: parseFloat(item.priceChangePercent),
-                    market_cap: parseFloat(item.quoteVolume),
-                    sparkline_in_7d: null
-                };
-            }).sort((a, b) => topCoins.indexOf(a.symbol.toUpperCase()) - topCoins.indexOf(b.symbol.toUpperCase()));
-        }
     }
 };
 
@@ -445,9 +352,6 @@ async function checkNetworkStatus() {
     // 测试各个API的连通性
     const testURLs = [
         { name: 'XXAPI汇率', url: 'https://v2.xxapi.cn/api/allrates', headers: { 'Authorization': `Bearer ${_0x4f2a}` } },
-        { name: 'Gate.io', url: 'https://api.gateio.ws/api/v4/spot/tickers' },
-        { name: 'OKX', url: 'https://www.okx.com/api/v5/market/tickers?instType=SPOT' },
-        { name: 'Binance', url: 'https://api.binance.com/api/v3/ticker/24hr' },
         { name: 'CryptoCompare', url: 'https://min-api.cryptocompare.com/data/top/totalvolfull?limit=10&tsym=USD' },
         { name: 'CoinCap', url: 'https://api.coincap.io/v2/assets?limit=10' }
     ];
@@ -1009,12 +913,11 @@ async function fetchCryptoData() {
 
     try {
         console.log('[行情同步] 开始并行竞速模式...');
-        // 优化：优先使用国内可访问的API进行竞速
+        // 优化：只启动2个主要数据源进行竞速，减少并发请求
         // 使用Promise.any获取最快响应
         const fastestResult = await Promise.any([
-            fetchSource(APIS.GATEIO),
-            fetchSource(APIS.OKX),
-            fetchSource(APIS.BINANCE)
+            fetchSource(APIS.CRYPTOCOMPARE),
+            fetchSource(APIS.COINCAP)
         ]);
 
         if (fastestResult && fastestResult.data) {
@@ -1033,54 +936,38 @@ async function fetchCryptoData() {
             return;
         }
     } catch (e) {
-        console.error('[行情同步] 国内API竞速失败，尝试国外API:', e);
-        // D. 如果国内API失败，回退到国外API
+        console.error('[行情同步] 并行竞速失败:', e);
+        // D. 如果所有初始竞速失败，回退到CoinGecko
         try {
-            console.log('[行情同步] 回退到国外API...');
-            if (label) label.innerText = 'Fallback (Intl)...';
-            const intlResult = await Promise.any([
-                fetchSource(APIS.CRYPTOCOMPARE),
-                fetchSource(APIS.COINCAP)
-            ]);
-            cryptoData = intlResult.data;
-            onSuccess(dot, intlResult.name, intlResult.data);
+            console.log('[行情同步] 回退到CoinGecko...');
+            if (label) label.innerText = 'Fallback (CG)...';
+            const geckoRes = await fetchSource(APIS.COINGECKO);
+            cryptoData = geckoRes.data;
+            onSuccess(dot, geckoRes.name, geckoRes.data);
             localStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
             localStorage.setItem('crypto_market_cache_time', Date.now().toString());
             return;
         } catch (ge) {
-            console.error('[行情同步] 国外API也失败了，尝试CoinGecko:', ge);
-            // E. 最后尝试CoinGecko
-            try {
-                console.log('[行情同步] 回退到CoinGecko...');
-                if (label) label.innerText = 'Fallback (CG)...';
-                const geckoRes = await fetchSource(APIS.COINGECKO);
-                cryptoData = geckoRes.data;
-                onSuccess(dot, geckoRes.name, geckoRes.data);
-                localStorage.setItem('crypto_market_cache', JSON.stringify(cryptoData));
-                localStorage.setItem('crypto_market_cache_time', Date.now().toString());
-                return;
-            } catch (cg) {
-                console.error('[行情同步] CoinGecko也失败了:', cg);
-                // F. 最终失败：如果有缓存数据，重新渲染表格并显示离线状态
-                if (cryptoData.length > 0) {
-                    console.log('[行情同步] 使用本地缓存数据，重新渲染表格');
-                    // 重新渲染表格以确保数据正确显示
-                    renderCryptoTable(cryptoData);
-                    // 更新价格显示
-                    updateCryptoUI(cryptoData);
-                    // 更新状态指示器
-                    dot.style.color = '#ef4444';
-                    if (label) label.innerText = 'Sync Off (Local)';
-                    console.log('[行情同步] 离线模式已启用，表格已重新渲染');
-                } else {
-                    console.error('[行情同步] 完全失败，没有缓存数据');
-                    // 完全失败UI
-                    dot.style.color = '#ef4444';
-                    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: #ef4444;">
-                        <i class="fa fa-exclamation-triangle"></i> 连接超时，请检查网络或代理。<br>
-                        <button class="btn btn-xs btn-primary" style="margin-top:10px" onclick="fetchCryptoData()">重试连接</button>
-                    </td></tr>`;
-                }
+            console.error('[行情同步] CoinGecko也失败了:', ge);
+            // E. 最终失败：如果有缓存数据，重新渲染表格并显示离线状态
+            if (cryptoData.length > 0) {
+                console.log('[行情同步] 使用本地缓存数据，重新渲染表格');
+                // 重新渲染表格以确保数据正确显示
+                renderCryptoTable(cryptoData);
+                // 更新价格显示
+                updateCryptoUI(cryptoData);
+                // 更新状态指示器
+                dot.style.color = '#ef4444';
+                if (label) label.innerText = 'Sync Off (Local)';
+                console.log('[行情同步] 离线模式已启用，表格已重新渲染');
+            } else {
+                console.error('[行情同步] 完全失败，没有缓存数据');
+                // 完全失败UI
+                dot.style.color = '#ef4444';
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: #ef4444;">
+                    <i class="fa fa-exclamation-triangle"></i> 连接超时，请检查网络或代理。<br>
+                    <button class="btn btn-xs btn-primary" style="margin-top:10px" onclick="fetchCryptoData()">重试连接</button>
+                </td></tr>`;
             }
         }
     } finally {

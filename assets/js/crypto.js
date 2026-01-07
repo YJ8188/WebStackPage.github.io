@@ -236,11 +236,31 @@ function initBinanceWebSocket() {
                 .filter(item => item && item.s && typeof item.s === 'string' && item.s.endsWith('USDT'))
                 .map(item => {
                     const symbol = item.s.replace('USDT', '').toLowerCase();
-                    // 使用Blocknative的logo服务
+                    const symbolUpper = symbol.toUpperCase();
+                    
+                    // 创建SVG图标,包含币种名称首字母
+                    const firstLetter = symbolUpper.charAt(0);
+                    const colors = [
+                        '#F7931A', '#627EEA', '#26A17B', '#F3BA2F', '#2A5ADA',
+                        '#E84142', '#0033AD', '#13B5EC', '#3DCC91', '#8247E5'
+                    ];
+                    const colorIndex = symbol.length % colors.length;
+                    const bgColor = colors[colorIndex];
+                    
+                    const svgIcon = `data:image/svg+xml;base64,${btoa(`
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+                            <circle cx="16" cy="16" r="16" fill="${bgColor}"/>
+                            <text x="50%" y="50%" dy=".3em" text-anchor="middle" dominant-baseline="middle" 
+                                  font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white">
+                                ${firstLetter}
+                            </text>
+                        </svg>
+                    `)}`;
+                    
                     return {
                         symbol: symbol,
                         name: item.s.replace('USDT', ''),
-                        image: `https://tokens.1inch.io/${symbol}.png`,
+                        image: svgIcon,
                         current_price: parseFloat(item.c) || 0,
                         price_change_percentage_24h: parseFloat(item.P) || 0,
                         market_cap: parseFloat(item.c) * parseFloat(item.v) || 0,

@@ -212,7 +212,7 @@ var MetalsData = {
             statusDot.style.color = '#f59e0b';
         }
 
-        fetch('https://api.lolimi.cn/api/huangjin', {
+        fetch('https://api.lolimi.cn/API/huangj/api', {
             method: 'GET',
             headers: {
                 'Accept': 'application/json'

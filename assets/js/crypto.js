@@ -63,6 +63,8 @@ const COIN_ID_MAP = {
 // ==================== 数据持久化和缓存 ====================
 // 已展开详情的币种集合
 const expandedCoins = new Set();
+// 所有币种数据（用于搜索）
+let allCryptoData = [];
 
 /**
  * 加载K线图数据
@@ -1100,6 +1102,9 @@ function renderCryptoTable(data) {
     console.log('[渲染表格] 开始清空表格内容');
     tbody.innerHTML = '';
 
+    // 保存所有币种数据用于搜索
+    allCryptoData = [...data];
+
     const isCNY = currentCurrency === 'CNY';
     const rate = isCNY ? (USD_CNY_RATE || 1) : 1;
     const symbol = isCNY ? '¥' : '$';
@@ -1122,6 +1127,7 @@ function renderCryptoTable(data) {
         return 0;
     });
 
+    // 渲染所有币种（不限制数量）
     data.forEach(coin => {
         const rawPrice = coin.current_price;
         const price = (rawPrice * rate).toLocaleString(undefined, {
@@ -1165,13 +1171,15 @@ function renderCryptoTable(data) {
 
         const isOpen = expandedCoins.has(coin.symbol);
         const tr = `
-            <tr class="main-row" onclick="toggleCoinDetail('${coin.symbol}')">
+            <tr class="main-row" data-symbol="${coin.symbol}" onclick="toggleCoinDetail('${coin.symbol}')">
                 <td>
                     <div class="coin-info">
                         <img src="${coin.image}" class="coin-icon" alt="${coin.symbol}"
                              onerror="this.src='${coin.fallbackIcon1}'; this.onerror=function(){this.src='${coin.fallbackIcon2}'; this.onerror=function(){this.src='${coin.fallbackIcon3}';}}">
                         <div class="coin-name-wrap">
-                            <div class="coin-name">${coin.symbol.toUpperCase()}<span style="color:#888;font-size:10px;font-weight:normal;margin-left:4px;">/USDT</span></div>
+                            <div class="coin-name">
+                                <span class="coin-symbol">${coin.symbol.toUpperCase()}</span><span style="color:#888;font-size:10px;font-weight:normal;margin-left:4px;">/USDT</span>
+                            </div>
                             <div class="coin-vol">${volume}</div>
                         </div>
                     </div>
@@ -1335,6 +1343,89 @@ function updateCryptoUI(data) {
     });
 }
 
+/**
+ * 搜索/过滤币种表格
+ * @param {string} searchText - 搜索关键词
+ */
+function filterCryptoTable(searchText) {
+    const tbody = document.getElementById('crypto-table-body');
+    if (!tbody) return;
+
+    const searchLower = searchText.toLowerCase().trim();
+    const rows = tbody.querySelectorAll('tr.main-row');
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+        const coinSymbol = row.querySelector('.coin-symbol')?.textContent.toLowerCase() || '';
+        const coinName = row.querySelector('.coin-name')?.textContent.toLowerCase() || '';
+
+        // 搜索匹配：币种符号或名称
+        const matches = searchLower === '' ||
+                       coinSymbol.includes(searchLower) ||
+                       coinName.includes(searchLower);
+
+        if (matches) {
+            row.classList.remove('hidden');
+            row.classList.add('filtered-in');
+            visibleCount++;
+
+            // 同时显示对应的详情行
+            const symbol = row.querySelector('.coin-symbol')?.textContent.toLowerCase();
+            const detailRow = document.getElementById(`detail-${symbol}`);
+            if (detailRow) {
+                detailRow.classList.remove('hidden');
+            }
+        } else {
+            row.classList.add('hidden');
+            row.classList.remove('filtered-in');
+
+            // 同时隐藏对应的详情行
+            const symbol = row.querySelector('.coin-symbol')?.textContent.toLowerCase();
+            const detailRow = document.getElementById(`detail-${symbol}`);
+            if (detailRow) {
+                detailRow.classList.add('hidden');
+            }
+        }
+    });
+
+    // 移除动画类（避免重复动画）
+    setTimeout(() => {
+        rows.forEach(row => {
+            row.classList.remove('filtered-in');
+        });
+    }, 300);
+
+    // 更新币种计数显示
+    const coinCountTitle = document.getElementById('coin-count-title');
+    if (coinCountTitle) {
+        if (searchLower === '') {
+            coinCountTitle.innerText = `（已展现${binanceMarketData.length}币种）`;
+        } else {
+            coinCountTitle.innerText = `（已展现${visibleCount}币种）`;
+        }
+    }
+
+    // 显示无结果提示
+    let noResultsEl = tbody.querySelector('.no-results');
+    if (visibleCount === 0 && searchLower !== '') {
+        if (!noResultsEl) {
+            noResultsEl = document.createElement('tr');
+            noResultsEl.className = 'no-results';
+            noResultsEl.innerHTML = `
+                <td colspan="5">
+                    <i class="fa fa-search"></i>
+                    <p>未找到匹配的币种</p>
+                    <small>请尝试其他关键词</small>
+                </td>
+            `;
+            tbody.appendChild(noResultsEl);
+        }
+        noResultsEl.style.display = '';
+    } else if (noResultsEl) {
+        noResultsEl.style.display = 'none';
+    }
+}
+
 // ==================== 页面初始化 ====================
 /**
  * 动态生成数字货币板块UI
@@ -1352,6 +1443,14 @@ function initCryptoUI() {
         <h4 class="text-gray">
             <i class="linecons-money" style="margin-right: 7px;" id="数字货币"></i>数字货币行情<span id="coin-count-title" style="margin-left: 8px; color: #888; font-size: 13px; font-weight: normal;">（已展现0币种）</span>
             <span style="float: right; display: flex; align-items: center; font-size: 13px; flex-wrap: wrap; gap: 8px;">
+                <!-- 搜索框 -->
+                <div class="search-container" style="position: relative; margin-right: 8px;">
+                    <input type="text" id="crypto-search-input" placeholder="搜索币种..."
+                        style="padding: 4px 30px 4px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; width: 150px; transition: all 0.3s ease;"
+                        oninput="filterCryptoTable(this.value)">
+                    <i class="fa fa-search" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: #999; font-size: 12px;"></i>
+                </div>
+
                 <button id="refresh-crypto-btn" class="btn btn-xs btn-white" onclick="fetchCryptoData()"
                     style="margin-right: 0; padding: 4px 8px;" title="刷新数据">
                     <i class="fa fa-refresh"></i>
@@ -1423,6 +1522,80 @@ function initCryptoUI() {
                 padding: 12px 15px !important;
                 border-top: 1px solid #f8f8f8;
                 color: #333;
+            }
+
+            /* 搜索框样式 */
+            #crypto-search-input {
+                outline: none;
+                background: #fff;
+            }
+
+            #crypto-search-input:focus {
+                border-color: #10b981;
+                box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.1);
+                width: 180px;
+            }
+
+            #crypto-search-input::placeholder {
+                color: #999;
+            }
+
+            /* 表格行动画 */
+            .crypto-table tbody tr {
+                transition: all 0.2s ease;
+            }
+
+            .crypto-table tbody tr.hidden {
+                display: none;
+            }
+
+            .crypto-table tbody tr.filtered-in {
+                animation: fadeIn 0.3s ease;
+            }
+
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(-10px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            /* 无搜索结果提示 */
+            .no-results {
+                text-align: center;
+                padding: 40px 20px;
+                color: #999;
+                font-size: 14px;
+            }
+
+            .no-results i {
+                font-size: 48px;
+                color: #ddd;
+                margin-bottom: 10px;
+                display: block;
+            }
+
+            /* 暗黑模式搜索框 */
+            body.dark-mode #crypto-search-input {
+                background: #2a2a2a;
+                border-color: #444;
+                color: #fff;
+            }
+
+            body.dark-mode #crypto-search-input:focus {
+                border-color: #10b981;
+            }
+
+            body.dark-mode #crypto-search-input::placeholder {
+                color: #666;
+            }
+
+            body.dark-mode .fa-search {
+                color: #666;
             }
 
             .coin-info {

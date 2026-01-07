@@ -238,10 +238,7 @@ function initBinanceWebSocket() {
                     const symbol = item.s.replace('USDT', '').toLowerCase();
                     const symbolUpper = symbol.toUpperCase();
                     
-                    // 优先使用CoinGecko在线logo
-                    const onlineLogo = `https://assets.coingecko.com/coins/images/1/small/${symbol}.png`;
-                    
-                    // 创建精美的SVG渐变图标作为fallback
+                    // 创建精美的SVG渐变图标
                     const firstLetter = symbolUpper.charAt(0);
                     const gradients = [
                         ['#F7931A', '#FFAB40'], // BTC橙
@@ -304,8 +301,7 @@ function initBinanceWebSocket() {
                     return {
                         symbol: symbol,
                         name: item.s.replace('USDT', ''),
-                        image: onlineLogo,
-                        fallbackIcon: svgIcon,
+                        image: svgIcon,
                         current_price: parseFloat(item.c) || 0,
                         price_change_percentage_24h: parseFloat(item.P) || 0,
                         market_cap: parseFloat(item.c) * parseFloat(item.v) || 0,
@@ -1061,7 +1057,7 @@ function renderCryptoTable(data) {
             <tr class="main-row" onclick="toggleCoinDetail('${coin.symbol}')">
                 <td>
                     <div class="coin-info">
-                        <img src="${coin.image}" class="coin-icon" alt="${coin.symbol}" onerror="this.src='${coin.fallbackIcon}'">
+                        <img src="${coin.image}" class="coin-icon" alt="${coin.symbol}">
                         <div class="coin-name-wrap">
                             <div class="coin-name">${coin.symbol.toUpperCase()}<span style="color:#888;font-size:10px;font-weight:normal;margin-left:4px;">/USDT</span></div>
                             <div class="coin-vol">${volume}</div>

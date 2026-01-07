@@ -1023,7 +1023,7 @@ function renderCryptoTable(data) {
             <tr class="main-row" onclick="toggleCoinDetail('${coin.symbol}')">
                 <td>
                     <div class="coin-info">
-                        <img src="${coin.image}" class="coin-icon" alt="${coin.symbol}" onerror="this.src='../assets/images/logos/btc.png'">
+                        <img src="${coin.image}" class="coin-icon" alt="${coin.symbol}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSI+PGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTYiIGZpbGw9IiMzMzMiLz48dGV4dCB4PSIxNiIgeT0iMjAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNmZmYiIGZvbnQtc2l6ZT0iMTIiIGZvbnQtZmFtaWx5PSJBcmlhbCI+JiM4MzYzOzwvdGV4dD48L3N2Zz4='">
                         <div class="coin-name-wrap">
                             <div class="coin-name">${coin.symbol.toUpperCase()}<span style="color:#888;font-size:10px;font-weight:normal;margin-left:4px;">/USDT</span></div>
                             <div class="coin-vol">${volume}</div>

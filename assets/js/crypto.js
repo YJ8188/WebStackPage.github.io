@@ -233,6 +233,61 @@ let binanceMarketData = [];
 let binanceConnected = false;
 let stableCoinCount = 0; // 稳定的币种数量计数器
 
+// 心跳机制相关变量
+let heartbeatInterval = null;
+let lastHeartbeatTime = 0;
+const HEARTBEAT_INTERVAL = 30000; // 心跳间隔：30秒
+const HEARTBEAT_TIMEOUT = 60000; // 心跳超时：60秒（无响应则认为连接断开）
+
+/**
+ * 启动心跳机制
+ */
+function startHeartbeat() {
+    // 清除旧的心跳定时器
+    stopHeartbeat();
+
+    // 初始化最后心跳时间
+    lastHeartbeatTime = Date.now();
+
+    // 设置心跳检测定时器
+    heartbeatInterval = setInterval(() => {
+        checkHeartbeat();
+    }, HEARTBEAT_INTERVAL);
+
+    console.log('[币安API] 💓 心跳机制已启动（每30秒检测一次）');
+}
+
+/**
+ * 停止心跳机制
+ */
+function stopHeartbeat() {
+    if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
+        console.log('[币安API] 💔 心跳机制已停止');
+    }
+}
+
+/**
+ * 检查心跳状态
+ */
+function checkHeartbeat() {
+    const now = Date.now();
+    const timeSinceLastHeartbeat = now - lastHeartbeatTime;
+
+    if (timeSinceLastHeartbeat > HEARTBEAT_TIMEOUT) {
+        console.warn(`[币安API] ⚠️ 心跳超时！上次心跳已超过 ${HEARTBEAT_TIMEOUT / 1000} 秒`);
+        console.warn('[币安API] 🔴 检测到连接可能已断开，正在重连...');
+
+        // 关闭当前连接并重新连接
+        if (binanceWS) {
+            binanceWS.close();
+        }
+    } else {
+        console.log(`[币安API] 💓 心跳正常（距离上次心跳: ${Math.round(timeSinceLastHeartbeat / 1000)}秒）`);
+    }
+}
+
 /**
  * 初始化币安WebSocket连接
  */
@@ -279,9 +334,15 @@ function initBinanceWebSocket() {
         console.log('[币安API] 📡 等待接收数据...');
         binanceConnected = true;
         updateAPIStatus('Binance WebSocket', true);
+
+        // 启动心跳机制
+        startHeartbeat();
     };
 
     binanceWS.onmessage = function (event) {
+        // 更新最后心跳时间（收到任何消息都视为心跳响应）
+        lastHeartbeatTime = Date.now();
+
         try {
             const data = JSON.parse(event.data);
 
@@ -426,6 +487,9 @@ function initBinanceWebSocket() {
     binanceWS.onerror = function (error) {
         console.error('[币安API] ❌ WebSocket错误:', error);
         updateAPIStatus('Binance WebSocket', false);
+
+        // 停止心跳机制
+        stopHeartbeat();
     };
 
     binanceWS.onclose = function (event) {
@@ -433,6 +497,9 @@ function initBinanceWebSocket() {
         console.log(`关闭代码: ${event.code}, 原因: ${event.reason || '无'}`);
         binanceConnected = false;
         updateAPIStatus('Binance WebSocket', false);
+
+        // 停止心跳机制
+        stopHeartbeat();
 
         // 5秒后自动重连
         setTimeout(() => {

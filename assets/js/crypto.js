@@ -1634,6 +1634,7 @@ function initCryptoUI() {
             }
 
             .coin-name {
+                font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
                 font-weight: bold;
                 font-size: 14px;
                 color: #1a1a1a;

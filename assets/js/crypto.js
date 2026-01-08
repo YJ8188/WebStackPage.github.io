@@ -703,8 +703,29 @@ function initBinanceWebSocket() {
         isConnecting = false;
         binanceConnected = false;
 
+        // 详细的关闭原因分析
+        const closeCodes = {
+            1000: '正常关闭',
+            1001: '端点离开',
+            1002: '协议错误',
+            1003: '不支持的数据类型',
+            1006: '连接异常关闭',
+            1007: '无效的帧类型数据',
+            1008: '违反策略',
+            1009: '消息太大',
+            1010: '缺少扩展',
+            1011: '内部错误',
+            1012: '服务重启',
+            1013: '尝试重新连接',
+            1014: '服务器拒绝',
+            1015: 'TLS握手失败'
+        };
+
+        const closeReason = closeCodes[event.code] || '未知原因';
         Logger.warn('[币安API] 🔴 WebSocket连接已关闭');
-        Logger.debug(`关闭代码: ${event.code}, 原因: ${event.reason || '无'}`);
+        Logger.warn(`[币安API] 关闭代码: ${event.code} (${closeReason})`);
+        Logger.warn(`[币安API] 关闭原因: ${event.reason || '无'}`);
+        Logger.warn(`[币安API] 是否干净关闭: ${event.wasClean}`);
         updateAPIStatus('Binance WebSocket', false);
 
         // 停止心跳机制

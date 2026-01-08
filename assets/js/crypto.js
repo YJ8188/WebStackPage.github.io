@@ -518,16 +518,44 @@ function initBinanceWebSocket() {
         // 更新最后心跳时间（收到任何消息都视为心跳响应）
         lastHeartbeatTime = Date.now();
 
+        // 处理 Blob 或 String 数据
+        let messageData = event.data;
+        
+        // 如果是 Blob，需要转换为文本
+        if (messageData instanceof Blob) {
+            messageData = new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(new Error('Failed to read Blob'));
+                reader.readAsText(messageData);
+            });
+        }
+
         // 将消息加入队列
         if (messageQueue.length >= MAX_QUEUE_SIZE) {
             // 队列已满，丢弃最旧的消息
             messageQueue.shift();
         }
-        messageQueue.push(event.data);
-
-        // 如果没有正在处理队列，开始处理
-        if (!isProcessingQueue) {
-            processMessageQueue();
+        
+        if (messageData instanceof Promise) {
+            // 异步处理 Blob
+            messageData.then(text => {
+                if (messageQueue.length >= MAX_QUEUE_SIZE) {
+                    messageQueue.shift();
+                }
+                messageQueue.push(text);
+                if (!isProcessingQueue) {
+                    processMessageQueue();
+                }
+            }).catch(error => {
+                Logger.error('[币安API] ❌ Blob读取失败:', error);
+            });
+        } else {
+            // 同步处理 String
+            messageQueue.push(messageData);
+            if (!isProcessingQueue) {
+                processMessageQueue();
+            }
         }
     };
 
@@ -551,8 +579,15 @@ function initBinanceWebSocket() {
         try {
             const data = JSON.parse(latestData);
 
+            // 调试：打印数据类型
+            if (binanceMarketData.length === 0) {
+                Logger.debug('[币安API] 🔍 接收到的数据类型:', Array.isArray(data) ? 'Array' : typeof data);
+                Logger.debug('[币安API] 🔍 数据内容预览:', JSON.stringify(data).substring(0, 200));
+            }
+
             if (!Array.isArray(data)) {
-                Logger.warn('[币安API] ⚠️ 接收到的数据格式不正确');
+                Logger.warn('[币安API] ⚠️ 接收到的数据格式不正确，期望 Array，实际:', typeof data);
+                Logger.warn('[币安API] 🔍 实际数据:', JSON.stringify(data).substring(0, 500));
                 isProcessingQueue = false;
                 return;
             }

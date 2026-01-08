@@ -1643,7 +1643,7 @@ function initCryptoUI() {
             .coin-symbol {
                 font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
                 font-weight: bold;
-                color: #999;
+                color: #1a1a1a;
                 font-size: 14px;
                 margin-top: 2px;
             }
@@ -1737,6 +1737,10 @@ function initCryptoUI() {
 
             body.dark-mode .coin-name {
                 color: #eee;
+            }
+
+            body.dark-mode .coin-symbol {
+                color: #fff;
             }
 
             body.dark-mode .main-price {

@@ -638,10 +638,10 @@ function initBinanceWebSocket() {
                 Logger.info('[币安API] 💓 收到服务器心跳');
                 Logger.debug('[币安API] 💓 服务器时间:', data.timestamp);
                 Logger.debug('[币安API] 💓 服务器时间戳:', data.server_time);
-                
+
                 // 更新最后心跳时间
                 lastHeartbeatTime = Date.now();
-                
+
                 if (binanceWS && binanceWS.readyState === WebSocket.OPEN) {
                     const responseMsg = JSON.stringify({
                         type: 'heartbeat_response',
@@ -651,6 +651,20 @@ function initBinanceWebSocket() {
                     binanceWS.send(responseMsg);
                     Logger.info('[币安API] 💓 已回复服务器心跳');
                     Logger.debug('[币安API] 💓 回复内容:', responseMsg);
+                }
+
+                isProcessingQueue = false;
+                return;
+            }
+
+            // 处理服务器重启通知
+            if (data.type === 'server_restart') {
+                Logger.warn('[币安API] ⚠️ 收到服务器重启通知:', data.message);
+                Logger.info('[币安API] 🔄 3秒后自动重连...');
+                
+                // 关闭当前连接，触发重连
+                if (binanceWS) {
+                    binanceWS.close();
                 }
                 
                 isProcessingQueue = false;
@@ -811,10 +825,28 @@ function initBinanceWebSocket() {
 
         // 只在非正常关闭时自动重连（1000=正常关闭）
         if (event.code !== 1000 && !document.hidden) {
-            Logger.info('[币安API] 🔄 5秒后自动重连...');
+            // 根据关闭代码调整重连时间
+            let reconnectDelay = 5000; // 默认5秒
+
+            if (event.code === 1006) {
+                // 连接异常关闭，可能是服务器重启，快速重连
+                reconnectDelay = 3000;
+                Logger.info('[币安API] 🔄 检测到异常关闭，3秒后快速重连...');
+            } else if (event.code === 1012) {
+                // 服务重启，中等延迟重连
+                reconnectDelay = 5000;
+                Logger.info('[币安API] 🔄 检测到服务重启，5秒后重连...');
+            } else {
+                Logger.info('[币安API] 🔄 5秒后自动重连...');
+            }
+
             setTimeout(() => {
                 initBinanceWebSocket();
-            }, 5000);
+            }, reconnectDelay);
+        } else if (document.hidden) {
+            Logger.info('[币安API] 📱 页面隐藏，暂停重连');
+        } else {
+            Logger.info('[币安API] ✅ 正常关闭，无需重连');
         }
     };
 }

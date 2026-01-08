@@ -1644,7 +1644,7 @@ function initCryptoUI() {
                 font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
                 font-weight: bold;
                 color: #999;
-                font-size: 11px;
+                font-size: 14px;
                 margin-top: 2px;
             }
 

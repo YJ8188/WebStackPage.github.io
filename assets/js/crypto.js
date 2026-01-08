@@ -824,7 +824,7 @@ function initBinanceWebSocket() {
         stopHeartbeat();
 
         // 只在非正常关闭时自动重连（1000=正常关闭）
-        if (event.code !== 1000 && !document.hidden) {
+        if (event.code !== 1000) {
             // 根据关闭代码调整重连时间
             let reconnectDelay = 5000; // 默认5秒
 
@@ -843,8 +843,6 @@ function initBinanceWebSocket() {
             setTimeout(() => {
                 initBinanceWebSocket();
             }, reconnectDelay);
-        } else if (document.hidden) {
-            Logger.info('[币安API] 📱 页面隐藏，暂停重连');
         } else {
             Logger.info('[币安API] ✅ 正常关闭，无需重连');
         }

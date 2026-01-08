@@ -407,6 +407,45 @@ function startHeartbeat() {
 }
 
 /**
+ * 启动客户端主动心跳（发送心跳给服务器，保持连接活跃）
+ */
+let clientHeartbeatInterval = null;
+
+function startClientHeartbeat() {
+    // 清除旧的客户端心跳定时器
+    stopClientHeartbeat();
+
+    // 设置客户端心跳定时器（每60秒发送一次）
+    clientHeartbeatInterval = setInterval(() => {
+        if (binanceWS && binanceWS.readyState === WebSocket.OPEN) {
+            try {
+                binanceWS.send(JSON.stringify({
+                    type: 'client_heartbeat',
+                    timestamp: new Date().toISOString(),
+                    client_time: Date.now()
+                }));
+                Logger.debug('[币安API] 💓 发送客户端心跳');
+            } catch (error) {
+                Logger.error('[币安API] ❌ 发送客户端心跳失败:', error);
+            }
+        }
+    }, 60000); // 60秒
+
+    Logger.info('[币安API] 💓 客户端心跳已启动（每60秒发送一次）');
+}
+
+/**
+ * 停止客户端心跳机制
+ */
+function stopClientHeartbeat() {
+    if (clientHeartbeatInterval) {
+        clearInterval(clientHeartbeatInterval);
+        clientHeartbeatInterval = null;
+        Logger.info('[币安API] 💔 客户端心跳已停止');
+    }
+}
+
+/**
  * 停止心跳机制
  */
 function stopHeartbeat() {
@@ -415,6 +454,9 @@ function stopHeartbeat() {
         heartbeatInterval = null;
         Logger.info('[币安API] 💔 心跳机制已停止');
     }
+    
+    // 同时停止客户端心跳
+    stopClientHeartbeat();
 }
 
 /**
@@ -512,6 +554,9 @@ function initBinanceWebSocket() {
 
         // 启动心跳机制
         startHeartbeat();
+
+        // 启动客户端主动心跳（每60秒发送一次，保持连接活跃）
+        startClientHeartbeat();
     };
 
     binanceWS.onmessage = function (event) {
@@ -578,6 +623,23 @@ function initBinanceWebSocket() {
 
         try {
             const data = JSON.parse(latestData);
+
+            // 处理服务器心跳消息
+            if (data.type === 'heartbeat') {
+                Logger.debug('[币安API] 💓 收到服务器心跳');
+                
+                // 响应心跳，保持连接活跃
+                if (binanceWS && binanceWS.readyState === WebSocket.OPEN) {
+                    binanceWS.send(JSON.stringify({
+                        type: 'heartbeat_response',
+                        timestamp: new Date().toISOString(),
+                        client_time: Date.now()
+                    }));
+                }
+                
+                isProcessingQueue = false;
+                return;
+            }
 
             // 调试：打印数据类型
             if (binanceMarketData.length === 0) {

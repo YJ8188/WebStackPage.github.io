@@ -1286,15 +1286,10 @@ async function fetchCryptoData() {
     Logger.info('[行情同步] fetchCryptoData 开始执行');
 
     const tbody = document.getElementById('crypto-table-body');
-    const refreshIcon = document.querySelector('#refresh-crypto-btn i');
 
     Logger.debug('[行情同步] 检查DOM元素:', {
-        tbody: !!tbody,
-        refreshIcon: !!refreshIcon
+        tbody: !!tbody
     });
-
-    // 设置为获取中状态
-    if (refreshIcon) refreshIcon.classList.add('fa-spin');
 
     // 初始化币安WebSocket连接
     if (!binanceConnected) {
@@ -1327,14 +1322,11 @@ async function fetchCryptoData() {
                 clearInterval(checkInterval);
                 Logger.error('[行情同步] WebSocket连接超时');
                 tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: #ef4444;">
-                    <i class="fa fa-exclamation-triangle"></i> 连接超时，请检查网络。<br>
-                    <button class="btn btn-xs btn-primary" style="margin-top:10px" onclick="event.stopPropagation(); fetchCryptoData()">重试连接</button>
+                    <i class="fa fa-exclamation-triangle"></i> 连接超时，请检查网络或稍后刷新页面。
                 </td></tr>`;
             }
         }, 500);
     }
-
-    if (refreshIcon) refreshIcon.classList.remove('fa-spin');
 }
 
 // ==================== localStorage节流写入函数 ====================
@@ -1760,10 +1752,6 @@ function initCryptoUI() {
                     <i class="fa fa-search" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: #999; font-size: 12px;"></i>
                 </div>
 
-                <button id="refresh-crypto-btn" class="btn btn-xs btn-white" onclick="event.stopPropagation(); fetchCryptoData()"
-                    style="margin-right: 0; padding: 4px 8px;" title="刷新数据">
-                    <i class="fa fa-refresh"></i>
-                </button>
                 <span style="margin-right: 0; color: #888; font-size: 12px;">汇率:</span>
                 <span id="exchange-rate-display" class="rate-display"
                     style="font-size: 12px; font-weight: bold; color: #10b981; cursor: pointer;"
@@ -2082,11 +2070,6 @@ function initCryptoUI() {
                     font-size: 11px !important;
                     flex-wrap: wrap;
                     gap: 5px;
-                }
-
-                #refresh-crypto-btn {
-                    padding: 3px 8px !important;
-                    font-size: 11px !important;
                 }
 
                 .rate-display {

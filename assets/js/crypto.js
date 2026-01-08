@@ -419,15 +419,19 @@ function startClientHeartbeat() {
     clientHeartbeatInterval = setInterval(() => {
         if (binanceWS && binanceWS.readyState === WebSocket.OPEN) {
             try {
-                binanceWS.send(JSON.stringify({
+                const heartbeatMsg = JSON.stringify({
                     type: 'client_heartbeat',
                     timestamp: new Date().toISOString(),
                     client_time: Date.now()
-                }));
-                Logger.debug('[币安API] 💓 发送客户端心跳');
+                });
+                binanceWS.send(heartbeatMsg);
+                Logger.info('[币安API] 💓 发送客户端心跳给服务器');
+                Logger.debug('[币安API] 💓 心跳内容:', heartbeatMsg);
             } catch (error) {
                 Logger.error('[币安API] ❌ 发送客户端心跳失败:', error);
             }
+        } else {
+            Logger.warn('[币安API] ⚠️ WebSocket未连接，无法发送心跳');
         }
     }, 60000); // 60秒
 
@@ -457,6 +461,8 @@ function stopHeartbeat() {
     
     // 同时停止客户端心跳
     stopClientHeartbeat();
+    
+    Logger.info('[币安API] 💔 双向心跳机制已停止');
 }
 
 /**
@@ -475,7 +481,8 @@ function checkHeartbeat() {
             binanceWS.close();
         }
     } else {
-        Logger.debug(`[币安API] 💓 心跳正常（距离上次心跳: ${Math.round(timeSinceLastHeartbeat / 1000)}秒）`);
+        Logger.info('[币安API] 💓 心跳正常');
+        Logger.debug(`[币安API] 距离上次心跳: ${timeSinceLastHeartbeat}ms`);
     }
 }
 
@@ -557,6 +564,8 @@ function initBinanceWebSocket() {
 
         // 启动客户端主动心跳（每60秒发送一次，保持连接活跃）
         startClientHeartbeat();
+        
+        Logger.info('[币安API] 💓 双向心跳机制已启动');
     };
 
     binanceWS.onmessage = function (event) {
@@ -624,17 +633,24 @@ function initBinanceWebSocket() {
         try {
             const data = JSON.parse(latestData);
 
-            // 处理服务器心跳消息
+            // 处理服务器心跳
             if (data.type === 'heartbeat') {
-                Logger.debug('[币安API] 💓 收到服务器心跳');
+                Logger.info('[币安API] 💓 收到服务器心跳');
+                Logger.debug('[币安API] 💓 服务器时间:', data.timestamp);
+                Logger.debug('[币安API] 💓 服务器时间戳:', data.server_time);
                 
-                // 响应心跳，保持连接活跃
+                // 更新最后心跳时间
+                lastHeartbeatTime = Date.now();
+                
                 if (binanceWS && binanceWS.readyState === WebSocket.OPEN) {
-                    binanceWS.send(JSON.stringify({
+                    const responseMsg = JSON.stringify({
                         type: 'heartbeat_response',
                         timestamp: new Date().toISOString(),
                         client_time: Date.now()
-                    }));
+                    });
+                    binanceWS.send(responseMsg);
+                    Logger.info('[币安API] 💓 已回复服务器心跳');
+                    Logger.debug('[币安API] 💓 回复内容:', responseMsg);
                 }
                 
                 isProcessingQueue = false;

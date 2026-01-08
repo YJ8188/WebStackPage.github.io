@@ -416,6 +416,8 @@ function initBinanceWebSocket() {
         // 更新最后心跳时间（收到任何消息都视为心跳响应）
         lastHeartbeatTime = Date.now();
 
+        const startTime = performance.now();
+
         try {
             const data = JSON.parse(event.data);
 
@@ -429,128 +431,143 @@ function initBinanceWebSocket() {
                 Logger.info(`[币安API] 📦 首次接收到 ${data.length} 个交易对数据`);
             }
 
-            // 将币安API字段映射到标准格式，并过滤无效数据
-            const newData = data
-                .filter(item => item && item.s && typeof item.s === 'string' && item.s.endsWith('USDT'))
-                .filter(item => {
-                    // 过滤掉价格为0或异常的交易对
-                    const price = parseFloat(item.c);
-                    const volume = parseFloat(item.v);
-                    return price > 0 && volume > 0 && item.c && item.v;
-                })
-                .map(item => {
-                    const symbol = item.s.replace('USDT', '').toLowerCase();
-                    const symbolUpper = symbol.toUpperCase();
+            // 使用 requestAnimationFrame 避免阻塞主线程
+            requestAnimationFrame(() => {
+                try {
+                    // 将币安API字段映射到标准格式，并过滤无效数据
+                    const newData = data
+                        .filter(item => item && item.s && typeof item.s === 'string' && item.s.endsWith('USDT'))
+                        .filter(item => {
+                            // 过滤掉价格为0或异常的交易对
+                            const price = parseFloat(item.c);
+                            const volume = parseFloat(item.v);
+                            return price > 0 && volume > 0 && item.c && item.v;
+                        })
+                        .map(item => {
+                            const symbol = item.s.replace('USDT', '').toLowerCase();
+                            const symbolUpper = symbol.toUpperCase();
 
-                    // 创建精美的SVG渐变图标
-                    const firstLetter = symbolUpper.charAt(0);
-                    const gradients = [
-                        ['#F7931A', '#FFAB40'], // BTC橙
-                        ['#627EEA', '#8294FF'], // ETH蓝
-                        ['#26A17B', '#3DD5BF'], // USDT绿
-                        ['#F3BA2F', '#FFD54F'], // BNB黄
-                        ['#2A5ADA', '#5275FF'], // XRP蓝
-                        ['#14F195', '#00FFA3'], // SOL绿
-                        ['#C2A633', '#FFD700'], // DOGE金
-                        ['#0033AD', '#0055FF'], // ADA蓝
-                        ['#E91E63', '#FF4081'], // TRX粉
-                        ['#0098EA', '#00BCD4'], // TON青
-                        ['#000000', '#424242'], // SHIB黑
-                        ['#345D9D', '#5C8BC0'], // LTC蓝
-                        ['#3CC8D8', '#00E5FF'], // ETC青
-                        ['#2A5ADA', '#5275FF'], // LINK蓝
-                        ['#FF007A', '#FF4081'], // UNI粉
-                        ['#8DC351', '#AED581'], // BCH绿
-                        ['#9D4EDD', '#BA68C8'], // ARB紫
-                        ['#FF0420', '#FF5252'], // OP红
-                        ['#FF6B00', '#FF9100'], // TIA橙
-                        ['#00D1FF', '#40E0FF'], // SEI青
-                        ['#FF8F00', '#FFB300'], // PEPE橙
-                        ['#00E676', '#69F0AE'], // STX绿
-                        ['#5E17EB', '#8B5CF6'], // APT紫
-                        ['#00A3E0', '#00D4FF'], // FLOKI蓝
-                        ['#00D4FF', '#40E0FF'], // FET青
-                        ['#FFD700', '#FFEB3B'], // BONK黄
-                        ['#FF6B35', '#FF8A65'], // KAS橙
-                        ['#FF4D4D', '#FF8080'], // RNDR红
-                        ['#00E5FF', '#40E0FF'], // INJ青
-                        ['#00D4FF', '#40E0FF'], // NEAR青
-                        ['#5E17EB', '#8B5CF6'], // LDO紫
-                        ['#4080FF', '#80A0FF'], // ICP蓝
-                        ['#00E5FF', '#40E0FF']  // MNT青
-                    ];
+                            // 创建精美的SVG渐变图标
+                            const firstLetter = symbolUpper.charAt(0);
+                            const gradients = [
+                                ['#F7931A', '#FFAB40'], // BTC橙
+                                ['#627EEA', '#8294FF'], // ETH蓝
+                                ['#26A17B', '#3DD5BF'], // USDT绿
+                                ['#F3BA2F', '#FFD54F'], // BNB黄
+                                ['#2A5ADA', '#5275FF'], // XRP蓝
+                                ['#14F195', '#00FFA3'], // SOL绿
+                                ['#C2A633', '#FFD700'], // DOGE金
+                                ['#0033AD', '#0055FF'], // ADA蓝
+                                ['#E91E63', '#FF4081'], // TRX粉
+                                ['#0098EA', '#00BCD4'], // TON青
+                                ['#000000', '#424242'], // SHIB黑
+                                ['#345D9D', '#5C8BC0'], // LTC蓝
+                                ['#3CC8D8', '#00E5FF'], // ETC青
+                                ['#2A5ADA', '#5275FF'], // LINK蓝
+                                ['#FF007A', '#FF4081'], // UNI粉
+                                ['#8DC351', '#AED581'], // BCH绿
+                                ['#9D4EDD', '#BA68C8'], // ARB紫
+                                ['#FF0420', '#FF5252'], // OP红
+                                ['#FF6B00', '#FF9100'], // TIA橙
+                                ['#00D1FF', '#40E0FF'], // SEI青
+                                ['#FF8F00', '#FFB300'], // PEPE橙
+                                ['#00E676', '#69F0AE'], // STX绿
+                                ['#5E17EB', '#8B5CF6'], // APT紫
+                                ['#00A3E0', '#00D4FF'], // FLOKI蓝
+                                ['#00D4FF', '#40E0FF'], // FET青
+                                ['#FFD700', '#FFEB3B'], // BONK黄
+                                ['#FF6B35', '#FF8A65'], // KAS橙
+                                ['#FF4D4D', '#FF8080'], // RNDR红
+                                ['#00E5FF', '#40E0FF'], // INJ青
+                                ['#00D4FF', '#40E0FF'], // NEAR青
+                                ['#5E17EB', '#8B5CF6'], // LDO紫
+                                ['#4080FF', '#80A0FF'], // ICP蓝
+                                ['#00E5FF', '#40E0FF']  // MNT青
+                            ];
 
-                    const gradientIndex = symbol.length % gradients.length;
-                    const [color1, color2] = gradients[gradientIndex];
-                    const gradientId = `grad-${symbol}-${gradientIndex}`;
+                            const gradientIndex = symbol.length % gradients.length;
+                            const [color1, color2] = gradients[gradientIndex];
+                            const gradientId = `grad-${symbol}-${gradientIndex}`;
 
-                    // 使用 UTF-8 兼容的 base64 编码
-                    const svgString = `
-                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-                            <defs>
-                                <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="100%" y2="100%">
-                                    <stop offset="0%" style="stop-color:${color1}"/>
-                                    <stop offset="100%" style="stop-color:${color2}"/>
-                                </linearGradient>
-                            </defs>
-                            <circle cx="16" cy="16" r="15" fill="url(#${gradientId})"/>
-                            <text x="50%" y="50%" dy=".35em" text-anchor="middle" dominant-baseline="middle"
-                                  font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="white"
-                                  style="text-shadow: 0 1px 2px rgba(0,0,0,0.3);">
-                                ${firstLetter}
-                            </text>
-                            <circle cx="16" cy="16" r="15" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
-                        </svg>
-                    `;
-                    const svgIcon = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svgString)))}`;
+                            // 使用 UTF-8 兼容的 base64 编码
+                            const svgString = `
+                                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+                                    <defs>
+                                        <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="100%" y2="100%">
+                                            <stop offset="0%" style="stop-color:${color1}"/>
+                                            <stop offset="100%" style="stop-color:${color2}"/>
+                                        </linearGradient>
+                                    </defs>
+                                    <circle cx="16" cy="16" r="15" fill="url(#${gradientId})"/>
+                                    <text x="50%" y="50%" dy=".35em" text-anchor="middle" dominant-baseline="middle"
+                                          font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="white"
+                                          style="text-shadow: 0 1px 2px rgba(0,0,0,0.3);">
+                                        ${firstLetter}
+                                    </text>
+                                    <circle cx="16" cy="16" r="15" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+                                </svg>
+                            `;
+                            const svgIcon = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svgString)))}`;
 
-                    // 获取币种ID映射
-                    const coinIds = COIN_ID_MAP[symbol] || {};
+                            // 获取币种ID映射
+                            const coinIds = COIN_ID_MAP[symbol] || {};
 
-                    // 在线logo URL（按优先级排序）
-                    const logo1 = `https://assets.coincap.io/assets/icons/${symbol}@2x.png`;  // CoinCap
-                    const logo2 = coinIds.coinmarketcap ? `https://s2.coinmarketcap.com/static/img/coins/64x64/${coinIds.coinmarketcap}.png` : null;  // CoinMarketCap
-                    const logo3 = coinIds.coingecko_id ? `https://assets.coingecko.com/coins/images/${coinIds.coingecko_id}/small/${coinIds.coingecko}.png` : null;  // CoinGecko
+                            // 在线logo URL（按优先级排序）
+                            const logo1 = `https://assets.coincap.io/assets/icons/${symbol}@2x.png`;  // CoinCap
+                            const logo2 = coinIds.coinmarketcap ? `https://s2.coinmarketcap.com/static/img/coins/64x64/${coinIds.coinmarketcap}.png` : svgIcon;  // CoinMarketCap作为第二选择
+                            const logo3 = coinIds.coingecko_id ? `https://assets.coingecko.com/coins/images/${coinIds.coingecko_id}/small/${coinIds.coingecko}.png` : svgIcon;  // CoinGecko作为第三选择
 
-                    return {
-                        symbol: symbol,
-                        name: item.s.replace('USDT', ''),
-                        image: logo1,  // 优先使用CoinCap
-                        fallbackIcon1: logo2,  // CoinMarketCap作为第二选择
-                        fallbackIcon2: logo3,  // CoinGecko作为第三选择
-                        fallbackIcon3: svgIcon,  // SVG作为最后选择
-                        current_price: parseFloat(item.c) || 0,
-                        price_change_percentage_24h: parseFloat(item.P) || 0,
-                        market_cap: parseFloat(item.c) * parseFloat(item.v) || 0,
-                        total_volume: parseFloat(item.q) || 0,
-                        quoteVolume: parseFloat(item.q) || 0,
-                        volume: parseFloat(item.v) || 0
-                    };
-                });
+                            return {
+                                symbol: symbol,
+                                name: item.s.replace('USDT', ''),
+                                image: logo1,  // 优先使用CoinCap
+                                fallbackIcon1: logo2,  // CoinMarketCap作为第二选择
+                                fallbackIcon2: logo3,  // CoinGecko作为第三选择
+                                fallbackIcon3: svgIcon,  // SVG作为最后选择
+                                current_price: parseFloat(item.c) || 0,
+                                price_change_percentage_24h: parseFloat(item.P) || 0,
+                                market_cap: parseFloat(item.c) * parseFloat(item.v) || 0,
+                                total_volume: parseFloat(item.q) || 0,
+                                quoteVolume: parseFloat(item.q) || 0,
+                                volume: parseFloat(item.v) || 0
+                            };
+                        });
 
-            // 更新现有数据或添加新数据
-            newData.forEach(newCoin => {
-                const existingIndex = binanceMarketData.findIndex(c => c.symbol === newCoin.symbol);
-                if (existingIndex !== -1) {
-                    binanceMarketData[existingIndex] = newCoin;
-                } else {
-                    binanceMarketData.push(newCoin);
+                    // 更新现有数据或添加新数据
+                    newData.forEach(newCoin => {
+                        const existingIndex = binanceMarketData.findIndex(c => c.symbol === newCoin.symbol);
+                        if (existingIndex !== -1) {
+                            binanceMarketData[existingIndex] = newCoin;
+                        } else {
+                            binanceMarketData.push(newCoin);
+                        }
+                    });
+
+                    // 只在首次加载或数据量显著变化时显示日志
+                    if (binanceMarketData.length > 0 && binanceMarketData.length !== stableCoinCount) {
+                        Logger.info(`[币安API] ✅ 当前已收集 ${binanceMarketData.length} 个USDT交易对`);
+                        Logger.debug(`[币安API] 📊 前10个币种:`, binanceMarketData.slice(0, 10).map(c => c.symbol.toUpperCase()).join(', '));
+                    }
+
+                    // 更新API状态（包括币种计数）
+                    updateAPIStatus('Binance WebSocket', true);
+
+                    // 实时更新UI（使用节流避免频繁更新）
+                    if (binanceMarketData.length > 0) {
+                        throttledUpdateUI(binanceMarketData);
+                    }
+
+                    // 性能监控
+                    const endTime = performance.now();
+                    const duration = endTime - startTime;
+                    if (duration > 100) {
+                        Logger.warn(`[性能] WebSocket message handler 耗时: ${duration.toFixed(2)}ms`);
+                    }
+                } catch (error) {
+                    Logger.error('[币安API] ❌ 处理数据失败:', error);
+                    Logger.error('[币安API] 错误堆栈:', error.stack);
                 }
             });
-
-            // 只在首次加载或数据量显著变化时显示日志
-            if (binanceMarketData.length > 0 && binanceMarketData.length !== stableCoinCount) {
-                Logger.info(`[币安API] ✅ 当前已收集 ${binanceMarketData.length} 个USDT交易对`);
-                Logger.debug(`[币安API] 📊 前10个币种:`, binanceMarketData.slice(0, 10).map(c => c.symbol.toUpperCase()).join(', '));
-            }
-
-            // 更新API状态（包括币种计数）
-            updateAPIStatus('Binance WebSocket', true);
-
-            // 实时更新UI
-            if (binanceMarketData.length > 0) {
-                updateCryptoUI(binanceMarketData);
-            }
         } catch (error) {
             Logger.error('[币安API] ❌ 解析数据失败:', error);
             Logger.error('[币安API] 错误堆栈:', error.stack);
@@ -641,6 +658,23 @@ const rateAPIs = [
         }
     }
 ];
+
+// ==================== UI 更新节流 ====================
+/**
+ * 节流更新UI，避免频繁DOM操作导致性能问题
+ */
+let lastUIUpdateTime = 0;
+const UI_UPDATE_THROTTLE = 100; // UI更新节流间隔：100ms
+
+function throttledUpdateUI(data) {
+    const now = Date.now();
+    if (now - lastUIUpdateTime >= UI_UPDATE_THROTTLE) {
+        lastUIUpdateTime = now;
+        requestAnimationFrame(() => {
+            updateCryptoUI(data);
+        });
+    }
+}
 
 // ==================== 网络状态检测 ====================
 /**
@@ -1431,6 +1465,9 @@ function updateCryptoUI(data) {
     const rate = isCNY ? (USD_CNY_RATE || 1) : 1;
     const symbol = isCNY ? '¥' : '$';
 
+    // 批量收集需要更新的元素，减少DOM查询
+    const updates = [];
+
     data.forEach(coin => {
         const priceId = `price-${coin.symbol}`;
         const priceEl = document.getElementById(priceId);
@@ -1449,33 +1486,17 @@ function updateCryptoUI(data) {
                 const oldVal = parseFloat(priceEl.dataset.val || 0);
                 const newVal = rawPrice * rate;
 
-                priceEl.innerText = newText;
-                priceEl.dataset.val = newVal;
-
-                const cell = priceEl.closest('td');
-                if (cell) {
-                    const pulseClass = newVal >= oldVal ? 'pulse-green' : 'pulse-red';
-                    cell.classList.remove('pulse-green', 'pulse-red');
-                    void cell.offsetWidth;
-                    cell.classList.add(pulseClass);
-                    setTimeout(() => cell.classList.remove(pulseClass), 1000);
-                }
-
-                const secondaryEl = priceEl.nextElementSibling;
-                if (secondaryEl && secondaryEl.classList.contains('converted-price')) {
-                    const secondarySymbol = isCNY ? '$' : '¥';
-                    // 如果是CNY模式但汇率还未加载，显示加载中
-                    let secondaryPriceText;
-                    if (isCNY && USD_CNY_RATE === null) {
-                        secondaryPriceText = '加载中...';
-                    } else {
-                        secondaryPriceText = (rawPrice * (isCNY ? 1 : (USD_CNY_RATE || 1))).toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: (rawPrice < 1 ? 4 : 2)
-                        });
-                    }
-                    secondaryEl.innerText = `${secondarySymbol}${secondaryPriceText}`;
-                }
+                updates.push({
+                    element: priceEl,
+                    text: newText,
+                    dataset: { val: newVal },
+                    cell: priceEl.closest('td'),
+                    pulseClass: newVal >= oldVal ? 'pulse-green' : 'pulse-red',
+                    secondaryEl: priceEl.nextElementSibling,
+                    secondarySymbol: isCNY ? '$' : '¥',
+                    rawPrice: rawPrice,
+                    isCNY: isCNY
+                });
             }
         }
 
@@ -1485,19 +1506,55 @@ function updateCryptoUI(data) {
             const newText = `${changeSign}${change.toFixed(2)}%`;
 
             if (changeEl.innerText.trim() !== newText) {
-                changeEl.innerText = newText;
-                // IMPORTANT: Apply pulse to the Change button container cell too
-                const cell = changeEl.closest('td');
-                if (cell) {
-                    const pulseClass = change >= 0 ? 'pulse-green' : 'pulse-red';
-                    cell.classList.remove('pulse-green', 'pulse-red');
-                    void cell.offsetWidth;
-                    cell.classList.add(pulseClass);
-                    setTimeout(() => cell.classList.remove(pulseClass), 1000);
-                }
-                changeEl.className = `change-box ${change >= 0 ? 'change-up' : 'change-down'} price-update`;
+                updates.push({
+                    element: changeEl,
+                    text: newText,
+                    className: `change-box ${change >= 0 ? 'change-up' : 'change-down'} price-update`,
+                    cell: changeEl.closest('td'),
+                    pulseClass: change >= 0 ? 'pulse-green' : 'pulse-red',
+                    isChange: true
+                });
             }
         }
+    });
+
+    // 批量应用更新，减少重排
+    requestAnimationFrame(() => {
+        updates.forEach(update => {
+            if (update.element) {
+                update.element.innerText = update.text;
+
+                if (update.dataset) {
+                    update.element.dataset.val = update.dataset.val;
+                }
+
+                if (update.className) {
+                    update.element.className = update.className;
+                }
+            }
+
+            if (update.secondaryEl && update.secondaryEl.classList.contains('converted-price')) {
+                let secondaryPriceText;
+                if (update.isCNY && USD_CNY_RATE === null) {
+                    secondaryPriceText = '加载中...';
+                } else {
+                    secondaryPriceText = (update.rawPrice * (update.isCNY ? 1 : (USD_CNY_RATE || 1))).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: (update.rawPrice < 1 ? 4 : 2)
+                    });
+                }
+                update.secondaryEl.innerText = `${update.secondarySymbol}${secondaryPriceText}`;
+            }
+
+            if (update.cell) {
+                update.cell.classList.remove('pulse-green', 'pulse-red');
+                // 使用 requestAnimationFrame 避免强制重排
+                requestAnimationFrame(() => {
+                    update.cell.classList.add(update.pulseClass);
+                    setTimeout(() => update.cell.classList.remove(update.pulseClass), 1000);
+                });
+            }
+        });
     });
 }
 

@@ -319,6 +319,76 @@ let isProcessingQueue = false;
 const MAX_QUEUE_SIZE = 100; // 最大队列长度
 
 /**
+ * 生成 SVG 渐变图标
+ * @param {string} symbol - 币种符号
+ * @returns {string} base64 编码的 SVG 图标
+ */
+function generateSvgIcon(symbol) {
+    const symbolUpper = symbol.toUpperCase();
+    const firstLetter = symbolUpper.charAt(0);
+    
+    const gradients = [
+        ['#F7931A', '#FFAB40'], // BTC橙
+        ['#627EEA', '#8294FF'], // ETH蓝
+        ['#26A17B', '#3DD5BF'], // USDT绿
+        ['#F3BA2F', '#FFD54F'], // BNB黄
+        ['#2A5ADA', '#5275FF'], // XRP蓝
+        ['#14F195', '#00FFA3'], // SOL绿
+        ['#C2A633', '#FFD700'], // DOGE金
+        ['#0033AD', '#0055FF'], // ADA蓝
+        ['#E91E63', '#FF4081'], // TRX粉
+        ['#0098EA', '#00BCD4'], // TON青
+        ['#000000', '#424242'], // SHIB黑
+        ['#345D9D', '#5C8BC0'], // LTC蓝
+        ['#3CC8D8', '#00E5FF'], // ETC青
+        ['#2A5ADA', '#5275FF'], // LINK蓝
+        ['#FF007A', '#FF4081'], // UNI粉
+        ['#8DC351', '#AED581'], // BCH绿
+        ['#9D4EDD', '#BA68C8'], // ARB紫
+        ['#FF0420', '#FF5252'], // OP红
+        ['#FF6B00', '#FF9100'], // TIA橙
+        ['#00D1FF', '#40E0FF'], // SEI青
+        ['#FF8F00', '#FFB300'], // PEPE橙
+        ['#00E676', '#69F0AE'], // STX绿
+        ['#5E17EB', '#8B5CF6'], // APT紫
+        ['#00A3E0', '#00D4FF'], // FLOKI蓝
+        ['#00D4FF', '#40E0FF'], // FET青
+        ['#FFD700', '#FFEB3B'], // BONK黄
+        ['#FF6B35', '#FF8A65'], // KAS橙
+        ['#FF4D4D', '#FF8080'], // RNDR红
+        ['#00E5FF', '#40E0FF'], // INJ青
+        ['#00D4FF', '#40E0FF'], // NEAR青
+        ['#5E17EB', '#8B5CF6'], // LDO紫
+        ['#4080FF', '#80A0FF'], // ICP蓝
+        ['#00E5FF', '#40E0FF']  // MNT青
+    ];
+
+    const gradientIndex = symbol.length % gradients.length;
+    const [color1, color2] = gradients[gradientIndex];
+    const gradientId = `grad-${symbol}-${gradientIndex}`;
+
+    const svgString = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+            <defs>
+                <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:${color1}"/>
+                    <stop offset="100%" style="stop-color:${color2}"/>
+                </linearGradient>
+            </defs>
+            <circle cx="16" cy="16" r="15" fill="url(#${gradientId})"/>
+            <text x="50%" y="50%" dy=".35em" text-anchor="middle" dominant-baseline="middle"
+                  font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="white"
+                  style="text-shadow: 0 1px 2px rgba(0,0,0,0.3);">
+                ${firstLetter}
+            </text>
+            <circle cx="16" cy="16" r="15" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+        </svg>
+    `;
+    
+    return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svgString)))}`;
+}
+
+/**
  * 启动心跳机制
  */
 function startHeartbeat() {
@@ -509,10 +579,13 @@ function initBinanceWebSocket() {
                             // 获取币种ID映射
                             const coinIds = COIN_ID_MAP[symbol] || {};
 
+                            // 生成 SVG 图标作为备用方案
+                            const svgIcon = generateSvgIcon(symbol);
+
                             // 在线logo URL（按优先级排序）
                             const logo1 = `https://assets.coincap.io/assets/icons/${symbol}@2x.png`;  // CoinCap
-                            const logo2 = coinIds.coinmarketcap ? `https://s2.coinmarketcap.com/static/img/coins/64x64/${coinIds.coinmarketcap}.png` : null;  // CoinMarketCap作为第二选择
-                            const logo3 = coinIds.coingecko_id ? `https://assets.coingecko.com/coins/images/${coinIds.coingecko_id}/small/${coinIds.coingecko}.png` : null;  // CoinGecko作为第三选择
+                            const logo2 = coinIds.coinmarketcap ? `https://s2.coinmarketcap.com/static/img/coins/64x64/${coinIds.coinmarketcap}.png` : svgIcon;  // CoinMarketCap作为第二选择
+                            const logo3 = coinIds.coingecko_id ? `https://assets.coingecko.com/coins/images/${coinIds.coingecko_id}/small/${coinIds.coingecko}.png` : svgIcon;  // CoinGecko作为第三选择
 
                             return {
                                 symbol: symbol,
@@ -520,6 +593,7 @@ function initBinanceWebSocket() {
                                 image: logo1,  // 优先使用CoinCap
                                 fallbackIcon1: logo2,  // CoinMarketCap作为第二选择
                                 fallbackIcon2: logo3,  // CoinGecko作为第三选择
+                                fallbackIcon3: svgIcon,  // SVG作为最后选择
                                 current_price: parseFloat(item.c) || 0,
                                 price_change_percentage_24h: parseFloat(item.P) || 0,
                                 market_cap: parseFloat(item.c) * parseFloat(item.v) || 0,

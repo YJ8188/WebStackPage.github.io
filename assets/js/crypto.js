@@ -29,8 +29,8 @@ const LOG_LEVEL = (() => {
         const level = parseInt(savedLevel);
         if (level in LogLevel) return level;
     }
-    // 默认生产环境只显示警告和错误
-    return LogLevel.WARN;
+    // 默认显示 info 及以上级别的日志（包括心跳日志）
+    return LogLevel.INFO;
 })();
 
 /**

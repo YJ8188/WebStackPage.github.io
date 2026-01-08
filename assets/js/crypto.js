@@ -469,8 +469,10 @@ function initBinanceWebSocket() {
         binanceWS = null;
     }
 
-    const wsUrl = 'wss://stream.binance.com:9443/ws/!ticker@arr';
+    // 使用 WebSocket 代理服务器（解决国内网络访问问题）
+    const wsUrl = 'wss://crypto-websocket-proxy.onrender.com';
     Logger.debug('[币安API] 📡 连接地址:', wsUrl);
+    Logger.info('[币安API] 🌐 使用代理服务器连接币安数据');
 
     // 设置连接超时（10秒）
     const connectionTimeout = setTimeout(() => {

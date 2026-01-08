@@ -65,18 +65,6 @@ const COIN_ID_MAP = {
 const expandedCoins = new Set();
 // 所有币种数据（用于搜索）
 let allCryptoData = [];
-// 是否使用代理
-let isUsingProxy = false;
-
-/**
- * 检测是否使用代理（如 Clash Verge）
- * 通过检测时区和网络连接来判断
- */
-async function detectProxy() {
-    // 始终允许访问，移除移动端国内网络限制
-    console.log('[代理检测] ✅ 默认允许访问（已移除移动端限制）');
-    return true;
-}
 
 /**
  * 加载K线图数据
@@ -2160,26 +2148,6 @@ function initCryptoUI() {
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('[页面加载] DOMContentLoaded 事件触发');
     console.log('[页面加载] 开始初始化数字货币模块');
-
-    // 检测是否使用代理
-    console.log('[页面加载] 检测代理状态...');
-    isUsingProxy = await detectProxy();
-
-    // 如果未使用代理，显示提示信息
-    if (!isUsingProxy) {
-        console.log('[页面加载] ⛔ 未检测到代理，显示提示信息');
-        const placeholder = document.getElementById('crypto-section-placeholder');
-        if (placeholder) {
-            placeholder.innerHTML = `
-                <div style="text-align:center; padding: 40px 20px; color: #999;">
-                    <i class="fa fa-shield" style="font-size: 48px; margin-bottom: 16px; color: #888;"></i>
-                    <p style="font-size: 16px; font-weight: 500; color: #666; margin-bottom: 8px;">WebSocket数字货币移动端禁用</p>
-                    <p style="font-size: 14px; color: #999;">可访问其他内容</p>
-                </div>
-            `;
-        }
-        return;
-    }
 
     // 检测网络状态
     console.log('[页面加载] 检测网络状态...');

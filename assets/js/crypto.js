@@ -73,52 +73,9 @@ let isUsingProxy = false;
  * 通过检测时区和网络连接来判断
  */
 async function detectProxy() {
-    // 检测时区
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const isChinaTimezone = timezone === 'Asia/Shanghai' || 
-                            timezone === 'Asia/Beijing';
-    
-    // 检测是否为移动端
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    
-    // 如果是PC端，默认认为可以使用
-    if (!isMobile) {
-        console.log('[代理检测] 💻 PC端环境，默认允许访问');
-        return true;
-    }
-    
-    // 移动端：检测时区
-    if (isChinaTimezone) {
-        console.log('[代理检测] 📱 移动端 + 中国时区，尝试检测代理...');
-        
-        // 尝试快速检测是否能访问币安API
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000); // 3秒超时
-            
-            const response = await fetch('https://api.binance.com/api/v3/ping', {
-                method: 'GET',
-                signal: controller.signal,
-                cache: 'no-cache'
-            });
-            
-            clearTimeout(timeoutId);
-            
-            if (response.ok) {
-                console.log('[代理检测] ✅ 检测到代理，允许访问');
-                return true;
-            } else {
-                console.log('[代理检测] ❌ 未检测到代理');
-                return false;
-            }
-        } catch (error) {
-            console.log('[代理检测] ❌ 无法访问币安API，未检测到代理');
-            return false;
-        }
-    } else {
-        console.log('[代理检测] 📱 移动端 + 国际时区，允许访问');
-        return true;
-    }
+    // 始终允许访问，移除移动端国内网络限制
+    console.log('[代理检测] ✅ 默认允许访问（已移除移动端限制）');
+    return true;
 }
 
 /**
@@ -314,7 +271,7 @@ function initBinanceWebSocket() {
         if (!binanceConnected) {
             console.log('[币安API] ⏰ WebSocket连接超时');
             updateAPIStatus('Binance WebSocket', false);
-            
+
             // 显示连接超时提示
             const tbody = document.getElementById('crypto-table-body');
             if (tbody) {
@@ -328,7 +285,7 @@ function initBinanceWebSocket() {
 
     binanceWS = new WebSocket(wsUrl);
 
-    binanceWS.onopen = function() {
+    binanceWS.onopen = function () {
         clearTimeout(connectionTimeout);
         console.log('[币安API] ✅ WebSocket连接已建立');
         console.log('[币安API] 📡 等待接收数据...');
@@ -336,7 +293,7 @@ function initBinanceWebSocket() {
         updateAPIStatus('Binance WebSocket', true);
     };
 
-    binanceWS.onmessage = function(event) {
+    binanceWS.onmessage = function (event) {
         try {
             const data = JSON.parse(event.data);
 
@@ -478,12 +435,12 @@ function initBinanceWebSocket() {
         }
     };
 
-    binanceWS.onerror = function(error) {
+    binanceWS.onerror = function (error) {
         console.error('[币安API] ❌ WebSocket错误:', error);
         updateAPIStatus('Binance WebSocket', false);
     };
 
-    binanceWS.onclose = function(event) {
+    binanceWS.onclose = function (event) {
         console.log('[币安API] 🔴 WebSocket连接已关闭');
         console.log(`关闭代码: ${event.code}, 原因: ${event.reason || '无'}`);
         binanceConnected = false;
@@ -531,7 +488,7 @@ function updateAPIStatus(name, isConnected) {
 
 // ==================== 汇率显示功能 ====================
 
-const _0x4f2a = atob('YjgzYjI1ODBjOGVhOTVjYQ=='); 
+const _0x4f2a = atob('YjgzYjI1ODBjOGVhOTVjYQ==');
 
 // 汇率API配置（使用xxapi.cn - Bearer Token方式）
 const rateAPIs = [
@@ -1434,8 +1391,8 @@ function filterCryptoTable(searchText) {
 
         // 搜索匹配：币种符号或名称
         const matches = searchLower === '' ||
-                       coinSymbol.includes(searchLower) ||
-                       coinName.includes(searchLower);
+            coinSymbol.includes(searchLower) ||
+            coinName.includes(searchLower);
 
         if (matches) {
             row.classList.remove('hidden');
@@ -1695,6 +1652,8 @@ function initCryptoUI() {
             }
 
             .coin-symbol {
+                font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+                font-weight: bold;
                 color: #999;
                 font-size: 11px;
                 margin-top: 2px;
@@ -2205,7 +2164,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 检测是否使用代理
     console.log('[页面加载] 检测代理状态...');
     isUsingProxy = await detectProxy();
-    
+
     // 如果未使用代理，显示提示信息
     if (!isUsingProxy) {
         console.log('[页面加载] ⛔ 未检测到代理，显示提示信息');

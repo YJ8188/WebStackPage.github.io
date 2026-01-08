@@ -2355,34 +2355,50 @@ function initCryptoUI() {
 }
 
 /**
- * 页面加载完成后初始化
+ * 页面加载完成后初始化（异步执行，不阻塞主线程）
  */
-document.addEventListener('DOMContentLoaded', async () => {
-    Logger.info('[页面加载] DOMContentLoaded 事件触发');
-    Logger.info('[页面加载] 开始初始化数字货币模块');
+document.addEventListener('DOMContentLoaded', () => {
+    // 使用 setTimeout 延迟初始化，确保不阻塞其他模块
+    setTimeout(() => {
+        initCryptoModule();
+    }, 100);
+});
 
-    // 检测网络状态
-    Logger.info('[页面加载] 检测网络状态...');
-    checkNetworkStatus();
+/**
+ * 异步初始化数字货币模块
+ */
+async function initCryptoModule() {
+    Logger.info('[页面加载] 开始初始化数字货币模块（异步）');
+
+    // 检测网络状态（不阻塞）
+    if (typeof checkNetworkStatus === 'function') {
+        checkNetworkStatus();
+    }
 
     // 动态生成UI
     Logger.info('[页面加载] 调用 initCryptoUI()');
     initCryptoUI();
 
-    // 初始化币安WebSocket连接（带超时）
-    Logger.info('[页面加载] 初始化币安WebSocket连接...');
-    initBinanceWebSocket();
+    // 延迟初始化 WebSocket，避免阻塞
+    setTimeout(() => {
+        Logger.info('[页面加载] 初始化币安WebSocket连接...');
+        initBinanceWebSocket();
+    }, 500);
 
-    // 初始加载数据
-    Logger.info('[页面加载] 调用 fetchCryptoData()');
-    fetchCryptoData();
+    // 延迟加载数据
+    setTimeout(() => {
+        Logger.info('[页面加载] 调用 fetchCryptoData()');
+        fetchCryptoData();
+    }, 800);
 
     // 初始化汇率显示
     Logger.info('[页面加载] 调用 updateExchangeRateDisplay()');
     updateExchangeRateDisplay();
 
-    // 页面加载时立即同步一次汇率
-    syncRate();
+    // 延迟同步汇率
+    setTimeout(() => {
+        syncRate();
+    }, 1000);
 
     // 实时更新汇率显示（每5秒，只在页面可见时刷新）
     setInterval(() => {
@@ -2392,7 +2408,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }, 5000);
 
-    // 请求通知权限
+    // 请求通知权限（不阻塞）
     if ('Notification' in window && Notification.permission === 'default') {
         Notification.requestPermission().then(permission => {
             if (permission === 'granted') {
@@ -2401,59 +2417,39 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // 悬停时隐藏浮动按钮的优化
-    const cryptoContainer = document.querySelector('.crypto-table-container');
-    if (cryptoContainer) {
-        const cryptoSection = cryptoContainer.closest('.row');
-        const floatBtns = ['#showHiddenCards', '#resetOrder', '.xp-panel'];
+    // 悬停时隐藏浮动按钮的优化（不阻塞）
+    setTimeout(() => {
+        const cryptoContainer = document.querySelector('.crypto-table-container');
+        if (cryptoContainer) {
+            const cryptoSection = cryptoContainer.closest('.row');
+            const floatBtns = ['#showHiddenCards', '#resetOrder', '.xp-panel'];
 
-        const hideFloats = () => {
-            floatBtns.forEach(selector => {
-                document.querySelectorAll(selector).forEach(el => el.classList.add('fade-out'));
-            });
-        };
-        const showFloats = () => {
-            floatBtns.forEach(selector => {
-                document.querySelectorAll(selector).forEach(el => el.classList.remove('fade-out'));
-            });
-        };
+            const hideFloats = () => {
+                floatBtns.forEach(selector => {
+                    document.querySelectorAll(selector).forEach(el => el.classList.add('fade-out'));
+                });
+            };
+            const showFloats = () => {
+                floatBtns.forEach(selector => {
+                    document.querySelectorAll(selector).forEach(el => el.classList.remove('fade-out'));
+                });
+            };
 
-        if (cryptoSection) {
-            cryptoSection.addEventListener('mouseenter', hideFloats);
-            cryptoSection.addEventListener('mouseleave', showFloats);
-            cryptoSection.addEventListener('touchstart', hideFloats, { passive: true });
-        }
-
-        // 滚动检测：当用户开始滚动时隐藏滚动提示
-        cryptoContainer.addEventListener('scroll', () => {
-            cryptoContainer.classList.add('scrolled');
-        }, { passive: true });
-
-        // 触摸滑动检测
-        cryptoContainer.addEventListener('touchmove', () => {
-            cryptoContainer.classList.add('scrolled');
-        }, { passive: true });
-    }
-
-    // 页面卸载时清理资源
-    window.addEventListener('beforeunload', () => {
-        Logger.info('[页面卸载] 清理资源...');
-        if (binanceWS) {
-            try {
-                binanceWS.close();
-            } catch (e) {
-                // 忽略关闭错误
+            if (cryptoSection) {
+                cryptoSection.addEventListener('mouseenter', hideFloats);
+                cryptoSection.addEventListener('mouseleave', showFloats);
+                cryptoSection.addEventListener('touchstart', hideFloats, { passive: true });
             }
-        }
-        stopHeartbeat();
-    });
 
-    // 页面隐藏时暂停不必要的更新
-    document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-            Logger.info('[页面状态] 页面已隐藏，暂停更新');
-        } else {
-            Logger.info('[页面状态] 页面已显示，恢复更新');
+            // 滚动检测：当用户开始滚动时隐藏滚动提示
+            cryptoContainer.addEventListener('scroll', () => {
+                cryptoContainer.classList.add('scrolled');
+            }, { passive: true });
+
+            // 触摸滑动检测
+            cryptoContainer.addEventListener('touchmove', () => {
+                cryptoContainer.classList.add('scrolled');
+            }, { passive: true });
         }
-    });
-});
+    }, 1200);
+}

@@ -4,256 +4,21 @@
  * 数字货币实时行情显示模块
  * 功能：获取并显示数字货币的实时价格、涨跌幅、市值等信息
  * 作者：何哥
- * 版本：2.0 (优化版)
+ * 版本：1.0
  */
-
-// ==================== 配置常量 ====================
-const CONFIG = {
-    // 网络与超时配置
-    FETCH_TIMEOUT: 8000,              // API请求超时时间（毫秒）
-    WEBSOCKET_CONNECT_TIMEOUT: 10000, // WebSocket连接超时（毫秒）
-
-    // 缓存配置
-    MAX_SPARKLINE_CACHE: 50,          // K线图最大缓存数量
-    CACHE_EXPIRE_TIME: 10 * 60 * 1000, // 离线缓存有效期（10分钟）
-
-    // 同步与重试配置
-    RATE_SYNC_INTERVAL: 30000,        // 汇率同步间隔（30秒）
-    SPARKLINE_RETRY_COUNT: 2,         // K线图加载重试次数
-    SPARKLINE_RETRY_DELAYS: [3000, 5000], // K线图重试延迟（毫秒）
-
-    // WebSocket重连配置
-    RECONNECT_DELAYS: [5000, 10000, 20000, 40000, 60000], // 重连延迟序列（指数退避）
-    WEBSOCKET_HEARTBEAT_INTERVAL: 30000, // 心跳间隔（30秒）
-    WEBSOCKET_HEARTBEAT_TIMEOUT: 60000,  // 心跳超时（60秒）
-
-    // 日志配置
-    LOG_LEVEL: 'INFO', // DEBUG | INFO | WARN | ERROR
-
-    // K线图时间周期配置
-    SPARKLINE_TIMEFRAMES: {
-        '24h': { interval: '1h', limit: 24, label: '24小时' },
-        '7d': { interval: '1d', limit: 7, label: '7天' },
-        '30d': { interval: '1d', limit: 30, label: '30天' }
-    }
-};
-
-// 当前K线图时间周期
-let currentSparklineTimeframe = '7d';
-
-
-
-// ==================== 管理器类定义 ====================
-
-/**
- * 收藏夹管理器
- */
-const FavoritesManager = {
-    key: 'crypto_favorites',
-    _cache: null,
-
-    getFavorites() {
-        if (!this._cache) {
-            try {
-                this._cache = JSON.parse(localStorage.getItem(this.key)) || [];
-            } catch (e) {
-                this._cache = [];
-            }
-        }
-        return this._cache;
-    },
-
-    isFavorite(symbol) {
-        return this.getFavorites().includes(symbol.toUpperCase());
-    },
-
-    toggleFavorite(symbol) {
-        const s = symbol.toUpperCase();
-        const list = this.getFavorites();
-        const index = list.indexOf(s);
-
-        if (index > -1) {
-            list.splice(index, 1);
-            info(`[收藏] 移除收藏: ${s}`);
-        } else {
-            list.push(s);
-            info(`[收藏] 添加收藏: ${s}`);
-        }
-
-        localStorage.setItem(this.key, JSON.stringify(list));
-        this._cache = list;
-        return index === -1; // 返回true表示现在是收藏状态
-    }
-};
-
-/**
- * 价格提醒管理器
- */
-const AlertsManager = {
-    key: 'crypto_alerts',
-    _cache: null,
-    // 冷却时间记录 (Symbol -> Timestamp)
-    _cooldowns: {},
-    COOLDOWN_TIME: 10 * 60 * 1000, // 10分钟冷却
-
-    getAlerts() {
-        if (!this._cache) {
-            try {
-                this._cache = JSON.parse(localStorage.getItem(this.key)) || {};
-            } catch (e) {
-                this._cache = {};
-            }
-        }
-        return this._cache;
-    },
-
-    getAlert(symbol) {
-        return this.getAlerts()[symbol.toUpperCase()];
-    },
-
-    setAlert(symbol, high, low) {
-        const s = symbol.toUpperCase();
-        const alerts = this.getAlerts();
-
-        if (!high && !low) {
-            delete alerts[s];
-            info(`[提醒] 删除提醒: ${s}`);
-        } else {
-            alerts[s] = {
-                high: high ? parseFloat(high) : null,
-                low: low ? parseFloat(low) : null,
-                enabled: true
-            };
-            info(`[提醒] 设置提醒: ${s} 高于 ${high || '-'} / 低于 ${low || '-'}`);
-        }
-
-        localStorage.setItem(this.key, JSON.stringify(alerts));
-        this._cache = alerts;
-    },
-
-    check(symbol, currentPrice) {
-        const s = symbol.toUpperCase();
-        const alert = this.getAlert(s);
-
-        if (!alert || !alert.enabled) return;
-
-        // 检查冷却
-        const now = Date.now();
-        if (this._cooldowns[s] && (now - this._cooldowns[s] < this.COOLDOWN_TIME)) {
-            return;
-        }
-
-        let triggered = false;
-        let message = '';
-
-        if (alert.high && currentPrice >= alert.high) {
-            message = `🚀 ${s} 价格已上涨至 ${currentPrice} (目标: ${alert.high})`;
-            triggered = true;
-        } else if (alert.low && currentPrice <= alert.low) {
-            message = `📉 ${s} 价格已下跌至 ${currentPrice} (目标: ${alert.low})`;
-            triggered = true;
-        }
-
-        if (triggered) {
-            this._cooldowns[s] = now;
-            this.triggerAlert(s, message);
-        }
-    },
-
-    triggerAlert(symbol, message) {
-        info(`[提醒触发] ${message}`);
-
-        // 浏览器通知
-        if (Notification.permission === 'granted') {
-            new Notification('价格提醒', {
-                body: message,
-                icon: 'assets/images/logos/bitcoin.png' // 假设有个通用图标
-            });
-        }
-
-        // 页面内即时通知 (Toast)
-        showToast(message, 5000);
-    }
-};
-
-/**
- * 显示简单的 Toast 消息
- */
-function showToast(message, duration = 3000) {
-    let container = document.getElementById('toast-container');
-    if (!container) {
-        container = document.createElement('div');
-        container.id = 'toast-container';
-        container.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999;';
-        document.body.appendChild(container);
-    }
-
-    const toast = document.createElement('div');
-    toast.style.cssText = `
-        background: rgba(0, 0, 0, 0.8);
-        color: white;
-        padding: 12px 24px;
-        margin-bottom: 10px;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        font-size: 14px;
-        animation: slideInRight 0.3s ease;
-        display: flex;
-        align-items: center;
-    `;
-    toast.innerHTML = `<i class="fa fa-bell" style="margin-right:8px; color:#ffd700;"></i> ${message}`;
-
-    container.appendChild(toast);
-
-    setTimeout(() => {
-        toast.style.animation = 'slideOutRight 0.3s ease forwards';
-        setTimeout(() => toast.remove(), 300);
-    }, duration);
-}
-
-// 添加相关CSS
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes slideInRight {
-        from { transform: translateX(100%); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-    }
-    @keyframes slideOutRight {
-        from { transform: translateX(0); opacity: 1; }
-        to { transform: translateX(100%); opacity: 0; }
-    }
-`;
-document.head.appendChild(style);
-
-// ==================== 日志工具 ====================
-const LOG_LEVELS = { DEBUG: 0, INFO: 1, WARN: 2, ERROR: 3 };
-const currentLogLevel = LOG_LEVELS[CONFIG.LOG_LEVEL] || LOG_LEVELS.INFO;
-
-function log(...args) {
-    if (currentLogLevel <= LOG_LEVELS.DEBUG) console.log(...args);
-}
-
-function info(...args) {
-    if (currentLogLevel <= LOG_LEVELS.INFO) console.log(...args);
-}
-
-function warn(...args) {
-    if (currentLogLevel <= LOG_LEVELS.WARN) console.warn(...args);
-}
-
-function error(...args) {
-    if (currentLogLevel <= LOG_LEVELS.ERROR) console.error(...args);
-}
 
 // ==================== 全局变量 ====================
 let currentCurrency = 'USD'; // 当前货币类型：USD或CNY
 let cryptoData = []; // 加密货币数据数组
-let USD_CNY_RATE = null; // 美元兑人民币汇率（初始为null，等待API获取）
+let USD_CNY_RATE = 7.25; // 美元兑人民币汇率（默认值7.25，实时获取后会更新）
 let lastRateUpdate = 0; // 上次汇率更新时间
+let lastLocalStorageUpdate = 0; // 上次localStorage更新时间
+const LOCAL_STORAGE_UPDATE_INTERVAL = 10000; // localStorage更新间隔：10秒
 
 // ==================== 缓存和工具 ====================
-// K线图缓存（使用LRU策略，防止内存泄漏）
+// K线图缓存（限制最多缓存20个币种，防止内存泄漏）
 const sparklineCache = {};
+const MAX_SPARKLINE_CACHE = 20;
 const sparklineCacheOrder = []; // 记录缓存顺序，用于LRU清理
 
 // 正在请求的币种集合
@@ -306,26 +71,23 @@ let allCryptoData = [];
  * @param {string} id - 币种ID
  * @param {string} symbol - 币种符号
  * @param {number} changePct - 涨跌幅百分比
- * @param {string} interval - K线周期 (1h, 1d)
- * @param {number} limit - 数据点数量
  */
-async function loadSparkline(id, symbol, changePct, interval = '1d', limit = 7) {
-    const cacheKey = `${symbol}_${currentSparklineTimeframe}`;
-
+async function loadSparkline(id, symbol, changePct) {
     // 如果已缓存，直接使用缓存数据，不再刷新
-    if (sparklineCache[cacheKey]) {
+    if (sparklineCache[symbol]) {
+        console.log(`[K线图] ${symbol} 已缓存，跳过刷新`);
         return;
     }
 
     // 如果正在请求，则跳过
-    if (sparklineRequests.has(cacheKey)) return;
+    if (sparklineRequests.has(symbol)) return;
 
     // 获取最终的币种ID
     const finalId = id || COIN_ID_MAP[symbol] || symbol.toLowerCase();
     if (!finalId) return;
 
     // 添加到请求集合
-    sparklineRequests.add(cacheKey);
+    sparklineRequests.add(symbol);
 
     // 获取所有图表容器并显示加载状态
     const containers = document.querySelectorAll(`.graph-container-${symbol}`);
@@ -338,10 +100,9 @@ async function loadSparkline(id, symbol, changePct, interval = '1d', limit = 7) 
 
     async function tryFetch() {
         let prices = null;
-        // 使用币安K线API
+        // 使用币安K线API（获取7天数据）
         try {
-            const url = `https://api.binance.com/api/v3/klines?symbol=${symbol.toUpperCase()}USDT&interval=${interval}&limit=${limit}`;
-            const res = await fetchWithTimeout(url, { timeout: CONFIG.FETCH_TIMEOUT });
+            const res = await fetchWithTimeout(`https://api.binance.com/api/v3/klines?symbol=${symbol.toUpperCase()}USDT&interval=1d&limit=7`, { timeout: 10000 });
             if (res.ok) {
                 const json = await res.json();
                 if (Array.isArray(json) && json.length > 0) {
@@ -351,38 +112,32 @@ async function loadSparkline(id, symbol, changePct, interval = '1d', limit = 7) 
                 }
             }
         } catch (e) {
-            log(`[K线图] ${symbol} (${interval}) 币安API请求失败:`, e.message);
+            console.log(`[K线图] ${symbol} 币安API请求失败:`, e.message);
         }
         return prices;
     }
 
     try {
         let prices = await tryFetch();
-
-        // Retry logic using Configuration
+        // Auto-retry once after 3 seconds if failed
         if (!prices) {
-            for (let i = 0; i < CONFIG.SPARKLINE_RETRY_COUNT; i++) {
-                const delay = CONFIG.SPARKLINE_RETRY_DELAYS[i] || 3000;
-                log(`[K线图] ${symbol} 获取失败，${delay / 1000}秒后进行第${i + 1}次重试...`);
-                await new Promise(r => setTimeout(r, delay));
-                prices = await tryFetch();
-                if (prices) break;
-            }
+            await new Promise(r => setTimeout(r, 3000));
+            prices = await tryFetch();
         }
 
-        if (prices && prices.length > 0) {
+        if (prices && prices.length > 2) {
             // 添加到缓存
-            sparklineCache[cacheKey] = prices;
-            sparklineCacheOrder.push(cacheKey);
+            sparklineCache[symbol] = prices;
+            sparklineCacheOrder.push(symbol);
 
             // 清理旧缓存（LRU策略）
-            if (sparklineCacheOrder.length > CONFIG.MAX_SPARKLINE_CACHE) {
-                const oldestKey = sparklineCacheOrder.shift();
-                delete sparklineCache[oldestKey];
-                log(`[K线缓存] 清理旧缓存: ${oldestKey}`);
+            if (sparklineCacheOrder.length > MAX_SPARKLINE_CACHE) {
+                const oldestSymbol = sparklineCacheOrder.shift();
+                delete sparklineCache[oldestSymbol];
+                console.log(`[K线缓存] 清理旧缓存: ${oldestSymbol}`);
             }
 
-            log(`[K线图] ${symbol} (${interval}) 数据加载成功，已缓存`);
+            console.log(`[K线图] ${symbol} 数据加载成功，已缓存`);
             document.querySelectorAll(`.graph-container-${symbol}`).forEach(target => {
                 const isDetail = target.id.startsWith('graph-detail-');
                 target.innerHTML = generateSparklineSvg(prices, changePct, isDetail ? 240 : 100);
@@ -392,7 +147,7 @@ async function loadSparkline(id, symbol, changePct, interval = '1d', limit = 7) 
         }
     } catch (e) {
         document.querySelectorAll(`.graph-container-${symbol}`).forEach(target => {
-            target.innerHTML = `<a href="javascript:void(0)" onclick="loadSparkline(null, '${symbol}', ${changePct}, '${interval}', ${limit})"
+            target.innerHTML = `<a href="javascript:void(0)" onclick="loadSparkline(null, '${symbol}', ${changePct})"
                 style="color:#888; font-size:10px; text-decoration:none; border:1px solid #444; padding:2px 6px; border-radius:10px; display:inline-block; transition:all 0.3s;"
                 onmouseover="this.style.borderColor='#10b981';this.style.color='#10b981'"
                 onmouseout="this.style.borderColor='#444';this.style.color='#888'">
@@ -400,7 +155,7 @@ async function loadSparkline(id, symbol, changePct, interval = '1d', limit = 7) 
             </a>`;
         });
     } finally {
-        sparklineRequests.delete(cacheKey);
+        sparklineRequests.delete(symbol);
     }
 }
 
@@ -454,7 +209,8 @@ function generateSparklineSvg(prices, changePct, width = 100) {
 
 // Helper: Fetch with Timeout to prevent hanging
 async function fetchWithTimeout(resource, options = {}) {
-    const { timeout = CONFIG.FETCH_TIMEOUT } = options;
+    // Reset timeout to 8s for slower proxies
+    const { timeout = 8000 } = options;
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeout);
     try {
@@ -477,37 +233,31 @@ let binanceMarketData = [];
 let binanceConnected = false;
 let stableCoinCount = 0; // 稳定的币种数量计数器
 
-// WebSocket重连管理
-let reconnectAttempts = 0; // 重连尝试次数
-let reconnectTimer = null; // 重连定时器
-let heartbeatTimer = null; // 心跳定时器
-let lastHeartbeat = Date.now(); // 最后一次心跳时间
-
 /**
  * 初始化币安WebSocket连接
  */
 function initBinanceWebSocket() {
-    info('[币安API] 🔄 正在初始化WebSocket连接...');
+    console.log('[币安API] 🔄 正在初始化WebSocket连接...');
 
     if (binanceWS && binanceConnected) {
-        info('[币安API] ✅ WebSocket已连接，跳过重复连接');
+        console.log('[币安API] ✅ WebSocket已连接，跳过重复连接');
         return;
     }
 
     // 如果已有连接但未连接，先关闭
     if (binanceWS) {
-        info('[币安API] ⚠️ 检测到旧连接，正在关闭...');
+        console.log('[币anceAPI] ⚠️ 检测到旧连接，正在关闭...');
         binanceWS.close();
         binanceWS = null;
     }
 
     const wsUrl = 'wss://stream.binance.com:9443/ws/!ticker@arr';
-    info('[币安API] 📡 连接地址:', wsUrl);
+    console.log('[币安API] 📡 连接地址:', wsUrl);
 
-    // 设置连接超时
+    // 设置连接超时（10秒）
     const connectionTimeout = setTimeout(() => {
         if (!binanceConnected) {
-            warn('[币安API] ⏰ WebSocket连接超时');
+            console.log('[币安API] ⏰ WebSocket连接超时');
             updateAPIStatus('Binance WebSocket', false);
 
             // 显示连接超时提示
@@ -519,35 +269,30 @@ function initBinanceWebSocket() {
                 </td></tr>`;
             }
         }
-    }, CONFIG.WEBSOCKET_CONNECT_TIMEOUT);
+    }, 10000);
 
     binanceWS = new WebSocket(wsUrl);
 
     binanceWS.onopen = function () {
         clearTimeout(connectionTimeout);
-        info('[币安API] ✅ WebSocket连接已建立');
-        info('[币安API] 📡 等待接收数据...');
+        console.log('[币安API] ✅ WebSocket连接已建立');
+        console.log('[币安API] 📡 等待接收数据...');
         binanceConnected = true;
-        reconnectAttempts = 0; // 重置重连计数器
         updateAPIStatus('Binance WebSocket', true);
-
-        // 启动心跳检测
-        startHeartbeat();
     };
 
     binanceWS.onmessage = function (event) {
         try {
-            lastHeartbeat = Date.now(); // 更新心跳时间
             const data = JSON.parse(event.data);
 
             if (!Array.isArray(data)) {
-                warn('[币安API] ⚠️ 接收到的数据格式不正确');
+                console.warn('[币安API] ⚠️ 接收到的数据格式不正确');
                 return;
             }
 
             // 只在首次加载时显示详细日志
             if (binanceMarketData.length === 0) {
-                info(`[币安API] 📦 首次接收到 ${data.length} 个交易对数据`);
+                console.log(`[币安API] 📦 首次接收到 ${data.length} 个交易对数据`);
             }
 
             // 将币安API字段映射到标准格式，并过滤无效数据
@@ -671,75 +416,30 @@ function initBinanceWebSocket() {
             // 实时更新UI
             if (binanceMarketData.length > 0) {
                 updateCryptoUI(binanceMarketData);
-
-                // 自动保存到缓存（每次更新都保存）
-                saveCryptoDataToCache(binanceMarketData);
             }
         } catch (error) {
-            error('[币安API] ❌ 解析数据失败:', error);
-            error('[币安API] 错误堆栈:', error.stack);
+            console.error('[币安API] ❌ 解析数据失败:', error);
+            console.error('[币安API] 错误堆栈:', error.stack);
         }
     };
 
     binanceWS.onerror = function (error) {
-        error('[币安API] ❌ WebSocket错误:', error);
+        console.error('[币安API] ❌ WebSocket错误:', error);
         updateAPIStatus('Binance WebSocket', false);
     };
 
     binanceWS.onclose = function (event) {
-        info('[币安API] 🔴 WebSocket连接已关闭');
-        info(`关闭代码: ${event.code}, 原因: ${event.reason || '无'}`);
+        console.log('[币安API] 🔴 WebSocket连接已关闭');
+        console.log(`关闭代码: ${event.code}, 原因: ${event.reason || '无'}`);
         binanceConnected = false;
         updateAPIStatus('Binance WebSocket', false);
 
-        // 停止心跳检测
-        stopHeartbeat();
-
-        // 使用指数退避策略重连
-        if (reconnectTimer) {
-            clearTimeout(reconnectTimer);
-        }
-
-        const delay = CONFIG.RECONNECT_DELAYS[Math.min(reconnectAttempts, CONFIG.RECONNECT_DELAYS.length - 1)];
-        info(`[币安API] 🔄 将在 ${delay / 1000} 秒后重新连接（第 ${reconnectAttempts + 1} 次尝试）...`);
-
-        reconnectTimer = setTimeout(() => {
-            reconnectAttempts++;
+        // 5秒后自动重连
+        setTimeout(() => {
+            console.log('[币安API] 🔄 正在重新连接...');
             initBinanceWebSocket();
-        }, delay);
+        }, 5000);
     };
-}
-
-/**
- * 启动WebSocket心跳检测
- */
-function startHeartbeat() {
-    stopHeartbeat(); // 先清除旧的心跳
-
-    heartbeatTimer = setInterval(() => {
-        const now = Date.now();
-        const timeSinceLastBeat = now - lastHeartbeat;
-
-        // 如果超过心跳超时时间没有收到消息，主动断开重连
-        if (timeSinceLastBeat > CONFIG.WEBSOCKET_HEARTBEAT_TIMEOUT) {
-            warn(`[币安API] 💔 心跳超时（${timeSinceLastBeat / 1000}秒），主动断开重连`);
-            if (binanceWS) {
-                binanceWS.close();
-            }
-        } else {
-            log(`[币安API] 💓 心跳正常（距上次: ${timeSinceLastBeat / 1000}秒）`);
-        }
-    }, CONFIG.WEBSOCKET_HEARTBEAT_INTERVAL);
-}
-
-/**
- * 停止WebSocket心跳检测
- */
-function stopHeartbeat() {
-    if (heartbeatTimer) {
-        clearInterval(heartbeatTimer);
-        heartbeatTimer = null;
-    }
 }
 
 /**
@@ -788,15 +488,15 @@ const rateAPIs = [
             'Authorization': `Bearer ${_0x4f2a}`
         },
         handler: (data) => {
-            log('[XXAPI] 原始数据:', data);
+            console.log('[XXAPI] 原始数据:', data);
             if (data && data.data && data.data.rates && data.data.rates.CNY) {
                 // API返回的rate表示：1 USD = ? 该货币
                 // 所以CNY.rate = 7.33 表示 1 USD = 7.33 CNY
                 const usdToCnyRate = data.data.rates.CNY.rate;
-                log('[XXAPI] USD/CNY汇率:', usdToCnyRate);
+                console.log('[XXAPI] USD/CNY汇率:', usdToCnyRate);
                 return usdToCnyRate;
             }
-            error('[XXAPI] 数据格式不匹配');
+            console.error('[XXAPI] 数据格式不匹配');
             throw new Error('Invalid data');
         }
     }
@@ -807,17 +507,17 @@ const rateAPIs = [
  * 检测网络连接状态
  */
 async function checkNetworkStatus() {
-    info('========== 网络状态检测开始 ==========');
+    console.log('========== 网络状态检测开始 ==========');
 
     // 检测在线状态
     const isOnline = navigator.onLine;
-    info(`浏览器在线状态: ${isOnline ? '✅ 在线' : '❌ 离线'}`);
+    console.log(`浏览器在线状态: ${isOnline ? '✅ 在线' : '❌ 离线'}`);
 
     // 检测连接类型
     if (navigator.connection) {
-        info(`网络类型: ${navigator.connection.effectiveType || '未知'}`);
-        info(`下行速度: ${navigator.connection.downlink || '未知'} Mbps`);
-        info(`往返时间: ${navigator.connection.rtt || '未知'} ms`);
+        console.log(`网络类型: ${navigator.connection.effectiveType || '未知'}`);
+        console.log(`下行速度: ${navigator.connection.downlink || '未知'} Mbps`);
+        console.log(`往返时间: ${navigator.connection.rtt || '未知'} ms`);
     }
 
     // 测试各个API的连通性
@@ -841,18 +541,18 @@ async function checkNetworkStatus() {
             clearTimeout(timeoutId);
             const endTime = Date.now();
 
-            info(`✅ ${test.name}: ${response.status} (${endTime - startTime}ms)`);
+            console.log(`✅ ${test.name}: ${response.status} (${endTime - startTime}ms)`);
         } catch (error) {
-            warn(`❌ ${test.name}: ${error.message}`);
+            console.log(`❌ ${test.name}: ${error.message}`);
         }
     }
 
-    info('========== 网络状态检测结束 ==========');
+    console.log('========== 网络状态检测结束 ==========');
 }
 
 // 将检测函数暴露到全局
 window.checkNetworkStatus = checkNetworkStatus;
-log('💡 提示: 在控制台输入 checkNetworkStatus() 可以检测网络状态');
+console.log('💡 提示: 在控制台输入 checkNetworkStatus() 可以检测网络状态');
 /**
  * 显示24小时汇率行情弹窗
  */
@@ -994,7 +694,7 @@ async function showRateDetailModal() {
                 'Authorization': `Bearer ${_0x4f2a}`
             },
             handler: (data) => {
-                log('[XXAPI] 原始数据:', data);
+                console.log('[XXAPI] 原始数据:', data);
                 if (data && data.data && data.data.rates && data.data.rates.CNY) {
                     // API返回的rate表示：1 USD = ? 该货币
                     // 所以CNY.rate = 7.33 表示 1 USD = 7.33 CNY
@@ -1019,7 +719,7 @@ async function showRateDetailModal() {
 
     for (const api of rateAPIs) {
         try {
-            log(`[汇率详情] 尝试从 ${api.name} 获取数据...`);
+            console.log(`[汇率详情] 尝试从 ${api.name} 获取数据...`);
             const res = await fetchWithTimeout(api.url, {
                 timeout: api.timeout,
                 headers: api.headers || {}
@@ -1028,14 +728,14 @@ async function showRateDetailModal() {
             if (res.ok) {
                 const data = await res.json();
                 successData = api.handler(data);
-                log(`[汇率详情] ${api.name} 数据获取成功:`, successData);
+                console.log(`[汇率详情] ${api.name} 数据获取成功:`, successData);
                 break;
             } else {
-                error(`[汇率详情] ${api.name} HTTP错误:`, res.status, res.statusText);
+                console.error(`[汇率详情] ${api.name} HTTP错误:`, res.status, res.statusText);
                 lastError = new Error(`HTTP ${res.status}: ${res.statusText}`);
             }
         } catch (e) {
-            error(`[汇率详情] ${api.name} 获取失败:`, e);
+            console.error(`[汇率详情] ${api.name} 获取失败:`, e);
             lastError = e;
         }
     }
@@ -1057,19 +757,14 @@ async function showRateDetailModal() {
                     ${change >= 0 ? '📈' : '📉'} ${direction} ${Math.abs(changePct)}%
                 </div>
             </div>
-            
-            <div style="background: #fffbea; border: 1px solid #ffd700; border-radius: 6px; padding: 8px 12px; margin-bottom: 16px; font-size: 12px; color: #856404;">
-                <i class="fa fa-info-circle" style="margin-right: 4px;"></i>
-                <strong>注意：</strong>24小时最高/最低价为<strong>模拟估算值</strong>，仅供参考
-            </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
                 <div class="rate-detail-info-box" style="background: #f8f8f8; padding: 16px; border-radius: 8px; text-align: center;">
-                    <div class="label" style="font-size: 12px; color: #999; margin-bottom: 4px;">24小时最高 <span style="font-size: 10px; color: #ffa500;">(估算)</span></div>
+                    <div class="label" style="font-size: 12px; color: #999; margin-bottom: 4px;">24小时最高</div>
                     <div class="value" style="font-size: 18px; font-weight: 600; color: #333;">${high.toFixed(4)}</div>
                 </div>
                 <div class="rate-detail-info-box" style="background: #f8f8f8; padding: 16px; border-radius: 8px; text-align: center;">
-                    <div class="label" style="font-size: 12px; color: #999; margin-bottom: 4px;">24小时最低 <span style="font-size: 10px; color: #ffa500;">(估算)</span></div>
+                    <div class="label" style="font-size: 12px; color: #999; margin-bottom: 4px;">24小时最低</div>
                     <div class="value" style="font-size: 18px; font-weight: 600; color: #333;">${low.toFixed(4)}</div>
                 </div>
                 <div class="rate-detail-info-box" style="background: #f8f8f8; padding: 16px; border-radius: 8px; text-align: center;">
@@ -1251,14 +946,14 @@ function updateExchangeRateDisplay() {
  */
 const syncRate = async () => {
     try {
-        log('[汇率同步] 开始获取USDT/CNY汇率...');
-        log('[汇率同步] 当前汇率:', USD_CNY_RATE);
+        console.log('[汇率同步] 开始获取USDT/CNY汇率...');
+        console.log('[汇率同步] 当前汇率:', USD_CNY_RATE);
 
         // 尝试从多个API获取数据
         for (const api of rateAPIs) {
             try {
-                log(`[汇率同步] 尝试 ${api.name}...`);
-                log(`[汇率同步] ${api.name} URL:`, api.url);
+                console.log(`[汇率同步] 尝试 ${api.name}...`);
+                console.log(`[汇率同步] ${api.name} URL:`, api.url);
 
                 const res = await fetchWithTimeout(api.url, {
                     timeout: api.timeout,
@@ -1267,33 +962,33 @@ const syncRate = async () => {
 
                 if (res.ok) {
                     const data = await res.json();
-                    log(`[汇率同步] ${api.name} 响应状态:`, res.status);
-                    log(`[汇率同步] ${api.name} 原始响应数据:`, data);
+                    console.log(`[汇率同步] ${api.name} 响应状态:`, res.status);
+                    console.log(`[汇率同步] ${api.name} 原始响应数据:`, data);
 
                     const newRate = api.handler(data);
-                    log(`[汇率同步] ${api.name} 返回汇率:`, newRate);
-                    log(`[汇率同步] ${api.name} 返回汇率类型:`, typeof newRate);
-                    log(`[汇率同步] ${api.name} 返回汇率是否有效:`, !isNaN(newRate) && newRate > 0);
+                    console.log(`[汇率同步] ${api.name} 返回汇率:`, newRate);
+                    console.log(`[汇率同步] ${api.name} 返回汇率类型:`, typeof newRate);
+                    console.log(`[汇率同步] ${api.name} 返回汇率是否有效:`, !isNaN(newRate) && newRate > 0);
 
                     // 验证汇率值
                     if (isNaN(newRate) || newRate <= 0) {
-                        error(`[汇率同步] ${api.name} 返回的汇率值无效:`, newRate);
+                        console.error(`[汇率同步] ${api.name} 返回的汇率值无效:`, newRate);
                         continue;
                     }
 
                     const oldRate = USD_CNY_RATE;
-                    info(`[汇率同步] 旧汇率: ${oldRate}, 新汇率: ${newRate}, 变化: ${oldRate !== null ? (newRate - oldRate).toFixed(6) : 'N/A'}`);
+                    console.log(`[汇率同步] 旧汇率: ${oldRate}, 新汇率: ${newRate}, 变化: ${oldRate !== null ? (newRate - oldRate).toFixed(6) : 'N/A'}`);
 
                     // 总是更新汇率（因为是实时同步）
                     USD_CNY_RATE = newRate;
                     lastRateUpdate = Date.now();
                     updateExchangeRateDisplay();
-                    info('[汇率同步] 汇率已更新为:', USD_CNY_RATE);
-                    log('[汇率同步] 汇率显示值:', USD_CNY_RATE.toFixed(2));
+                    console.log('[汇率同步] 汇率已更新为:', USD_CNY_RATE);
+                    console.log('[汇率同步] 汇率显示值:', USD_CNY_RATE.toFixed(2));
 
                     // 汇率更新后，立即刷新所有CNY价格
                     if (currentCurrency === 'CNY') {
-                        log('[汇率同步] 当前是CNY模式，刷新所有CNY价格');
+                        console.log('[汇率同步] 当前是CNY模式，刷新所有CNY价格');
                         updateCryptoUI(cryptoData);
                     }
 
@@ -1305,23 +1000,23 @@ const syncRate = async () => {
                         // 显示页面内提醒消息（移动端友好）
                         showInlineRateMessage(oldRate, newRate);
 
-                        info('[汇率同步] 汇率已更新，已发送提醒');
+                        console.log('[汇率同步] 汇率已更新，已发送提醒');
                     } else {
-                        log('[汇率同步] 汇率已更新（首次获取或无变化）');
+                        console.log('[汇率同步] 汇率已更新（首次获取或无变化）');
                     }
 
                     return;
                 } else {
-                    warn(`[汇率同步] ${api.name} HTTP错误: ${res.status}`);
+                    console.log(`[汇率同步] ${api.name} HTTP错误: ${res.status}`);
                 }
             } catch (e) {
-                warn(`[汇率同步] ${api.name} 失败:`, e);
+                console.log(`[汇率同步] ${api.name} 失败:`, e);
             }
         }
 
-        error('[汇率同步] 所有API都失败了');
+        console.error('[汇率同步] 所有API都失败了');
     } catch (e) {
-        error('[汇率同步] 请求失败:', e);
+        console.error('[汇率同步] 请求失败:', e);
     }
 };
 
@@ -1330,33 +1025,18 @@ const syncRate = async () => {
  * 获取数字货币数据（使用币安WebSocket实时数据）
  */
 async function fetchCryptoData() {
-    info('[行情同步] fetchCryptoData 开始执行');
+    console.log('[行情同步] fetchCryptoData 开始执行');
 
     const tbody = document.getElementById('crypto-table-body');
     const refreshIcon = document.querySelector('#refresh-crypto-btn i');
 
-    log('[行情同步] 检查DOM元素:', {
+    console.log('[行情同步] 检查DOM元素:', {
         tbody: !!tbody,
         refreshIcon: !!refreshIcon
     });
 
     // 设置为获取中状态
     if (refreshIcon) refreshIcon.classList.add('fa-spin');
-
-    // 尝试加载离线缓存
-    const cachedData = loadCryptoDataFromCache();
-    if (cachedData && cachedData.data && cachedData.data.length > 0) {
-        info('[行情同步] 使用缓存数据显示');
-        cryptoData = cachedData.data;
-        binanceMarketData = cachedData.data;
-        renderCryptoTable(cryptoData);
-        updateCryptoUI(cryptoData);
-
-        // 显示缓存提示
-        const cacheAge = Math.round((Date.now() - cachedData.timestamp) / 1000);
-        updateAPIStatus('Binance WebSocket (缓存)', true);
-        info(`[行情同步] 已显示缓存数据（${cacheAge}秒前）`);
-    }
 
     // 初始化币安WebSocket连接
     if (!binanceConnected) {
@@ -1371,11 +1051,10 @@ async function fetchCryptoData() {
         cryptoData = binanceMarketData;
         renderCryptoTable(cryptoData);
         updateCryptoUI(cryptoData);
-        updateAPIStatus('Binance WebSocket', true);
-        info('[行情同步] 已渲染币安实时数据:', cryptoData.length, '个币种');
-    } else if (!cachedData) {
-        // 等待WebSocket连接（只在没有缓存时才等待）
-        info('[行情同步] 等待WebSocket连接...');
+        console.log('[行情同步] 已渲染币安实时数据:', cryptoData.length, '个币种');
+    } else {
+        // 等待WebSocket连接
+        console.log('[行情同步] 等待WebSocket连接...');
         let retryCount = 0;
         const maxRetries = 10;
         const checkInterval = setInterval(() => {
@@ -1385,11 +1064,10 @@ async function fetchCryptoData() {
                 cryptoData = binanceMarketData;
                 renderCryptoTable(cryptoData);
                 updateCryptoUI(cryptoData);
-                updateAPIStatus('Binance WebSocket', true);
-                info('[行情同步] WebSocket数据已加载:', cryptoData.length, '个币种');
+                console.log('[行情同步] WebSocket数据已加载:', cryptoData.length, '个币种');
             } else if (retryCount >= maxRetries) {
                 clearInterval(checkInterval);
-                error('[行情同步] WebSocket连接超时');
+                console.error('[行情同步] WebSocket连接超时');
                 tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: #ef4444;">
                     <i class="fa fa-exclamation-triangle"></i> 连接超时，请检查网络。<br>
                     <button class="btn btn-xs btn-primary" style="margin-top:10px" onclick="fetchCryptoData()">重试连接</button>
@@ -1418,60 +1096,12 @@ function throttledLocalStorageWrite(key, value) {
     }
 }
 
-// ==================== 离线缓存机制 ====================
-/**
- * 保存数字货币数据到缓存
- */
-function saveCryptoDataToCache(data) {
-    try {
-        const cacheData = {
-            data: data,
-            timestamp: Date.now(),
-            version: '2.0'
-        };
-        localStorage.setItem('crypto_cache', JSON.stringify(cacheData));
-        log('[缓存] 数据已保存到本地缓存');
-    } catch (e) {
-        error('[缓存] 保存失败:', e);
-    }
-}
-
-/**
- * 从缓存加载数字货币数据
- * @returns {Object|null} 缓存数据或null
- */
-function loadCryptoDataFromCache() {
-    try {
-        const cached = localStorage.getItem('crypto_cache');
-        if (!cached) {
-            log('[缓存] 无缓存数据');
-            return null;
-        }
-
-        const cacheData = JSON.parse(cached);
-        const age = Date.now() - cacheData.timestamp;
-
-        // 检查缓存是否过期
-        if (age > CONFIG.CACHE_EXPIRE_TIME) {
-            info(`[缓存] 缓存已过期（${Math.round(age / 1000 / 60)}分钟）`);
-            localStorage.removeItem('crypto_cache');
-            return null;
-        }
-
-        info(`[缓存] 加载缓存数据（${Math.round(age / 1000)}秒前）`);
-        return cacheData;
-    } catch (e) {
-        error('[缓存] 加载失败:', e);
-        return null;
-    }
-}
-
 function renderCryptoTable(data) {
-    log('[渲染表格] renderCryptoTable 开始执行');
-    log('[渲染表格] 数据数量:', data ? data.length : 0);
+    console.log('[渲染表格] renderCryptoTable 开始执行');
+    console.log('[渲染表格] 数据数量:', data ? data.length : 0);
 
     if (!data || data.length === 0) {
-        warn('[渲染表格] 数据为空，跳过渲染');
+        console.warn('[渲染表格] 数据为空，跳过渲染');
         return;
     }
 
@@ -1483,11 +1113,11 @@ function renderCryptoTable(data) {
 
     const tbody = document.getElementById('crypto-table-body');
     if (!tbody) {
-        error('[渲染表格] 找不到 tbody 元素');
+        console.error('[渲染表格] 找不到 tbody 元素');
         return;
     }
 
-    log('[渲染表格] 开始清空表格内容');
+    console.log('[渲染表格] 开始清空表格内容');
     tbody.innerHTML = '';
 
     // 保存所有币种数据用于搜索
@@ -1497,15 +1127,9 @@ function renderCryptoTable(data) {
     const rate = isCNY ? (USD_CNY_RATE || 1) : 1;
     const symbol = isCNY ? '¥' : '$';
 
-    // 排序逻辑: 收藏 > BTC > ETH > 其他按币安API推送顺序
+    // 排序逻辑: BTC第一, ETH第二, 其他按币安API推送顺序(即按交易量排序)
     data.sort((a, b) => {
-        const isFavA = FavoritesManager.isFavorite(a.symbol);
-        const isFavB = FavoritesManager.isFavorite(b.symbol);
-
-        if (isFavA && !isFavB) return -1;
-        if (!isFavA && isFavB) return 1;
-
-        // BTC排第一 (如果在同级收藏状态下)
+        // BTC排第一
         if (a.symbol === 'btc') return -1;
         if (b.symbol === 'btc') return 1;
 
@@ -1553,65 +1177,47 @@ function renderCryptoTable(data) {
 
         let sparklineContent = '';
         let sparklineDetail = '';
-        // 缓存Key包含时间周期
-        const cacheKey = `${coin.symbol}_${currentSparklineTimeframe}`;
-        const cached = sparklineCache[cacheKey]; // 使用更新后的Key
-
+        const cached = sparklineCache[coin.symbol];
         if (cached) {
             sparklineContent = `<div style="display:flex; justify-content:center; width:100%;">${generateSparklineSvg(cached, change, 100)}</div>`;
             sparklineDetail = `<div style="display:flex; justify-content:center; width:100%;">${generateSparklineSvg(cached, change, 240)}</div>`;
         } else {
             sparklineContent = `<div id="graph-${coin.symbol}" class="graph-container-${coin.symbol}" style="height:30px; display:flex; align-items:center; justify-content:center;">-</div>`;
             sparklineDetail = `<div id="graph-detail-${coin.symbol}" class="graph-container-${coin.symbol}" style="height:60px; min-width:240px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.05); border-radius:6px; border: 1px dotted rgba(0,0,0,0.05);"></div>`;
-            // 加载K线时传入当前时间周期参数
-            const timeframeConfig = CONFIG.SPARKLINE_TIMEFRAMES[currentSparklineTimeframe];
-            setTimeout(() => loadSparkline(coin.id, coin.symbol, change, timeframeConfig.interval, timeframeConfig.limit), 0);
+            setTimeout(() => loadSparkline(coin.id, coin.symbol, change), 0);
         }
 
-        const isFav = FavoritesManager.isFavorite(coin.symbol);
-        const alertConfig = AlertsManager.getAlert(coin.symbol);
-        const hasAlert = alertConfig && alertConfig.enabled;
-
         const isOpen = expandedCoins.has(coin.symbol);
-        const tfLabel = CONFIG.SPARKLINE_TIMEFRAMES[currentSparklineTimeframe].label;
-
         const tr = `
             <tr class="main-row" data-symbol="${coin.symbol}" onclick="toggleCoinDetail('${coin.symbol}')">
                 <td>
-                    <div style="display:flex; align-items:center;">
-                        <!-- 收藏星标 -->
-                        <div onclick="event.stopPropagation(); toggleFavorite('${coin.symbol}')" class="fav-icon-wrapper" style="margin-right:8px; cursor:pointer; color: ${isFav ? '#FFD700' : '#ddd'}; width:16px; text-align:center;">
-                            <i class="fa ${isFav ? 'fa-star' : 'fa-star-o'}" title="${isFav ? '取消收藏' : '收藏置顶'}"></i>
-                        </div>
-                        <div class="coin-info">
-                            <img src="${coin.image}" class="coin-icon" alt="${coin.symbol}"
-                                 onerror="this.src='${coin.fallbackIcon1}'; this.onerror=function(){this.src='${coin.fallbackIcon2}'; this.onerror=function(){this.src='${coin.fallbackIcon3}';}}">
-                            <div class="coin-name-wrap">
-                                <div class="coin-name">
-                                    <span class="coin-symbol">${coin.symbol.toUpperCase()}</span><span style="color:#888;font-size:10px;font-weight:normal;margin-left:4px;">/USDT</span>
-                                </div>
-                                <div class="coin-vol">${volume}</div>
+                    <div class="coin-info">
+                        <img src="${coin.image}" class="coin-icon" alt="${coin.symbol}"
+                             onerror="this.src='${coin.fallbackIcon1}'; this.onerror=function(){this.src='${coin.fallbackIcon2}'; this.onerror=function(){this.src='${coin.fallbackIcon3}';}}">
+                        <div class="coin-name-wrap">
+                            <div class="coin-name">
+                                <span class="coin-symbol">${coin.symbol.toUpperCase()}</span><span style="color:#888;font-size:10px;font-weight:normal;margin-left:4px;">/USDT</span>
                             </div>
+                            <div class="coin-vol">${volume}</div>
                         </div>
                     </div>
                 </td>
                 <td>
                     <div class="price-wrap">
-                        <span id="price-${coin.symbol}" class="main-price ${changeClass}" data-val="${rawPrice * rate}">${symbol}${price}</span>
+                        <span id="price-${coin.symbol}" class="main-price price-update" data-val="${rawPrice * rate}">${symbol}${price}</span>
                         <span class="converted-price">${secondarySymbol}${secondaryPriceText}</span>
                     </div>
                 </td>
                 <td>
-                    <div style="display:flex; align-items:center; gap:6px;">
-                        <span id="change-${coin.symbol}" class="change-box ${changeClass} price-update">${changeSign}${change.toFixed(2)}%</span>
-                        <!-- 价格提醒铃铛 -->
-                        <div onclick="event.stopPropagation(); showPriceAlertModal('${coin.symbol}', ${rawPrice})" style="cursor:pointer; color:${hasAlert ? '#10b981' : '#ddd'}; opacity:0.8;" title="设置价格提醒">
-                            <i class="fa ${hasAlert ? 'fa-bell' : 'fa-bell-o'}" style="font-size:12px;"></i>
-                        </div>
+                    <div class="change-box ${changeClass} price-update" id="change-${coin.symbol}">
+                        ${changeSign}${change.toFixed(2)}%
                     </div>
                 </td>
-                <td class="table-market-cap">
-                    <span class="market_cap_cell">${marketCap}</span>
+                <td class="market_cap_cell">
+                    <span style="display:flex; align-items:center;">
+                        ${symbol}${marketCap}
+                        <i class="fa fa-angle-down" id="arrow-${coin.symbol}" style="margin-left:8px; color:#666; transition:transform 0.3s; ${isOpen ? 'transform:rotate(180deg)' : ''}"></i>
+                    </span>
                 </td>
                 <td style="text-align:center;">
                     ${sparklineContent}
@@ -1631,8 +1237,8 @@ function renderCryptoTable(data) {
                         </div>
                         <div class="detail-chart">
                             <h5 style="margin-top:0; font-size:14px; font-weight:bold; color:#555; margin-bottom:15px; display:flex; justify-content:space-between;">
-                                <span>${tfLabel}价格趋势曲线</span>
-                                <span style="font-weight:normal; font-size:11px; color:#aaa;">${tfLabel}数据</span>
+                                <span>7日价格趋势曲线</span>
+                                <span style="font-weight:normal; font-size:11px; color:#aaa;">最近168小时数据</span>
                             </h5>
                             ${sparklineDetail}
                         </div>
@@ -1888,14 +1494,7 @@ function initCryptoUI() {
                                 <th style="width: 18%;">最新价</th>
                                 <th style="width: 14%;">24h涨跌</th>
                                 <th class="table-market-cap" style="width: 18%;">市值</th>
-                                <th style="width: 22%; text-align:center;">
-                                    趋势 
-                                    <span class="timeframe-selector" style="font-size:10px; font-weight:normal; margin-left:4px; display:inline-block; border:1px solid #eee; border-radius:4px; overflow:hidden;">
-                                        <span onclick="switchSparklineTimeframe('24h')" style="padding:2px 4px; cursor:pointer;" class="tf-item" data-tf="24h">24h</span>
-                                        <span onclick="switchSparklineTimeframe('7d')" style="padding:2px 4px; cursor:pointer;" class="tf-item" data-tf="7d">7d</span>
-                                        <span onclick="switchSparklineTimeframe('30d')" style="padding:2px 4px; cursor:pointer;" class="tf-item" data-tf="30d">30d</span>
-                                    </span>
-                                </th>
+                                <th style="width: 22%; text-align:center;">7日趋势</th>
                             </tr>
                         </thead>
                         <tbody id="crypto-table-body">
@@ -2541,50 +2140,50 @@ function initCryptoUI() {
     `;
 
     placeholder.innerHTML = cryptoHTML;
-    log('[UI初始化] UI已插入到DOM中');
-    log('[UI初始化] 检查关键元素是否存在:');
-    log('[UI初始化] - crypto-table-body:', !!document.getElementById('crypto-table-body'));
-    log('[UI初始化] - api-status-dot:', !!document.getElementById('api-status-dot'));
-    log('[UI初始化] - api-provider-name:', !!document.getElementById('api-provider-name'));
+    console.log('[UI初始化] UI已插入到DOM中');
+    console.log('[UI初始化] 检查关键元素是否存在:');
+    console.log('[UI初始化] - crypto-table-body:', !!document.getElementById('crypto-table-body'));
+    console.log('[UI初始化] - api-status-dot:', !!document.getElementById('api-status-dot'));
+    console.log('[UI初始化] - api-provider-name:', !!document.getElementById('api-provider-name'));
 }
 
 /**
  * 页面加载完成后初始化
  */
 document.addEventListener('DOMContentLoaded', async () => {
-    info('[页面加载] DOMContentLoaded 事件触发');
-    info('[页面加载] 开始初始化数字货币模块');
+    console.log('[页面加载] DOMContentLoaded 事件触发');
+    console.log('[页面加载] 开始初始化数字货币模块');
 
     // 检测网络状态
-    log('[页面加载] 检测网络状态...');
+    console.log('[页面加载] 检测网络状态...');
     checkNetworkStatus();
 
     // 动态生成UI
-    info('[页面加载] 调用 initCryptoUI()');
+    console.log('[页面加载] 调用 initCryptoUI()');
     initCryptoUI();
 
     // 初始化币安WebSocket连接（带超时）
-    info('[页面加载] 初始化币安WebSocket连接...');
+    console.log('[页面加载] 初始化币安WebSocket连接...');
     initBinanceWebSocket();
 
     // 初始加载数据
-    info('[页面加载] 调用 fetchCryptoData()');
+    console.log('[页面加载] 调用 fetchCryptoData()');
     fetchCryptoData();
 
     // 初始化汇率显示
-    info('[页面加载] 调用 updateExchangeRateDisplay()');
+    console.log('[页面加载] 调用 updateExchangeRateDisplay()');
     updateExchangeRateDisplay();
 
     // 页面加载时立即同步一次汇率
     syncRate();
 
-    // 实时更新汇率显示（每30秒，只在页面可见时刷新）
+    // 实时更新汇率显示（每5秒，只在页面可见时刷新）
     setInterval(() => {
         // 只在页面可见时刷新
         if (!document.hidden) {
             syncRate();
         }
-    }, CONFIG.RATE_SYNC_INTERVAL);
+    }, 5000);
 
     // 请求通知权限
     if ('Notification' in window && Notification.permission === 'default') {

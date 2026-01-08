@@ -305,6 +305,7 @@ let binanceWS = null;
 let binanceMarketData = [];
 let binanceConnected = false;
 let stableCoinCount = 0; // 稳定的币种数量计数器
+let isConnecting = false; // 连接锁，防止重复连接
 
 // 心跳机制相关变量
 let heartbeatInterval = null;
@@ -367,15 +368,29 @@ function checkHeartbeat() {
 function initBinanceWebSocket() {
     Logger.info('[币安API] 🔄 正在初始化WebSocket连接...');
 
+    // 检查连接锁，防止重复连接
+    if (isConnecting) {
+        Logger.debug('[币安API] ⏳ 正在连接中，跳过重复请求');
+        return;
+    }
+
+    // 如果已连接，直接返回
     if (binanceWS && binanceConnected) {
         Logger.info('[币安API] ✅ WebSocket已连接，跳过重复连接');
         return;
     }
 
+    // 设置连接锁
+    isConnecting = true;
+
     // 如果已有连接但未连接，先关闭
     if (binanceWS) {
         Logger.warn('[币安API] ⚠️ 检测到旧连接，正在关闭...');
-        binanceWS.close();
+        try {
+            binanceWS.close();
+        } catch (e) {
+            Logger.warn('[币安API] 关闭旧连接时出错:', e.message);
+        }
         binanceWS = null;
     }
 
@@ -384,8 +399,9 @@ function initBinanceWebSocket() {
 
     // 设置连接超时（10秒）
     const connectionTimeout = setTimeout(() => {
-        if (!binanceConnected) {
+        if (!binanceConnected && isConnecting) {
             Logger.warn('[币安API] ⏰ WebSocket连接超时');
+            isConnecting = false;
             updateAPIStatus('Binance WebSocket', false);
 
             // 显示连接超时提示
@@ -399,13 +415,22 @@ function initBinanceWebSocket() {
         }
     }, 10000);
 
-    binanceWS = new WebSocket(wsUrl);
+    try {
+        binanceWS = new WebSocket(wsUrl);
+    } catch (e) {
+        Logger.error('[币安API] ❌ 创建WebSocket失败:', e);
+        isConnecting = false;
+        clearTimeout(connectionTimeout);
+        return;
+    }
 
     binanceWS.onopen = function () {
         clearTimeout(connectionTimeout);
+        isConnecting = false;
+        binanceConnected = true;
+
         Logger.info('[币安API] ✅ WebSocket连接已建立');
         Logger.debug('[币安API] 📡 等待接收数据...');
-        binanceConnected = true;
         updateAPIStatus('Binance WebSocket', true);
 
         // 启动心跳机制
@@ -575,6 +600,8 @@ function initBinanceWebSocket() {
     };
 
     binanceWS.onerror = function (error) {
+        isConnecting = false;
+        binanceConnected = false;
         Logger.error('[币安API] ❌ WebSocket错误:', error);
         updateAPIStatus('Binance WebSocket', false);
 
@@ -583,19 +610,23 @@ function initBinanceWebSocket() {
     };
 
     binanceWS.onclose = function (event) {
+        isConnecting = false;
+        binanceConnected = false;
+
         Logger.warn('[币安API] 🔴 WebSocket连接已关闭');
         Logger.debug(`关闭代码: ${event.code}, 原因: ${event.reason || '无'}`);
-        binanceConnected = false;
         updateAPIStatus('Binance WebSocket', false);
 
         // 停止心跳机制
         stopHeartbeat();
 
-        // 5秒后自动重连
-        setTimeout(() => {
-            Logger.info('[币安API] 🔄 正在重新连接...');
-            initBinanceWebSocket();
-        }, 5000);
+        // 只在非正常关闭时自动重连（1000=正常关闭）
+        if (event.code !== 1000 && !document.hidden) {
+            Logger.info('[币安API] 🔄 5秒后自动重连...');
+            setTimeout(() => {
+                initBinanceWebSocket();
+            }, 5000);
+        }
     };
 }
 
@@ -2424,4 +2455,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             cryptoContainer.classList.add('scrolled');
         }, { passive: true });
     }
+
+    // 页面卸载时清理资源
+    window.addEventListener('beforeunload', () => {
+        Logger.info('[页面卸载] 清理资源...');
+        if (binanceWS) {
+            try {
+                binanceWS.close();
+            } catch (e) {
+                // 忽略关闭错误
+            }
+        }
+        stopHeartbeat();
+    });
+
+    // 页面隐藏时暂停不必要的更新
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            Logger.info('[页面状态] 页面已隐藏，暂停更新');
+        } else {
+            Logger.info('[页面状态] 页面已显示，恢复更新');
+        }
+    });
 });

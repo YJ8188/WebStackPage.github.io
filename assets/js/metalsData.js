@@ -9,9 +9,7 @@ var MetalsData = {
     prices: {
         bankGoldBars: [],      // 银行投资金条价格
         goldRecycle: [],       // 黄金回收价格
-        preciousMetals: [],    // 贵金属价格
-        yongshengxinReference: [],  // 永盛鑫参考价格
-        yongshengxinShanghai: []    // 永盛鑫上海行情
+        preciousMetals: []     // 贵金属价格
     },
 
     // 自动刷新配置
@@ -214,7 +212,6 @@ var MetalsData = {
             statusDot.style.color = '#f59e0b';
         }
 
-        // 获取 Lolimi API 数据
         fetch('https://api.lolimi.cn/API/huangj/api', {
             method: 'GET',
             headers: {
@@ -228,7 +225,7 @@ var MetalsData = {
             return response.json();
         })
         .then(function(data) {
-            console.log('%c[金价行情] Lolimi 数据获取成功:', 'color: #10b981;', data);
+            console.log('%c[金价行情] 数据获取成功:', 'color: #10b981;', data);
 
             if (data.code === 200) {
                 // 直接使用API返回的最新数据
@@ -242,12 +239,19 @@ var MetalsData = {
                 // 缓存数据
                 self.cachedData = JSON.parse(JSON.stringify(newData));
 
+                self.updateUI();
+
+                // 更新下次刷新时间
+                self.nextRefreshTime = Date.now() + self.refreshInterval;
+
                 // 更新API状态指示为成功
                 if (statusDot) {
                     statusDot.style.color = '#10b981';
                 }
             } else {
                 console.error('%c[金价行情] 数据格式错误:', 'color: #f59e0b;', data);
+
+                // 更新API状态指示为错误
                 if (statusDot) {
                     statusDot.style.color = '#ef4444';
                 }
@@ -262,159 +266,26 @@ var MetalsData = {
                 self.prices.bankGoldBars = self.cachedData['国内十大金店'] || [];
                 self.prices.goldRecycle = self.cachedData['国内黄金'] || [];
                 self.prices.preciousMetals = self.cachedData['国际黄金'] || [];
+                self.updateUI();
             }
 
+            // 更新API状态指示为错误
             if (statusDot) {
                 statusDot.style.color = '#ef4444';
             }
         })
         .finally(function() {
-            // 获取永盛鑫数据
-            self.fetchYongshengxinData();
-        });
-    },
-
-    // 获取永盛鑫数据
-    fetchYongshengxinData: function() {
-        var self = this;
-        console.log('%c[金价行情] 开始获取永盛鑫数据...', 'color: #10b981;');
-
-        fetch('http://ysx9999.com/', {
-            method: 'GET',
-            headers: {
-                'Accept': 'text/html'
-            }
-        })
-        .then(function(response) {
-            if (!response.ok) {
-                throw new Error('HTTP ' + response.status);
-            }
-            return response.text();
-        })
-        .then(function(html) {
-            console.log('%c[金价行情] 永盛鑫页面获取成功', 'color: #10b981;');
-            self.parseYongshengxinData(html);
-        })
-        .catch(function(error) {
-            console.error('%c[金价行情] 永盛鑫数据获取失败:', 'color: #f59e0b;', error);
-        })
-        .finally(function() {
             self.isRefreshing = false;
 
             // 恢复刷新按钮状态
-            var refreshBtn = document.getElementById('refresh-metals-btn');
             if (refreshBtn) {
                 refreshBtn.innerHTML = '<i class="fa fa-refresh"></i>';
                 refreshBtn.disabled = false;
             }
 
-            // 更新UI
-            self.updateUI();
-
-            // 更新下次刷新时间
-            self.nextRefreshTime = Date.now() + self.refreshInterval;
-
             // 更新倒计时显示
             self.updateCountdownDisplay();
         });
-    },
-
-    // 解析永盛鑫HTML数据
-    parseYongshengxinData: function(html) {
-        var self = this;
-
-        try {
-            // 创建临时DOM元素解析HTML
-            var parser = new DOMParser();
-            var doc = parser.parseFromString(html, 'text/html');
-
-            // 获取页面文本内容
-            var textContent = doc.body.textContent || doc.body.innerText;
-
-            // 解析参考价格
-            var referencePrices = self.parsePriceTable(textContent, '参考价格', '上海行情');
-            self.prices.yongshengxinReference = referencePrices;
-
-            // 解析上海行情
-            var shanghaiPrices = self.parsePriceTable(textContent, '上海行情');
-            self.prices.yongshengxinShanghai = shanghaiPrices;
-
-            console.log('%c[金价行情] 永盛鑫数据解析成功:', 'color: #10b981;', {
-                reference: referencePrices,
-                shanghai: shanghaiPrices
-            });
-        } catch (error) {
-            console.error('%c[金价行情] 永盛鑫数据解析失败:', 'color: #f59e0b;', error);
-        }
-    },
-
-    // 解析价格表格
-    parsePriceTable: function(text, startMarker, endMarker) {
-        var result = [];
-
-        // 查找起始位置
-        var startIndex = text.indexOf(startMarker);
-        if (startIndex === -1) {
-            return result;
-        }
-
-        // 查找结束位置
-        var endIndex = endMarker ? text.indexOf(endMarker, startIndex) : text.length;
-        if (endIndex === -1) {
-            endIndex = text.length;
-        }
-
-        // 提取表格内容
-        var tableContent = text.substring(startIndex, endIndex);
-
-        // 按行分割
-        var lines = tableContent.split('\n').filter(function(line) {
-            return line.trim().length > 0;
-        });
-
-        // 跳过表头
-        var startLine = 0;
-        for (var i = 0; i < lines.length; i++) {
-            if (lines[i].includes('商品') || lines[i].includes('回购') || lines[i].includes('销售')) {
-                startLine = i + 1;
-                break;
-            }
-        }
-
-        // 解析每一行数据
-        for (var i = startLine; i < lines.length; i++) {
-            var line = lines[i].trim();
-            if (!line || line.includes(startMarker) || (endMarker && line.includes(endMarker))) {
-                continue;
-            }
-
-            // 使用正则表达式提取数据
-            var parts = line.split('|').map(function(part) {
-                return part.trim();
-            }).filter(function(part) {
-                return part.length > 0;
-            });
-
-            if (parts.length >= 2) {
-                var item = {
-                    '商品': parts[0],
-                    '回购': parts[1],
-                    '销售': parts[2] || '--',
-                    '报价时间': self.getCurrentTime()
-                };
-                result.push(item);
-            }
-        }
-
-        return result;
-    },
-
-    // 获取当前时间
-    getCurrentTime: function() {
-        var now = new Date();
-        var hours = String(now.getHours()).padStart(2, '0');
-        var minutes = String(now.getMinutes()).padStart(2, '0');
-        return hours + ':' + minutes;
     },
 
     // 更新UI显示
@@ -422,8 +293,6 @@ var MetalsData = {
         this.renderBankGoldBars();
         this.renderGoldRecycle();
         this.renderPreciousMetals();
-        this.renderYongshengxinReference();
-        this.renderYongshengxinShanghai();
     },
 
     // 数字跳动动画效果
@@ -759,154 +628,6 @@ var MetalsData = {
         });
 
         console.log('%c[金价行情] 国际黄金表格渲染成功', 'color: #10b981;');
-    },
-
-    // 渲染永盛鑫参考价格
-    renderYongshengxinReference: function() {
-        var tbody = document.getElementById('yongshengxin-reference-body');
-        if (!tbody) {
-            console.warn('%c[金价行情] 找不到永盛鑫参考价格表格元素', 'color: #f59e0b;');
-            return;
-        }
-
-        if (!this.prices.yongshengxinReference || this.prices.yongshengxinReference.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px; color: #999;">暂无数据</td></tr>';
-            return;
-        }
-
-        var self = this;
-        var loadingEl = document.getElementById('yongshengxin-reference-loading');
-
-        // 移除加载提示
-        if (loadingEl) {
-            tbody.innerHTML = '';
-        }
-
-        this.prices.yongshengxinReference.forEach(function(item) {
-            var existingRow = null;
-
-            var rows = tbody.querySelectorAll('tr');
-            for (var i = 0; i < rows.length; i++) {
-                var nameCell = rows[i].querySelector('.jinjia_name');
-                if (nameCell && nameCell.innerText === item.商品) {
-                    existingRow = rows[i];
-                    break;
-                }
-            }
-
-            if (existingRow) {
-                // 更新回购价
-                var buybackCell = existingRow.cells[1];
-                if (buybackCell) {
-                    var oldBuyback = parseFloat(buybackCell.innerText.replace(/[¥,]/g, '')) || 0;
-                    var newBuyback = parseFloat(item.回购);
-                    if (oldBuyback !== newBuyback) {
-                        var buybackSpan = buybackCell.querySelector('.f_hongse');
-                        if (buybackSpan) {
-                            self.animateNumber(buybackSpan, newBuyback);
-                        }
-                    }
-                }
-                // 更新销售价
-                var sellCell = existingRow.cells[2];
-                if (sellCell) {
-                    sellCell.innerText = item.销售 === '--' ? '--' : '¥' + item.销售;
-                }
-                // 更新报价时间
-                var timeCell = existingRow.cells[3];
-                if (timeCell) {
-                    timeCell.innerText = item.报价时间 || '-';
-                }
-            } else {
-                // 新增行
-                var buybackDisplay = item.回购 === '--' ? '--' : '¥' + item.回购;
-                var sellDisplay = item.销售 === '--' ? '--' : '¥' + item.销售;
-                var timeDisplay = item.报价时间 || '-';
-
-                var row = document.createElement('tr');
-                row.innerHTML = '<td class="jinjia_name">' + item.商品 + '</td>' +
-                    '<td><span class="f_hongse">' + buybackDisplay + '</span></td>' +
-                    '<td>' + sellDisplay + '</td>' +
-                    '<td style="font-family: \'PingFang SC\', \'Microsoft YaHei\', sans-serif; color: #999;">' + timeDisplay + '</td>';
-                tbody.appendChild(row);
-            }
-        });
-
-        console.log('%c[金价行情] 永盛鑫参考价格表格渲染成功', 'color: #10b981;');
-    },
-
-    // 渲染永盛鑫上海行情
-    renderYongshengxinShanghai: function() {
-        var tbody = document.getElementById('yongshengxin-shanghai-body');
-        if (!tbody) {
-            console.warn('%c[金价行情] 找不到永盛鑫上海行情表格元素', 'color: #f59e0b;');
-            return;
-        }
-
-        if (!this.prices.yongshengxinShanghai || this.prices.yongshengxinShanghai.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px; color: #999;">暂无数据</td></tr>';
-            return;
-        }
-
-        var self = this;
-        var loadingEl = document.getElementById('yongshengxin-shanghai-loading');
-
-        // 移除加载提示
-        if (loadingEl) {
-            tbody.innerHTML = '';
-        }
-
-        this.prices.yongshengxinShanghai.forEach(function(item) {
-            var existingRow = null;
-
-            var rows = tbody.querySelectorAll('tr');
-            for (var i = 0; i < rows.length; i++) {
-                var nameCell = rows[i].querySelector('.jinjia_name');
-                if (nameCell && nameCell.innerText === item.商品) {
-                    existingRow = rows[i];
-                    break;
-                }
-            }
-
-            if (existingRow) {
-                // 更新回购价
-                var buybackCell = existingRow.cells[1];
-                if (buybackCell) {
-                    var oldBuyback = parseFloat(buybackCell.innerText.replace(/[¥,]/g, '')) || 0;
-                    var newBuyback = parseFloat(item.回购);
-                    if (oldBuyback !== newBuyback) {
-                        var buybackSpan = buybackCell.querySelector('.f_hongse');
-                        if (buybackSpan) {
-                            self.animateNumber(buybackSpan, newBuyback);
-                        }
-                    }
-                }
-                // 更新销售价
-                var sellCell = existingRow.cells[2];
-                if (sellCell) {
-                    sellCell.innerText = item.销售 === '--' ? '--' : '¥' + item.销售;
-                }
-                // 更新报价时间
-                var timeCell = existingRow.cells[3];
-                if (timeCell) {
-                    timeCell.innerText = item.报价时间 || '-';
-                }
-            } else {
-                // 新增行
-                var buybackDisplay = item.回购 === '--' ? '--' : '¥' + item.回购;
-                var sellDisplay = item.销售 === '--' ? '--' : '¥' + item.销售;
-                var timeDisplay = item.报价时间 || '-';
-
-                var row = document.createElement('tr');
-                row.innerHTML = '<td class="jinjia_name">' + item.商品 + '</td>' +
-                    '<td><span class="f_hongse">' + buybackDisplay + '</span></td>' +
-                    '<td>' + sellDisplay + '</td>' +
-                    '<td style="font-family: \'PingFang SC\', \'Microsoft YaHei\', sans-serif; color: #999;">' + timeDisplay + '</td>';
-                tbody.appendChild(row);
-            }
-        });
-
-        console.log('%c[金价行情] 永盛鑫上海行情表格渲染成功', 'color: #10b981;');
     }
 };
 
@@ -1015,60 +736,8 @@ function initMetalsUI() {
                     </table>
                 </div>
 
-                <!-- 永盛鑫参考价格 -->
-                <div class="metals-table-container" style="margin-bottom: 20px;">
-                    <div style="padding: 12px 15px; font-size: 15px; font-weight: 600; color: #333; border-bottom: 1px solid #f0f0f0; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;">
-                        <i class="linecons-diamond" style="margin-right: 7px;"></i>永盛鑫参考价格
-                    </div>
-                    <table class="table metals-table">
-                        <thead>
-                            <tr>
-                                <th style="width: 30%;">商品</th>
-                                <th style="width: 25%;">回购价(元/克)</th>
-                                <th style="width: 25%;">销售价(元/克)</th>
-                                <th style="width: 20%;">报价时间</th>
-                            </tr>
-                        </thead>
-                        <tbody id="yongshengxin-reference-body">
-                            <tr>
-                                <td colspan="4" style="text-align:center; padding: 20px;">
-                                    <div id="yongshengxin-reference-loading">
-                                        <i class="fa fa-spinner fa-spin"></i> 正在加载行情数据...
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- 永盛鑫上海行情 -->
-                <div class="metals-table-container">
-                    <div style="padding: 12px 15px; font-size: 15px; font-weight: 600; color: #333; border-bottom: 1px solid #f0f0f0; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;">
-                        <i class="linecons-diamond" style="margin-right: 7px;"></i>永盛鑫上海行情
-                    </div>
-                    <table class="table metals-table">
-                        <thead>
-                            <tr>
-                                <th style="width: 30%;">商品</th>
-                                <th style="width: 25%;">回购价(元/克)</th>
-                                <th style="width: 25%;">销售价(元/克)</th>
-                                <th style="width: 20%;">报价时间</th>
-                            </tr>
-                        </thead>
-                        <tbody id="yongshengxin-shanghai-body">
-                            <tr>
-                                <td colspan="4" style="text-align:center; padding: 20px;">
-                                    <div id="yongshengxin-shanghai-loading">
-                                        <i class="fa fa-spinner fa-spin"></i> 正在加载行情数据...
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
                 <div style="font-size: 12px; color: #888; text-align: right; margin-top: 5px;">
-                    Data provided by <span id="metals-api-provider">Lolimi & 永盛鑫</span>
+                    Data provided by <span id="metals-api-provider">Lolimi</span>
                     <span id="metals-api-status-dot" style="color: #10b981;">●</span>
                 </div>
             </div>

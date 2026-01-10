@@ -1,6 +1,6 @@
 /**
- * 提醒系统 - 独立模块
- * 功能：添加提醒、倒计时、弹出震动对话框
+ * 提醒系统 - 完整版
+ * 功能：倒计时、定时提醒、定期提醒、事件倒计时
  * 作者：iFlow CLI
  * 日期：2026-01-10
  */
@@ -8,6 +8,7 @@
 // ==================== 全局变量 ====================
 let reminders = []; // 提醒列表
 let reminderTimers = {}; // 定时器对象
+let checkInterval = null; // 检查提醒的定时器
 
 // ==================== 初始化 ====================
 document.addEventListener('DOMContentLoaded', function() {
@@ -26,13 +27,32 @@ function toggleNotificationCenter() {
     }
 }
 
+// ==================== 切换提醒类型 ====================
+function toggleReminderType() {
+    const types = document.getElementsByName('reminderType');
+    let selectedType = 'countdown';
+
+    for (let type of types) {
+        if (type.checked) {
+            selectedType = type.value;
+            break;
+        }
+    }
+
+    // 隐藏所有设置
+    document.getElementById('countdownSetting').style.display = 'none';
+    document.getElementById('scheduleSetting').style.display = 'none';
+    document.getElementById('repeatSetting').style.display = 'none';
+    document.getElementById('eventSetting').style.display = 'none';
+
+    // 显示选中的设置
+    document.getElementById(selectedType + 'Setting').style.display = 'block';
+}
+
 // ==================== 添加提醒 ====================
 function addReminder() {
     const input = document.getElementById('reminderInput');
-    const timeSelect = document.getElementById('reminderTime');
-
     const content = input.value.trim();
-    const minutes = parseInt(timeSelect.value);
 
     // 验证输入
     if (!content) {
@@ -40,15 +60,65 @@ function addReminder() {
         return;
     }
 
-    // 创建提醒对象
-    const reminder = {
-        id: Date.now(), // 唯一ID
-        content: content, // 提醒内容
-        minutes: minutes, // 倒计时分钟数
-        createTime: new Date().getTime(), // 创建时间
-        endTime: new Date().getTime() + minutes * 60 * 1000, // 结束时间
-        active: true // 是否激活
+    // 获取选中的提醒类型
+    const types = document.getElementsByName('reminderType');
+    let selectedType = 'countdown';
+
+    for (let type of types) {
+        if (type.checked) {
+            selectedType = type.value;
+            break;
+        }
+    }
+
+    let reminder = {
+        id: Date.now(),
+        content: content,
+        type: selectedType,
+        createTime: new Date().getTime(),
+        active: true
     };
+
+    // 根据类型设置不同的参数
+    switch (selectedType) {
+        case 'countdown':
+            const minutes = parseInt(document.getElementById('reminderTime').value);
+            reminder.minutes = minutes;
+            reminder.endTime = new Date().getTime() + minutes * 60 * 1000;
+            reminder.displayText = `${minutes}分钟后`;
+            break;
+
+        case 'schedule':
+            const scheduleTime = document.getElementById('scheduleTime').value;
+            const scheduleRepeat = document.getElementById('scheduleRepeat').value;
+            reminder.time = scheduleTime;
+            reminder.repeat = scheduleRepeat;
+            reminder.nextTrigger = calculateNextScheduleTrigger(scheduleTime, scheduleRepeat);
+            reminder.displayText = `${scheduleTime} (${getRepeatText(scheduleRepeat)})`;
+            break;
+
+        case 'repeat':
+            const startDay = parseInt(document.getElementById('repeatStartDay').value);
+            const endDay = parseInt(document.getElementById('repeatEndDay').value);
+            reminder.startDay = startDay;
+            reminder.endDay = endDay;
+            reminder.nextTrigger = calculateNextRepeatTrigger(startDay, endDay);
+            reminder.displayText = `每月${startDay}-${endDay}号`;
+            break;
+
+        case 'event':
+            const eventDate = document.getElementById('eventDate').value;
+            const eventTime = document.getElementById('eventTime').value;
+            if (!eventDate) {
+                showToast('请选择事件日期！', 'error');
+                return;
+            }
+            reminder.eventDate = eventDate;
+            reminder.eventTime = eventTime;
+            reminder.endTime = new Date(`${eventDate}T${eventTime}`).getTime();
+            reminder.displayText = `${eventDate} ${eventTime}`;
+            break;
+    }
 
     // 添加到提醒列表
     reminders.push(reminder);
@@ -63,48 +133,149 @@ function addReminder() {
     input.value = '';
 
     // 显示成功提示
-    showToast(`已设置${minutes}分钟后提醒：${content}`, 'success');
+    showToast(`已添加提醒：${content}`, 'success');
 
-    // 开始倒计时
-    startCountdown(reminder);
+    // 开始检查
+    if (!checkInterval) {
+        startReminderCheck();
+    }
 
     // 更新徽章
     updateBadge();
 }
 
-// ==================== 开始倒计时 ====================
-function startCountdown(reminder) {
-    const timerId = setInterval(() => {
+// ==================== 计算下次定时提醒触发时间 ====================
+function calculateNextScheduleTrigger(time, repeat) {
+    const now = new Date();
+    const [hours, minutes] = time.split(':').map(Number);
+
+    let nextDate = new Date();
+    nextDate.setHours(hours, minutes, 0, 0);
+
+    // 如果今天的时间已经过了，需要调整
+    if (nextDate <= now) {
+        switch (repeat) {
+            case 'once':
+                return null; // 仅一次，时间已过
+            case 'daily':
+                nextDate.setDate(nextDate.getDate() + 1);
+                break;
+            case 'weekly':
+                nextDate.setDate(nextDate.getDate() + 7);
+                break;
+            case 'monthly':
+                nextDate.setMonth(nextDate.getMonth() + 1);
+                break;
+        }
+    }
+
+    return nextDate.getTime();
+}
+
+// ==================== 计算下次定期提醒触发时间 ====================
+function calculateNextRepeatTrigger(startDay, endDay) {
+    const now = new Date();
+    const today = now.getDate();
+
+    // 如果今天在范围内
+    if (today >= startDay && today <= endDay) {
+        // 如果还没到提醒时间（假设每天9点提醒）
+        const reminderHour = 9;
+        if (now.getHours() < reminderHour) {
+            const nextDate = new Date();
+            nextDate.setHours(reminderHour, 0, 0, 0);
+            return nextDate.getTime();
+        }
+    }
+
+    // 计算下个月的触发时间
+    let nextMonth = new Date(now);
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    nextMonth.setDate(startDay);
+    nextMonth.setHours(9, 0, 0, 0);
+
+    return nextMonth.getTime();
+}
+
+// ==================== 获取重复类型文本 ====================
+function getRepeatText(repeat) {
+    const texts = {
+        'once': '仅一次',
+        'daily': '每天',
+        'weekly': '每周',
+        'monthly': '每月'
+    };
+    return texts[repeat] || repeat;
+}
+
+// ==================== 开始检查提醒 ====================
+function startReminderCheck() {
+    if (checkInterval) {
+        clearInterval(checkInterval);
+    }
+
+    // 每秒检查一次
+    checkInterval = setInterval(() => {
         const now = new Date().getTime();
 
-        // 检查是否到期
-        if (now >= reminder.endTime) {
-            // 清除定时器
-            clearInterval(timerId);
-            delete reminderTimers[reminder.id];
+        reminders.forEach(reminder => {
+            if (!reminder.active) return;
 
-            // 标记为已完成
-            reminder.active = false;
+            let shouldTrigger = false;
 
-            // 保存状态
-            saveReminders();
+            switch (reminder.type) {
+                case 'countdown':
+                case 'event':
+                    if (now >= reminder.endTime) {
+                        shouldTrigger = true;
+                    }
+                    break;
 
-            // 弹出提醒对话框
-            showReminderDialog(reminder);
+                case 'schedule':
+                    if (reminder.nextTrigger && now >= reminder.nextTrigger) {
+                        shouldTrigger = true;
+                        // 计算下一次触发时间
+                        reminder.nextTrigger = calculateNextScheduleTrigger(reminder.time, reminder.repeat);
+                        if (!reminder.nextTrigger && reminder.repeat === 'once') {
+                            reminder.active = false;
+                        }
+                    }
+                    break;
 
-            // 更新列表
-            updateReminderList();
+                case 'repeat':
+                    if (reminder.nextTrigger && now >= reminder.nextTrigger) {
+                        shouldTrigger = true;
+                        // 计算下一次触发时间
+                        reminder.nextTrigger = calculateNextRepeatTrigger(reminder.startDay, reminder.endDay);
+                    }
+                    break;
+            }
 
-            // 播放提示音（可选）
-            playNotificationSound();
+            if (shouldTrigger) {
+                triggerReminder(reminder);
+            }
+        });
 
-            // 更新徽章
-            updateBadge();
-        }
-    }, 1000); // 每秒检查一次
+        // 更新列表显示
+        updateReminderList();
+        saveReminders();
+        updateBadge();
 
-    // 保存定时器ID
-    reminderTimers[reminder.id] = timerId;
+    }, 1000);
+}
+
+// ==================== 触发提醒 ====================
+function triggerReminder(reminder) {
+    // 弹出提醒对话框
+    showReminderDialog(reminder);
+
+    // 播放提示音
+    playNotificationSound();
+
+    // 如果是一次性提醒，标记为已完成
+    if (reminder.type === 'countdown' || (reminder.type === 'schedule' && reminder.repeat === 'once')) {
+        reminder.active = false;
+    }
 }
 
 // ==================== 显示提醒对话框（带震动效果） ====================
@@ -122,7 +293,7 @@ function showReminderDialog(reminder) {
     // 添加震动动画
     dialog.classList.add('shake-animation');
 
-    // 3秒后停止震动（避免用户头晕）
+    // 3秒后停止震动
     setTimeout(() => {
         dialog.classList.remove('shake-animation');
     }, 3000);
@@ -142,12 +313,6 @@ function closeReminderDialog() {
 
 // ==================== 删除提醒 ====================
 function deleteReminder(id) {
-    // 清除定时器
-    if (reminderTimers[id]) {
-        clearInterval(reminderTimers[id]);
-        delete reminderTimers[id];
-    }
-
     // 从列表中删除
     reminders = reminders.filter(r => r.id !== id);
 
@@ -182,17 +347,54 @@ function updateReminderList() {
         const item = document.createElement('div');
         item.className = 'reminder-item';
 
-        // 计算剩余时间
-        const remaining = Math.max(0, Math.floor((reminder.endTime - new Date().getTime()) / 1000));
-        const minutes = Math.floor(remaining / 60);
-        const seconds = remaining % 60;
-
-        // 格式化时间显示
+        // 计算显示文本
         let timeText = '';
-        if (reminder.active) {
-            timeText = `剩余 ${minutes}分${seconds}秒`;
-        } else {
+        let statusClass = '';
+
+        if (!reminder.active) {
             timeText = '已完成';
+            statusClass = 'completed';
+        } else {
+            switch (reminder.type) {
+                case 'countdown':
+                    const remaining = Math.max(0, Math.floor((reminder.endTime - new Date().getTime()) / 1000));
+                    const minutes = Math.floor(remaining / 60);
+                    const seconds = remaining % 60;
+                    timeText = `剩余 ${minutes}分${seconds}秒`;
+                    break;
+
+                case 'schedule':
+                case 'repeat':
+                    if (reminder.nextTrigger) {
+                        const remaining = Math.max(0, Math.floor((reminder.nextTrigger - new Date().getTime()) / 1000));
+                        const days = Math.floor(remaining / (24 * 60 * 60));
+                        const hours = Math.floor((remaining % (24 * 60 * 60)) / (60 * 60));
+                        const minutes = Math.floor((remaining % (60 * 60)) / 60);
+                        if (days > 0) {
+                            timeText = `还有 ${days}天${hours}小时`;
+                        } else if (hours > 0) {
+                            timeText = `还有 ${hours}小时${minutes}分钟`;
+                        } else {
+                            timeText = `还有 ${minutes}分钟`;
+                        }
+                    } else {
+                        timeText = '等待中';
+                    }
+                    break;
+
+                case 'event':
+                    const eventRemaining = Math.max(0, Math.floor((reminder.endTime - new Date().getTime()) / 1000));
+                    const eventDays = Math.floor(eventRemaining / (24 * 60 * 60));
+                    const eventHours = Math.floor((eventRemaining % (24 * 60 * 60)) / (60 * 60));
+                    if (eventDays > 0) {
+                        timeText = `还有 ${eventDays}天${eventHours}小时`;
+                    } else if (eventHours > 0) {
+                        timeText = `还有 ${eventHours}小时`;
+                    } else {
+                        timeText = '即将到来';
+                    }
+                    break;
+            }
         }
 
         // 创建HTML
@@ -200,7 +402,7 @@ function updateReminderList() {
             <div class="reminder-item-content">
                 <div>
                     <div class="reminder-text">${reminder.content}</div>
-                    <div class="reminder-time">${timeText}</div>
+                    <div class="reminder-time ${statusClass}">${reminder.displayText} - ${timeText}</div>
                 </div>
                 <button class="delete-reminder" onclick="deleteReminder(${reminder.id})">✕</button>
             </div>
@@ -209,13 +411,6 @@ function updateReminderList() {
         // 添加到列表
         list.appendChild(item);
     });
-}
-
-// ==================== 定时更新提醒列表（每秒刷新倒计时） ====================
-function startReminderCheck() {
-    setInterval(() => {
-        updateReminderList();
-    }, 1000);
 }
 
 // ==================== 更新徽章 ====================
@@ -243,39 +438,25 @@ function loadReminders() {
     const saved = localStorage.getItem('reminders');
     if (saved) {
         reminders = JSON.parse(saved);
-
-        // 恢复所有活跃提醒的倒计时
-        reminders.forEach(reminder => {
-            if (reminder.active) {
-                startCountdown(reminder);
-            }
-        });
-
-        // 更新徽章
         updateBadge();
     }
 }
 
-// ==================== 播放提示音（可选） ====================
+// ==================== 播放提示音 ====================
 function playNotificationSound() {
-    // 创建音频上下文
     try {
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
 
-        // 连接节点
         oscillator.connect(gainNode);
         gainNode.connect(audioContext.destination);
 
-        // 设置音调
         oscillator.frequency.value = 800;
         oscillator.type = 'sine';
 
-        // 设置音量
         gainNode.gain.value = 0.3;
 
-        // 播放
         oscillator.start();
         oscillator.stop(audioContext.currentTime + 0.3);
     } catch (error) {
@@ -283,7 +464,7 @@ function playNotificationSound() {
     }
 }
 
-// ==================== Toast 提示函数（如果页面没有，提供备用） ====================
+// ==================== Toast 提示函数 ====================
 function showToast(message, type = 'info', duration = 3000) {
     const container = document.getElementById('toastContainer');
     if (!container) {
@@ -308,12 +489,10 @@ function showToast(message, type = 'info', duration = 3000) {
 
     container.appendChild(toast);
 
-    // 强制重绘
     requestAnimationFrame(() => {
         toast.classList.add('show');
     });
 
-    // 自动隐藏
     setTimeout(() => {
         toast.classList.remove('show');
         toast.classList.add('hide');

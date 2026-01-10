@@ -452,6 +452,7 @@ function injectReminderStyles() {
             border: 1px solid rgba(0, 0, 0, 0.08);
             animation: countdownPulse 2s infinite;
             min-width: 180px;
+            width: auto;
         }
 
         /* 按钮右侧的提醒卡片（当前时间段提醒） */
@@ -463,7 +464,7 @@ function injectReminderStyles() {
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             border: 1px solid rgba(0, 0, 0, 0.08);
             min-width: 180px;
-            max-width: 180px;
+            width: 180px;
         }
 
         .reminder-countdown-card:hover {

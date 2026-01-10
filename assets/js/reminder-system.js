@@ -458,11 +458,37 @@ function injectReminderStyles() {
             background: rgba(239, 68, 68, 0.1);
         }
 
+        /* 三个杠菜单按钮样式 */
+        #reminderMenuBtn {
+            position: fixed;
+            bottom: 24px;
+            left: 24px;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s ease;
+            z-index: 9999;
+            border: none;
+            font-size: 20px;
+        }
+
+        #reminderMenuBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.5);
+        }
+
         /* 提醒按钮样式 */
         #reminderBtn {
             position: fixed;
             bottom: 24px;
-            left: 300px;
+            left: 84px;
             width: 48px;
             height: 48px;
             border-radius: 50%;
@@ -484,41 +510,20 @@ function injectReminderStyles() {
             box-shadow: 0 8px 20px rgba(102, 126, 234, 0.5);
         }
 
-        /* 测试提醒按钮 */
-        #testReminderBtn {
-            position: fixed;
-            bottom: 24px;
-            left: 24px;
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            color: #fff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            box-shadow: 0 6px 16px rgba(240, 147, 251, 0.4);
-            transition: all 0.3s ease;
-            z-index: 9999;
-            border: none;
-            font-size: 20px;
-        }
-
-        #testReminderBtn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(240, 147, 251, 0.5);
-        }
-
         /* 按钮上方的倒计时卡片容器 */
         .reminder-countdowns-container {
             position: fixed;
             bottom: 84px;
-            left: 300px;
+            left: 24px;
             display: flex;
             flex-direction: column;
             gap: 12px;
             z-index: 9999;
+        }
+
+        /* 收起状态的倒计时容器 */
+        .reminder-countdowns-container.collapsed {
+            display: none;
         }
 
         /* 倒计时卡片统一样式 */

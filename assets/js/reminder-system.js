@@ -466,20 +466,22 @@ function injectReminderStyles() {
         /* 三个杠菜单按钮样式 */
         #reminderMenuBtn {
             position: relative;
+            bottom: 24px;
+            left: 84px;
             width: 48px;
             height: 48px;
             border-radius: 50%;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: #fff;
-            display: inline-flex;
+            display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
             transition: all 0.3s ease;
+            z-index: 9999;
             border: none;
             font-size: 20px;
-            margin-left: 12px;
         }
 
         #reminderMenuBtn:hover {
@@ -490,17 +492,20 @@ function injectReminderStyles() {
         /* 提醒按钮样式 */
         #reminderBtn {
             position: relative;
+            bottom: 24px;
+            left: 24px;
             width: 48px;
             height: 48px;
             border-radius: 50%;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: #fff;
-            display: inline-flex;
+            display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
             transition: all 0.3s ease;
+            z-index: 9999;
             border: none;
             font-size: 20px;
         }
@@ -513,10 +518,12 @@ function injectReminderStyles() {
         /* 按钮上方的倒计时卡片容器 */
         .reminder-countdowns-container {
             position: relative;
+            bottom: 84px;
+            left: 24px;
             display: flex;
             flex-direction: column;
             gap: 12px;
-            margin-top: 16px;
+            z-index: 9999;
         }
 
         /* 收起状态的倒计时容器 */
@@ -607,8 +614,7 @@ function injectReminderStyles() {
 
         /* 导航栏收缩状态下的提醒系统样式 */
         .sidebar-menu.collapsed #reminderSystemContainer {
-            padding: 12px;
-            text-align: center;
+            padding: 24px 12px;
         }
 
         .sidebar-menu.collapsed #reminderBtn,
@@ -616,26 +622,28 @@ function injectReminderStyles() {
             width: 40px;
             height: 40px;
             font-size: 18px;
-            margin: 0 auto;
         }
 
         .sidebar-menu.collapsed #reminderMenuBtn {
-            display: none;
+            left: 52px;
+        }
+
+        .sidebar-menu.collapsed #reminderBtn {
+            left: 12px;
         }
 
         .sidebar-menu.collapsed .reminder-countdowns-container {
-            margin-top: 12px;
+            left: 12px;
         }
 
         /* 提醒系统容器样式 */
         #reminderSystemContainer {
             position: relative;
+            bottom: 0;
+            left: 0;
             width: 100%;
             padding: 24px;
             box-sizing: border-box;
-            display: flex;
-            align-items: center;
-            gap: 12px;
         }
 
         /* 收起状态的倒计时容器 */
@@ -664,10 +672,11 @@ function injectReminderHTML() {
     const reminderContainer = document.createElement('div');
     reminderContainer.id = 'reminderSystemContainer';
     reminderContainer.style.position = 'relative';
+    reminderContainer.style.bottom = '0';
+    reminderContainer.style.left = '0';
     reminderContainer.style.width = '100%';
     reminderContainer.style.padding = '24px';
     reminderContainer.style.boxSizing = 'border-box';
-    reminderContainer.style.marginTop = '16px';
 
     // 三个杠菜单按钮
     const menuBtn = document.createElement('button');

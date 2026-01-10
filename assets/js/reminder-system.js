@@ -273,8 +273,8 @@ function injectReminderStyles() {
 
         .reminder-item {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            align-items: flex-start;
+            gap: 12px;
             padding: 16px;
             border-radius: 10px;
             background: rgba(255, 255, 255, 0.02);

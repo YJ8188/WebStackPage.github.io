@@ -1022,14 +1022,26 @@ function toggleReminder(id) {
  */
 function toggleCountdownDisplay() {
     const container = document.getElementById('reminderCountdownsContainer');
+    const sidebarMenuInner = document.querySelector('.sidebar-menu-inner');
     const cards = container.querySelectorAll('.reminder-countdown-card');
-    
+
     if (container.classList.contains('collapsed')) {
         // 当前是收起状态，展开显示所有卡片
         container.classList.remove('collapsed');
         cards.forEach((card, index) => {
             card.style.display = 'block';
         });
+
+        // 延迟滚动，等待DOM更新
+        setTimeout(() => {
+            if (sidebarMenuInner) {
+                // 滚动到底部，确保所有倒计时卡片都可见
+                sidebarMenuInner.scrollTo({
+                    top: sidebarMenuInner.scrollHeight,
+                    behavior: 'smooth'
+                });
+            }
+        }, 100);
     } else {
         // 当前是展开状态，检查是否只显示第一个卡片
         let onlyFirstVisible = true;
@@ -1038,12 +1050,23 @@ function toggleCountdownDisplay() {
                 onlyFirstVisible = false;
             }
         });
-        
+
         if (onlyFirstVisible) {
             // 只显示第一个卡片，现在展开显示所有卡片
             cards.forEach((card, index) => {
                 card.style.display = 'block';
             });
+
+            // 延迟滚动，等待DOM更新
+            setTimeout(() => {
+                if (sidebarMenuInner) {
+                    // 滚动到底部，确保所有倒计时卡片都可见
+                    sidebarMenuInner.scrollTo({
+                        top: sidebarMenuInner.scrollHeight,
+                        behavior: 'smooth'
+                    });
+                }
+            }, 100);
         } else {
             // 显示所有卡片，现在收起只显示第一个卡片
             cards.forEach((card, index) => {
@@ -1053,10 +1076,20 @@ function toggleCountdownDisplay() {
                     card.style.display = 'none';
                 }
             });
+
+            // 延迟滚动，等待DOM更新
+            setTimeout(() => {
+                if (sidebarMenuInner) {
+                    // 滚动到底部，确保看到第一个倒计时卡片和按钮
+                    sidebarMenuInner.scrollTo({
+                        top: sidebarMenuInner.scrollHeight,
+                        behavior: 'smooth'
+                    });
+                }
+            }, 100);
         }
     }
 }
-
 /**
  * 测试当前提醒
  */

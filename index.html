@@ -326,6 +326,7 @@
         /* 菜单项链接 */
         .sidebar-menu li>a {
             border-radius: 10px; /* 圆角 */
+            transition: all 0.3s ease; /* 过渡动画 */
         }
 
         /* 激活的菜单项 */
@@ -354,6 +355,33 @@
         /* 菜单图标样式 */
         .sidebar-menu li>a i {
             opacity: 0.85; /* 透明度 */
+        }
+
+        /* 子菜单样式 */
+        .sidebar-menu ul {
+            transition: all 0.3s ease; /* 子菜单过渡动画 */
+        }
+
+        /* 展开的菜单项 */
+        .sidebar-menu li.expanded > a {
+            background-color: rgba(255, 255, 255, 0.05); /* 展开时的背景色 */
+        }
+
+        /* 子菜单项样式 */
+        .sidebar-menu ul li {
+            border-radius: 8px; /* 子菜单项圆角 */
+            margin: 2px 10px; /* 子菜单项间距 */
+            transition: all 0.2s ease; /* 子菜单项过渡动画 */
+        }
+
+        /* 子菜单项悬停效果 */
+        .sidebar-menu ul li:hover {
+            background-color: rgba(255, 255, 255, 0.05); /* 子菜单项悬停背景色 */
+        }
+
+        /* 子菜单项激活状态 */
+        .sidebar-menu ul li.active {
+            background-color: rgba(255, 255, 255, 0.1); /* 子菜单项激活背景色 */
         }
 
         /* ==================== 导航栏样式优化 ==================== */
@@ -520,7 +548,7 @@
     <!-- ==================== 页面容器 ==================== -->
     <div class="page-container">
         <!-- ==================== 左侧侧边栏菜单 ==================== -->
-        <div class="sidebar-menu toggle-others fixed">
+        <div class="sidebar-menu toggle-others fixed" style="z-index: 1000;">
             <div class="sidebar-menu-inner">
                 <!-- Logo区域 -->
                 <header class="logo-env">
@@ -7196,9 +7224,7 @@
     </script>
 
     <!-- 提醒系统JS -->
-    <!--script src="../assets/js/reminder-system.js"></script-->
-
-    <!-- 行情功能模块 -->
+    <script src="../assets/js/reminder-system.js"></script>
 
 </body>
 

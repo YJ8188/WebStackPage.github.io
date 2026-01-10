@@ -1076,14 +1076,19 @@ function toggleReminder(id) {
  */
 function toggleCountdownDisplay() {
     const container = document.getElementById('reminderCountdownsContainer');
+    const sidebarMenuInner = document.querySelector('.sidebar-menu-inner');
     const cards = container.querySelectorAll('.reminder-countdown-card');
-    
+
     if (container.classList.contains('collapsed')) {
         // 当前是收起状态，展开显示所有卡片
         container.classList.remove('collapsed');
         cards.forEach((card, index) => {
             card.style.display = 'block';
         });
+
+        // 计算需要的高度并设置导航栏底部内边距
+        const totalHeight = cards.length * 80; // 每个卡片约80px
+        sidebarMenuInner.style.paddingBottom = `${totalHeight + 120}px`;
     } else {
         // 当前是展开状态，检查是否只显示第一个卡片
         let onlyFirstVisible = true;
@@ -1092,12 +1097,16 @@ function toggleCountdownDisplay() {
                 onlyFirstVisible = false;
             }
         });
-        
+
         if (onlyFirstVisible) {
             // 只显示第一个卡片，现在展开显示所有卡片
             cards.forEach((card, index) => {
                 card.style.display = 'block';
             });
+
+            // 计算需要的高度并设置导航栏底部内边距
+            const totalHeight = cards.length * 80;
+            sidebarMenuInner.style.paddingBottom = `${totalHeight + 120}px`;
         } else {
             // 显示所有卡片，现在收起只显示第一个卡片
             cards.forEach((card, index) => {
@@ -1107,6 +1116,9 @@ function toggleCountdownDisplay() {
                     card.style.display = 'none';
                 }
             });
+
+            // 恢复导航栏底部内边距
+            sidebarMenuInner.style.paddingBottom = '0px';
         }
     }
 }
@@ -1355,6 +1367,7 @@ function acknowledgeReminder() {
  */
 function updateCountdownWidget() {
     const container = document.getElementById('reminderCountdownsContainer');
+    const sidebarMenuInner = document.querySelector('.sidebar-menu-inner');
 
     // 清除旧的定时器
     if (countdownInterval) {
@@ -1395,29 +1408,29 @@ function updateCountdownWidget() {
                 const [dailyEndHours, dailyEndMinutes] = reminder.endTime.split(':');
                 targetDateTime = new Date();
                 targetDateTime.setHours(parseInt(dailyEndHours), parseInt(dailyEndMinutes), 0, 0);
-                
+
                 if (targetDateTime <= now) {
                     targetDateTime.setDate(targetDateTime.getDate() + 1);
                 }
                 break;
-                
+
             case 'monthly':
                 const [monthlyEndHours, monthlyEndMinutes] = reminder.endTime.split(':');
                 targetDateTime = new Date();
                 targetDateTime.setHours(parseInt(monthlyEndHours), parseInt(monthlyEndMinutes), 0, 0);
                 targetDateTime.setDate(reminder.day);
-                
+
                 if (targetDateTime <= now) {
                     targetDateTime.setMonth(targetDateTime.getMonth() + 1);
                 }
                 break;
-                
+
             case 'dateRange':
                 const [rangeEndHours, rangeEndMinutes] = reminder.endTime.split(':');
                 targetDateTime = new Date();
                 targetDateTime.setHours(parseInt(rangeEndHours), parseInt(rangeEndMinutes), 0, 0);
                 targetDateTime.setDate(reminder.endDate);
-                
+
                 if (targetDateTime <= now) {
                     targetDateTime.setMonth(targetDateTime.getMonth() + 1);
                 }
@@ -1441,6 +1454,10 @@ function updateCountdownWidget() {
 
     // 如果没有任何内容显示，直接返回
     if (allReminders.length === 0) {
+        // 清除导航栏底部内边距
+        if (sidebarMenuInner) {
+            sidebarMenuInner.style.paddingBottom = '0px';
+        }
         return;
     }
 
@@ -1466,8 +1483,12 @@ function updateCountdownWidget() {
         container.appendChild(card);
     });
 
-    // 初始状态：只显示第一个卡片，容器保持展开
+    // 初始状态：只显示第一个卡片，设置导航栏底部内边距
     container.classList.remove('collapsed');
+    if (sidebarMenuInner) {
+        // 只显示一个卡片时，设置较小的底部内边距
+        sidebarMenuInner.style.paddingBottom = '120px';
+    }
 
     // 更新倒计时
     const updateTimers = () => {

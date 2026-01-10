@@ -463,10 +463,8 @@ function injectReminderStyles() {
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             border: 1px solid rgba(0, 0, 0, 0.08);
-            min-width: 180px;
-            max-width: 180px;
-            width: 180px;
             box-sizing: border-box;
+            /* 动态宽度，由JS控制 */
         }
 
         .reminder-countdown-card:hover {
@@ -492,6 +490,7 @@ function injectReminderStyles() {
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            word-break: break-all;
         }
 
         .reminder-countdown-timer {
@@ -499,7 +498,8 @@ function injectReminderStyles() {
             font-size: 16px;
             font-weight: 700;
             color: #e0e0e0;
-            white-space: nowrap;
+            word-break: break-all;
+            line-height: 1.3;
         }
 
         .reminder-countdown-detail {
@@ -510,6 +510,7 @@ function injectReminderStyles() {
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            word-break: break-all;
         }
 
         /* 移动端隐藏提醒系统 */
@@ -841,7 +842,7 @@ function addReminder() {
     const type = document.getElementById('reminderType').value;
 
     if (!title) {
-        showToast('请输入提醒标题', 'warning');
+        alert('请输入提醒标题');
         return;
     }
 
@@ -890,7 +891,7 @@ function addReminder() {
 
     // 清空表单
     document.getElementById('reminderTitle').value = '';
-    showToast('提醒添加成功！', 'success');
+    alert('提醒添加成功！');
 }
 
 /**
@@ -902,7 +903,7 @@ function deleteReminder(id) {
         saveReminders();
         renderReminderList();
         updateCountdownWidget();
-        showToast('提醒已删除', 'info');
+        alert('提醒已删除');
     }
 }
 
@@ -1263,7 +1264,6 @@ function updateCountdownWidget() {
         timer.id = `side-countdown-${reminder.id}`;
         timer.style.fontSize = '14px'; // 稍微小一点的字体
         timer.style.color = '#667eea';
-        timer.style.whiteSpace = 'nowrap'; // 不换行
 
         card.appendChild(title);
         card.appendChild(timer);
@@ -1275,20 +1275,29 @@ function updateCountdownWidget() {
         return;
     }
 
-    // 同步宽度：让按钮右侧的卡片宽度完全跟随按钮上方的卡片宽度
-    const syncWidth = () => {
+    // 同步宽度和位置：让按钮右侧的卡片右边缘与上方卡片右边缘对齐
+    const syncWidthAndPosition = () => {
         const mainCard = document.querySelector('.reminder-countdown-card.countdown-main');
         const sideCard = document.querySelector('.reminder-countdown-card.countdown-side');
+        const reminderBtn = document.getElementById('reminderBtn');
         
-        if (mainCard && sideCard) {
+        if (mainCard && sideCard && reminderBtn) {
+            // 获取上方卡片的宽度
             const mainWidth = mainCard.offsetWidth;
-            // 强制设置宽度为上方卡片的宽度
+            
+            // 设置右侧卡片的宽度等于上方卡片
             sideCard.style.width = mainWidth + 'px';
-            // 移除min-width限制，防止冲突
             sideCard.style.minWidth = mainWidth + 'px';
             sideCard.style.maxWidth = mainWidth + 'px';
-            // 设置box-sizing确保padding不影响宽度计算
-            sideCard.style.boxSizing = 'border-box';
+            
+            // 计算右侧卡片容器的left位置，使右边缘对齐
+            const container = document.getElementById('reminderCountdownsContainer');
+            const btnRect = reminderBtn.getBoundingClientRect();
+            const mainRect = mainCard.getBoundingClientRect();
+            
+            // 计算容器的left值：上方卡片右边缘 - 卡片宽度
+            const containerLeft = mainRect.right - mainWidth;
+            container.style.left = (containerLeft - btnRect.left + 24) + 'px'; // 24是按钮的left值
         }
     };
 
@@ -1315,8 +1324,8 @@ function updateCountdownWidget() {
 
             timerEl.textContent = `${days}天 ${hours}小时 ${minutes}分 ${seconds}秒`;
             
-            // 每次更新时同步宽度
-            syncWidth();
+            // 每次更新时同步宽度和位置
+            syncWidthAndPosition();
         });
 
         // 更新其他提醒的倒计时
@@ -1344,6 +1353,12 @@ function updateCountdownWidget() {
 
     updateTimers();
     countdownInterval = setInterval(updateTimers, 1000);
+    
+    // 初始化时同步一次宽度和位置
+    setTimeout(syncWidthAndPosition, 100);
+    
+    // 监听窗口大小变化，重新同步
+    window.addEventListener('resize', syncWidthAndPosition);
 }
 
 /**

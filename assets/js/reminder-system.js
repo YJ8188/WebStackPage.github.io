@@ -464,7 +464,7 @@ function injectReminderStyles() {
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             border: 1px solid rgba(0, 0, 0, 0.08);
             min-width: 180px;
-            width: auto;
+            max-width: 180px;
         }
 
         .reminder-countdown-card:hover {
@@ -1261,6 +1261,7 @@ function updateCountdownWidget() {
         timer.id = `side-countdown-${reminder.id}`;
         timer.style.fontSize = '14px'; // 稍微小一点的字体
         timer.style.color = '#667eea';
+        timer.style.whiteSpace = 'nowrap'; // 不换行
 
         card.appendChild(title);
         card.appendChild(timer);
@@ -1272,7 +1273,7 @@ function updateCountdownWidget() {
         return;
     }
 
-    // 同步宽度：让按钮右侧的卡片宽度跟随按钮上方的卡片宽度
+    // 同步宽度：让按钮右侧的卡片宽度完全跟随按钮上方的卡片宽度
     const syncWidth = () => {
         const mainCard = document.querySelector('.reminder-countdown-card.countdown-main');
         const sideCard = document.querySelector('.reminder-countdown-card.countdown-side');
@@ -1280,6 +1281,8 @@ function updateCountdownWidget() {
         if (mainCard && sideCard) {
             const mainWidth = mainCard.offsetWidth;
             sideCard.style.width = mainWidth + 'px';
+            sideCard.style.minWidth = mainWidth + 'px';
+            sideCard.style.maxWidth = mainWidth + 'px';
         }
     };
 

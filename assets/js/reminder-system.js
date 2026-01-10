@@ -38,9 +38,9 @@ function injectReminderStyles() {
             width: 500px;
             max-width: 90%;
             max-height: 85vh;
-            border-radius: 16px;
-            background: rgba(255, 255, 255, 0.98);
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.02);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -48,8 +48,8 @@ function injectReminderStyles() {
         }
 
         body.dark-mode .reminder-modal-dialog {
-            background: rgba(42, 42, 42, 0.98);
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            background: rgba(255, 255, 255, 0.02);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
         }
 
         .reminder-modal-header {
@@ -68,10 +68,6 @@ function injectReminderStyles() {
             font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
             font-size: 20px;
             font-weight: 600;
-            color: #2d3748;
-        }
-
-        body.dark-mode .reminder-modal-title {
             color: #e0e0e0;
         }
 
@@ -91,10 +87,6 @@ function injectReminderStyles() {
         }
 
         .reminder-modal-close:hover {
-            color: #2d3748;
-        }
-
-        body.dark-mode .reminder-modal-close:hover {
             color: #e0e0e0;
         }
 
@@ -124,12 +116,8 @@ function injectReminderStyles() {
             font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
             font-size: 14px;
             font-weight: 500;
-            color: #4a5568;
-            margin-bottom: 8px;
-        }
-
-        body.dark-mode .form-group label {
             color: #cbd5e0;
+            margin-bottom: 8px;
         }
 
         .form-group input,
@@ -137,25 +125,12 @@ function injectReminderStyles() {
             width: 100%;
             padding: 10px 14px;
             border: 1px solid rgba(0, 0, 0, 0.2);
-            border-radius: 8px;
+            border-radius: 10px;
             font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
             font-size: 14px;
-            color: #2d3748;
-            background: #fff;
-            transition: all 0.2s;
-        }
-
-        body.dark-mode .form-group input,
-        body.dark-mode .form-group select {
-            border-color: rgba(255, 255, 255, 0.2);
             color: #e0e0e0;
             background: rgba(255, 255, 255, 0.05);
-        }
-
-        /* 修复select下拉选项的暗黑模式背景 */
-        body.dark-mode .form-group select option {
-            background: #2a2a2a;
-            color: #e0e0e0;
+            transition: all 0.2s;
         }
 
         .form-group input:focus,
@@ -163,6 +138,12 @@ function injectReminderStyles() {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        /* 修复select下拉选项的暗黑模式背景 */
+        .form-group select option {
+            background: #2a2a2a;
+            color: #e0e0e0;
         }
 
         .form-group input[type="checkbox"] {
@@ -183,24 +164,16 @@ function injectReminderStyles() {
         }
 
         .time-range-separator {
-            color: #718096;
-            font-weight: 600;
-        }
-
-        body.dark-mode .time-range-separator {
             color: #a0aec0;
+            font-weight: 600;
         }
 
         /* 重复提醒设置样式 */
         .repeat-settings {
-            background: rgba(0, 0, 0, 0.02);
-            padding: 12px;
-            border-radius: 8px;
-            margin-top: 12px;
-        }
-
-        body.dark-mode .repeat-settings {
             background: rgba(255, 255, 255, 0.05);
+            padding: 12px;
+            border-radius: 10px;
+            margin-top: 12px;
         }
 
         .repeat-interval-group {
@@ -214,6 +187,26 @@ function injectReminderStyles() {
             width: 80px !important;
         }
 
+        /* 添加提醒按钮样式 - 与主页按钮一致 */
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            padding: 12px 24px;
+            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.35);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.45);
+        }
+
         /* 提醒通知弹窗样式 */
         .reminder-notification {
             position: fixed;
@@ -221,17 +214,12 @@ function injectReminderStyles() {
             right: 20px;
             max-width: 400px;
             padding: 16px 20px;
-            border-radius: 12px;
-            background: rgba(255, 255, 255, 0.98);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.02);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
             z-index: 100003;
             animation: notificationSlideIn 0.3s ease-out;
             display: none;
-        }
-
-        body.dark-mode .reminder-notification {
-            background: rgba(42, 42, 42, 0.98);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
         }
 
         @keyframes notificationSlideIn {
@@ -260,10 +248,6 @@ function injectReminderStyles() {
             font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
             font-size: 16px;
             font-weight: 600;
-            color: #2d3748;
-        }
-
-        body.dark-mode .reminder-notification-title {
             color: #e0e0e0;
         }
 
@@ -272,7 +256,7 @@ function injectReminderStyles() {
             border: none;
             font-size: 20px;
             cursor: pointer;
-            color: #718096;
+            color: #a0aec0;
             padding: 0;
             width: 24px;
             height: 24px;
@@ -281,19 +265,11 @@ function injectReminderStyles() {
             justify-content: center;
         }
 
-        body.dark-mode .reminder-notification-close {
-            color: #a0aec0;
-        }
-
         .reminder-notification-body {
             font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
             font-size: 14px;
-            color: #4a5568;
-            margin-bottom: 16px;
-        }
-
-        body.dark-mode .reminder-notification-body {
             color: #cbd5e0;
+            margin-bottom: 16px;
         }
 
         .reminder-notification-actions {
@@ -304,7 +280,7 @@ function injectReminderStyles() {
         .reminder-notification-btn {
             flex: 1;
             padding: 10px 16px;
-            border-radius: 8px;
+            border-radius: 10px;
             font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
             font-size: 14px;
             font-weight: 500;
@@ -314,30 +290,22 @@ function injectReminderStyles() {
         }
 
         .reminder-notification-btn-primary {
-            background: #667eea;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: #fff;
         }
 
         .reminder-notification-btn-primary:hover {
-            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.35);
         }
 
         .reminder-notification-btn-secondary {
-            background: rgba(0, 0, 0, 0.05);
-            color: #4a5568;
-        }
-
-        body.dark-mode .reminder-notification-btn-secondary {
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05);
             color: #cbd5e0;
         }
 
         .reminder-notification-btn-secondary:hover {
-            background: rgba(0, 0, 0, 0.1);
-        }
-
-        body.dark-mode .reminder-notification-btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.1);
         }
 
         /* 提醒列表样式 */
@@ -349,10 +317,6 @@ function injectReminderStyles() {
             font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
             font-size: 16px;
             font-weight: 600;
-            color: #2d3748;
-        }
-
-        body.dark-mode .reminder-list-header {
             color: #e0e0e0;
         }
 
@@ -367,20 +331,17 @@ function injectReminderStyles() {
             justify-content: space-between;
             align-items: center;
             padding: 16px;
-            border-radius: 12px;
-            background: rgba(0, 0, 0, 0.03);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.02);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             border: 1px solid rgba(0, 0, 0, 0.08);
-            transition: all 0.2s;
-        }
-
-        body.dark-mode .reminder-item {
-            background: rgba(255, 255, 255, 0.05);
-            border-color: rgba(255, 255, 255, 0.1);
         }
 
         .reminder-item:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transform: translateY(-6px) scale(1.01);
+            box-shadow: 0 14px 32px rgba(0, 0, 0, 0.55);
+            z-index: 100;
         }
 
         .reminder-item.disabled {
@@ -395,12 +356,8 @@ function injectReminderStyles() {
             font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
             font-size: 15px;
             font-weight: 600;
-            color: #2d3748;
-            margin-bottom: 4px;
-        }
-
-        body.dark-mode .reminder-item-title {
             color: #e0e0e0;
+            margin-bottom: 4px;
         }
 
         .reminder-item-detail {
@@ -408,10 +365,6 @@ function injectReminderStyles() {
             align-items: center;
             gap: 8px;
             font-size: 13px;
-            color: #718096;
-        }
-
-        body.dark-mode .reminder-item-detail {
             color: #a0aec0;
         }
 
@@ -428,6 +381,7 @@ function injectReminderStyles() {
         .reminder-item-actions {
             display: flex;
             gap: 8px;
+            align-items: center;
         }
 
         .reminder-toggle-btn,
@@ -449,17 +403,56 @@ function injectReminderStyles() {
             background: rgba(239, 68, 68, 0.1);
         }
 
-        /* 左下角倒计时组件样式 */
-        .countdown-widget {
+        /* 提醒按钮样式 */
+        #reminderBtn {
             position: fixed;
-            bottom: 80px;
+            bottom: 24px;
             left: 24px;
-            padding: 16px 20px;
-            border-radius: 12px;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
-            z-index: 9998;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s ease;
+            z-index: 9999;
+            border: none;
+            font-size: 20px;
+        }
+
+        #reminderBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.5);
+        }
+
+        /* 按钮右侧倒计时小卡片容器 */
+        .reminder-countdowns-container {
+            position: fixed;
+            bottom: 24px;
+            left: 84px;
+            display: flex;
+            gap: 12px;
+            z-index: 9999;
+        }
+
+        /* 倒计时小卡片样式 */
+        .reminder-countdown-card {
+            padding: 10px 16px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.02);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(0, 0, 0, 0.08);
             animation: countdownPulse 2s infinite;
+        }
+
+        .reminder-countdown-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
         }
 
         @keyframes countdownPulse {
@@ -471,19 +464,19 @@ function injectReminderStyles() {
             }
         }
 
-        .countdown-title {
+        .reminder-countdown-title {
             font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 600;
-            color: rgba(255, 255, 255, 0.9);
-            margin-bottom: 6px;
+            color: #a0aec0;
+            margin-bottom: 4px;
         }
 
-        .countdown-timer {
+        .reminder-countdown-timer {
             font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 700;
-            color: #fff;
+            color: #e0e0e0;
             white-space: nowrap;
         }
 
@@ -491,7 +484,7 @@ function injectReminderStyles() {
         @media (max-width: 768px) {
             #reminderBtn,
             .reminder-modal-overlay,
-            .countdown-widget {
+            .reminder-countdowns-container {
                 display: none !important;
             }
         }
@@ -511,9 +504,14 @@ function injectReminderHTML() {
     reminderBtn.id = 'reminderBtn';
     reminderBtn.onclick = openReminderModal;
     reminderBtn.title = '提醒管理';
-    reminderBtn.style.cssText = 'position: fixed; bottom: 24px; left: 24px; width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4); transition: all .3s ease; z-index: 9999; border: none; font-size: 20px;';
     reminderBtn.textContent = '🔔';
     document.body.appendChild(reminderBtn);
+
+    // 倒计时小卡片容器
+    const countdownsContainer = document.createElement('div');
+    countdownsContainer.id = 'reminderCountdownsContainer';
+    countdownsContainer.className = 'reminder-countdowns-container';
+    document.body.appendChild(countdownsContainer);
 
     // 提醒管理弹窗
     const modalHTML = `
@@ -676,12 +674,6 @@ function injectReminderHTML() {
                     </div>
                 </div>
             </div>
-        </div>
-
-        <!-- 左下角倒计时显示 -->
-        <div class="countdown-widget" id="countdownWidget" style="display: none;">
-            <div class="countdown-title" id="countdownWidgetTitle">春节倒计时</div>
-            <div class="countdown-timer" id="countdownWidgetTimer">00天 00小时 00分 00秒</div>
         </div>
 
         <!-- 提醒通知弹窗 -->
@@ -1119,53 +1111,70 @@ function acknowledgeReminder() {
  * 更新倒计时组件
  */
 function updateCountdownWidget() {
-    const widget = document.getElementById('countdownWidget');
-    const titleEl = document.getElementById('countdownWidgetTitle');
-    const timerEl = document.getElementById('countdownWidgetTimer');
+    const container = document.getElementById('reminderCountdownsContainer');
 
-    // 查找要显示的倒计时
-    const countdownReminder = reminders.find(r =>
+    // 查找所有要显示的倒计时
+    const countdownReminders = reminders.filter(r =>
         r.type === 'countdown' && r.enabled && r.showInCorner
     );
-
-    if (!countdownReminder) {
-        widget.style.display = 'none';
-        if (countdownInterval) {
-            clearInterval(countdownInterval);
-            countdownInterval = null;
-        }
-        return;
-    }
-
-    widget.style.display = 'block';
-    titleEl.textContent = countdownReminder.title;
 
     // 清除旧的定时器
     if (countdownInterval) {
         clearInterval(countdownInterval);
+        countdownInterval = null;
     }
 
+    // 清空容器
+    container.innerHTML = '';
+
+    if (countdownReminders.length === 0) {
+        return;
+    }
+
+    // 为每个倒计时创建一个小卡片
+    countdownReminders.forEach(reminder => {
+        const card = document.createElement('div');
+        card.className = 'reminder-countdown-card';
+
+        const title = document.createElement('div');
+        title.className = 'reminder-countdown-title';
+        title.textContent = reminder.title;
+
+        const timer = document.createElement('div');
+        timer.className = 'reminder-countdown-timer';
+        timer.id = `countdown-${reminder.id}`;
+
+        card.appendChild(title);
+        card.appendChild(timer);
+        container.appendChild(card);
+    });
+
     // 更新倒计时
-    const updateTimer = () => {
-        const target = new Date(`${countdownReminder.targetDate}T${countdownReminder.targetTime}`);
-        const now = new Date();
-        const diff = target - now;
+    const updateTimers = () => {
+        countdownReminders.forEach(reminder => {
+            const timerEl = document.getElementById(`countdown-${reminder.id}`);
+            if (!timerEl) return;
 
-        if (diff <= 0) {
-            timerEl.textContent = '已到达！';
-            return;
-        }
+            const target = new Date(`${reminder.targetDate}T${reminder.targetTime}`);
+            const now = new Date();
+            const diff = target - now;
 
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            if (diff <= 0) {
+                timerEl.textContent = '已到达！';
+                return;
+            }
 
-        timerEl.textContent = `${days}天 ${hours}小时 ${minutes}分 ${seconds}秒`;
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+            timerEl.textContent = `${days}天 ${hours}小时 ${minutes}分 ${seconds}秒`;
+        });
     };
 
-    updateTimer();
-    countdownInterval = setInterval(updateTimer, 1000);
+    updateTimers();
+    countdownInterval = setInterval(updateTimers, 1000);
 }
 
 /**

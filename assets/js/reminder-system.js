@@ -788,14 +788,9 @@ function injectReminderHTML() {
                             </div>
                         </div>
 
-                        <div style="display: flex; gap: 10px; margin-top: 10px;">
-                            <button class="btn btn-primary" onclick="addReminder()" style="flex: 1;">
-                                ➕ 添加提醒
-                            </button>
-                            <button class="btn btn-primary" onclick="testReminder()" style="flex: 1; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-                                🧪 测试提醒
-                            </button>
-                        </div>
+                        <button class="btn btn-primary" onclick="addReminder()" style="width: 100%; margin-top: 10px;">
+                            ➕ 添加提醒
+                        </button>
                     </div>
 
                     <!-- 提醒列表 -->
@@ -1131,9 +1126,11 @@ function renderReminderList() {
                         title="${reminder.enabled ? '禁用' : '启用'}">
                         ${reminder.enabled ? '🔔' : '🔕'}
                     </button>
+                    ${reminder.type === 'countdown' ? `
                     <button class="reminder-test-btn" onclick="testCurrentReminder(${reminder.id})" title="当前测试">
                         🧪
                     </button>
+                    ` : ''}
                     <button class="reminder-delete-btn" onclick="deleteReminder(${reminder.id})" title="删除">
                         🗑️
                     </button>

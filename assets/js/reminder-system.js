@@ -456,13 +456,14 @@ function injectReminderStyles() {
 
         /* 按钮右侧的提醒卡片（当前时间段提醒） */
         .reminder-countdown-card.countdown-side {
-            padding: 10px 16px;
+            padding: 8px 12px;
             border-radius: 10px;
             background: rgba(255, 255, 255, 0.02);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             border: 1px solid rgba(0, 0, 0, 0.08);
-            min-width: 150px;
+            min-width: 120px;
+            max-width: 200px;
         }
 
         .reminder-countdown-card:hover {
@@ -481,10 +482,13 @@ function injectReminderStyles() {
 
         .reminder-countdown-title {
             font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 600;
             color: #a0aec0;
-            margin-bottom: 4px;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .reminder-countdown-timer {
@@ -497,10 +501,12 @@ function injectReminderStyles() {
 
         .reminder-countdown-detail {
             font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
-            font-size: 14px;
+            font-size: 12px;
             font-weight: 600;
             color: #e0e0e0;
             white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         /* 移动端隐藏提醒系统 */
@@ -1164,64 +1170,68 @@ function updateCountdownWidget() {
         if (!reminder.enabled) return;
         if (reminder.type === 'countdown') return; // 跳过事件倒计时
 
-        let detailText = '';
+        let targetDateTime = null;
         let timeRemaining = null;
 
         switch(reminder.type) {
             case 'daily':
-                // 每日提醒：显示时间段
-                detailText = `每日 ${reminder.startTime}-${reminder.endTime}`;
+                // 每日提醒：计算今天的结束时间
+                const [dailyEndHours, dailyEndMinutes] = reminder.endTime.split(':');
+                targetDateTime = new Date();
+                targetDateTime.setHours(parseInt(dailyEndHours), parseInt(dailyEndMinutes), 0, 0);
                 
-                // 如果当前在时间段内，显示剩余时间
-                if (currentTime >= reminder.startTime && currentTime <= reminder.endTime) {
-                    const [endHours, endMinutes] = reminder.endTime.split(':');
-                    const endDateTime = new Date();
-                    endDateTime.setHours(parseInt(endHours), parseInt(endMinutes), 0, 0);
-                    const remainingMinutes = Math.max(0, Math.floor((endDateTime - now) / (1000 * 60)));
-                    const remainingHours = Math.floor(remainingMinutes / 60);
-                    const mins = remainingMinutes % 60;
-                    timeRemaining = `剩余 ${remainingHours}小时 ${mins}分钟`;
+                // 如果今天的时间已经过了，计算明天的结束时间
+                if (targetDateTime <= now) {
+                    targetDateTime.setDate(targetDateTime.getDate() + 1);
                 }
                 break;
                 
             case 'monthly':
-                // 月度提醒：显示每月几号
-                detailText = `每月${reminder.day}号 ${reminder.startTime}-${reminder.endTime}`;
+                // 月度提醒：计算本月或下月的结束时间
+                const [monthlyEndHours, monthlyEndMinutes] = reminder.endTime.split(':');
+                targetDateTime = new Date();
+                targetDateTime.setHours(parseInt(monthlyEndHours), parseInt(monthlyEndMinutes), 0, 0);
+                targetDateTime.setDate(reminder.day);
                 
-                // 检查是否是本月且在时间段内
-                if (currentDate === reminder.day && currentTime >= reminder.startTime && currentTime <= reminder.endTime) {
-                    const [endHours, endMinutes] = reminder.endTime.split(':');
-                    const endDateTime = new Date();
-                    endDateTime.setHours(parseInt(endHours), parseInt(endMinutes), 0, 0);
-                    const remainingMinutes = Math.max(0, Math.floor((endDateTime - now) / (1000 * 60)));
-                    const remainingHours = Math.floor(remainingMinutes / 60);
-                    const mins = remainingMinutes % 60;
-                    timeRemaining = `剩余 ${remainingHours}小时 ${mins}分钟`;
+                // 如果本月的日期已经过了，计算下月
+                if (targetDateTime <= now) {
+                    targetDateTime.setMonth(targetDateTime.getMonth() + 1);
                 }
                 break;
                 
             case 'dateRange':
-                // 日期范围提醒：显示日期范围
-                detailText = `${reminder.startDate}-${reminder.endDate}号 ${reminder.startTime}-${reminder.endTime}`;
+                // 日期范围提醒：计算范围内最后一天的结束时间
+                const [rangeEndHours, rangeEndMinutes] = reminder.endTime.split(':');
+                targetDateTime = new Date();
+                targetDateTime.setHours(parseInt(rangeEndHours), parseInt(rangeEndMinutes), 0, 0);
+                targetDateTime.setDate(reminder.endDate);
                 
-                // 检查当前日期是否在范围内且在时间段内
-                if (currentDate >= reminder.startDate && currentDate <= reminder.endDate && 
-                    currentTime >= reminder.startTime && currentTime <= reminder.endTime) {
-                    const [endHours, endMinutes] = reminder.endTime.split(':');
-                    const endDateTime = new Date();
-                    endDateTime.setHours(parseInt(endHours), parseInt(endMinutes), 0, 0);
-                    const remainingMinutes = Math.max(0, Math.floor((endDateTime - now) / (1000 * 60)));
-                    const remainingHours = Math.floor(remainingMinutes / 60);
-                    const mins = remainingMinutes % 60;
-                    timeRemaining = `剩余 ${remainingHours}小时 ${mins}分钟`;
+                // 如果本月最后一天已经过了，计算下月
+                if (targetDateTime <= now) {
+                    targetDateTime.setMonth(targetDateTime.getMonth() + 1);
                 }
                 break;
         }
 
-        if (detailText) {
+        if (targetDateTime) {
+            const diff = targetDateTime - now;
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            
+            if (days > 0) {
+                timeRemaining = `${days}天${hours}小时`;
+            } else if (hours > 0) {
+                timeRemaining = `${hours}小时${minutes}分`;
+            } else if (minutes > 0) {
+                timeRemaining = `${minutes}分钟`;
+            } else {
+                timeRemaining = '即将到达';
+            }
+
             otherReminders.push({
                 ...reminder,
-                detailText,
+                targetDateTime,
                 timeRemaining
             });
         }
@@ -1264,14 +1274,9 @@ function updateCountdownWidget() {
 
         const detail = document.createElement('div');
         detail.className = 'reminder-countdown-detail';
-        
-        // 如果有剩余时间，显示剩余时间；否则显示时间段
-        if (reminder.timeRemaining) {
-            detail.textContent = reminder.timeRemaining;
-            detail.style.color = '#667eea'; // 激活状态用紫色
-        } else {
-            detail.textContent = reminder.detailText;
-        }
+        detail.id = `side-countdown-${reminder.id}`;
+        detail.textContent = reminder.timeRemaining;
+        detail.style.color = '#667eea';
 
         card.appendChild(title);
         card.appendChild(detail);
@@ -1307,60 +1312,31 @@ function updateCountdownWidget() {
             timerEl.textContent = `${days}天 ${hours}小时 ${minutes}分 ${seconds}秒`;
         });
 
-        // 更新其他提醒的剩余时间
+        // 更新其他提醒的倒计时
         if (otherReminders.length > 0) {
             const reminder = otherReminders[0];
-            const detailEl = document.querySelector('.countdown-side .reminder-countdown-detail');
+            const detailEl = document.getElementById(`side-countdown-${reminder.id}`);
             if (detailEl) {
                 const now = new Date();
-                const currentTime = now.toTimeString().slice(0, 5);
-                const currentDate = now.getDate();
-                
-                let timeRemaining = null;
+                const diff = reminder.targetDateTime - now;
 
-                switch(reminder.type) {
-                    case 'daily':
-                        if (currentTime >= reminder.startTime && currentTime <= reminder.endTime) {
-                            const [endHours, endMinutes] = reminder.endTime.split(':');
-                            const endDateTime = new Date();
-                            endDateTime.setHours(parseInt(endHours), parseInt(endMinutes), 0, 0);
-                            const remainingMinutes = Math.max(0, Math.floor((endDateTime - now) / (1000 * 60)));
-                            const remainingHours = Math.floor(remainingMinutes / 60);
-                            const mins = remainingMinutes % 60;
-                            timeRemaining = `剩余 ${remainingHours}小时 ${mins}分钟`;
-                        }
-                        break;
-                    case 'monthly':
-                        if (currentDate === reminder.day && currentTime >= reminder.startTime && currentTime <= reminder.endTime) {
-                            const [endHours, endMinutes] = reminder.endTime.split(':');
-                            const endDateTime = new Date();
-                            endDateTime.setHours(parseInt(endHours), parseInt(endMinutes), 0, 0);
-                            const remainingMinutes = Math.max(0, Math.floor((endDateTime - now) / (1000 * 60)));
-                            const remainingHours = Math.floor(remainingMinutes / 60);
-                            const mins = remainingMinutes % 60;
-                            timeRemaining = `剩余 ${remainingHours}小时 ${mins}分钟`;
-                        }
-                        break;
-                    case 'dateRange':
-                        if (currentDate >= reminder.startDate && currentDate <= reminder.endDate && 
-                            currentTime >= reminder.startTime && currentTime <= reminder.endTime) {
-                            const [endHours, endMinutes] = reminder.endTime.split(':');
-                            const endDateTime = new Date();
-                            endDateTime.setHours(parseInt(endHours), parseInt(endMinutes), 0, 0);
-                            const remainingMinutes = Math.max(0, Math.floor((endDateTime - now) / (1000 * 60)));
-                            const remainingHours = Math.floor(remainingMinutes / 60);
-                            const mins = remainingMinutes % 60;
-                            timeRemaining = `剩余 ${remainingHours}小时 ${mins}分钟`;
-                        }
-                        break;
+                if (diff <= 0) {
+                    detailEl.textContent = '已到达';
+                    return;
                 }
 
-                if (timeRemaining) {
-                    detailEl.textContent = timeRemaining;
-                    detailEl.style.color = '#667eea';
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+                if (days > 0) {
+                    detailEl.textContent = `${days}天${hours}小时`;
+                } else if (hours > 0) {
+                    detailEl.textContent = `${hours}小时${minutes}分`;
+                } else if (minutes > 0) {
+                    detailEl.textContent = `${minutes}分钟`;
                 } else {
-                    detailEl.textContent = reminder.detailText;
-                    detailEl.style.color = '#e0e0e0';
+                    detailEl.textContent = '即将到达';
                 }
             }
         }

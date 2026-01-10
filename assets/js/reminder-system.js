@@ -1295,10 +1295,59 @@ function updateCountdownWidget() {
         cardType: 'countdown-main'
     }));
 
-    // 2. 查找其他类型的提醒（每日、月度、日期范围）- 不显示
+    // 2. 查找其他类型的提醒（每日、月度、日期范围）
     const otherReminders = [];
 
-    // 3. 合并所有倒计时提醒（只显示倒计时类型）
+    reminders.forEach(reminder => {
+        if (!reminder.enabled) return;
+        if (reminder.type === 'countdown') return;
+
+        let targetDateTime = null;
+
+        switch(reminder.type) {
+            case 'daily':
+                const [dailyEndHours, dailyEndMinutes] = reminder.endTime.split(':');
+                targetDateTime = new Date();
+                targetDateTime.setHours(parseInt(dailyEndHours), parseInt(dailyEndMinutes), 0, 0);
+                
+                if (targetDateTime <= now) {
+                    targetDateTime.setDate(targetDateTime.getDate() + 1);
+                }
+                break;
+                
+            case 'monthly':
+                const [monthlyEndHours, monthlyEndMinutes] = reminder.endTime.split(':');
+                targetDateTime = new Date();
+                targetDateTime.setHours(parseInt(monthlyEndHours), parseInt(monthlyEndMinutes), 0, 0);
+                targetDateTime.setDate(reminder.day);
+                
+                if (targetDateTime <= now) {
+                    targetDateTime.setMonth(targetDateTime.getMonth() + 1);
+                }
+                break;
+                
+            case 'dateRange':
+                const [rangeEndHours, rangeEndMinutes] = reminder.endTime.split(':');
+                targetDateTime = new Date();
+                targetDateTime.setHours(parseInt(rangeEndHours), parseInt(rangeEndMinutes), 0, 0);
+                targetDateTime.setDate(reminder.endDate);
+                
+                if (targetDateTime <= now) {
+                    targetDateTime.setMonth(targetDateTime.getMonth() + 1);
+                }
+                break;
+        }
+
+        if (targetDateTime) {
+            otherReminders.push({
+                ...reminder,
+                targetDateTime,
+                cardType: 'countdown-side'
+            });
+        }
+    });
+
+    // 3. 合并所有倒计时提醒
     const allReminders = [...countdownReminders, ...otherReminders];
 
     // 4. 按目标时间排序，最近的在前

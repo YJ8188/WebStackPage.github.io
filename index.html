@@ -7232,6 +7232,54 @@
             color: #e0e0e0;
         }
 
+        /* 时间和日期输入框的特定样式 */
+        #scheduleTime,
+        #eventDate,
+        #eventTime {
+            padding: 12px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            font-size: 14px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #2d3748;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        #scheduleTime:focus,
+        #eventDate:focus,
+        #eventTime:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        body.dark-mode #scheduleTime,
+        body.dark-mode #eventDate,
+        body.dark-mode #eventTime {
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(0, 0, 0, 0.2);
+            color: #e0e0e0;
+        }
+
+        body.dark-mode #scheduleTime:focus,
+        body.dark-mode #eventDate:focus,
+        body.dark-mode #eventTime:focus {
+            border-color: #60a5fa;
+            box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
+        }
+
+        /* 修复浏览器默认的时间日期选择器图标颜色 */
+        body.dark-mode ::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            opacity: 0.6;
+            cursor: pointer;
+        }
+
+        body.dark-mode ::-webkit-calendar-picker-indicator:hover {
+            opacity: 1;
+        }
+
         .time-input-group,
         .date-range-group,
         .event-date-group,

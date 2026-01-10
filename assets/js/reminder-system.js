@@ -439,15 +439,30 @@ function injectReminderStyles() {
             z-index: 9999;
         }
 
-        /* 倒计时小卡片样式 */
-        .reminder-countdown-card {
-            padding: 10px 16px;
+        /* 按钮上方的倒计时卡片（事件倒计时） */
+        .reminder-countdown-card.countdown-main {
+            position: fixed;
+            bottom: 84px;
+            left: 24px;
+            padding: 16px 20px;
             border-radius: 10px;
             background: rgba(255, 255, 255, 0.02);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             border: 1px solid rgba(0, 0, 0, 0.08);
             animation: countdownPulse 2s infinite;
+            min-width: 180px;
+        }
+
+        /* 按钮右侧的提醒卡片（当前时间段提醒） */
+        .reminder-countdown-card.countdown-side {
+            padding: 10px 16px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.02);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            min-width: 150px;
         }
 
         .reminder-countdown-card:hover {
@@ -476,6 +491,14 @@ function injectReminderStyles() {
             font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
             font-size: 16px;
             font-weight: 700;
+            color: #e0e0e0;
+            white-space: nowrap;
+        }
+
+        .reminder-countdown-detail {
+            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-size: 14px;
+            font-weight: 600;
             color: #e0e0e0;
             white-space: nowrap;
         }
@@ -1113,11 +1136,6 @@ function acknowledgeReminder() {
 function updateCountdownWidget() {
     const container = document.getElementById('reminderCountdownsContainer');
 
-    // 查找所有要显示的倒计时
-    const countdownReminders = reminders.filter(r =>
-        r.type === 'countdown' && r.enabled && r.showInCorner
-    );
-
     // 清除旧的定时器
     if (countdownInterval) {
         clearInterval(countdownInterval);
@@ -1127,14 +1145,62 @@ function updateCountdownWidget() {
     // 清空容器
     container.innerHTML = '';
 
-    if (countdownReminders.length === 0) {
-        return;
-    }
+    // 获取当前时间
+    const now = new Date();
+    const currentTime = now.toTimeString().slice(0, 5); // HH:MM
+    const currentDate = now.getDate();
 
-    // 为每个倒计时创建一个小卡片
-    countdownReminders.forEach(reminder => {
+    // 1. 查找所有事件倒计时（countdown类型，启用且显示在左下角）
+    const countdownReminders = reminders.filter(r =>
+        r.type === 'countdown' && r.enabled && r.showInCorner
+    );
+
+    // 2. 查找当前时间段的其他提醒（每日、月度、日期范围）
+    const activeReminders = [];
+
+    reminders.forEach(reminder => {
+        if (!reminder.enabled) return;
+        if (reminder.type === 'countdown') return; // 跳过事件倒计时
+
+        let isActive = false;
+
+        switch(reminder.type) {
+            case 'daily':
+                // 检查是否在每日提醒的时间段内
+                if (currentTime >= reminder.startTime && currentTime <= reminder.endTime) {
+                    isActive = true;
+                }
+                break;
+            case 'monthly':
+                // 检查是否是每月的指定日期且在时间段内
+                if (currentDate === reminder.day && currentTime >= reminder.startTime && currentTime <= reminder.endTime) {
+                    isActive = true;
+                }
+                break;
+            case 'dateRange':
+                // 检查是否在日期范围内且在时间段内
+                if (currentDate >= reminder.startDate && currentDate <= reminder.endDate && 
+                    currentTime >= reminder.startTime && currentTime <= reminder.endTime) {
+                    isActive = true;
+                }
+                break;
+        }
+
+        if (isActive) {
+            activeReminders.push(reminder);
+        }
+    });
+
+    // 按创建时间排序，优先显示最早创建的
+    activeReminders.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+    // 3. 创建事件倒计时卡片（在按钮上方）
+    if (countdownReminders.length > 0) {
+        // 只显示第一个事件倒计时
+        const reminder = countdownReminders[0];
         const card = document.createElement('div');
-        card.className = 'reminder-countdown-card';
+        card.className = 'reminder-countdown-card countdown-main';
+        card.id = 'countdownWidget';
 
         const title = document.createElement('div');
         title.className = 'reminder-countdown-title';
@@ -1147,10 +1213,47 @@ function updateCountdownWidget() {
         card.appendChild(title);
         card.appendChild(timer);
         container.appendChild(card);
-    });
+    }
+
+    // 4. 创建当前时间段提醒卡片（在按钮右侧）
+    if (activeReminders.length > 0) {
+        // 只显示第一个当前时间段的提醒
+        const reminder = activeReminders[0];
+        const card = document.createElement('div');
+        card.className = 'reminder-countdown-card countdown-side';
+
+        const title = document.createElement('div');
+        title.className = 'reminder-countdown-title';
+        title.textContent = reminder.title;
+
+        const detail = document.createElement('div');
+        detail.className = 'reminder-countdown-detail';
+        
+        // 显示剩余时间段
+        const endTime = reminder.endTime;
+        const [endHours, endMinutes] = endTime.split(':');
+        const endDateTime = new Date();
+        endDateTime.setHours(parseInt(endHours), parseInt(endMinutes), 0, 0);
+        
+        const remainingMinutes = Math.max(0, Math.floor((endDateTime - now) / (1000 * 60)));
+        const remainingHours = Math.floor(remainingMinutes / 60);
+        const mins = remainingMinutes % 60;
+        
+        detail.textContent = `剩余 ${remainingHours}小时 ${mins}分钟`;
+
+        card.appendChild(title);
+        card.appendChild(detail);
+        container.appendChild(card);
+    }
+
+    // 如果没有任何内容显示，直接返回
+    if (countdownReminders.length === 0 && activeReminders.length === 0) {
+        return;
+    }
 
     // 更新倒计时
     const updateTimers = () => {
+        // 更新事件倒计时
         countdownReminders.forEach(reminder => {
             const timerEl = document.getElementById(`countdown-${reminder.id}`);
             if (!timerEl) return;
@@ -1171,6 +1274,25 @@ function updateCountdownWidget() {
 
             timerEl.textContent = `${days}天 ${hours}小时 ${minutes}分 ${seconds}秒`;
         });
+
+        // 更新当前时间段提醒的剩余时间
+        if (activeReminders.length > 0) {
+            const reminder = activeReminders[0];
+            const detailEl = document.querySelector('.countdown-side .reminder-countdown-detail');
+            if (detailEl) {
+                const now = new Date();
+                const endTime = reminder.endTime;
+                const [endHours, endMinutes] = endTime.split(':');
+                const endDateTime = new Date();
+                endDateTime.setHours(parseInt(endHours), parseInt(endMinutes), 0, 0);
+                
+                const remainingMinutes = Math.max(0, Math.floor((endDateTime - now) / (1000 * 60)));
+                const remainingHours = Math.floor(remainingMinutes / 60);
+                const mins = remainingMinutes % 60;
+                
+                detailEl.textContent = `剩余 ${remainingHours}小时 ${mins}分钟`;
+            }
+        }
     };
 
     updateTimers();

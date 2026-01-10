@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', function() {
     startReminderCheck(); // 开始检查提醒
     updateDateTime(); // 更新时间日期
     setInterval(updateDateTime, 1000); // 每秒更新时间
+    initNotificationCenterEvents(); // 初始化通知中心事件监听
 });
 
 // ==================== 更新时间日期 ====================
@@ -48,11 +49,33 @@ function updateDateTime() {
 function toggleNotificationCenter() {
     const panel = document.getElementById('notificationPanel');
     if (panel.style.display === 'flex') {
-        panel.style.display = 'none';
+        closeNotificationCenter();
     } else {
         panel.style.display = 'flex';
     }
 }
+
+// ==================== 关闭通知中心面板 ====================
+function closeNotificationCenter() {
+    const panel = document.getElementById('notificationPanel');
+    panel.style.display = 'none';
+}
+
+// ==================== 初始化通知中心事件监听 ====================
+function initNotificationCenterEvents() {
+    // 阻止点击通知中心面板时冒泡到文档
+    const panel = document.getElementById('notificationPanel');
+    if (panel) {
+        panel.addEventListener('click', function(event) {
+            event.stopPropagation();
+        });
+    }
+}
+
+// 在页面加载时初始化事件监听
+document.addEventListener('DOMContentLoaded', function() {
+    initNotificationCenterEvents();
+});
 
 // ==================== 切换状态分类的展开/收起 ====================
 function toggleSection(section) {

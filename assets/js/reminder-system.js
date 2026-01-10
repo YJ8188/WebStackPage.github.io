@@ -290,7 +290,12 @@ function injectReminderStyles() {
 
         .reminder-item.disabled { opacity: 0.5; }
 
-        .reminder-item-content { flex: 1; }
+        .reminder-item-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
 
         .reminder-item-title {
             font-family: "HarmonyOS Sans", "PingFang SC", sans-serif;
@@ -302,10 +307,11 @@ function injectReminderStyles() {
 
         .reminder-item-detail {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             gap: 8px;
             font-size: 13px;
             color: #a0aec0;
+            line-height: 1.4;
         }
 
         .reminder-type-badge {
@@ -322,6 +328,7 @@ function injectReminderStyles() {
             display: flex;
             gap: 8px;
             align-items: center;
+            flex-shrink: 0;
         }
 
         .reminder-toggle-btn, .reminder-delete-btn {
@@ -329,7 +336,11 @@ function injectReminderStyles() {
             border: none;
             font-size: 18px;
             cursor: pointer;
-            padding: 6px;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             border-radius: 6px;
             transition: all 0.2s;
         }
@@ -424,6 +435,99 @@ function injectReminderStyles() {
             color: #e0e0e0;
             word-break: break-all;
             line-height: 1.3;
+        }
+
+        /* 空状态样式 */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #718096;
+            font-family: "HarmonyOS Sans", "PingFang SC", sans-serif;
+            font-size: 14px;
+        }
+
+        /* 滚动条样式 */
+        .reminder-modal-body::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .reminder-modal-body::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+        }
+
+        .reminder-modal-body::-webkit-scrollbar-thumb {
+            background: rgba(102, 126, 234, 0.5);
+            border-radius: 3px;
+        }
+
+        .reminder-modal-body::-webkit-scrollbar-thumb:hover {
+            background: rgba(102, 126, 234, 0.7);
+        }
+
+        /* 工具类 */
+        .text-truncate {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .d-flex {
+            display: flex;
+        }
+
+        .align-center {
+            align-items: center;
+        }
+
+        .justify-between {
+            justify-content: space-between;
+        }
+
+        /* 改进的动画效果 */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .reminder-item {
+            animation: slideUp 0.3s ease-out;
+        }
+
+        /* 改进的表单焦点状态 */
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            transform: translateY(-1px);
+        }
+
+        /* 改进的按钮点击效果 */
+        .btn-primary:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        /* 改进的卡片悬停效果 */
+        .reminder-item:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 14px 32px rgba(0, 0, 0, 0.55);
+            border-color: rgba(102, 126, 234, 0.3);
+        }
+
+        /* 改进的倒计时卡片样式 */
+        .reminder-countdown-card {
+            backdrop-filter: blur(10px);
+        }
+
+        /* 改进的通知样式 */
+        .reminder-notification {
+            backdrop-filter: blur(10px);
         }
 
         @media (max-width: 768px) {
@@ -596,6 +700,7 @@ function injectReminderHTML() {
 const REMINDER_STORAGE_KEY = 'webstack_reminders';
 let reminders = [];
 let countdownInterval = null;
+let resizeListener = null;
 
 function initReminderSystem() {
     injectReminderStyles();
@@ -665,6 +770,11 @@ function addReminder() {
     } else if (type === 'dateRange') {
         r.startDate = parseInt(document.getElementById('rangeStartDate').value);
         r.endDate = parseInt(document.getElementById('rangeEndDate').value);
+        // 验证日期范围
+        if (r.startDate < 1 || r.startDate > 31 || r.endDate < 1 || r.endDate > 31) {
+            alert('日期必须在 1-31 之间');
+            return;
+        }
         r.startTime = document.getElementById('rangeStartTime').value;
         r.endTime = document.getElementById('rangeEndTime').value;
         r.repeat = document.getElementById('rangeRepeat').checked;
@@ -741,6 +851,40 @@ function renderReminderList() {
 function startReminderCheck() {
     setInterval(checkReminders, 60000);
     checkReminders();
+    
+    // 定期清理过期的 localStorage 数据
+    setInterval(cleanupOldStorageData, 24 * 60 * 60 * 1000); // 每天清理一次
+    cleanupOldStorageData(); // 启动时立即清理一次
+}
+
+function cleanupOldStorageData() {
+    const now = new Date();
+    const today = now.toDateString();
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toDateString();
+    
+    // 清理昨天的提醒记录
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        // 清理昨天的每日提醒记录
+        if (key && key.includes('_' + yesterdayStr + '_')) {
+            localStorage.removeItem(key);
+            i--; // 调整索引，因为删除了元素
+        }
+        // 清理已删除提醒的相关数据
+        if (key && key.startsWith('reminder_')) {
+            const idMatch = key.match(/reminder_(\d+)_/);
+            if (idMatch) {
+                const id = parseInt(idMatch[1]);
+                const reminderExists = reminders.some(r => r.id === id);
+                if (!reminderExists) {
+                    localStorage.removeItem(key);
+                    i--;
+                }
+            }
+        }
+    }
 }
 
 function checkReminders() {
@@ -755,7 +899,14 @@ function checkReminders() {
         let shouldCheck = false;
         if (r.type === 'daily') shouldCheck = true;
         if (r.type === 'monthly' && currentDate === r.day) shouldCheck = true;
-        if (r.type === 'dateRange' && currentDate >= r.startDate && currentDate <= r.endDate) shouldCheck = true;
+        if (r.type === 'dateRange') {
+            // 支持跨月范围：如果 startDate > endDate，说明是跨月的（例如：28号到5号）
+            if (r.startDate <= r.endDate) {
+                shouldCheck = currentDate >= r.startDate && currentDate <= r.endDate;
+            } else {
+                shouldCheck = currentDate >= r.startDate || currentDate <= r.endDate;
+            }
+        }
         
         if (!shouldCheck) return;
         if (currentTime < r.startTime || currentTime > r.endTime) return;
@@ -832,8 +983,15 @@ function updateCountdownWidget() {
             const [h, m] = r.endTime.split(':');
             target = new Date();
             target.setHours(parseInt(h), parseInt(m), 0, 0);
-            target.setDate(r.day);
-            if (target <= now) target.setMonth(target.getMonth() + 1);
+            target.setDate(1); // 先设置为每月1号
+            target.setMonth(target.getMonth() + (target.getDate() > r.day ? 1 : 0)); // 如果当前日期大于目标日期，加一个月
+            const daysInMonth = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate(); // 获取该月的天数
+            target.setDate(Math.min(r.day, daysInMonth)); // 使用目标日期和该月天数的较小值
+            if (target <= now) {
+                target.setMonth(target.getMonth() + 1);
+                const daysInNextMonth = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+                target.setDate(Math.min(r.day, daysInNextMonth));
+            }
         }
         if (r.type === 'dateRange') {
             const [h, m] = r.endTime.split(':');
@@ -917,7 +1075,13 @@ function updateCountdownWidget() {
     update();
     countdownInterval = setInterval(update, 1000);
     setTimeout(sync, 100);
-    window.addEventListener('resize', sync);
+    
+    // 移除旧的 resize 监听器（防止内存泄漏）
+    if (resizeListener) {
+        window.removeEventListener('resize', resizeListener);
+    }
+    resizeListener = sync;
+    window.addEventListener('resize', resizeListener);
 }
 
 document.addEventListener('DOMContentLoaded', () => {

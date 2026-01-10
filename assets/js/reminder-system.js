@@ -462,7 +462,7 @@ function injectReminderStyles() {
         #reminderBtn {
             position: fixed;
             bottom: 24px;
-            left: 24px;
+            right: 84px;
             width: 48px;
             height: 48px;
             border-radius: 50%;
@@ -488,7 +488,7 @@ function injectReminderStyles() {
         .reminder-countdowns-container {
             position: fixed;
             bottom: 84px;
-            left: 24px;
+            right: 84px;
             display: flex;
             flex-direction: column;
             gap: 12px;

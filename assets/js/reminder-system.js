@@ -440,7 +440,8 @@ function injectReminderStyles() {
         }
 
         .reminder-toggle-btn,
-        .reminder-delete-btn {
+        .reminder-delete-btn,
+        .reminder-test-btn {
             background: none;
             border: none;
             font-size: 18px;
@@ -454,6 +455,10 @@ function injectReminderStyles() {
             background: rgba(102, 126, 234, 0.1);
         }
 
+        .reminder-test-btn:hover {
+            background: rgba(240, 147, 251, 0.1);
+        }
+
         .reminder-delete-btn:hover {
             background: rgba(239, 68, 68, 0.1);
         }
@@ -462,7 +467,7 @@ function injectReminderStyles() {
         #reminderMenuBtn {
             position: fixed;
             bottom: 24px;
-            left: 24px;
+            left: 84px;
             width: 48px;
             height: 48px;
             border-radius: 50%;
@@ -488,7 +493,7 @@ function injectReminderStyles() {
         #reminderBtn {
             position: fixed;
             bottom: 24px;
-            left: 84px;
+            left: 24px;
             width: 48px;
             height: 48px;
             border-radius: 50%;
@@ -636,7 +641,7 @@ function injectReminderHTML() {
     // 倒计时小卡片容器
     const countdownsContainer = document.createElement('div');
     countdownsContainer.id = 'reminderCountdownsContainer';
-    countdownsContainer.className = 'reminder-countdowns-container';
+    countdownsContainer.className = 'reminder-countdowns-container collapsed';
     document.body.appendChild(countdownsContainer);
 
     // 提醒管理弹窗
@@ -1052,6 +1057,20 @@ function testReminder() {
 }
 
 /**
+ * 测试当前提醒
+ */
+function testCurrentReminder(id) {
+    const reminder = reminders.find(r => r.id === id);
+    if (!reminder) return;
+
+    if (reminder.type === 'countdown') {
+        showReminderNotification(reminder);
+    } else {
+        showReminderNotification(reminder);
+    }
+}
+
+/**
  * 渲染提醒列表
  */
 function renderReminderList() {
@@ -1111,6 +1130,9 @@ function renderReminderList() {
                     <button class="reminder-toggle-btn" onclick="toggleReminder(${reminder.id})"
                         title="${reminder.enabled ? '禁用' : '启用'}">
                         ${reminder.enabled ? '🔔' : '🔕'}
+                    </button>
+                    <button class="reminder-test-btn" onclick="testCurrentReminder(${reminder.id})" title="当前测试">
+                        🧪
                     </button>
                     <button class="reminder-delete-btn" onclick="deleteReminder(${reminder.id})" title="删除">
                         🗑️
@@ -1387,6 +1409,12 @@ function updateCountdownWidget() {
     // 如果没有任何内容显示，直接返回
     if (allReminders.length === 0) {
         return;
+    }
+
+    // 如果有倒计时类型的提醒，自动展开显示
+    const hasCountdown = countdownReminders.length > 0;
+    if (hasCountdown && container.classList.contains('collapsed')) {
+        container.classList.remove('collapsed');
     }
 
     // 更新倒计时

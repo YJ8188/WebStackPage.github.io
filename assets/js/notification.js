@@ -331,86 +331,112 @@ function deleteReminder(id) {
 
 // ==================== 更新提醒列表显示 ====================
 function updateReminderList() {
-    const list = document.getElementById('reminderList');
+    const activeList = document.getElementById('activeReminderList');
+    const completedList = document.getElementById('completedReminderList');
+    const activeCount = document.getElementById('activeCount');
+    const completedCount = document.getElementById('completedCount');
 
     // 清空列表
-    list.innerHTML = '';
+    activeList.innerHTML = '';
+    completedList.innerHTML = '';
 
-    // 如果没有提醒
-    if (reminders.length === 0) {
-        list.innerHTML = '<div class="empty-reminders">暂无提醒</div>';
-        return;
+    // 分组提醒
+    const activeReminders = reminders.filter(r => r.active);
+    const completedReminders = reminders.filter(r => !r.active);
+
+    // 更新计数
+    activeCount.textContent = activeReminders.length;
+    completedCount.textContent = completedReminders.length;
+
+    // 显示正在处理的提醒
+    if (activeReminders.length === 0) {
+        activeList.innerHTML = '<div class="empty-reminders">暂无正在处理的事件</div>';
+    } else {
+        activeReminders.forEach(reminder => {
+            const item = createReminderItem(reminder);
+            activeList.appendChild(item);
+        });
     }
 
-    // 遍历提醒列表
-    reminders.forEach(reminder => {
-        const item = document.createElement('div');
-        item.className = 'reminder-item';
+    // 显示已完成的提醒
+    if (completedReminders.length === 0) {
+        completedList.innerHTML = '<div class="empty-reminders">暂无已办事件</div>';
+    } else {
+        completedReminders.forEach(reminder => {
+            const item = createReminderItem(reminder);
+            item.style.opacity = '0.6'; // 已完成的提醒半透明显示
+            completedList.appendChild(item);
+        });
+    }
+}
 
-        // 计算显示文本
-        let timeText = '';
-        let statusClass = '';
+// ==================== 创建提醒项HTML ====================
+function createReminderItem(reminder) {
+    const item = document.createElement('div');
+    item.className = 'reminder-item';
 
-        if (!reminder.active) {
-            timeText = '已完成';
-            statusClass = 'completed';
-        } else {
-            switch (reminder.type) {
-                case 'countdown':
-                    const remaining = Math.max(0, Math.floor((reminder.endTime - new Date().getTime()) / 1000));
-                    const minutes = Math.floor(remaining / 60);
-                    const seconds = remaining % 60;
-                    timeText = `剩余 ${minutes}分${seconds}秒`;
-                    break;
+    // 计算显示文本
+    let timeText = '';
+    let statusClass = '';
 
-                case 'schedule':
-                case 'repeat':
-                    if (reminder.nextTrigger) {
-                        const remaining = Math.max(0, Math.floor((reminder.nextTrigger - new Date().getTime()) / 1000));
-                        const days = Math.floor(remaining / (24 * 60 * 60));
-                        const hours = Math.floor((remaining % (24 * 60 * 60)) / (60 * 60));
-                        const minutes = Math.floor((remaining % (60 * 60)) / 60);
-                        if (days > 0) {
-                            timeText = `还有 ${days}天${hours}小时`;
-                        } else if (hours > 0) {
-                            timeText = `还有 ${hours}小时${minutes}分钟`;
-                        } else {
-                            timeText = `还有 ${minutes}分钟`;
-                        }
+    if (!reminder.active) {
+        timeText = '已完成';
+        statusClass = 'completed';
+    } else {
+        switch (reminder.type) {
+            case 'countdown':
+                const remaining = Math.max(0, Math.floor((reminder.endTime - new Date().getTime()) / 1000));
+                const minutes = Math.floor(remaining / 60);
+                const seconds = remaining % 60;
+                timeText = `剩余 ${minutes}分${seconds}秒`;
+                break;
+
+            case 'schedule':
+            case 'repeat':
+                if (reminder.nextTrigger) {
+                    const remaining = Math.max(0, Math.floor((reminder.nextTrigger - new Date().getTime()) / 1000));
+                    const days = Math.floor(remaining / (24 * 60 * 60));
+                    const hours = Math.floor((remaining % (24 * 60 * 60)) / (60 * 60));
+                    const minutes = Math.floor((remaining % (60 * 60)) / 60);
+                    if (days > 0) {
+                        timeText = `还有 ${days}天${hours}小时`;
+                    } else if (hours > 0) {
+                        timeText = `还有 ${hours}小时${minutes}分钟`;
                     } else {
-                        timeText = '等待中';
+                        timeText = `还有 ${minutes}分钟`;
                     }
-                    break;
+                } else {
+                    timeText = '等待中';
+                }
+                break;
 
-                case 'event':
-                    const eventRemaining = Math.max(0, Math.floor((reminder.endTime - new Date().getTime()) / 1000));
-                    const eventDays = Math.floor(eventRemaining / (24 * 60 * 60));
-                    const eventHours = Math.floor((eventRemaining % (24 * 60 * 60)) / (60 * 60));
-                    if (eventDays > 0) {
-                        timeText = `还有 ${eventDays}天${eventHours}小时`;
-                    } else if (eventHours > 0) {
-                        timeText = `还有 ${eventHours}小时`;
-                    } else {
-                        timeText = '即将到来';
-                    }
-                    break;
-            }
+            case 'event':
+                const eventRemaining = Math.max(0, Math.floor((reminder.endTime - new Date().getTime()) / 1000));
+                const eventDays = Math.floor(eventRemaining / (24 * 60 * 60));
+                const eventHours = Math.floor((eventRemaining % (24 * 60 * 60)) / (60 * 60));
+                if (eventDays > 0) {
+                    timeText = `还有 ${eventDays}天${eventHours}小时`;
+                } else if (eventHours > 0) {
+                    timeText = `还有 ${eventHours}小时`;
+                } else {
+                    timeText = '即将到来';
+                }
+                break;
         }
+    }
 
-        // 创建HTML
-        item.innerHTML = `
-            <div class="reminder-item-content">
-                <div>
-                    <div class="reminder-text">${reminder.content}</div>
-                    <div class="reminder-time ${statusClass}">${reminder.displayText} - ${timeText}</div>
-                </div>
-                <button class="delete-reminder" onclick="deleteReminder(${reminder.id})">✕</button>
+    // 创建HTML
+    item.innerHTML = `
+        <div class="reminder-item-content">
+            <div>
+                <div class="reminder-text">${reminder.content}</div>
+                <div class="reminder-time ${statusClass}">${reminder.displayText} - ${timeText}</div>
             </div>
-        `;
+            <button class="delete-reminder" onclick="deleteReminder(${reminder.id})">✕</button>
+        </div>
+    `;
 
-        // 添加到列表
-        list.appendChild(item);
-    });
+    return item;
 }
 
 // ==================== 更新徽章 ====================

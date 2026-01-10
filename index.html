@@ -6962,6 +6962,42 @@
             font-size: 16px;
         }
 
+        /* ==================== 自定义滚动条样式 ==================== */
+        /* Webkit浏览器（Chrome, Safari, Edge） */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 4px;
+        }
+
+        body.dark-mode ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(59, 130, 246, 0.5);
+            border-radius: 4px;
+            transition: background 0.3s;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(59, 130, 246, 0.8);
+        }
+
+        /* Firefox浏览器 */
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(59, 130, 246, 0.5) rgba(0, 0, 0, 0.05);
+        }
+
+        body.dark-mode * {
+            scrollbar-color: rgba(59, 130, 246, 0.5) rgba(255, 255, 255, 0.05);
+        }
+
         /* ==================== 通知中心面板样式 ==================== */
         .notification-panel {
             display: none;
@@ -6999,6 +7035,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 15px;
         }
 
         body.dark-mode .notification-header {
@@ -7010,10 +7047,38 @@
             font-size: 18px;
             font-weight: 600;
             color: #2d3748;
+            flex-shrink: 0;
         }
 
         body.dark-mode .notification-header h3 {
             color: #e0e0e0;
+        }
+
+        /* 当前时间日期显示 */
+        .current-datetime {
+            text-align: center;
+            flex: 1;
+        }
+
+        .current-date {
+            font-size: 13px;
+            color: #718096;
+            margin-bottom: 2px;
+        }
+
+        body.dark-mode .current-date {
+            color: #a0aec0;
+        }
+
+        .current-time {
+            font-size: 20px;
+            font-weight: 600;
+            color: #3b82f6;
+            font-family: 'Courier New', monospace;
+        }
+
+        body.dark-mode .current-time {
+            color: #60a5fa;
         }
 
         .close-btn {
@@ -7024,6 +7089,7 @@
             color: #718096;
             padding: 5px;
             transition: color 0.2s;
+            flex-shrink: 0;
         }
 
         .close-btn:hover {
@@ -7130,6 +7196,16 @@
             background: rgba(255, 255, 255, 0.9);
             color: #2d3748;
             cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .time-selector select:focus,
+        .reminder-setting select:focus,
+        .reminder-setting input[type="time"]:focus,
+        .reminder-setting input[type="date"]:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
 
         body.dark-mode .time-selector select,
@@ -7138,6 +7214,21 @@
         body.dark-mode .reminder-setting input[type="date"] {
             border: 1px solid rgba(255, 255, 255, 0.1);
             background: rgba(0, 0, 0, 0.2);
+            color: #e0e0e0;
+        }
+
+        body.dark-mode .time-selector select:focus,
+        body.dark-mode .reminder-setting select:focus,
+        body.dark-mode .reminder-setting input[type="time"]:focus,
+        body.dark-mode .reminder-setting input[type="date"]:focus {
+            border-color: #60a5fa;
+            box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
+        }
+
+        /* 下拉选项的暗黑模式 */
+        body.dark-mode .time-selector select option,
+        body.dark-mode .reminder-setting select option {
+            background: #1a1a1a;
             color: #e0e0e0;
         }
 
@@ -7205,6 +7296,17 @@
             padding: 10px 0;
             border-bottom: 1px solid rgba(0, 0, 0, 0.1);
             margin-bottom: 10px;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.2s;
+        }
+
+        .section-header:hover {
+            background: rgba(0, 0, 0, 0.02);
+        }
+
+        body.dark-mode .section-header:hover {
+            background: rgba(255, 255, 255, 0.02);
         }
 
         body.dark-mode .section-header {
@@ -7215,6 +7317,7 @@
             font-size: 14px;
             font-weight: 600;
             color: #2d3748;
+            flex: 1;
         }
 
         body.dark-mode .section-title {
@@ -7228,6 +7331,30 @@
             border-radius: 10px;
             font-size: 12px;
             font-weight: 500;
+            margin: 0 10px;
+        }
+
+        .section-arrow {
+            font-size: 12px;
+            color: #718096;
+            transition: transform 0.3s ease;
+        }
+
+        body.dark-mode .section-arrow {
+            color: #a0aec0;
+        }
+
+        .section-arrow.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .reminder-list.collapsed {
+            display: none;
+        }
+
+        .reminder-list {
+            transition: max-height 0.3s ease;
+            overflow: hidden;
         }
 
         .empty-reminders {
@@ -7439,6 +7566,10 @@
     <div class="notification-panel" id="notificationPanel">
         <div class="notification-header">
             <h3>通知中心</h3>
+            <div class="current-datetime" id="currentDatetime">
+                <div class="current-date" id="currentDate"></div>
+                <div class="current-time" id="currentTime"></div>
+            </div>
             <button class="close-btn" onclick="toggleNotificationCenter()">✕</button>
         </div>
         <div class="notification-body">
@@ -7582,9 +7713,10 @@
             </div>
             <!-- 提醒列表 - 按状态分类 -->
             <div class="reminder-section">
-                <div class="reminder-section-header">
+                <div class="reminder-section-header" onclick="toggleSection('active')">
                     <span class="section-title">🔔 正在处理</span>
                     <span class="section-count" id="activeCount">0</span>
+                    <span class="section-arrow" id="activeArrow">▼</span>
                 </div>
                 <div class="reminder-list" id="activeReminderList">
                     <div class="empty-reminders">暂无进行中的提醒</div>
@@ -7592,9 +7724,10 @@
             </div>
 
             <div class="reminder-section">
-                <div class="reminder-section-header">
+                <div class="reminder-section-header" onclick="toggleSection('completed')">
                     <span class="section-title">✅ 已办事件</span>
                     <span class="section-count" id="completedCount">0</span>
+                    <span class="section-arrow" id="completedArrow">▼</span>
                 </div>
                 <div class="reminder-list" id="completedReminderList">
                     <div class="empty-reminders">暂无已完成的提醒</div>

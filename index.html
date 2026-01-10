@@ -7189,11 +7189,52 @@
             overflow-y: auto;
         }
 
+        .reminder-list-container {
+            margin-top: 20px;
+        }
+
+        /* 状态分类区域 */
+        .reminder-section {
+            margin-bottom: 20px;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            margin-bottom: 10px;
+        }
+
+        body.dark-mode .section-header {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        body.dark-mode .section-title {
+            color: #e0e0e0;
+        }
+
+        .section-count {
+            background: #3b82f6;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
         .empty-reminders {
             text-align: center;
             color: #a0aec0;
-            padding: 40px 20px;
-            font-size: 14px;
+            padding: 30px 20px;
+            font-size: 13px;
         }
 
         .reminder-item {
@@ -7539,9 +7580,25 @@
 
                 <button class="add-btn" onclick="addReminder()">添加提醒</button>
             </div>
-            <!-- 提醒列表 -->
-            <div class="reminder-list" id="reminderList">
-                <div class="empty-reminders">暂无提醒</div>
+            <!-- 提醒列表 - 按状态分类 -->
+            <div class="reminder-section">
+                <div class="reminder-section-header">
+                    <span class="section-title">🔔 正在处理</span>
+                    <span class="section-count" id="activeCount">0</span>
+                </div>
+                <div class="reminder-list" id="activeReminderList">
+                    <div class="empty-reminders">暂无进行中的提醒</div>
+                </div>
+            </div>
+
+            <div class="reminder-section">
+                <div class="reminder-section-header">
+                    <span class="section-title">✅ 已办事件</span>
+                    <span class="section-count" id="completedCount">0</span>
+                </div>
+                <div class="reminder-list" id="completedReminderList">
+                    <div class="empty-reminders">暂无已完成的提醒</div>
+                </div>
             </div>
         </div>
     </div>

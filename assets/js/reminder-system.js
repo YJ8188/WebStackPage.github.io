@@ -462,7 +462,7 @@ function injectReminderStyles() {
         #reminderBtn {
             position: fixed;
             bottom: 24px;
-            right: 84px;
+            left: 300px;
             width: 48px;
             height: 48px;
             border-radius: 50%;
@@ -484,11 +484,37 @@ function injectReminderStyles() {
             box-shadow: 0 8px 20px rgba(102, 126, 234, 0.5);
         }
 
+        /* 测试提醒按钮 */
+        #testReminderBtn {
+            position: fixed;
+            bottom: 24px;
+            left: 24px;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 6px 16px rgba(240, 147, 251, 0.4);
+            transition: all 0.3s ease;
+            z-index: 9999;
+            border: none;
+            font-size: 20px;
+        }
+
+        #testReminderBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(240, 147, 251, 0.5);
+        }
+
         /* 按钮上方的倒计时卡片容器 */
         .reminder-countdowns-container {
             position: fixed;
             bottom: 84px;
-            right: 84px;
+            left: 300px;
             display: flex;
             flex-direction: column;
             gap: 12px;
@@ -569,6 +595,7 @@ function injectReminderStyles() {
         /* 移动端隐藏提醒系统 */
         @media (max-width: 768px) {
             #reminderBtn,
+            #testReminderBtn,
             .reminder-modal-overlay,
             .reminder-countdowns-container {
                 display: none !important;
@@ -584,6 +611,14 @@ function injectReminderHTML() {
     if (document.getElementById('reminderBtn')) {
         return;
     }
+
+    // 测试提醒按钮
+    const testReminderBtn = document.createElement('button');
+    testReminderBtn.id = 'testReminderBtn';
+    testReminderBtn.onclick = testReminder;
+    testReminderBtn.title = '测试提醒';
+    testReminderBtn.textContent = '🧪';
+    document.body.appendChild(testReminderBtn);
 
     // 提醒管理按钮
     const reminderBtn = document.createElement('button');
@@ -970,6 +1005,32 @@ function toggleReminder(id) {
         renderReminderList();
         updateCountdownWidget();
     }
+}
+
+/**
+ * 测试提醒功能
+ */
+function testReminder() {
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(12, 0, 0, 0);
+
+    const testReminderData = {
+        id: Date.now(),
+        title: '测试提醒',
+        type: 'countdown',
+        targetDate: tomorrow.toISOString().split('T')[0],
+        targetTime: '12:00:00',
+        enabled: true,
+        showInCorner: true,
+        createdAt: new Date().toISOString()
+    };
+
+    reminders.push(testReminderData);
+    saveReminders();
+    renderReminderList();
+    updateCountdownWidget();
 }
 
 /**

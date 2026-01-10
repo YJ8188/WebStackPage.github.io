@@ -173,9 +173,9 @@ async function loadSparkline(id, symbol, changePct) {
 
     async function tryFetch() {
         let prices = null;
-        // 使用币安K线API（获取7天数据）
+        // 使用代理服务器获取币安K线数据（获取7天数据）
         try {
-            const res = await fetchWithTimeout(`https://api.binance.com/api/v3/klines?symbol=${symbol.toUpperCase()}USDT&interval=1d&limit=7`, { timeout: 10000 });
+            const res = await fetchWithTimeout(`https://crypto-websocket-proxy.onrender.com/api/klines?symbol=${symbol.toUpperCase()}USDT&interval=1d&limit=7`, { timeout: 10000 });
             if (res.ok) {
                 const json = await res.json();
                 if (Array.isArray(json) && json.length > 0) {
@@ -185,7 +185,7 @@ async function loadSparkline(id, symbol, changePct) {
                 }
             }
         } catch (e) {
-            Logger.warn(`[K线图] ${symbol} 币安API请求失败:`, e.message);
+            Logger.warn(`[K线图] ${symbol} 代理API请求失败:`, e.message);
         }
         return prices;
     }

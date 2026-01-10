@@ -1,5 +1,5 @@
 /**
- * 提醒系统
+ * 提醒系统完整代码
  * 功能：每日提醒、月度提醒、日期范围提醒、事件倒计时
  * 数据存储：localStorage
  */
@@ -8,7 +8,6 @@
 function injectReminderStyles() {
     const style = document.createElement('style');
     style.textContent = `
-        /* ==================== 提醒管理弹窗样式 ==================== */
         .reminder-modal-overlay {
             position: fixed;
             top: 0;
@@ -24,14 +23,8 @@ function injectReminderStyles() {
         }
 
         @keyframes reminderSlideIn {
-            from {
-                transform: translateY(-30px);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
+            from { transform: translateY(-30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
         }
 
         .reminder-modal-dialog {
@@ -47,25 +40,16 @@ function injectReminderStyles() {
             animation: reminderSlideIn 0.3s ease-out;
         }
 
-        body.dark-mode .reminder-modal-dialog {
-            background: rgba(255, 255, 255, 0.02);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-        }
-
         .reminder-modal-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding: 20px 24px;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-        }
-
-        body.dark-mode .reminder-modal-header {
-            border-bottom-color: rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .reminder-modal-title {
-            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-family: "HarmonyOS Sans", "PingFang SC", sans-serif;
             font-size: 20px;
             font-weight: 600;
             color: #e0e0e0;
@@ -86,9 +70,7 @@ function injectReminderStyles() {
             justify-content: center;
         }
 
-        .reminder-modal-close:hover {
-            color: #e0e0e0;
-        }
+        .reminder-modal-close:hover { color: #e0e0e0; }
 
         .reminder-modal-body {
             padding: 24px;
@@ -96,51 +78,41 @@ function injectReminderStyles() {
             max-height: calc(85vh - 80px);
         }
 
-        /* 提醒表单样式 */
         .reminder-form {
             margin-bottom: 24px;
             padding-bottom: 24px;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        body.dark-mode .reminder-form {
-            border-bottom-color: rgba(255, 255, 255, 0.1);
-        }
-
-        .form-group {
-            margin-bottom: 16px;
-        }
+        .form-group { margin-bottom: 16px; }
 
         .form-group label {
             display: block;
-            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-family: "HarmonyOS Sans", "PingFang SC", sans-serif;
             font-size: 14px;
             font-weight: 500;
             color: #cbd5e0;
             margin-bottom: 8px;
         }
 
-        .form-group input,
-        .form-group select {
+        .form-group input, .form-group select {
             width: 100%;
             padding: 10px 14px;
             border: 1px solid rgba(0, 0, 0, 0.2);
             border-radius: 10px;
-            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-family: "HarmonyOS Sans", "PingFang SC", sans-serif;
             font-size: 14px;
             color: #e0e0e0;
             background: rgba(255, 255, 255, 0.05);
             transition: all 0.2s;
         }
 
-        .form-group input:focus,
-        .form-group select:focus {
+        .form-group input:focus, .form-group select:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
-        /* 修复select下拉选项的暗黑模式背景 */
         .form-group select option {
             background: #2a2a2a;
             color: #e0e0e0;
@@ -151,7 +123,6 @@ function injectReminderStyles() {
             margin-right: 8px;
         }
 
-        /* 时间段选择样式 */
         .time-range-group {
             display: flex;
             gap: 10px;
@@ -168,7 +139,6 @@ function injectReminderStyles() {
             font-weight: 600;
         }
 
-        /* 重复提醒设置样式 */
         .repeat-settings {
             background: rgba(255, 255, 255, 0.05);
             padding: 12px;
@@ -187,18 +157,17 @@ function injectReminderStyles() {
             width: 80px !important;
         }
 
-        /* 添加提醒按钮样式 - 与主页按钮一致 */
         .btn-primary {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: #fff;
             border: none;
             border-radius: 10px;
             padding: 12px 24px;
-            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-family: "HarmonyOS Sans", "PingFang SC", sans-serif;
             font-size: 14px;
             font-weight: 500;
             cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.3s;
             box-shadow: 0 4px 12px rgba(102, 126, 234, 0.35);
         }
 
@@ -207,7 +176,6 @@ function injectReminderStyles() {
             box-shadow: 0 6px 16px rgba(102, 126, 234, 0.45);
         }
 
-        /* 提醒通知弹窗样式 */
         .reminder-notification {
             position: fixed;
             top: 20px;
@@ -223,19 +191,11 @@ function injectReminderStyles() {
         }
 
         @keyframes notificationSlideIn {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
 
-        .reminder-notification.show {
-            display: block;
-        }
+        .reminder-notification.show { display: block; }
 
         .reminder-notification-header {
             display: flex;
@@ -245,7 +205,7 @@ function injectReminderStyles() {
         }
 
         .reminder-notification-title {
-            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-family: "HarmonyOS Sans", "PingFang SC", sans-serif;
             font-size: 16px;
             font-weight: 600;
             color: #e0e0e0;
@@ -258,15 +218,10 @@ function injectReminderStyles() {
             cursor: pointer;
             color: #a0aec0;
             padding: 0;
-            width: 24px;
-            height: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
         }
 
         .reminder-notification-body {
-            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-family: "HarmonyOS Sans", "PingFang SC", sans-serif;
             font-size: 14px;
             color: #cbd5e0;
             margin-bottom: 16px;
@@ -281,7 +236,7 @@ function injectReminderStyles() {
             flex: 1;
             padding: 10px 16px;
             border-radius: 10px;
-            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-family: "HarmonyOS Sans", "PingFang SC", sans-serif;
             font-size: 14px;
             font-weight: 500;
             cursor: pointer;
@@ -294,27 +249,17 @@ function injectReminderStyles() {
             color: #fff;
         }
 
-        .reminder-notification-btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.35);
-        }
-
         .reminder-notification-btn-secondary {
             background: rgba(255, 255, 255, 0.05);
             color: #cbd5e0;
         }
 
-        .reminder-notification-btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        /* 提醒列表样式 */
         .reminder-list-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 16px;
-            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-family: "HarmonyOS Sans", "PingFang SC", sans-serif;
             font-size: 16px;
             font-weight: 600;
             color: #e0e0e0;
@@ -334,26 +279,21 @@ function injectReminderStyles() {
             border-radius: 10px;
             background: rgba(255, 255, 255, 0.02);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.3s;
             border: 1px solid rgba(0, 0, 0, 0.08);
         }
 
         .reminder-item:hover {
-            transform: translateY(-6px) scale(1.01);
+            transform: translateY(-6px);
             box-shadow: 0 14px 32px rgba(0, 0, 0, 0.55);
-            z-index: 100;
         }
 
-        .reminder-item.disabled {
-            opacity: 0.5;
-        }
+        .reminder-item.disabled { opacity: 0.5; }
 
-        .reminder-item-content {
-            flex: 1;
-        }
+        .reminder-item-content { flex: 1; }
 
         .reminder-item-title {
-            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-family: "HarmonyOS Sans", "PingFang SC", sans-serif;
             font-size: 15px;
             font-weight: 600;
             color: #e0e0e0;
@@ -384,8 +324,7 @@ function injectReminderStyles() {
             align-items: center;
         }
 
-        .reminder-toggle-btn,
-        .reminder-delete-btn {
+        .reminder-toggle-btn, .reminder-delete-btn {
             background: none;
             border: none;
             font-size: 18px;
@@ -403,7 +342,6 @@ function injectReminderStyles() {
             background: rgba(239, 68, 68, 0.1);
         }
 
-        /* 提醒按钮样式 */
         #reminderBtn {
             position: fixed;
             bottom: 24px;
@@ -418,7 +356,7 @@ function injectReminderStyles() {
             justify-content: center;
             cursor: pointer;
             box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
-            transition: all 0.3s ease;
+            transition: all 0.3s;
             z-index: 9999;
             border: none;
             font-size: 20px;
@@ -429,26 +367,15 @@ function injectReminderStyles() {
             box-shadow: 0 8px 20px rgba(102, 126, 234, 0.5);
         }
 
-        /* 按钮右侧倒计时小卡片容器 */
-        .reminder-countdowns-container {
-            position: fixed;
-            bottom: 24px;
-            left: 84px;
-            display: flex;
-            gap: 12px;
-            z-index: 9999;
-        }
-
-        /* 按钮上方的倒计时卡片（事件倒计时） */
         .reminder-countdown-card.countdown-main {
             position: fixed;
-            bottom: 80px;
+            bottom: 84px;
             left: 24px;
             padding: 16px 20px;
             border-radius: 10px;
             background: rgba(255, 255, 255, 0.02);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.3s;
             border: 1px solid rgba(0, 0, 0, 0.08);
             animation: countdownPulse 2s infinite;
             min-width: 180px;
@@ -456,16 +383,17 @@ function injectReminderStyles() {
             z-index: 9998;
         }
 
-        /* 按钮右侧的提醒卡片（当前时间段提醒） */
         .reminder-countdown-card.countdown-side {
-            padding: 8px 12px;
+            position: fixed;
+            bottom: 24px;
+            padding: 12px 16px;
             border-radius: 10px;
             background: rgba(255, 255, 255, 0.02);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.3s;
             border: 1px solid rgba(0, 0, 0, 0.08);
             box-sizing: border-box;
-            /* 动态宽度，由JS控制 */
+            z-index: 9998;
         }
 
         .reminder-countdown-card:hover {
@@ -474,51 +402,32 @@ function injectReminderStyles() {
         }
 
         @keyframes countdownPulse {
-            0%, 100% {
-                transform: scale(1);
-            }
-            50% {
-                transform: scale(1.02);
-            }
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
         }
 
         .reminder-countdown-title {
-            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-family: "HarmonyOS Sans", "PingFang SC", sans-serif;
             font-size: 11px;
             font-weight: 600;
             color: #a0aec0;
-            margin-bottom: 2px;
+            margin-bottom: 4px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            word-break: break-all;
         }
 
         .reminder-countdown-timer {
-            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
-            font-size: 16px;
+            font-family: "HarmonyOS Sans", "PingFang SC", sans-serif;
+            font-size: 14px;
             font-weight: 700;
             color: #e0e0e0;
             word-break: break-all;
             line-height: 1.3;
         }
 
-        .reminder-countdown-detail {
-            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
-            font-size: 12px;
-            font-weight: 600;
-            color: #e0e0e0;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            word-break: break-all;
-        }
-
-        /* 移动端隐藏提醒系统 */
         @media (max-width: 768px) {
-            #reminderBtn,
-            .reminder-modal-overlay,
-            .reminder-countdowns-container {
+            #reminderBtn, .reminder-modal-overlay, .reminder-countdown-card {
                 display: none !important;
             }
         }
@@ -526,85 +435,61 @@ function injectReminderStyles() {
     document.head.appendChild(style);
 }
 
-// ==================== 注入HTML到页面 ====================
 function injectReminderHTML() {
-    // 检查是否已经注入过
-    if (document.getElementById('reminderBtn')) {
-        return;
-    }
+    if (document.getElementById('reminderBtn')) return;
 
-    // 提醒管理按钮
-    const reminderBtn = document.createElement('button');
-    reminderBtn.id = 'reminderBtn';
-    reminderBtn.onclick = openReminderModal;
-    reminderBtn.title = '提醒管理';
-    reminderBtn.textContent = '🔔';
-    document.body.appendChild(reminderBtn);
+    const btn = document.createElement('button');
+    btn.id = 'reminderBtn';
+    btn.onclick = openReminderModal;
+    btn.title = '提醒管理';
+    btn.textContent = '🔔';
+    document.body.appendChild(btn);
 
-    // 倒计时小卡片容器
-    const countdownsContainer = document.createElement('div');
-    countdownsContainer.id = 'reminderCountdownsContainer';
-    countdownsContainer.className = 'reminder-countdowns-container';
-    document.body.appendChild(countdownsContainer);
-
-    // 提醒管理弹窗
-    const modalHTML = `
-        <div class="reminder-modal-overlay" id="reminderModal" style="display: none;">
+    const modal = `
+        <div class="reminder-modal-overlay" id="reminderModal">
             <div class="reminder-modal-dialog">
                 <div class="reminder-modal-header">
                     <div class="reminder-modal-title">📅 提醒管理</div>
                     <button class="reminder-modal-close" onclick="closeReminderModal()">✕</button>
                 </div>
-
                 <div class="reminder-modal-body">
-                    <!-- 添加新提醒表单 -->
                     <div class="reminder-form">
                         <div class="form-group">
                             <label>提醒标题</label>
                             <input type="text" id="reminderTitle" placeholder="例如：缴纳电费、春节倒计时">
                         </div>
-
                         <div class="form-group">
                             <label>提醒类型</label>
                             <select id="reminderType" onchange="handleReminderTypeChange()">
                                 <option value="daily">每日提醒</option>
-                                <option value="monthly">月度提醒（每月固定日期）</option>
-                                <option value="dateRange">日期范围提醒（如6-8号）</option>
+                                <option value="monthly">月度提醒</option>
+                                <option value="dateRange">日期范围提醒</option>
                                 <option value="countdown">事件倒计时</option>
                             </select>
                         </div>
-
-                        <!-- 每日提醒选项 -->
-                        <div class="reminder-type-option" id="dailyOption">
+                        <div id="dailyOption">
                             <div class="form-group">
                                 <label>提醒时间段</label>
                                 <div class="time-range-group">
-                                    <div class="form-group">
-                                        <input type="time" id="dailyStartTime" value="09:00">
-                                    </div>
+                                    <div class="form-group"><input type="time" id="dailyStartTime" value="09:00"></div>
                                     <span class="time-range-separator">至</span>
-                                    <div class="form-group">
-                                        <input type="time" id="dailyEndTime" value="24:00">
-                                    </div>
+                                    <div class="form-group"><input type="time" id="dailyEndTime" value="18:00"></div>
                                 </div>
                             </div>
                             <div class="form-group">
                                 <label style="display: flex; align-items: center; gap: 8px;">
-                                    <input type="checkbox" id="dailyRepeat" checked>
-                                    启用重复提醒
+                                    <input type="checkbox" id="dailyRepeat" checked>启用重复提醒
                                 </label>
-                                <div class="repeat-settings" id="dailyRepeatSettings">
-                                    <label style="font-size: 13px; color: #718096; margin-bottom: 8px;">重复提醒间隔（分钟）</label>
+                                <div class="repeat-settings">
+                                    <label style="font-size: 13px; color: #718096;">重复间隔（分钟）</label>
                                     <div class="repeat-interval-group">
-                                        <input type="number" id="dailyRepeatInterval" min="1" max="60" value="5">
+                                        <input type="number" id="dailyRepeatInterval" min="1" value="5">
                                         <span style="color: #718096;">分钟</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
-
-                        <!-- 月度提醒选项 -->
-                        <div class="reminder-type-option" id="monthlyOption" style="display: none;">
+                        <div id="monthlyOption" style="display: none;">
                             <div class="form-group">
                                 <label>每月几号</label>
                                 <input type="number" id="monthlyDate" min="1" max="31" value="1">
@@ -612,32 +497,25 @@ function injectReminderHTML() {
                             <div class="form-group">
                                 <label>提醒时间段</label>
                                 <div class="time-range-group">
-                                    <div class="form-group">
-                                        <input type="time" id="monthlyStartTime" value="09:00">
-                                    </div>
+                                    <div class="form-group"><input type="time" id="monthlyStartTime" value="09:00"></div>
                                     <span class="time-range-separator">至</span>
-                                    <div class="form-group">
-                                        <input type="time" id="monthlyEndTime" value="24:00">
-                                    </div>
+                                    <div class="form-group"><input type="time" id="monthlyEndTime" value="18:00"></div>
                                 </div>
                             </div>
                             <div class="form-group">
                                 <label style="display: flex; align-items: center; gap: 8px;">
-                                    <input type="checkbox" id="monthlyRepeat" checked>
-                                    启用重复提醒
+                                    <input type="checkbox" id="monthlyRepeat" checked>启用重复提醒
                                 </label>
-                                <div class="repeat-settings" id="monthlyRepeatSettings">
-                                    <label style="font-size: 13px; color: #718096; margin-bottom: 8px;">重复提醒间隔（分钟）</label>
+                                <div class="repeat-settings">
+                                    <label style="font-size: 13px; color: #718096;">重复间隔（分钟）</label>
                                     <div class="repeat-interval-group">
-                                        <input type="number" id="monthlyRepeatInterval" min="1" max="60" value="5">
+                                        <input type="number" id="monthlyRepeatInterval" min="1" value="5">
                                         <span style="color: #718096;">分钟</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
-
-                        <!-- 日期范围提醒选项 -->
-                        <div class="reminder-type-option" id="dateRangeOption" style="display: none;">
+                        <div id="dateRangeOption" style="display: none;">
                             <div class="form-group">
                                 <label>起始日期</label>
                                 <input type="number" id="rangeStartDate" min="1" max="31" value="6">
@@ -649,32 +527,25 @@ function injectReminderHTML() {
                             <div class="form-group">
                                 <label>提醒时间段</label>
                                 <div class="time-range-group">
-                                    <div class="form-group">
-                                        <input type="time" id="rangeStartTime" value="09:00">
-                                    </div>
+                                    <div class="form-group"><input type="time" id="rangeStartTime" value="09:00"></div>
                                     <span class="time-range-separator">至</span>
-                                    <div class="form-group">
-                                        <input type="time" id="rangeEndTime" value="24:00">
-                                    </div>
+                                    <div class="form-group"><input type="time" id="rangeEndTime" value="18:00"></div>
                                 </div>
                             </div>
                             <div class="form-group">
                                 <label style="display: flex; align-items: center; gap: 8px;">
-                                    <input type="checkbox" id="rangeRepeat" checked>
-                                    启用重复提醒
+                                    <input type="checkbox" id="rangeRepeat" checked>启用重复提醒
                                 </label>
-                                <div class="repeat-settings" id="rangeRepeatSettings">
-                                    <label style="font-size: 13px; color: #718096; margin-bottom: 8px;">重复提醒间隔（分钟）</label>
+                                <div class="repeat-settings">
+                                    <label style="font-size: 13px; color: #718096;">重复间隔（分钟）</label>
                                     <div class="repeat-interval-group">
-                                        <input type="number" id="rangeRepeatInterval" min="1" max="60" value="5">
+                                        <input type="number" id="rangeRepeatInterval" min="1" value="5">
                                         <span style="color: #718096;">分钟</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
-
-                        <!-- 倒计时选项 -->
-                        <div class="reminder-type-option" id="countdownOption" style="display: none;">
+                        <div id="countdownOption" style="display: none;">
                             <div class="form-group">
                                 <label>目标日期</label>
                                 <input type="date" id="countdownDate">
@@ -685,18 +556,14 @@ function injectReminderHTML() {
                             </div>
                             <div class="form-group">
                                 <label style="display: flex; align-items: center; gap: 8px;">
-                                    <input type="checkbox" id="showInCorner" checked>
-                                    在左下角显示倒计时
+                                    <input type="checkbox" id="showInCorner" checked>在左下角显示倒计时
                                 </label>
                             </div>
                         </div>
-
                         <button class="btn btn-primary" onclick="addReminder()" style="width: 100%; margin-top: 10px;">
                             ➕ 添加提醒
                         </button>
                     </div>
-
-                    <!-- 提醒列表 -->
                     <div class="reminder-list">
                         <div class="reminder-list-header">
                             <span>我的提醒</span>
@@ -709,51 +576,27 @@ function injectReminderHTML() {
                 </div>
             </div>
         </div>
-
-        <!-- 提醒通知弹窗 -->
         <div class="reminder-notification" id="reminderNotification">
             <div class="reminder-notification-header">
                 <div class="reminder-notification-title">🔔 提醒</div>
                 <button class="reminder-notification-close" onclick="closeReminderNotification()">✕</button>
             </div>
-            <div class="reminder-notification-body" id="reminderNotificationBody">
-                您有一个提醒需要处理
-            </div>
+            <div class="reminder-notification-body" id="reminderNotificationBody">您有一个提醒需要处理</div>
             <div class="reminder-notification-actions">
                 <button class="reminder-notification-btn reminder-notification-btn-secondary" onclick="snoozeReminder()">稍后提醒</button>
                 <button class="reminder-notification-btn reminder-notification-btn-primary" onclick="acknowledgeReminder()">已知晓</button>
             </div>
         </div>
     `;
-
-    // 创建临时容器并插入HTML
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = modalHTML;
-    document.body.appendChild(tempDiv);
-
-    // 将子元素移到body
-    while (tempDiv.firstChild) {
-        document.body.appendChild(tempDiv.firstChild);
-    }
-
-    // 移除临时容器
-    document.body.removeChild(tempDiv);
+    const div = document.createElement('div');
+    div.innerHTML = modal;
+    while (div.firstChild) document.body.appendChild(div.firstChild);
 }
 
-// ==================== 提醒系统核心功能 ====================
-
-// 提醒数据存储键名
 const REMINDER_STORAGE_KEY = 'webstack_reminders';
-
-// 提醒数据
 let reminders = [];
-
-// 倒计时定时器
 let countdownInterval = null;
 
-/**
- * 初始化提醒系统
- */
 function initReminderSystem() {
     injectReminderStyles();
     injectReminderHTML();
@@ -763,616 +606,323 @@ function initReminderSystem() {
     updateCountdownWidget();
 }
 
-/**
- * 从localStorage加载提醒数据
- */
 function loadReminders() {
     try {
         const data = localStorage.getItem(REMINDER_STORAGE_KEY);
-        if (data) {
-            reminders = JSON.parse(data);
-        }
+        if (data) reminders = JSON.parse(data);
     } catch (e) {
-        console.error('加载提醒数据失败:', e);
         reminders = [];
     }
 }
 
-/**
- * 保存提醒数据到localStorage
- */
 function saveReminders() {
     try {
         localStorage.setItem(REMINDER_STORAGE_KEY, JSON.stringify(reminders));
     } catch (e) {
-        console.error('保存提醒数据失败:', e);
+        console.error('保存失败');
     }
 }
 
-/**
- * 打开提醒管理弹窗
- */
 function openReminderModal() {
-    const modal = document.getElementById('reminderModal');
-    modal.style.display = 'flex';
+    document.getElementById('reminderModal').style.display = 'flex';
     renderReminderList();
 }
 
-/**
- * 关闭提醒管理弹窗
- */
 function closeReminderModal() {
-    const modal = document.getElementById('reminderModal');
-    modal.style.display = 'none';
+    document.getElementById('reminderModal').style.display = 'none';
 }
 
-/**
- * 处理提醒类型变化
- */
 function handleReminderTypeChange() {
     const type = document.getElementById('reminderType').value;
-
-    // 隐藏所有选项
     document.getElementById('dailyOption').style.display = 'none';
     document.getElementById('monthlyOption').style.display = 'none';
     document.getElementById('dateRangeOption').style.display = 'none';
     document.getElementById('countdownOption').style.display = 'none';
-
-    // 显示对应选项
-    switch(type) {
-        case 'daily':
-            document.getElementById('dailyOption').style.display = 'block';
-            break;
-        case 'monthly':
-            document.getElementById('monthlyOption').style.display = 'block';
-            break;
-        case 'dateRange':
-            document.getElementById('dateRangeOption').style.display = 'block';
-            break;
-        case 'countdown':
-            document.getElementById('countdownOption').style.display = 'block';
-            break;
-    }
+    if (type === 'daily') document.getElementById('dailyOption').style.display = 'block';
+    if (type === 'monthly') document.getElementById('monthlyOption').style.display = 'block';
+    if (type === 'dateRange') document.getElementById('dateRangeOption').style.display = 'block';
+    if (type === 'countdown') document.getElementById('countdownOption').style.display = 'block';
 }
 
-/**
- * 添加提醒
- */
 function addReminder() {
     const title = document.getElementById('reminderTitle').value.trim();
     const type = document.getElementById('reminderType').value;
-
-    if (!title) {
-        alert('请输入提醒标题');
-        return;
+    if (!title) { alert('请输入标题'); return; }
+    
+    const r = { id: Date.now(), title, type, enabled: true, createdAt: new Date().toISOString() };
+    
+    if (type === 'daily') {
+        r.startTime = document.getElementById('dailyStartTime').value;
+        r.endTime = document.getElementById('dailyEndTime').value;
+        r.repeat = document.getElementById('dailyRepeat').checked;
+        r.repeatInterval = r.repeat ? parseInt(document.getElementById('dailyRepeatInterval').value) : 0;
+    } else if (type === 'monthly') {
+        r.day = parseInt(document.getElementById('monthlyDate').value);
+        r.startTime = document.getElementById('monthlyStartTime').value;
+        r.endTime = document.getElementById('monthlyEndTime').value;
+        r.repeat = document.getElementById('monthlyRepeat').checked;
+        r.repeatInterval = r.repeat ? parseInt(document.getElementById('monthlyRepeatInterval').value) : 0;
+    } else if (type === 'dateRange') {
+        r.startDate = parseInt(document.getElementById('rangeStartDate').value);
+        r.endDate = parseInt(document.getElementById('rangeEndDate').value);
+        r.startTime = document.getElementById('rangeStartTime').value;
+        r.endTime = document.getElementById('rangeEndTime').value;
+        r.repeat = document.getElementById('rangeRepeat').checked;
+        r.repeatInterval = r.repeat ? parseInt(document.getElementById('rangeRepeatInterval').value) : 0;
+    } else if (type === 'countdown') {
+        r.targetDate = document.getElementById('countdownDate').value;
+        r.targetTime = document.getElementById('countdownTime').value;
+        r.showInCorner = document.getElementById('showInCorner').checked;
     }
-
-    const reminder = {
-        id: Date.now(),
-        title: title,
-        type: type,
-        enabled: true,
-        createdAt: new Date().toISOString()
-    };
-
-    // 根据类型设置具体参数
-    switch(type) {
-        case 'daily':
-            reminder.startTime = document.getElementById('dailyStartTime').value;
-            reminder.endTime = document.getElementById('dailyEndTime').value;
-            reminder.repeat = document.getElementById('dailyRepeat').checked;
-            reminder.repeatInterval = reminder.repeat ? parseInt(document.getElementById('dailyRepeatInterval').value) : 0;
-            break;
-        case 'monthly':
-            reminder.day = parseInt(document.getElementById('monthlyDate').value);
-            reminder.startTime = document.getElementById('monthlyStartTime').value;
-            reminder.endTime = document.getElementById('monthlyEndTime').value;
-            reminder.repeat = document.getElementById('monthlyRepeat').checked;
-            reminder.repeatInterval = reminder.repeat ? parseInt(document.getElementById('monthlyRepeatInterval').value) : 0;
-            break;
-        case 'dateRange':
-            reminder.startDate = parseInt(document.getElementById('rangeStartDate').value);
-            reminder.endDate = parseInt(document.getElementById('rangeEndDate').value);
-            reminder.startTime = document.getElementById('rangeStartTime').value;
-            reminder.endTime = document.getElementById('rangeEndTime').value;
-            reminder.repeat = document.getElementById('rangeRepeat').checked;
-            reminder.repeatInterval = reminder.repeat ? parseInt(document.getElementById('rangeRepeatInterval').value) : 0;
-            break;
-        case 'countdown':
-            reminder.targetDate = document.getElementById('countdownDate').value;
-            reminder.targetTime = document.getElementById('countdownTime').value;
-            reminder.showInCorner = document.getElementById('showInCorner').checked;
-            break;
-    }
-
-    reminders.push(reminder);
+    
+    reminders.push(r);
     saveReminders();
     renderReminderList();
     updateCountdownWidget();
-
-    // 清空表单
     document.getElementById('reminderTitle').value = '';
-    alert('提醒添加成功！');
+    alert('添加成功！');
 }
 
-/**
- * 删除提醒
- */
 function deleteReminder(id) {
-    if (confirm('确定要删除这个提醒吗？')) {
+    if (confirm('确定删除？')) {
         reminders = reminders.filter(r => r.id !== id);
         saveReminders();
         renderReminderList();
         updateCountdownWidget();
-        alert('提醒已删除');
     }
 }
 
-/**
- * 切换提醒启用状态
- */
 function toggleReminder(id) {
-    const reminder = reminders.find(r => r.id === id);
-    if (reminder) {
-        reminder.enabled = !reminder.enabled;
+    const r = reminders.find(r => r.id === id);
+    if (r) {
+        r.enabled = !r.enabled;
         saveReminders();
         renderReminderList();
         updateCountdownWidget();
     }
 }
 
-/**
- * 渲染提醒列表
- */
 function renderReminderList() {
     const container = document.getElementById('reminderList');
-    const countEl = document.getElementById('reminderCount');
-
-    countEl.textContent = reminders.length;
-
+    document.getElementById('reminderCount').textContent = reminders.length;
+    
     if (reminders.length === 0) {
         container.innerHTML = '<div class="empty-state">暂无提醒</div>';
         return;
     }
-
-    container.innerHTML = reminders.map(reminder => {
-        const typeLabels = {
-            daily: '每日提醒',
-            monthly: '月度提醒',
-            dateRange: '日期范围',
-            countdown: '倒计时'
-        };
-
+    
+    const labels = { daily: '每日', monthly: '月度', dateRange: '范围', countdown: '倒计时' };
+    
+    container.innerHTML = reminders.map(r => {
         let detail = '';
-        switch(reminder.type) {
-            case 'daily':
-                detail = `每天 ${reminder.startTime}-${reminder.endTime}`;
-                if (reminder.repeat) {
-                    detail += ` | 每${reminder.repeatInterval}分钟重复`;
-                }
-                break;
-            case 'monthly':
-                detail = `每月${reminder.day}号 ${reminder.startTime}-${reminder.endTime}`;
-                if (reminder.repeat) {
-                    detail += ` | 每${reminder.repeatInterval}分钟重复`;
-                }
-                break;
-            case 'dateRange':
-                detail = `${reminder.startDate}-${reminder.endDate}号 ${reminder.startTime}-${reminder.endTime}`;
-                if (reminder.repeat) {
-                    detail += ` | 每${reminder.repeatInterval}分钟重复`;
-                }
-                break;
-            case 'countdown':
-                detail = `${reminder.targetDate} ${reminder.targetTime}`;
-                break;
-        }
-
+        if (r.type === 'daily') detail = `每天 ${r.startTime}-${r.endTime}${r.repeat ? ` | 每${r.repeatInterval}分钟` : ''}`;
+        if (r.type === 'monthly') detail = `每月${r.day}号 ${r.startTime}-${r.endTime}${r.repeat ? ` | 每${r.repeatInterval}分钟` : ''}`;
+        if (r.type === 'dateRange') detail = `${r.startDate}-${r.endDate}号 ${r.startTime}-${r.endTime}${r.repeat ? ` | 每${r.repeatInterval}分钟` : ''}`;
+        if (r.type === 'countdown') detail = `${r.targetDate} ${r.targetTime}`;
+        
         return `
-            <div class="reminder-item ${reminder.enabled ? '' : 'disabled'}">
+            <div class="reminder-item ${r.enabled ? '' : 'disabled'}">
                 <div class="reminder-item-content">
-                    <div class="reminder-item-title">${reminder.title}</div>
+                    <div class="reminder-item-title">${r.title}</div>
                     <div class="reminder-item-detail">
-                        <span class="reminder-type-badge">${typeLabels[reminder.type]}</span>
+                        <span class="reminder-type-badge">${labels[r.type]}</span>
                         <span>${detail}</span>
                     </div>
                 </div>
                 <div class="reminder-item-actions">
-                    <button class="reminder-toggle-btn" onclick="toggleReminder(${reminder.id})"
-                        title="${reminder.enabled ? '禁用' : '启用'}">
-                        ${reminder.enabled ? '🔔' : '🔕'}
-                    </button>
-                    <button class="reminder-delete-btn" onclick="deleteReminder(${reminder.id})" title="删除">
-                        🗑️
-                    </button>
+                    <button class="reminder-toggle-btn" onclick="toggleReminder(${r.id})">${r.enabled ? '🔔' : '🔕'}</button>
+                    <button class="reminder-delete-btn" onclick="deleteReminder(${r.id})">🗑️</button>
                 </div>
             </div>
         `;
     }).join('');
 }
 
-/**
- * 开始检查提醒
- */
 function startReminderCheck() {
-    // 每分钟检查一次
     setInterval(checkReminders, 60000);
-    // 立即检查一次
     checkReminders();
 }
 
-/**
- * 检查提醒
- */
 function checkReminders() {
     const now = new Date();
     const currentDate = now.getDate();
-    const currentTime = now.toTimeString().slice(0, 5); // HH:MM
+    const currentTime = now.toTimeString().slice(0, 5);
     const todayKey = now.toDateString();
-
-    reminders.forEach(reminder => {
-        if (!reminder.enabled) return;
-
-        // 倒计时类型不使用定时提醒
-        if (reminder.type === 'countdown') return;
-
-        // 检查是否在时间段内
-        let inTimeRange = false;
+    
+    reminders.forEach(r => {
+        if (!r.enabled || r.type === 'countdown') return;
+        
         let shouldCheck = false;
-
-        switch(reminder.type) {
-            case 'daily':
-                shouldCheck = true;
-                break;
-            case 'monthly':
-                if (currentDate === reminder.day) {
-                    shouldCheck = true;
-                }
-                break;
-            case 'dateRange':
-                if (currentDate >= reminder.startDate && currentDate <= reminder.endDate) {
-                    shouldCheck = true;
-                }
-                break;
-        }
-
+        if (r.type === 'daily') shouldCheck = true;
+        if (r.type === 'monthly' && currentDate === r.day) shouldCheck = true;
+        if (r.type === 'dateRange' && currentDate >= r.startDate && currentDate <= r.endDate) shouldCheck = true;
+        
         if (!shouldCheck) return;
-
-        // 检查是否在时间段内
-        if (currentTime >= reminder.startTime && currentTime <= reminder.endTime) {
-            inTimeRange = true;
-        }
-
-        if (!inTimeRange) return;
-
-        // 检查用户是否已经点击"已知晓"
-        const acknowledgedKey = `reminder_${reminder.id}_${todayKey}_acknowledged`;
-        if (localStorage.getItem(acknowledgedKey)) return;
-
-        // 检查是否需要提醒
-        const reminderKey = `reminder_${reminder.id}_${todayKey}_${currentTime}`;
-
-        // 如果不启用重复提醒，检查今天是否已经提醒过
-        if (!reminder.repeat) {
-            const todayReminded = localStorage.getItem(`reminder_${reminder.id}_${todayKey}`);
-            if (todayReminded) return;
+        if (currentTime < r.startTime || currentTime > r.endTime) return;
+        
+        const ackKey = `reminder_${r.id}_${todayKey}_acknowledged`;
+        if (localStorage.getItem(ackKey)) return;
+        
+        const timeKey = `reminder_${r.id}_${todayKey}_${currentTime}`;
+        if (!r.repeat && localStorage.getItem(`reminder_${r.id}_${todayKey}`)) return;
+        if (r.repeat && localStorage.getItem(timeKey)) return;
+        
+        showReminderNotification(r);
+        
+        if (r.repeat) {
+            localStorage.setItem(timeKey, 'true');
+            setTimeout(() => localStorage.removeItem(timeKey), r.repeatInterval * 60000);
         } else {
-            // 如果启用重复提醒，检查当前分钟是否已经提醒过
-            if (localStorage.getItem(reminderKey)) return;
-        }
-
-        // 显示提醒通知
-        showReminderNotification(reminder);
-
-        // 记录提醒状态
-        if (reminder.repeat) {
-            // 重复提醒：记录当前分钟
-            localStorage.setItem(reminderKey, 'true');
-            // 5分钟后清除记录（允许下次提醒）
-            setTimeout(() => {
-                localStorage.removeItem(reminderKey);
-            }, reminder.repeatInterval * 60 * 1000);
-        } else {
-            // 不重复：记录今天已提醒
-            localStorage.setItem(`reminder_${reminder.id}_${todayKey}`, 'true');
+            localStorage.setItem(`reminder_${r.id}_${todayKey}`, 'true');
         }
     });
 }
 
-/**
- * 显示提醒通知
- */
-function showReminderNotification(reminder) {
-    const notification = document.getElementById('reminderNotification');
-    const notificationBody = document.getElementById('reminderNotificationBody');
-
-    notificationBody.textContent = reminder.title;
-    notification.classList.add('show');
-
-    // 保存当前提醒ID
-    notification.dataset.reminderId = reminder.id;
-
-    // 使用浏览器通知（如果允许）
+function showReminderNotification(r) {
+    const n = document.getElementById('reminderNotification');
+    document.getElementById('reminderNotificationBody').textContent = r.title;
+    n.classList.add('show');
+    n.dataset.reminderId = r.id;
     if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification('提醒', {
-            body: reminder.title,
-            icon: '../assets/images/favicon.png'
-        });
+        new Notification('提醒', { body: r.title });
     }
 }
 
-/**
- * 关闭提醒通知
- */
 function closeReminderNotification() {
-    const notification = document.getElementById('reminderNotification');
-    notification.classList.remove('show');
+    document.getElementById('reminderNotification').classList.remove('show');
 }
 
-/**
- * 稍后提醒（推迟5分钟）
- */
 function snoozeReminder() {
-    const notification = document.getElementById('reminderNotification');
-    const reminderId = parseInt(notification.dataset.reminderId);
-    
+    const n = document.getElementById('reminderNotification');
+    const id = parseInt(n.dataset.reminderId);
     closeReminderNotification();
-    
-    // 5分钟后再次提醒
-    const reminder = reminders.find(r => r.id === reminderId);
-    if (reminder && reminder.repeat) {
-        setTimeout(() => {
-            showReminderNotification(reminder);
-        }, 5 * 60 * 1000);
-    }
+    const r = reminders.find(r => r.id === id);
+    if (r?.repeat) setTimeout(() => showReminderNotification(r), 300000);
 }
 
-/**
- * 已知晓（停止重复提醒）
- */
 function acknowledgeReminder() {
-    const notification = document.getElementById('reminderNotification');
-    const reminderId = parseInt(notification.dataset.reminderId);
-    const todayKey = new Date().toDateString();
-    
+    const n = document.getElementById('reminderNotification');
+    const id = parseInt(n.dataset.reminderId);
     closeReminderNotification();
-    
-    // 记录今天已知晓，不再重复提醒
-    localStorage.setItem(`reminder_${reminderId}_${todayKey}_acknowledged`, 'true');
+    localStorage.setItem(`reminder_${id}_${new Date().toDateString()}_acknowledged`, 'true');
 }
 
-/**
- * 更新倒计时组件
- */
 function updateCountdownWidget() {
-    const container = document.getElementById('reminderCountdownsContainer');
-
-    // 清除旧的定时器
-    if (countdownInterval) {
-        clearInterval(countdownInterval);
-        countdownInterval = null;
-    }
-
-    // 清空容器
-    container.innerHTML = '';
-
-    // 获取当前时间
+    if (countdownInterval) clearInterval(countdownInterval);
+    
+    const mainCard = document.querySelector('.reminder-countdown-card.countdown-main');
+    const sideCard = document.querySelector('.reminder-countdown-card.countdown-side');
+    if (mainCard) mainCard.remove();
+    if (sideCard) sideCard.remove();
+    
     const now = new Date();
-    const currentTime = now.toTimeString().slice(0, 5); // HH:MM
-    const currentDate = now.getDate();
-    const currentMonth = now.getMonth() + 1;
-    const currentYear = now.getFullYear();
-
-    // 1. 查找所有事件倒计时（countdown类型，启用且显示在左下角）
-    const countdownReminders = reminders.filter(r =>
-        r.type === 'countdown' && r.enabled && r.showInCorner
-    );
-
-    // 2. 查找其他类型的提醒（每日、月度、日期范围）
-    const otherReminders = [];
-
-    reminders.forEach(reminder => {
-        if (!reminder.enabled) return;
-        if (reminder.type === 'countdown') return; // 跳过事件倒计时
-
-        let targetDateTime = null;
-
-        switch(reminder.type) {
-            case 'daily':
-                // 每日提醒：计算今天的结束时间
-                const [dailyEndHours, dailyEndMinutes] = reminder.endTime.split(':');
-                targetDateTime = new Date();
-                targetDateTime.setHours(parseInt(dailyEndHours), parseInt(dailyEndMinutes), 0, 0);
-                
-                // 如果今天的时间已经过了，计算明天的结束时间
-                if (targetDateTime <= now) {
-                    targetDateTime.setDate(targetDateTime.getDate() + 1);
-                }
-                break;
-                
-            case 'monthly':
-                // 月度提醒：计算本月或下月的结束时间
-                const [monthlyEndHours, monthlyEndMinutes] = reminder.endTime.split(':');
-                targetDateTime = new Date();
-                targetDateTime.setHours(parseInt(monthlyEndHours), parseInt(monthlyEndMinutes), 0, 0);
-                targetDateTime.setDate(reminder.day);
-                
-                // 如果本月的日期已经过了，计算下月
-                if (targetDateTime <= now) {
-                    targetDateTime.setMonth(targetDateTime.getMonth() + 1);
-                }
-                break;
-                
-            case 'dateRange':
-                // 日期范围提醒：计算范围内最后一天的结束时间
-                const [rangeEndHours, rangeEndMinutes] = reminder.endTime.split(':');
-                targetDateTime = new Date();
-                targetDateTime.setHours(parseInt(rangeEndHours), parseInt(rangeEndMinutes), 0, 0);
-                targetDateTime.setDate(reminder.endDate);
-                
-                // 如果本月最后一天已经过了，计算下月
-                if (targetDateTime <= now) {
-                    targetDateTime.setMonth(targetDateTime.getMonth() + 1);
-                }
-                break;
+    const countdowns = reminders.filter(r => r.type === 'countdown' && r.enabled && r.showInCorner);
+    const others = [];
+    
+    reminders.forEach(r => {
+        if (!r.enabled || r.type === 'countdown') return;
+        let target = null;
+        if (r.type === 'daily') {
+            const [h, m] = r.endTime.split(':');
+            target = new Date();
+            target.setHours(parseInt(h), parseInt(m), 0, 0);
+            if (target <= now) target.setDate(target.getDate() + 1);
         }
-
-        if (targetDateTime) {
-            otherReminders.push({
-                ...reminder,
-                targetDateTime
-            });
+        if (r.type === 'monthly') {
+            const [h, m] = r.endTime.split(':');
+            target = new Date();
+            target.setHours(parseInt(h), parseInt(m), 0, 0);
+            target.setDate(r.day);
+            if (target <= now) target.setMonth(target.getMonth() + 1);
         }
+        if (r.type === 'dateRange') {
+            const [h, m] = r.endTime.split(':');
+            target = new Date();
+            target.setHours(parseInt(h), parseInt(m), 0, 0);
+            target.setDate(r.endDate);
+            if (target <= now) target.setMonth(target.getMonth() + 1);
+        }
+        if (target) others.push({ ...r, targetDateTime: target });
     });
-
-    // 按创建时间排序，优先显示最早创建的
-    otherReminders.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-
-    // 3. 创建事件倒计时卡片（在按钮上方）
-    if (countdownReminders.length > 0) {
-        // 只显示第一个事件倒计时
-        const reminder = countdownReminders[0];
+    
+    others.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    
+    if (countdowns.length > 0) {
+        const r = countdowns[0];
         const card = document.createElement('div');
         card.className = 'reminder-countdown-card countdown-main';
-        card.id = 'countdownWidget';
-
-        const title = document.createElement('div');
-        title.className = 'reminder-countdown-title';
-        title.textContent = reminder.title;
-
-        const timer = document.createElement('div');
-        timer.className = 'reminder-countdown-timer';
-        timer.id = `countdown-${reminder.id}`;
-
-        card.appendChild(title);
-        card.appendChild(timer);
-        container.appendChild(card);
+        card.innerHTML = `
+            <div class="reminder-countdown-title">${r.title}</div>
+            <div class="reminder-countdown-timer" id="countdown-${r.id}"></div>
+        `;
+        document.body.appendChild(card);
     }
-
-    // 4. 创建其他提醒卡片（在按钮右侧）
-    if (otherReminders.length > 0) {
-        // 只显示第一个其他提醒
-        const reminder = otherReminders[0];
+    
+    if (others.length > 0) {
+        const r = others[0];
         const card = document.createElement('div');
         card.className = 'reminder-countdown-card countdown-side';
-
-        const title = document.createElement('div');
-        title.className = 'reminder-countdown-title';
-        title.textContent = reminder.title;
-
-        const timer = document.createElement('div');
-        timer.className = 'reminder-countdown-timer';
-        timer.id = `side-countdown-${reminder.id}`;
-        timer.style.fontSize = '14px'; // 稍微小一点的字体
-        timer.style.color = '#667eea';
-
-        card.appendChild(title);
-        card.appendChild(timer);
-        container.appendChild(card);
+        card.innerHTML = `
+            <div class="reminder-countdown-title">${r.title}</div>
+            <div class="reminder-countdown-timer" id="side-countdown-${r.id}" style="font-size: 14px; color: #667eea;"></div>
+        `;
+        document.body.appendChild(card);
     }
-
-    // 如果没有任何内容显示，直接返回
-    if (countdownReminders.length === 0 && otherReminders.length === 0) {
-        return;
-    }
-
-    // 同步宽度和位置：让按钮右侧的卡片右边缘与上方卡片右边缘对齐
-    const syncWidthAndPosition = () => {
-        const mainCard = document.querySelector('.reminder-countdown-card.countdown-main');
-        const sideCard = document.querySelector('.reminder-countdown-card.countdown-side');
-        const reminderBtn = document.getElementById('reminderBtn');
-        
-        if (mainCard && sideCard && reminderBtn) {
-            // 获取上方卡片的宽度
-            const mainWidth = mainCard.offsetWidth;
-            
-            // 设置右侧卡片的宽度等于上方卡片
-            sideCard.style.width = mainWidth + 'px';
-            sideCard.style.minWidth = mainWidth + 'px';
-            sideCard.style.maxWidth = mainWidth + 'px';
-            
-            // 计算右侧卡片容器的left位置，使右边缘对齐
-            const container = document.getElementById('reminderCountdownsContainer');
-            const btnRect = reminderBtn.getBoundingClientRect();
-            const mainRect = mainCard.getBoundingClientRect();
-            
-            // 计算容器的left值：上方卡片右边缘 - 卡片宽度
-            const containerLeft = mainRect.right - mainWidth;
-            container.style.left = (containerLeft - btnRect.left + 24) + 'px'; // 24是按钮的left值
+    
+    if (countdowns.length === 0 && others.length === 0) return;
+    
+    const sync = () => {
+        const main = document.querySelector('.reminder-countdown-card.countdown-main');
+        const side = document.querySelector('.reminder-countdown-card.countdown-side');
+        const btn = document.getElementById('reminderBtn');
+        if (main && side && btn) {
+            const w = main.offsetWidth;
+            side.style.width = w + 'px';
+            const btnRect = btn.getBoundingClientRect();
+            const mainRect = main.getBoundingClientRect();
+            side.style.left = (mainRect.right - btnRect.left + 24 + 12) + 'px';
         }
     };
-
-    // 更新倒计时
-    const updateTimers = () => {
-        // 更新事件倒计时
-        countdownReminders.forEach(reminder => {
-            const timerEl = document.getElementById(`countdown-${reminder.id}`);
-            if (!timerEl) return;
-
-            const target = new Date(`${reminder.targetDate}T${reminder.targetTime}`);
-            const now = new Date();
-            const diff = target - now;
-
-            if (diff <= 0) {
-                timerEl.textContent = '已到达！';
-                return;
-            }
-
-            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-            timerEl.textContent = `${days}天 ${hours}小时 ${minutes}分 ${seconds}秒`;
-            
-            // 每次更新时同步宽度和位置
-            syncWidthAndPosition();
+    
+    const update = () => {
+        countdowns.forEach(r => {
+            const el = document.getElementById(`countdown-${r.id}`);
+            if (!el) return;
+            const target = new Date(`${r.targetDate}T${r.targetTime}`);
+            const diff = target - new Date();
+            if (diff <= 0) { el.textContent = '已到达！'; return; }
+            const d = Math.floor(diff / 86400000);
+            const h = Math.floor((diff % 86400000) / 3600000);
+            const m = Math.floor((diff % 3600000) / 60000);
+            const s = Math.floor((diff % 60000) / 1000);
+            el.textContent = `${d}天 ${h}小时 ${m}分 ${s}秒`;
+            sync();
         });
-
-        // 更新其他提醒的倒计时
-        if (otherReminders.length > 0) {
-            const reminder = otherReminders[0];
-            const timerEl = document.getElementById(`side-countdown-${reminder.id}`);
-            if (timerEl) {
-                const now = new Date();
-                const diff = reminder.targetDateTime - now;
-
-                if (diff <= 0) {
-                    timerEl.textContent = '已到达！';
-                    return;
-                }
-
-                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-                timerEl.textContent = `${days}天 ${hours}小时 ${minutes}分 ${seconds}秒`;
+        
+        if (others.length > 0) {
+            const r = others[0];
+            const el = document.getElementById(`side-countdown-${r.id}`);
+            if (el) {
+                const diff = r.targetDateTime - new Date();
+                if (diff <= 0) { el.textContent = '已到达！'; return; }
+                const d = Math.floor(diff / 86400000);
+                const h = Math.floor((diff % 86400000) / 3600000);
+                const m = Math.floor((diff % 3600000) / 60000);
+                const s = Math.floor((diff % 60000) / 1000);
+                el.textContent = `${d}天 ${h}小时 ${m}分 ${s}秒`;
             }
         }
     };
-
-    updateTimers();
-    countdownInterval = setInterval(updateTimers, 1000);
     
-    // 初始化时同步一次宽度和位置
-    setTimeout(syncWidthAndPosition, 100);
-    
-    // 监听窗口大小变化，重新同步
-    window.addEventListener('resize', syncWidthAndPosition);
+    update();
+    countdownInterval = setInterval(update, 1000);
+    setTimeout(sync, 100);
+    window.addEventListener('resize', sync);
 }
 
-/**
- * 请求通知权限
- */
-function requestNotificationPermission() {
+document.addEventListener('DOMContentLoaded', () => {
+    initReminderSystem();
     if ('Notification' in window && Notification.permission === 'default') {
         Notification.requestPermission();
     }
-}
-
-// ==================== 页面加载时初始化 ====================
-document.addEventListener('DOMContentLoaded', () => {
-    initReminderSystem();
-    requestNotificationPermission();
 });

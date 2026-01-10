@@ -944,7 +944,6 @@ function addReminder() {
 
     // 清空表单
     document.getElementById('reminderTitle').value = '';
-    alert('提醒添加成功！');
 }
 
 /**
@@ -1218,7 +1217,11 @@ function updateCountdownWidget() {
     // 1. 查找所有事件倒计时（countdown类型，启用且显示在左下角）
     const countdownReminders = reminders.filter(r =>
         r.type === 'countdown' && r.enabled && r.showInCorner
-    );
+    ).map(r => ({
+        ...r,
+        targetDateTime: new Date(`${r.targetDate}T${r.targetTime}`),
+        cardType: 'countdown-main'
+    }));
 
     // 2. 查找其他类型的提醒（每日、月度、日期范围）
     const otherReminders = [];
@@ -1272,21 +1275,22 @@ function updateCountdownWidget() {
         if (targetDateTime) {
             otherReminders.push({
                 ...reminder,
-                targetDateTime
+                targetDateTime,
+                cardType: 'countdown-side'
             });
         }
     });
 
-    // 按创建时间排序，优先显示最早创建的
-    otherReminders.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    // 3. 合并所有倒计时提醒
+    const allReminders = [...countdownReminders, ...otherReminders];
 
-    // 3. 创建事件倒计时卡片（在按钮上方）
-    if (countdownReminders.length > 0) {
-        // 只显示第一个事件倒计时
-        const reminder = countdownReminders[0];
+    // 4. 按目标时间排序，最近的在前
+    allReminders.sort((a, b) => a.targetDateTime - b.targetDateTime);
+
+    // 5. 创建所有倒计时卡片
+    allReminders.forEach(reminder => {
         const card = document.createElement('div');
-        card.className = 'reminder-countdown-card countdown-main';
-        card.id = 'countdownWidget';
+        card.className = `reminder-countdown-card ${reminder.cardType}`;
 
         const title = document.createElement('div');
         title.className = 'reminder-countdown-title';
@@ -1299,45 +1303,21 @@ function updateCountdownWidget() {
         card.appendChild(title);
         card.appendChild(timer);
         container.appendChild(card);
-    }
-
-    // 4. 创建其他提醒卡片（在按钮右侧）
-    if (otherReminders.length > 0) {
-        // 只显示第一个其他提醒
-        const reminder = otherReminders[0];
-        const card = document.createElement('div');
-        card.className = 'reminder-countdown-card countdown-side';
-
-        const title = document.createElement('div');
-        title.className = 'reminder-countdown-title';
-        title.textContent = reminder.title;
-
-        const timer = document.createElement('div');
-        timer.className = 'reminder-countdown-timer';
-        timer.id = `side-countdown-${reminder.id}`;
-        timer.style.fontSize = '14px'; // 稍微小一点的字体
-        timer.style.color = '#667eea';
-
-        card.appendChild(title);
-        card.appendChild(timer);
-        container.appendChild(card);
-    }
+    });
 
     // 如果没有任何内容显示，直接返回
-    if (countdownReminders.length === 0 && otherReminders.length === 0) {
+    if (allReminders.length === 0) {
         return;
     }
 
     // 更新倒计时
     const updateTimers = () => {
-        // 更新事件倒计时
-        countdownReminders.forEach(reminder => {
+        allReminders.forEach(reminder => {
             const timerEl = document.getElementById(`countdown-${reminder.id}`);
             if (!timerEl) return;
 
-            const target = new Date(`${reminder.targetDate}T${reminder.targetTime}`);
             const now = new Date();
-            const diff = target - now;
+            const diff = reminder.targetDateTime - now;
 
             if (diff <= 0) {
                 timerEl.textContent = '已到达！';
@@ -1351,28 +1331,6 @@ function updateCountdownWidget() {
 
             timerEl.textContent = `${days}天 ${hours}小时 ${minutes}分 ${seconds}秒`;
         });
-
-        // 更新其他提醒的倒计时
-        if (otherReminders.length > 0) {
-            const reminder = otherReminders[0];
-            const timerEl = document.getElementById(`side-countdown-${reminder.id}`);
-            if (timerEl) {
-                const now = new Date();
-                const diff = reminder.targetDateTime - now;
-
-                if (diff <= 0) {
-                    timerEl.textContent = '已到达！';
-                    return;
-                }
-
-                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-                timerEl.textContent = `${days}天 ${hours}小时 ${minutes}分 ${seconds}秒`;
-            }
-        }
     };
 
     updateTimers();

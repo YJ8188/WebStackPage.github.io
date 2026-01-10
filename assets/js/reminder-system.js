@@ -1026,32 +1026,6 @@ function toggleCountdownDisplay() {
 }
 
 /**
- * 测试提醒功能
- */
-function testReminder() {
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(12, 0, 0, 0);
-
-    const testReminderData = {
-        id: Date.now(),
-        title: '测试提醒',
-        type: 'countdown',
-        targetDate: tomorrow.toISOString().split('T')[0],
-        targetTime: '12:00:00',
-        enabled: true,
-        showInCorner: true,
-        createdAt: new Date().toISOString()
-    };
-
-    reminders.push(testReminderData);
-    saveReminders();
-    renderReminderList();
-    updateCountdownWidget();
-}
-
-/**
  * 测试当前提醒
  */
 function testCurrentReminder(id) {
@@ -1321,65 +1295,10 @@ function updateCountdownWidget() {
         cardType: 'countdown-main'
     }));
 
-    // 2. 查找其他类型的提醒（每日、月度、日期范围）
+    // 2. 查找其他类型的提醒（每日、月度、日期范围）- 不显示
     const otherReminders = [];
 
-    reminders.forEach(reminder => {
-        if (!reminder.enabled) return;
-        if (reminder.type === 'countdown') return; // 跳过事件倒计时
-
-        let targetDateTime = null;
-
-        switch(reminder.type) {
-            case 'daily':
-                // 每日提醒：计算今天的结束时间
-                const [dailyEndHours, dailyEndMinutes] = reminder.endTime.split(':');
-                targetDateTime = new Date();
-                targetDateTime.setHours(parseInt(dailyEndHours), parseInt(dailyEndMinutes), 0, 0);
-                
-                // 如果今天的时间已经过了，计算明天的结束时间
-                if (targetDateTime <= now) {
-                    targetDateTime.setDate(targetDateTime.getDate() + 1);
-                }
-                break;
-                
-            case 'monthly':
-                // 月度提醒：计算本月或下月的结束时间
-                const [monthlyEndHours, monthlyEndMinutes] = reminder.endTime.split(':');
-                targetDateTime = new Date();
-                targetDateTime.setHours(parseInt(monthlyEndHours), parseInt(monthlyEndMinutes), 0, 0);
-                targetDateTime.setDate(reminder.day);
-                
-                // 如果本月的日期已经过了，计算下月
-                if (targetDateTime <= now) {
-                    targetDateTime.setMonth(targetDateTime.getMonth() + 1);
-                }
-                break;
-                
-            case 'dateRange':
-                // 日期范围提醒：计算范围内最后一天的结束时间
-                const [rangeEndHours, rangeEndMinutes] = reminder.endTime.split(':');
-                targetDateTime = new Date();
-                targetDateTime.setHours(parseInt(rangeEndHours), parseInt(rangeEndMinutes), 0, 0);
-                targetDateTime.setDate(reminder.endDate);
-                
-                // 如果本月最后一天已经过了，计算下月
-                if (targetDateTime <= now) {
-                    targetDateTime.setMonth(targetDateTime.getMonth() + 1);
-                }
-                break;
-        }
-
-        if (targetDateTime) {
-            otherReminders.push({
-                ...reminder,
-                targetDateTime,
-                cardType: 'countdown-side'
-            });
-        }
-    });
-
-    // 3. 合并所有倒计时提醒
+    // 3. 合并所有倒计时提醒（只显示倒计时类型）
     const allReminders = [...countdownReminders, ...otherReminders];
 
     // 4. 按目标时间排序，最近的在前

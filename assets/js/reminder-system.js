@@ -429,51 +429,40 @@ function injectReminderStyles() {
             box-shadow: 0 8px 20px rgba(102, 126, 234, 0.5);
         }
 
-        /* 按钮右侧倒计时小卡片容器 */
+        /* 按钮上方的倒计时卡片容器 */
         .reminder-countdowns-container {
             position: fixed;
-            bottom: 24px;
-            left: 84px;
+            bottom: 84px;
+            left: 24px;
             display: flex;
+            flex-direction: column;
             gap: 12px;
             z-index: 9999;
         }
 
-        /* 按钮上方的倒计时卡片（事件倒计时） */
-        .reminder-countdown-card.countdown-main {
-            position: fixed;
-            bottom: 84px;
-            left: 24px;
+        /* 倒计时卡片统一样式 */
+        .reminder-countdown-card {
             padding: 12px 16px;
             border-radius: 10px;
             background: rgba(255, 255, 255, 0.02);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             border: 1px solid rgba(0, 0, 0, 0.08);
-            animation: countdownPulse 2s infinite;
             min-width: 180px;
-            width: auto;
-            max-height: 60px; // 修改点：限制最大高度，防止盖住按钮
-            overflow: hidden; // 修改点：隐藏超出部分
+            max-width: 280px;
+            box-sizing: border-box;
         }
 
-        /* 按钮右侧的提醒卡片（当前时间段提醒） */
+        /* 事件倒计时卡片 */
+        .reminder-countdown-card.countdown-main {
+            animation: countdownPulse 2s infinite;
+            border-left: 3px solid #667eea;
+        }
+
+        /* 其他提醒卡片 */
         .reminder-countdown-card.countdown-side {
-            position: fixed;
-            bottom: 24px;
-            left: 84px;
-            padding: 8px 12px;
-            border-radius: 10px;
-            background: rgba(255, 255, 255, 0.02);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            border: 1px solid rgba(0, 0, 0, 0.08);
-            box-sizing: border-box;
-            display: flex; // 修改点：添加 flex 布局
-            flex-direction: row; // 修改点：横向排列
-            gap: 8px; // 修改点：添加间距
-            align-items: center; // 修改点：垂直居中
-            z-index: 9998;
+            border-left: 3px solid #764ba2;
+            animation: none;
         }
 
         .reminder-countdown-card:hover {
@@ -1284,32 +1273,6 @@ function updateCountdownWidget() {
         return;
     }
 
-    // 同步宽度和位置：让按钮右侧的卡片右边缘与上方卡片右边缘对齐
-    const syncWidthAndPosition = () => {
-        const mainCard = document.querySelector('.reminder-countdown-card.countdown-main');
-        const sideCard = document.querySelector('.reminder-countdown-card.countdown-side');
-        const reminderBtn = document.getElementById('reminderBtn');
-        
-        if (mainCard && sideCard && reminderBtn) {
-            // 获取上方卡片的宽度
-            const mainWidth = mainCard.offsetWidth;
-            
-            // 设置右侧卡片的宽度等于上方卡片
-            sideCard.style.width = mainWidth + 'px';
-            sideCard.style.minWidth = mainWidth + 'px';
-            sideCard.style.maxWidth = mainWidth + 'px';
-            
-            // 计算右侧卡片容器的left位置，使右边缘对齐
-            const container = document.getElementById('reminderCountdownsContainer');
-            const btnRect = reminderBtn.getBoundingClientRect();
-            const mainRect = mainCard.getBoundingClientRect();
-            
-            // 计算容器的left值：上方卡片右边缘 - 卡片宽度
-            const containerLeft = mainRect.right - mainWidth;
-            container.style.left = (containerLeft - btnRect.left + 24) + 'px'; // 24是按钮的left值
-        }
-    };
-
     // 更新倒计时
     const updateTimers = () => {
         // 更新事件倒计时
@@ -1332,9 +1295,6 @@ function updateCountdownWidget() {
             const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
             timerEl.textContent = `${days}天 ${hours}小时 ${minutes}分 ${seconds}秒`;
-            
-            // 每次更新时同步宽度和位置
-            syncWidthAndPosition();
         });
 
         // 更新其他提醒的倒计时
@@ -1362,12 +1322,6 @@ function updateCountdownWidget() {
 
     updateTimers();
     countdownInterval = setInterval(updateTimers, 1000);
-    
-    // 初始化时同步一次宽度和位置
-    setTimeout(syncWidthAndPosition, 100);
-    
-    // 监听窗口大小变化，重新同步
-    window.addEventListener('resize', syncWidthAndPosition);
 }
 
 /**

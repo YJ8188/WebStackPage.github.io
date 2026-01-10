@@ -15,7 +15,34 @@ document.addEventListener('DOMContentLoaded', function() {
     loadReminders(); // 加载保存的提醒
     updateReminderList(); // 更新提醒列表显示
     startReminderCheck(); // 开始检查提醒
+    updateDateTime(); // 更新时间日期
+    setInterval(updateDateTime, 1000); // 每秒更新时间
 });
+
+// ==================== 更新时间日期 ====================
+function updateDateTime() {
+    const now = new Date();
+    const dateElement = document.getElementById('currentDate');
+    const timeElement = document.getElementById('currentTime');
+
+    if (dateElement && timeElement) {
+        // 格式化日期：2026年1月10日 星期六
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1;
+        const date = now.getDate();
+        const days = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+        const day = days[now.getDay()];
+
+        dateElement.textContent = `${year}年${month}月${date}日 ${day}`;
+
+        // 格式化时间：14:30:45
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+
+        timeElement.textContent = `${hours}:${minutes}:${seconds}`;
+    }
+}
 
 // ==================== 切换通知中心面板 ====================
 function toggleNotificationCenter() {
@@ -24,6 +51,22 @@ function toggleNotificationCenter() {
         panel.style.display = 'none';
     } else {
         panel.style.display = 'flex';
+    }
+}
+
+// ==================== 切换状态分类的展开/收起 ====================
+function toggleSection(section) {
+    const list = document.getElementById(section + 'ReminderList');
+    const arrow = document.getElementById(section + 'Arrow');
+
+    if (list.classList.contains('collapsed')) {
+        // 展开
+        list.classList.remove('collapsed');
+        arrow.classList.remove('collapsed');
+    } else {
+        // 收起
+        list.classList.add('collapsed');
+        arrow.classList.add('collapsed');
     }
 }
 

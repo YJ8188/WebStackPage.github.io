@@ -1496,15 +1496,6 @@ async function fetchCryptoData() {
         tbody: !!tbody
     });
 
-    // 优先使用缓存数据
-    const cachedData = loadCachedCryptoData();
-    if (cachedData && cachedData.length > 0) {
-        cryptoData = cachedData;
-        renderCryptoTable(cryptoData);
-        updateCryptoUI(cryptoData);
-        Logger.info('[行情同步] ✅ 已从缓存加载:', cryptoData.length, '个币种');
-    }
-
     // 初始化币安WebSocket连接
     if (!binanceConnected) {
         initBinanceWebSocket();
@@ -1513,8 +1504,22 @@ async function fetchCryptoData() {
     // 后台同步汇率
     syncRate();
 
+    // 优先使用缓存数据初始化 binanceMarketData
+    const cachedData = loadCachedCryptoData();
+    if (cachedData && cachedData.length > 0) {
+        // 将缓存数据复制到 binanceMarketData，确保币种数量正确
+        binanceMarketData = [...cachedData];
+        cryptoData = binanceMarketData;
+        renderCryptoTable(cryptoData);
+        updateCryptoUI(cryptoData);
+        Logger.info('[行情同步] ✅ 已从缓存加载:', cryptoData.length, '个币种');
+    }
+
     // 如果WebSocket已连接且有数据,立即渲染（覆盖缓存）
-    if (binanceMarketData.length > 0) {
+    if (cachedData && cachedData.length > 0 && binanceMarketData.length > 0) {
+        // 使用缓存数据作为基础，WebSocket数据只用于更新价格
+        Logger.info('[行情同步] 使用缓存数据作为基础，WebSocket实时更新价格');
+    } else if (binanceMarketData.length > 0) {
         cryptoData = binanceMarketData;
         renderCryptoTable(cryptoData);
         updateCryptoUI(cryptoData);
@@ -1615,7 +1620,8 @@ function renderCryptoTable(data) {
     });
 
     // 渲染所有币种（不限制数量）
-    data.forEach(coin => {
+    data.forEach((coin, index) => {
+        const coinIndex = index + 1; // 序号从1开始
         const rawPrice = coin.current_price;
         const price = (rawPrice * rate).toLocaleString(undefined, {
             minimumFractionDigits: 2,
@@ -1661,6 +1667,7 @@ function renderCryptoTable(data) {
             <tr class="main-row" data-symbol="${coin.symbol}" onclick="event.stopPropagation(); toggleCoinDetail('${coin.symbol}')">
                 <td>
                     <div class="coin-info">
+                        <span class="coin-index" style="display:inline-block; width:24px; height:24px; line-height:24px; text-align:center; background:#f0f0f0; border-radius:50%; font-size:11px; font-weight:bold; color:#666; margin-right:8px;">${coinIndex}</span>
                         <img src="${coin.image}" class="coin-icon" alt="${coin.symbol}"
                              onerror="this.src='${coin.fallbackIcon1}'; this.onerror=function(){this.src='${coin.fallbackIcon2}'; this.onerror=function(){this.src='${coin.fallbackIcon3}';}}">
                         <div class="coin-name-wrap">

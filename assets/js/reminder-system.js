@@ -431,7 +431,7 @@ function injectReminderStyles() {
             box-sizing: border-box;
             z-index: 9998;
             display: flex; // 修改点：添加 flex 布局
-            flex-direction: column; // 修改点：纵向排列
+            flex-direction: row; // 修改点：改为横向排列
             gap: 8px; // 修改点：添加间距
         }
 
@@ -1086,10 +1086,6 @@ function updateCountdownWidget() {
                 <div class="reminder-countdown-title">${r.title}</div>
                 <div class="reminder-countdown-timer" id="countdown-${r.id}"></div>
             </div>
-            <div class="countdown-footer">
-                <div class="countdown-icon">🔔</div>
-                <div class="countdown-extra"></div>
-            </div>
         `;
         document.body.appendChild(card);
     }
@@ -1099,13 +1095,12 @@ function updateCountdownWidget() {
         const card = document.createElement('div');
         card.className = 'reminder-countdown-card countdown-side';
         card.innerHTML = `
-            <div class="countdown-main">
-                <div class="reminder-countdown-title">${r.title}</div>
-                <div class="reminder-countdown-timer" id="side-countdown-${r.id}" style="font-size: 14px; color: #667eea;"></div>
-            </div>
             <div class="countdown-footer">
                 <div class="countdown-icon">🔔</div>
-                <div class="countdown-extra"></div>
+                <div class="countdown-extra">
+                    <div class="reminder-countdown-title">${r.title}</div>
+                    <div class="reminder-countdown-timer" id="side-countdown-${r.id}" style="font-size: 14px; color: #667eea;"></div>
+                </div>
             </div>
         `;
         document.body.appendChild(card);

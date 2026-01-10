@@ -414,6 +414,9 @@ function injectReminderStyles() {
             min-width: 180px;
             width: auto;
             z-index: 9998;
+            display: flex; // 修改点：添加 flex 布局
+            flex-direction: column; // 修改点：纵向排列
+            gap: 8px; // 修改点：添加间距
         }
 
         .reminder-countdown-card.countdown-side {
@@ -427,6 +430,9 @@ function injectReminderStyles() {
             border: 1px solid rgba(0, 0, 0, 0.08);
             box-sizing: border-box;
             z-index: 9998;
+            display: flex; // 修改点：添加 flex 布局
+            flex-direction: column; // 修改点：纵向排列
+            gap: 8px; // 修改点：添加间距
         }
 
         .reminder-countdown-card:hover {
@@ -439,12 +445,18 @@ function injectReminderStyles() {
             50% { transform: scale(1.02); }
         }
 
+        // 修改点：新增 countdown-main 容器样式
+        .countdown-main {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
         .reminder-countdown-title {
             font-family: "HarmonyOS Sans", "PingFang SC", sans-serif;
             font-size: 11px;
             font-weight: 600;
             color: #a0aec0;
-            margin-bottom: 4px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -457,6 +469,31 @@ function injectReminderStyles() {
             color: #e0e0e0;
             word-break: break-all;
             line-height: 1.3;
+        }
+
+        // 修改点：新增 countdown-footer 容器样式
+        .countdown-footer {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        // 修改点：新增 countdown-icon 样式
+        .countdown-icon {
+            flex-shrink: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            line-height: 1;
+        }
+
+        // 修改点：新增 countdown-extra 样式
+        .countdown-extra {
+            flex: 1;
+            min-width: 0;
         }
 
         /* 空状态样式 */
@@ -1035,20 +1072,34 @@ function updateCountdownWidget() {
         const r = countdowns[0];
         const card = document.createElement('div');
         card.className = 'reminder-countdown-card countdown-main';
+        // 修改点：重构 innerHTML 结构，实现上下两层布局
         card.innerHTML = `
-            <div class="reminder-countdown-title">${r.title}</div>
-            <div class="reminder-countdown-timer" id="countdown-${r.id}"></div>
+            <div class="countdown-main">
+                <div class="reminder-countdown-title">${r.title}</div>
+                <div class="reminder-countdown-timer" id="countdown-${r.id}"></div>
+            </div>
+            <div class="countdown-footer">
+                <div class="countdown-icon">🔔</div>
+                <div class="countdown-extra"></div>
+            </div>
         `;
         document.body.appendChild(card);
     }
-    
+
     if (others.length > 0) {
         const r = others[0];
         const card = document.createElement('div');
         card.className = 'reminder-countdown-card countdown-side';
+        // 修改点：重构 innerHTML 结构，实现上下两层布局
         card.innerHTML = `
-            <div class="reminder-countdown-title">${r.title}</div>
-            <div class="reminder-countdown-timer" id="side-countdown-${r.id}" style="font-size: 14px; color: #667eea;"></div>
+            <div class="countdown-main">
+                <div class="reminder-countdown-title">${r.title}</div>
+                <div class="reminder-countdown-timer" id="side-countdown-${r.id}" style="font-size: 14px; color: #667eea;"></div>
+            </div>
+            <div class="countdown-footer">
+                <div class="countdown-icon">🔔</div>
+                <div class="countdown-extra"></div>
+            </div>
         `;
         document.body.appendChild(card);
     }

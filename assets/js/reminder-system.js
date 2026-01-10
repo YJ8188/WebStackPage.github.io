@@ -465,6 +465,8 @@ function injectReminderStyles() {
             border: 1px solid rgba(0, 0, 0, 0.08);
             min-width: 180px;
             max-width: 180px;
+            width: 180px;
+            box-sizing: border-box;
         }
 
         .reminder-countdown-card:hover {
@@ -1280,9 +1282,13 @@ function updateCountdownWidget() {
         
         if (mainCard && sideCard) {
             const mainWidth = mainCard.offsetWidth;
+            // 强制设置宽度为上方卡片的宽度
             sideCard.style.width = mainWidth + 'px';
+            // 移除min-width限制，防止冲突
             sideCard.style.minWidth = mainWidth + 'px';
             sideCard.style.maxWidth = mainWidth + 'px';
+            // 设置box-sizing确保padding不影响宽度计算
+            sideCard.style.boxSizing = 'border-box';
         }
     };
 

@@ -1505,7 +1505,7 @@ async function fetchCryptoData() {
     syncRate();
 
     // 优先使用缓存数据初始化 binanceMarketData
-    const cachedData = loadCachedCryptoData();
+    const cachedData = await loadCachedCryptoData();
     if (cachedData && cachedData.length > 0) {
         // 将缓存数据复制到 binanceMarketData，确保币种数量正确
         binanceMarketData = [...cachedData];
@@ -1515,7 +1515,7 @@ async function fetchCryptoData() {
         Logger.info('[行情同步] ✅ 已从缓存加载:', cryptoData.length, '个币种');
     }
 
-    // 如果WebSocket已连接且有数据,立即渲染（覆盖缓存）
+    // 如果WebSocket已连接且有数据,立即渲染（但不覆盖缓存数据）
     if (cachedData && cachedData.length > 0 && binanceMarketData.length > 0) {
         // 使用缓存数据作为基础，WebSocket数据只用于更新价格
         Logger.info('[行情同步] 使用缓存数据作为基础，WebSocket实时更新价格');

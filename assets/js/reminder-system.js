@@ -39,7 +39,7 @@ function injectReminderStyles() {
             max-width: 90%;
             max-height: 85vh;
             border-radius: 10px;
-            background: rgba(255, 255, 255, 0.02);
+            background: #ffffff;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
             display: flex;
             flex-direction: column;
@@ -48,8 +48,8 @@ function injectReminderStyles() {
         }
 
         body.dark-mode .reminder-modal-dialog {
-            background: rgba(255, 255, 255, 0.02);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+            background: #1a1a1a;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
         }
 
         .reminder-modal-header {
@@ -68,6 +68,10 @@ function injectReminderStyles() {
             font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
             font-size: 20px;
             font-weight: 600;
+            color: #333;
+        }
+
+        body.dark-mode .reminder-modal-title {
             color: #e0e0e0;
         }
 
@@ -96,6 +100,38 @@ function injectReminderStyles() {
             max-height: calc(85vh - 80px);
         }
 
+        /* 滚动条样式 - 亮色模式 */
+        .reminder-modal-body::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .reminder-modal-body::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .reminder-modal-body::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 4px;
+        }
+
+        .reminder-modal-body::-webkit-scrollbar-thumb:hover {
+            background: #a1a1a1;
+        }
+
+        /* 滚动条样式 - 暗色模式 */
+        body.dark-mode .reminder-modal-body::-webkit-scrollbar-track {
+            background: #2a2a2a;
+        }
+
+        body.dark-mode .reminder-modal-body::-webkit-scrollbar-thumb {
+            background: #4a4a4a;
+        }
+
+        body.dark-mode .reminder-modal-body::-webkit-scrollbar-thumb:hover {
+            background: #5a5a5a;
+        }
+
         /* 提醒表单样式 */
         .reminder-form {
             margin-bottom: 24px;
@@ -116,8 +152,12 @@ function injectReminderStyles() {
             font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
             font-size: 14px;
             font-weight: 500;
-            color: #cbd5e0;
+            color: #333;
             margin-bottom: 8px;
+        }
+
+        body.dark-mode .form-group label {
+            color: #cbd5e0;
         }
 
         .form-group input,
@@ -128,9 +168,16 @@ function injectReminderStyles() {
             border-radius: 10px;
             font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
             font-size: 14px;
-            color: #e0e0e0;
-            background: rgba(255, 255, 255, 0.05);
+            color: #333;
+            background: #f5f5f5;
             transition: all 0.2s;
+        }
+
+        body.dark-mode .form-group input,
+        body.dark-mode .form-group select {
+            color: #e0e0e0;
+            background: #2a2a2a;
+            border-color: rgba(255, 255, 255, 0.2);
         }
 
         .form-group input:focus,
@@ -332,10 +379,14 @@ function injectReminderStyles() {
             align-items: center;
             padding: 16px;
             border-radius: 10px;
-            background: rgba(255, 255, 255, 0.02);
+            background: #f5f5f5;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             border: 1px solid rgba(0, 0, 0, 0.08);
+        }
+
+        body.dark-mode .reminder-item {
+            background: rgba(255, 255, 255, 0.02);
         }
 
         .reminder-item:hover {
@@ -356,8 +407,12 @@ function injectReminderStyles() {
             font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
             font-size: 15px;
             font-weight: 600;
-            color: #e0e0e0;
+            color: #333;
             margin-bottom: 4px;
+        }
+
+        body.dark-mode .reminder-item-title {
+            color: #e0e0e0;
         }
 
         .reminder-item-detail {

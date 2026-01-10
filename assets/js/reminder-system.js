@@ -600,7 +600,7 @@ function injectReminderStyles() {
         /* 移动端隐藏提醒系统 */
         @media (max-width: 768px) {
             #reminderBtn,
-            #testReminderBtn,
+            #reminderMenuBtn,
             .reminder-modal-overlay,
             .reminder-countdowns-container {
                 display: none !important;
@@ -617,13 +617,13 @@ function injectReminderHTML() {
         return;
     }
 
-    // 测试提醒按钮
-    const testReminderBtn = document.createElement('button');
-    testReminderBtn.id = 'testReminderBtn';
-    testReminderBtn.onclick = testReminder;
-    testReminderBtn.title = '测试提醒';
-    testReminderBtn.textContent = '🧪';
-    document.body.appendChild(testReminderBtn);
+    // 三个杠菜单按钮
+    const menuBtn = document.createElement('button');
+    menuBtn.id = 'reminderMenuBtn';
+    menuBtn.onclick = toggleCountdownDisplay;
+    menuBtn.title = '切换倒计时显示';
+    menuBtn.innerHTML = '☰';
+    document.body.appendChild(menuBtn);
 
     // 提醒管理按钮
     const reminderBtn = document.createElement('button');
@@ -783,9 +783,14 @@ function injectReminderHTML() {
                             </div>
                         </div>
 
-                        <button class="btn btn-primary" onclick="addReminder()" style="width: 100%; margin-top: 10px;">
-                            ➕ 添加提醒
-                        </button>
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <button class="btn btn-primary" onclick="addReminder()" style="flex: 1;">
+                                ➕ 添加提醒
+                            </button>
+                            <button class="btn btn-primary" onclick="testReminder()" style="flex: 1; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                                🧪 测试提醒
+                            </button>
+                        </div>
                     </div>
 
                     <!-- 提醒列表 -->
@@ -1010,6 +1015,14 @@ function toggleReminder(id) {
         renderReminderList();
         updateCountdownWidget();
     }
+}
+
+/**
+ * 切换倒计时显示
+ */
+function toggleCountdownDisplay() {
+    const container = document.getElementById('reminderCountdownsContainer');
+    container.classList.toggle('collapsed');
 }
 
 /**

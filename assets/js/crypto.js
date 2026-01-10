@@ -733,15 +733,15 @@ function initBinanceWebSocket() {
                 try {
                     // 将币安API字段映射到标准格式，并过滤无效数据
                     const newData = data
-                        .filter(item => item && item.s && typeof item.s === 'string' && item.s.endsWith('USDT'))
+                        .filter(item => item && item.symbol && typeof item.symbol === 'string' && item.symbol.endsWith('USDT'))
                         .filter(item => {
                             // 过滤掉价格为0或异常的交易对
-                            const price = parseFloat(item.c);
-                            const volume = parseFloat(item.v);
-                            return price > 0 && volume > 0 && item.c && item.v;
+                            const price = parseFloat(item.lastPrice || item.c);
+                            const volume = parseFloat(item.volume || item.v);
+                            return price > 0 && volume > 0 && (item.lastPrice || item.c);
                         })
                         .map(item => {
-                            const symbol = item.s.replace('USDT', '').toLowerCase();
+                            const symbol = item.symbol.replace('USDT', '').toLowerCase();
                             const symbolUpper = symbol.toUpperCase();
 
                             // 获取币种ID映射
@@ -757,17 +757,17 @@ function initBinanceWebSocket() {
 
                             return {
                                 symbol: symbol,
-                                name: item.s.replace('USDT', ''),
+                                name: item.symbol.replace('USDT', ''),
                                 image: logo1,  // 优先使用CoinCap
                                 fallbackIcon1: logo2,  // CoinMarketCap作为第二选择
                                 fallbackIcon2: logo3,  // CoinGecko作为第三选择
                                 fallbackIcon3: svgIcon,  // SVG作为最后选择
-                                current_price: parseFloat(item.c) || 0,
-                                price_change_percentage_24h: parseFloat(item.P) || 0,
-                                market_cap: parseFloat(item.c) * parseFloat(item.v) || 0,
-                                total_volume: parseFloat(item.q) || 0,
-                                quoteVolume: parseFloat(item.q) || 0,
-                                volume: parseFloat(item.v) || 0
+                                current_price: parseFloat(item.lastPrice || item.c) || 0,
+                                price_change_percentage_24h: parseFloat(item.priceChangePercent || item.P) || 0,
+                                market_cap: parseFloat(item.quoteVolume || item.q) || 0,
+                                total_volume: parseFloat(item.volume || item.v) || 0,
+                                quoteVolume: parseFloat(item.quoteVolume || item.q) || 0,
+                                volume: parseFloat(item.volume || item.v) || 0
                             };
                         });
 
@@ -1640,7 +1640,7 @@ function renderCryptoTable(data) {
             });
         }
 
-        const change = coin.price_change_percentage_24h;
+        const change = coin.price_change_percentage_24h || 0;
         const changeClass = change >= 0 ? 'change-up' : 'change-down';
         const changeSign = change >= 0 ? '+' : '';
 

@@ -464,7 +464,7 @@ function injectReminderStyles() {
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             border: 1px solid rgba(0, 0, 0, 0.08);
             min-width: 180px;
-            width: 180px;
+            width: auto;
         }
 
         .reminder-countdown-card:hover {
@@ -1172,7 +1172,6 @@ function updateCountdownWidget() {
         if (reminder.type === 'countdown') return; // 跳过事件倒计时
 
         let targetDateTime = null;
-        let timeRemaining = null;
 
         switch(reminder.type) {
             case 'daily':
@@ -1215,25 +1214,9 @@ function updateCountdownWidget() {
         }
 
         if (targetDateTime) {
-            const diff = targetDateTime - now;
-            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-            
-            if (days > 0) {
-                timeRemaining = `${days}天${hours}小时`;
-            } else if (hours > 0) {
-                timeRemaining = `${hours}小时${minutes}分`;
-            } else if (minutes > 0) {
-                timeRemaining = `${minutes}分钟`;
-            } else {
-                timeRemaining = '即将到达';
-            }
-
             otherReminders.push({
                 ...reminder,
-                targetDateTime,
-                timeRemaining
+                targetDateTime
             });
         }
     });
@@ -1273,14 +1256,14 @@ function updateCountdownWidget() {
         title.className = 'reminder-countdown-title';
         title.textContent = reminder.title;
 
-        const detail = document.createElement('div');
-        detail.className = 'reminder-countdown-detail';
-        detail.id = `side-countdown-${reminder.id}`;
-        detail.textContent = reminder.timeRemaining;
-        detail.style.color = '#667eea';
+        const timer = document.createElement('div');
+        timer.className = 'reminder-countdown-timer';
+        timer.id = `side-countdown-${reminder.id}`;
+        timer.style.fontSize = '14px'; // 稍微小一点的字体
+        timer.style.color = '#667eea';
 
         card.appendChild(title);
-        card.appendChild(detail);
+        card.appendChild(timer);
         container.appendChild(card);
     }
 
@@ -1288,6 +1271,17 @@ function updateCountdownWidget() {
     if (countdownReminders.length === 0 && otherReminders.length === 0) {
         return;
     }
+
+    // 同步宽度：让按钮右侧的卡片宽度跟随按钮上方的卡片宽度
+    const syncWidth = () => {
+        const mainCard = document.querySelector('.reminder-countdown-card.countdown-main');
+        const sideCard = document.querySelector('.reminder-countdown-card.countdown-side');
+        
+        if (mainCard && sideCard) {
+            const mainWidth = mainCard.offsetWidth;
+            sideCard.style.width = mainWidth + 'px';
+        }
+    };
 
     // 更新倒计时
     const updateTimers = () => {
@@ -1311,34 +1305,30 @@ function updateCountdownWidget() {
             const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
             timerEl.textContent = `${days}天 ${hours}小时 ${minutes}分 ${seconds}秒`;
+            
+            // 每次更新时同步宽度
+            syncWidth();
         });
 
         // 更新其他提醒的倒计时
         if (otherReminders.length > 0) {
             const reminder = otherReminders[0];
-            const detailEl = document.getElementById(`side-countdown-${reminder.id}`);
-            if (detailEl) {
+            const timerEl = document.getElementById(`side-countdown-${reminder.id}`);
+            if (timerEl) {
                 const now = new Date();
                 const diff = reminder.targetDateTime - now;
 
                 if (diff <= 0) {
-                    detailEl.textContent = '已到达';
+                    timerEl.textContent = '已到达！';
                     return;
                 }
 
                 const days = Math.floor(diff / (1000 * 60 * 60 * 24));
                 const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                 const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
-                if (days > 0) {
-                    detailEl.textContent = `${days}天${hours}小时`;
-                } else if (hours > 0) {
-                    detailEl.textContent = `${hours}小时${minutes}分`;
-                } else if (minutes > 0) {
-                    detailEl.textContent = `${minutes}分钟`;
-                } else {
-                    detailEl.textContent = '即将到达';
-                }
+                timerEl.textContent = `${days}天 ${hours}小时 ${minutes}分 ${seconds}秒`;
             }
         }
     };

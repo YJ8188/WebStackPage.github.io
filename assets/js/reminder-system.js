@@ -1022,7 +1022,39 @@ function toggleReminder(id) {
  */
 function toggleCountdownDisplay() {
     const container = document.getElementById('reminderCountdownsContainer');
-    container.classList.toggle('collapsed');
+    const cards = container.querySelectorAll('.reminder-countdown-card');
+    
+    if (container.classList.contains('collapsed')) {
+        // 当前是收起状态，展开显示所有卡片
+        container.classList.remove('collapsed');
+        cards.forEach((card, index) => {
+            card.style.display = 'block';
+        });
+    } else {
+        // 当前是展开状态，检查是否只显示第一个卡片
+        let onlyFirstVisible = true;
+        cards.forEach((card, index) => {
+            if (index > 0 && card.style.display !== 'none') {
+                onlyFirstVisible = false;
+            }
+        });
+        
+        if (onlyFirstVisible) {
+            // 只显示第一个卡片，现在展开显示所有卡片
+            cards.forEach((card, index) => {
+                card.style.display = 'block';
+            });
+        } else {
+            // 显示所有卡片，现在收起只显示第一个卡片
+            cards.forEach((card, index) => {
+                if (index === 0) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+    }
 }
 
 /**
@@ -1353,10 +1385,19 @@ function updateCountdownWidget() {
     // 4. 按目标时间排序，最近的在前
     allReminders.sort((a, b) => a.targetDateTime - b.targetDateTime);
 
-    // 5. 创建所有倒计时卡片
-    allReminders.forEach(reminder => {
+    // 如果没有任何内容显示，直接返回
+    if (allReminders.length === 0) {
+        return;
+    }
+
+    // 5. 创建所有倒计时卡片（先创建所有，然后根据展开/收起状态控制显示）
+    allReminders.forEach((reminder, index) => {
         const card = document.createElement('div');
         card.className = `reminder-countdown-card ${reminder.cardType}`;
+        // 只显示第一个卡片，其他隐藏
+        if (index > 0) {
+            card.style.display = 'none';
+        }
 
         const title = document.createElement('div');
         title.className = 'reminder-countdown-title';
@@ -1371,16 +1412,8 @@ function updateCountdownWidget() {
         container.appendChild(card);
     });
 
-    // 如果没有任何内容显示，直接返回
-    if (allReminders.length === 0) {
-        return;
-    }
-
-    // 如果有倒计时类型的提醒，自动展开显示
-    const hasCountdown = countdownReminders.length > 0;
-    if (hasCountdown && container.classList.contains('collapsed')) {
-        container.classList.remove('collapsed');
-    }
+    // 初始状态：只显示第一个卡片，容器保持展开
+    container.classList.remove('collapsed');
 
     // 更新倒计时
     const updateTimers = () => {

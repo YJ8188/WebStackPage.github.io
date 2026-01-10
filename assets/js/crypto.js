@@ -94,6 +94,12 @@ let lastRateUpdate = 0; // 上次汇率更新时间
 let lastLocalStorageUpdate = 0; // 上次localStorage更新时间
 const LOCAL_STORAGE_UPDATE_INTERVAL = 10000; // localStorage更新间隔：10秒
 
+// ==================== 缓存相关常量 ====================
+const CRYPTO_CACHE_KEY = 'crypto_data_cache'; // 币种数据缓存键名（已弃用，改用服务器缓存）
+const CRYPTO_CACHE_EXPIRY = 5 * 60 * 1000; // 缓存过期时间：5分钟
+let cachedCryptoData = null; // 缓存的币种数据（已弃用，改用服务器缓存）
+const SERVER_CACHE_URL = 'https://crypto-websocket-proxy.onrender.com/api/cache'; // 服务器缓存端点
+
 // ==================== 缓存和工具 ====================
 // K线图缓存（限制最多缓存20个币种，防止内存泄漏）
 const sparklineCache = {};
@@ -144,6 +150,33 @@ const COIN_ID_MAP = {
 const expandedCoins = new Set();
 // 所有币种数据（用于搜索）
 let allCryptoData = [];
+
+/**
+ * 从服务器缓存读取币种数据
+ */
+async function loadCachedCryptoData() {
+    try {
+        const res = await fetch(SERVER_CACHE_URL);
+        if (res.ok) {
+            const result = await res.json();
+            if (result.success && result.data) {
+                console.log(`[缓存] ✅ 从服务器缓存加载了 ${result.data.length} 个币种`);
+                return result.data;
+            }
+        }
+    } catch (e) {
+        console.error('[缓存] ❌ 读取服务器缓存失败:', e);
+    }
+    return null;
+}
+
+/**
+ * 保存币种数据到 localStorage（备用，已弃用）
+ */
+function saveCachedCryptoData(coins) {
+    // 已弃用，改用服务器端缓存
+    console.log('[缓存] 💾 已切换到服务器端缓存，本地缓存已弃用');
+}
 
 /**
  * 加载K线图数据
@@ -1463,6 +1496,15 @@ async function fetchCryptoData() {
         tbody: !!tbody
     });
 
+    // 优先使用缓存数据
+    const cachedData = loadCachedCryptoData();
+    if (cachedData && cachedData.length > 0) {
+        cryptoData = cachedData;
+        renderCryptoTable(cryptoData);
+        updateCryptoUI(cryptoData);
+        Logger.info('[行情同步] ✅ 已从缓存加载:', cryptoData.length, '个币种');
+    }
+
     // 初始化币安WebSocket连接
     if (!binanceConnected) {
         initBinanceWebSocket();
@@ -1471,7 +1513,7 @@ async function fetchCryptoData() {
     // 后台同步汇率
     syncRate();
 
-    // 如果WebSocket已连接且有数据,立即渲染
+    // 如果WebSocket已连接且有数据,立即渲染（覆盖缓存）
     if (binanceMarketData.length > 0) {
         cryptoData = binanceMarketData;
         renderCryptoTable(cryptoData);
@@ -1493,9 +1535,14 @@ async function fetchCryptoData() {
             } else if (retryCount >= maxRetries) {
                 clearInterval(checkInterval);
                 Logger.error('[行情同步] WebSocket连接超时');
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: #ef4444;">
-                    <i class="fa fa-exclamation-triangle"></i> 连接超时，请检查网络或稍后刷新页面。
-                </td></tr>`;
+                // 如果有缓存数据，继续显示缓存，否则显示错误
+                if (cachedData && cachedData.length > 0) {
+                    Logger.warn('[行情同步] 使用缓存数据继续显示');
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: #ef4444;">
+                        <i class="fa fa-exclamation-triangle"></i> 连接超时，请检查网络或稍后刷新页面。
+                    </td></tr>`;
+                }
             }
         }, 500);
     }
@@ -1706,6 +1753,8 @@ function coal(val) {
 
 function updateCryptoUI(data) {
     if (!data) return;
+
+    // 不再保存到本地缓存，服务器端会自动缓存
 
     // 更新标题中的币种计数
     const coinCountTitle = document.getElementById('coin-count-title');

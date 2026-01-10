@@ -496,6 +496,15 @@ function injectReminderStyles() {
             min-width: 0;
         }
 
+        // 修改点：隐藏空的 countdown-extra 和 footer，避免空白
+        .countdown-extra:empty {
+            display: none;
+        }
+
+        .countdown-footer:has(.countdown-extra:empty) {
+            display: none;
+        }
+
         /* 空状态样式 */
         .empty-state {
             text-align: center;

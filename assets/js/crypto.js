@@ -29,8 +29,8 @@ const LOG_LEVEL = (() => {
         const level = parseInt(savedLevel);
         if (level in LogLevel) return level;
     }
-    // 默认显示 info 及以上级别的日志（包括心跳日志）
-    return LogLevel.INFO;
+    // 默认只显示 warn 和 error 级别的日志（心跳日志单独处理）
+    return LogLevel.WARN;
 })();
 
 /**
@@ -56,6 +56,12 @@ const Logger = {
         if (LOG_LEVEL <= LogLevel.ERROR) {
             console.error('[ERROR]', ...args);
         }
+    },
+    /**
+     * 心跳日志（始终显示，不受日志级别限制）
+     */
+    heartbeat: (...args) => {
+        console.log('[💓 心跳]', ...args);
     },
     /**
      * 设置日志级别
@@ -403,7 +409,7 @@ function startHeartbeat() {
         checkHeartbeat();
     }, HEARTBEAT_INTERVAL);
 
-    Logger.info('[币安API] 💓 心跳机制已启动（每30秒检测一次）');
+    Logger.heartbeat('[币安API] 💓 心跳机制已启动（每30秒检测一次）');
 }
 
 /**
@@ -425,7 +431,7 @@ function startClientHeartbeat() {
                     client_time: Date.now()
                 });
                 binanceWS.send(heartbeatMsg);
-                Logger.info('[币安API] 💓 发送客户端心跳给服务器');
+                Logger.heartbeat('[币安API] 💓 发送客户端心跳给服务器');
                 Logger.debug('[币安API] 💓 心跳内容:', heartbeatMsg);
             } catch (error) {
                 Logger.error('[币安API] ❌ 发送客户端心跳失败:', error);
@@ -435,7 +441,7 @@ function startClientHeartbeat() {
         }
     }, 60000); // 60秒
 
-    Logger.info('[币安API] 💓 客户端心跳已启动（每60秒发送一次）');
+    Logger.heartbeat('[币安API] 💓 客户端心跳已启动（每60秒发送一次）');
 }
 
 /**
@@ -481,7 +487,7 @@ function checkHeartbeat() {
             binanceWS.close();
         }
     } else {
-        Logger.info('[币安API] 💓 心跳正常');
+        Logger.heartbeat('[币安API] 💓 心跳正常');
         Logger.debug(`[币安API] 距离上次心跳: ${timeSinceLastHeartbeat}ms`);
     }
 }
@@ -565,7 +571,7 @@ function initBinanceWebSocket() {
         // 启动客户端主动心跳（每60秒发送一次，保持连接活跃）
         startClientHeartbeat();
         
-        Logger.info('[币安API] 💓 双向心跳机制已启动');
+        Logger.heartbeat('[币安API] 💓 双向心跳机制已启动');
     };
 
     binanceWS.onmessage = function (event) {
@@ -635,7 +641,7 @@ function initBinanceWebSocket() {
 
             // 处理服务器心跳
             if (data.type === 'heartbeat') {
-                Logger.info('[币安API] 💓 收到服务器心跳');
+                Logger.heartbeat('[币安API] 💓 收到服务器心跳');
                 Logger.debug('[币安API] 💓 服务器时间:', data.timestamp);
                 Logger.debug('[币安API] 💓 服务器时间戳:', data.server_time);
 
@@ -649,7 +655,7 @@ function initBinanceWebSocket() {
                         client_time: Date.now()
                     });
                     binanceWS.send(responseMsg);
-                    Logger.info('[币安API] 💓 已回复服务器心跳');
+                    Logger.heartbeat('[币安API] 💓 已回复服务器心跳');
                     Logger.debug('[币安API] 💓 回复内容:', responseMsg);
                 }
 

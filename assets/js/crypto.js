@@ -173,7 +173,7 @@ async function loadSparkline(id, symbol, changePct) {
 
     async function tryFetch() {
         let prices = null;
-        // 使用代理服务器获取币安K线数据（获取7天数据）
+        // 使用您的代理服务器获取币安K线数据（获取7天数据）
         try {
             const res = await fetchWithTimeout(`https://crypto-websocket-proxy.onrender.com/api/klines?symbol=${symbol.toUpperCase()}USDT&interval=1d&limit=7`, { timeout: 10000 });
             if (res.ok) {

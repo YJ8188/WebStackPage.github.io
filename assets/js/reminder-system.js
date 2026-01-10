@@ -1,29 +1,6693 @@
-/**
- * 提醒系统
- * 功能：每日提醒、月度提醒、日期范围提醒、事件倒计时
- * 数据存储：localStorage
- */
+<!DOCTYPE html>
+<!-- HTML文档类型声明，告诉浏览器这是一个HTML5文档 -->
+<html lang="zh">
+<!-- html标签的lang属性设置为"zh"，表示页面语言为中文 -->
 
-// ==================== 注入样式到页面 ====================
-function injectReminderStyles() {
-    const style = document.createElement('style');
-    style.textContent = `
-        /* ==================== 提醒管理弹窗样式 ==================== */
-        .reminder-modal-overlay {
+<head>
+    <!-- ==================== 基础设置 ==================== -->
+    <!-- 字符编码设置为UTF-8，支持中文等所有Unicode字符 -->
+    <meta charset="utf-8">
+    <!-- 视口设置，确保页面在移动设备上正确显示和缩放 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- ==================== DNS预解析和预连接 ==================== -->
+    <!-- DNS预解析：提前解析域名，加快资源加载速度 -->
+    <link rel="dns-prefetch" href="//cdn.jsdelivr.net">
+    <!-- 预连接：提前建立TCP连接，减少请求延迟 -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+
+    <!-- ==================== 字体资源 ==================== -->
+    <!-- 预加载HarmonyOS Sans字体，提升页面加载性能 -->
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/harmonyos-sans@1.0.6/css/harmonyos-sans.min.css" as="style">
+    <!-- 引入HarmonyOS Sans字体样式 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/harmonyos-sans@1.0.6/css/harmonyos-sans.min.css">
+
+<!-- ==================== 浏览器兼容性和页面信息 ==================== -->
+<!-- 页面作者信息 -->
+<meta name="author" content="何哥" />
+<!-- 页面标题，显示在浏览器标签页上 -->
+<title>何哥 - 技术员网址导航</title>
+<!-- 页面关键词，用于SEO优化 -->
+<meta name="keywords"
+        content="UI设计,UI设计素材,设计导航,网址导航,设计资源,创意导航,创意网站导航,技术员网址大全,设计素材大全,技术员导航,UI设计资源,优秀UI设计欣赏,技术员导航,技术员网址大全,技术员网址导航,产品经理网址导航,交互技术员网址导航">
+<!-- 页面描述，用于SEO优化，显示在搜索结果中 -->
+<meta name="description" content="何哥的网站导航系统 - 收集国内外优秀设计网站、UI设计资源网站、灵感创意网站、素材资源网站，定时更新分享优质产品设计书签">
+
+<!-- ==================== 网站图标（Favicon） ==================== -->
+<!-- 多尺寸支持，确保在不同设备和浏览器上都能正确显示图标 -->
+<link rel="icon" type="image/png" href="../assets/images/favicon.png">
+<link rel="shortcut icon" href="../assets/images/favicon.png">
+<link rel="apple-touch-icon" href="../assets/images/favicon.png">
+
+<!-- ==================== CSS样式文件 ==================== -->
+<!-- Google Fonts：引入Arimo字体 -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Arimo:400,700,400italic">
+<!-- Linecons图标字体 -->
+<link rel="stylesheet" href="../assets/css/fonts/linecons/css/linecons.css">
+<!-- Font Awesome图标字体 -->
+<link rel="stylesheet" href="../assets/css/fonts/fontawesome/css/font-awesome.min.css">
+<!-- Bootstrap框架样式 -->
+<link rel="stylesheet" href="../assets/css/bootstrap.css">
+<!-- Xenon主题核心样式 -->
+<link rel="stylesheet" href="../assets/css/xenon-core.css">
+<!-- Xenon组件样式 -->
+<link rel="stylesheet" href="../assets/css/xenon-components.css">
+<!-- Xenon皮肤样式 -->
+<link rel="stylesheet" href="../assets/css/xenon-skins.css">
+<!-- 导航页面自定义样式 -->
+<link rel="stylesheet" href="../assets/css/nav.css">
+
+<!-- ==================== JavaScript库 ==================== -->
+<!-- jQuery库，用于DOM操作和事件处理 -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+
+<!-- ==================== Facebook Open Graph 元标签 ==================== --><!-- 用于在Facebook分享时显示的预览信息 -->
+<meta property="og:type" content="article"> <!-- 内容类型 -->
+<meta property="og:title" content="何哥的网站导航系统 - 收集国内外优秀设计网站、UI设计资源网站、灵感创意网站、素材资源网站"> <!-- 分享标题 -->
+<meta property="og:description"
+        content="UI设计,UI设计素材,设计导航,网址导航,设计资源,创意导航,创意网站导航,技术员网址大全,设计素材大全,技术员导航,UI设计资源,优秀UI设计欣赏"> <!-- 分享描述 -->
+<meta property="og:site_name"
+        content="何哥的网站导航系统"> <!-- 网站名称 -->
+
+<!-- ==================== Twitter Cards 元标签 ==================== -->
+<!-- 用于在Twitter分享时显示的预览信息 -->
+<meta name="twitter:card" content="summary_large_image"> <!-- 卡片类型：大图模式 -->
+<meta name="twitter:title" content="何哥的网站导航系统 - 收集国内外优秀设计网站、UI设计资源网站、灵感创意网站、素材资源网站"> <!-- 分享标题 -->
+<meta name="twitter:description"
+        content="UI设计,UI设计素材,设计导航,网址导航,设计资源,创意导航,创意网站导航,技术员网址大全,设计素材大全,技术员导航,UI设计资源,优秀UI设计欣赏"> <!-- 分享描述 -->
+    <style>
+        /* ==================== 全局字体优化 ==================== */
+        /* 设置页面主体字体，优先使用HarmonyOS Sans，依次降级到系统字体 */
+        body {
+            font-family:
+                "HarmonyOS Sans", /* 鸿蒙字体，优先使用 */
+                -apple-system, /* Apple系统字体 */
+                BlinkMacSystemFont, /* macOS Chrome字体 */
+                "Segoe UI", /* Windows系统字体 */
+                "PingFang SC", /* 苹方中文字体 */
+                "Hiragino Sans GB", /* 苹果中文字体 */
+                "Microsoft YaHei", /* 微软雅黑 */
+                "Source Han Sans CN", /* 思源黑体 */
+                "Noto Sans CJK SC", /* Noto思源黑体 */
+                Arial, /* 通用字体 */
+                sans-serif; /* 无衬线字体族 */
+
+            font-weight: 400; /* 字体粗细：正常 */
+            font-size: 14px; /* 字体大小：14像素 */
+            line-height: 1.6; /* 行高：1.6倍，提高可读性 */
+            letter-spacing: 0.02em; /* 字间距：稍微增加 */
+
+            /* 优化字体渲染效果 */
+            -webkit-font-smoothing: antialiased; /* Chrome/Safari字体平滑 */
+            -moz-osx-font-smoothing: grayscale; /* Firefox字体平滑 */
+            text-rendering: optimizeLegibility; /* 优化文本渲染 */
+            font-feature-settings: "kern" 1; /* 启用字距调整 */
+        }
+
+        /* 中文字体特殊优化 */
+        :lang(zh) {
+            font-weight: 400; /* 中文字体使用正常粗细 */
+        }
+
+        /* 标题字体优化 */
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6 {
+            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif; /* 使用清晰易读的字体 */
+            font-weight: 600; /* 标题使用半粗体 */
+            letter-spacing: 0.03em; /* 标题字间距稍微增加 */
+        }
+
+        /* 按钮和小标签字体 */
+        button,
+        .btn,
+        .label {
+            font-family: "HarmonyOS Sans", -apple-system, sans-serif; /* 使用系统字体 */
+            font-weight: 500; /* 按钮使用中等粗细 */
+        }
+
+        /* ===================================================
+   最终版视觉风格（封版）
+   =================================================== */
+
+        /* ==================== 全局布局节奏 ==================== */
+        /* 主内容区域顶部内边距 */
+        .main-content {
+            padding-top: 24px; /* 与顶部保持24px间距 */
+        }
+
+        /* ==================== 卡片基础样式 ==================== */
+        /* 网站导航卡片的基本样式 */
+        .xe-widget {
+            border-radius: 10px; /* 圆角：10像素 */
+            background-color: rgba(255, 255, 255, 0.02); /* 背景色：半透明白色 */
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35); /* 阴影效果 */
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* 过渡动画效果 */
+            margin-bottom: 20px; /* 底部外边距 */
+            position: relative; /* 相对定位，为内部绝对定位元素提供参考 */
+        }
+
+        /* ==================== 提示框（Tooltip）样式 ==================== */
+        /* 确保tooltip显示在最上层 */
+        .tooltip {
+            z-index: 20000 !important; /* 最高层级 - 确保不被任何元素遮挡 */
+            pointer-events: none; /* 不响应鼠标事件 */
+        }
+
+        /* Tooltip内部样式 */
+        .tooltip-inner {
+            max-width: 300px; /* 最大宽度 */
+            word-break: break-all; /* 强制换行 */
+            font-size: 12px; /* 字体大小 */
+            background-color: rgba(0, 0, 0, 0.9); /* 背景色：深色半透明 */
+            padding: 8px 12px; /* 内边距 */
+            border-radius: 6px; /* 圆角 */
+        }
+
+        /* Tooltip箭头样式 */
+        .tooltip-arrow {
+            z-index: 20000 !important; /* 与tooltip同级 */
+        }
+
+        /* ==================== 卡片悬停效果 ==================== */
+        /* 鼠标悬停时的卡片动画效果 */
+        .xe-widget:hover {
+            transform: translateY(-6px) scale(1.01); /* 向上移动并轻微放大 */
+            box-shadow: 0 14px 32px rgba(0, 0, 0, 0.55); /* 阴影加深 */
+            z-index: 100; /* 提升层级 - 确保卡片和 tooltip 都显示在最前面 */
+        }
+
+        
+
+
+        /* ==================== 卡片隐藏按钮 ==================== */
+        /* 隐藏卡片的红色删除按钮 */
+        .card-hide-btn {
+            position: absolute; /* 绝对定位 */
+            top: 8px; /* 距离顶部8px */
+            right: 8px; /* 距离右侧8px */
+            width: 28px; /* 宽度 */
+            height: 28px; /* 高度 */
+            background: rgba(239, 68, 68, 0.9); /* 背景色：红色半透明 */
+            color: #fff; /* 文字颜色：白色 */
+            border: none; /* 无边框 */
+            border-radius: 50%; /* 圆形按钮 */
+            cursor: pointer; /* 鼠标指针：手型 */
+            display: none; /* 默认隐藏 */
+            align-items: center; /* 垂直居中 */
+            justify-content: center; /* 水平居中 */
+            font-size: 14px; /* 字体大小 */
+            z-index: 100; /* 层级 - 提升到最前面 */
+            transition: all 0.2s ease; /* 过渡动画 */
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); /* 阴影 */
+        }
+
+        /* 隐藏按钮悬停效果 */
+        .card-hide-btn:hover {
+            background: rgba(220, 38, 38, 1); /* 背景色加深 */
+            transform: scale(1.1); /* 放大1.1倍 */
+        }
+
+        /* 卡片悬停时显示删除按钮 */
+        .xe-widget:hover .card-hide-btn {
+            display: flex; /* 显示按钮 */
+        }
+
+        /* 隐藏的卡片样式 */
+        .card-hidden {
+            display: none !important; /* 完全隐藏 */
+        }
+
+        /* ==================== 卡片拖拽功能样式 ==================== */
+        /* 可拖拽的卡片容器样式 */
+        .col-sm-3[draggable="true"] {
+            cursor: grab; /* 鼠标指针：抓取手势 */
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease; /* 过渡动画 */
+        }
+
+        /* 拖拽时的鼠标指针 */
+        .col-sm-3[draggable="true"]:active {
+            cursor: grabbing; /* 鼠标指针：抓取中 */
+        }
+
+        /* 可拖拽卡片悬停效果 */
+        .col-sm-3[draggable="true"]:hover {
+            transform: translateY(-2px); /* 向上移动2px */
+        }
+
+        /* 拖动中的卡片样式 */
+        .col-sm-3.dragging {
+            opacity: 0.4; /* 透明度降低 */
+            transform: scale(0.95) rotate(2deg); /* 缩小并旋转 */
+            transition: none; /* 无过渡效果 */
+            z-index: 1000; /* 最高层级 */
+        }
+
+        /* 拖动时的占位符效果 */
+        .col-sm-3.drag-over {
+            border: 2px dashed #3b82f6; /* 蓝色虚线边框 */
+            border-radius: 10px; /* 圆角 */
+            background: rgba(59, 130, 246, 0.1); /* 蓝色半透明背景 */
+            transform: scale(1.02); /* 轻微放大 */
+        }
+
+        /* 拖动时的插入位置指示线 */
+        .col-sm-3.drag-insert-before::before,
+        .col-sm-3.drag-insert-after::after {
+            content: ''; /* 空内容 */
+            position: absolute; /* 绝对定位 */
+            left: -2px; /* 左侧超出2px */
+            right: -2px; /* 右侧超出2px */
+            height: 3px; /* 高度3px */
+            background: #3b82f6; /* 蓝色 */
+            border-radius: 2px; /* 圆角 */
+            z-index: 1001; /* 最高层级 */
+            animation: pulse 1s infinite; /* 脉冲动画 */
+        }
+
+        /* 插入位置指示线 - 顶部 */
+        .col-sm-3.drag-insert-before::before {
+            top: -2px; /* 顶部位置 */
+        }
+
+        /* 插入位置指示线 - 底部 */
+        .col-sm-3.drag-insert-after::after {
+            bottom: -2px; /* 底部位置 */
+        }
+
+        /* 脉冲动画关键帧 */
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 0.6; /* 透明度 */
+                transform: scaleY(1); /* 垂直缩放 */
+            }
+            50% {
+                opacity: 1; /* 不透明 */
+                transform: scaleY(1.2); /* 垂直放大 */
+            }
+        }
+
+        /* 拖动时的卡片阴影效果 */
+        .col-sm-3.dragging .xe-widget {
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4); /* 深阴影 */
+            transform: scale(1.05); /* 放大 */
+        }
+
+        /* ==================== 卡片内容样式 ==================== */
+        /* 卡片内容区域 */
+        .xe-widget .xe-content {
+            padding: 18px 16px; /* 内边距 */
+        }
+
+        /* 卡片图标 */
+        .xe-widget .xe-icon {
+            margin-bottom: 6px; /* 底部外边距 */
+            opacity: 0.9; /* 透明度 */
+        }
+
+        /* ==================== 卡片字体层级 ==================== */
+        /* 卡片标题 */
+        .xe-widget .xe-title {
+            font-size: 15px; /* 字体大小 */
+            font-weight: 600; /* 字体粗细 */
+            letter-spacing: 0.3px; /* 字间距 */
+        }
+
+        /* 卡片描述文字 */
+        .xe-widget .xe-comment {
+            font-size: 12px; /* 字体大小 */
+            opacity: 0.75; /* 透明度 */
+        }
+
+        /* ==================== 左侧菜单样式 ==================== */
+        /* 菜单项链接 */
+        .sidebar-menu li>a {
+            border-radius: 10px; /* 圆角 */
+        }
+
+        /* 激活的菜单项 */
+        .sidebar-menu li.active>a {
+            background-color: rgba(255, 255, 255, 0.12); /* 背景色 */
+            font-weight: 600; /* 字体粗细 */
+            position: relative; /* 相对定位 */
+        }
+
+        /* 激活菜单项左侧指示条 */
+        .sidebar-menu li.active>a::before {
+            content: ''; /* 空内容 */
+            position: absolute; /* 绝对定位 */
+            left: 0; /* 左侧 */
+            top: 0; /* 顶部 */
+            bottom: 0; /* 底部 */
+            width: 3px; /* 宽度3px */
+            background-color: rgba(255, 255, 255, 0.6); /* 背景色 */
+        }
+
+        /* 菜单项悬停效果 */
+        .sidebar-menu li>a:hover {
+            background-color: rgba(255, 255, 255, 0.08); /* 背景色 */
+        }
+
+        /* 菜单图标样式 */
+        .sidebar-menu li>a i {
+            opacity: 0.85; /* 透明度 */
+        }
+
+        /* ==================== 导航栏样式优化 ==================== */
+        /* 移除导航栏按钮和链接的边框和轮廓 */
+        .navbar .navbar-toggle,
+        .navbar .user-info-menu>li>a {
+            border: none !important; /* 无边框 */
+            outline: none !important; /* 无轮廓 */
+            box-shadow: none !important; /* 无阴影 */
+        }
+
+        /* ==================== 返回顶部按钮 ==================== */
+        /* 回到顶部按钮样式 */
+        .back-to-top {
+            position: fixed; /* 固定定位 */
+            bottom: 24px; /* 距离底部24px */
+            right: 24px; /* 距离右侧24px */
+            width: 48px; /* 宽度 */
+            height: 48px; /* 高度 */
+            border-radius: 50%; /* 圆形 */
+            background: #3b82f6; /* 背景色：蓝色 */
+            color: #fff; /* 文字颜色：白色 */
+            display: flex; /* Flex布局 */
+            align-items: center; /* 垂直居中 */
+            justify-content: center; /* 水平居中 */
+            cursor: pointer; /* 鼠标指针：手型 */
+            box-shadow: 0 6px 16px rgba(59, 130, 246, .35); /* 阴影 */
+            transition: all .3s ease; /* 过渡动画 */
+            opacity: 0; /* 默认透明 */
+            visibility: hidden; /* 默认隐藏 */
+            z-index: 9999; /* 最高层级 */
+        }
+
+        /* 显示返回顶部按钮 */
+        .back-to-top.visible {
+            opacity: 1; /* 不透明 */
+            visibility: visible; /* 可见 */
+        }
+
+        /* 返回顶部按钮悬停效果 */
+        .back-to-top:hover {
+            background: #2563eb; /* 背景色加深 */
+            transform: translateY(-4px); /* 向上移动 */
+        }
+
+        /* 返回顶部按钮图标 */
+        .back-to-top i {
+            font-size: 20px; /* 字体大小 */
+            line-height: 1; /* 行高 */
+        }
+
+        /* 移动端返回顶部按钮调整（平板） */
+        @media (max-width: 768px) {
+            .back-to-top {
+                width: 48px; /* 宽度 */
+                height: 48px; /* 高度 */
+                bottom: 24px; /* 距离底部 */
+                right: 24px; /* 距离右侧 */
+            }
+        }
+
+        /* 移动端返回顶部按钮调整（手机） */
+        @media (max-width: 480px) {
+            .back-to-top {
+                width: 44px; /* 宽度减小 */
+                height: 44px; /* 高度减小 */
+                bottom: 20px; /* 距离底部调整 */
+                right: 16px; /* 距离右侧调整 */
+            }
+
+            .back-to-top i {
+                font-size: 18px; /* 图标大小减小 */
+            }
+        }
+
+        /* ==================== 全局顶部搜索框 ==================== */
+        /* 搜索框容器 */
+        .global-search {
+            position: fixed; /* 固定定位 */
+            top: 16px; /* 距离顶部16px */
+            left: 50%; /* 水平居中 */
+            transform: translateX(-50%); /* 水平居中修正 */
+            z-index: 9999; /* 最高层级 */
+        }
+
+        /* 搜索框样式 */
+        .global-search-box {
+            display: flex; /* Flex布局 */
+            align-items: center; /* 垂直居中 */
+            gap: 8px; /* 元素间距 */
+            padding: 8px 14px; /* 内边距 */
+            background: rgba(20, 20, 20, 0.9); /* 背景色：深色半透明 */
+            border-radius: 999px; /* 圆角：胶囊形 */
+            box-shadow: 0 10px 30px rgba(0, 0, 0, .35); /* 阴影 */
+            backdrop-filter: blur(8px); /* 背景模糊效果 */
+        }
+
+        /* 搜索框图标 */
+        .global-search-box i {
+            color: #9ca3af; /* 图标颜色 */
+            font-size: 16px; /* 图标大小 */
+        }
+
+        /* 搜索框输入框 */
+        .global-search-box input {
+            width: 180px; /* 宽度 */
+            background: transparent; /* 透明背景 */
+            border: none; /* 无边框 */
+            outline: none; /* 无轮廓 */
+            color: #fff; /* 文字颜色：白色 */
+            font-size: 14px; /* 字体大小 */
+        }
+
+        /* 移动端搜索框输入框调整 */
+        @media (max-width: 768px) {
+            .global-search-box input {
+                width: 120px; /* 宽度减小 */
+            }
+            /* 隐藏移动端的搜索框 */
+            .global-search {
+                display: none !important;
+            }
+        }
+
+        /* ==================== 搜索引擎切换按钮 ==================== */
+        /* 搜索引擎按钮样式 */
+        .search-engine-btn {
+            background: rgba(59, 130, 246, 0.2); /* 背景色：蓝色半透明 */
+            border: 1px solid rgba(59, 130, 246, 0.3); /* 边框 */
+            color: #9ca3af; /* 文字颜色 */
+            padding: 4px 10px; /* 内边距 */
+            border-radius: 6px; /* 圆角 */
+            font-size: 11px; /* 字体大小 */
+            cursor: pointer; /* 鼠标指针：手型 */
+            transition: all 0.2s ease; /* 过渡动画 */
+            white-space: nowrap; /* 不换行 */
+        }
+
+        /* 激活的搜索引擎按钮 */
+        .search-engine-btn.active {
+            background: #3b82f6; /* 背景色：蓝色 */
+            border-color: #3b82f6; /* 边框颜色 */
+            color: #fff; /* 文字颜色：白色 */
+        }
+
+        /* 搜索引擎按钮悬停效果 */
+        .search-engine-btn:hover {
+            background: rgba(59, 130, 246, 0.4); /* 背景色加深 */
+            color: #fff; /* 文字颜色：白色 */
+        }
+
+        /* 移动端搜索引擎按钮调整 */
+        @media (max-width: 768px) {
+            .search-engine-btn {
+                font-size: 10px; /* 字体大小减小 */
+                padding: 3px 8px; /* 内边距减小 */
+            }
+        }
+    </style>
+
+</head>
+
+<body>
+    <!-- ==================== 页面容器 ==================== -->
+    <div class="page-container">
+        <!-- ==================== 左侧侧边栏菜单 ==================== -->
+        <div class="sidebar-menu toggle-others fixed">
+            <div class="sidebar-menu-inner">
+                <!-- Logo区域 -->
+                <header class="logo-env">
+                    <!-- Logo展示 -->
+                    <div class="logo">
+                        <!-- 展开状态的Logo -->
+                        <a href="index.html" class="logo-expanded">
+                            <img src="../assets/images/logo@2x.png" width="100%" alt="" />
+                        </a>
+                        <!-- 收缩状态的Logo -->
+                        <a href="index.html" class="logo-collapsed">
+                            <img src="../assets/images/logo-collapsed@2x.png" width="40" alt="" />
+                        </a>
+                    </div>
+                    <!-- 移动端菜单切换按钮 -->
+                    <div class="mobile-menu-toggle visible-xs">
+                        <a href="javascript:void(0)" onclick="toggleDarkMode()" title="切换暗黑模式/日间模式">
+                            <i class="fa fa-moon-o dark-mode-icon" id="darkModeIcon"></i> <!-- 暗黑模式图标 -->
+                        </a>
+                        <a href="#" data-toggle="mobile-menu">
+                            <i class="fa-bars"></i> <!-- 菜单图标 -->
+                        </a>
+                    </div>
+                </header>
+
+                <!-- ==================== 主菜单列表 ==================== -->
+                <ul id="main-menu" class="main-menu">
+                    <!-- 菜单项：我的收藏 -->
+                    <li>
+                        <a href="#我的收藏" class="smooth">
+                            <i class="linecons-heart"></i> <!-- 心形图标 -->
+                            <span class="title">我的收藏</span>
+                            <span class="label label-primary pull-right hidden-collapsed">New</span> <!-- New标签 -->
+                        </a>
+                    </li>
+
+                    <!-- 菜单项：工作常用 -->
+                    <li>
+                        <a href="#工作常用" class="smooth">
+                            <i class="linecons-star"></i> <!-- 星形图标 -->
+                            <span class="title">工作常用</span>
+                            <span class="label label-pink pull-right hidden-collapsed">Hot</span> <!-- Hot标签 -->
+                        </a>
+                    </li>
+
+                    <!-- 菜单项：常用AI -->
+                    <li>
+                        <a href="#常用AI" class="smooth">
+                            <i class="linecons-doc"></i> <!-- 文档图标 -->
+                            <span class="title">常用AI</span>
+                        </a>
+                    </li>
+
+                    <!-- 菜单项：工作工具（有子菜单） -->
+                    <li>
+                        <a>
+                            <i class="linecons-lightbulb"></i> <!-- 灯泡图标 -->
+                            <span class="title">工作工具</span>
+                        </a>
+                        <!-- 子菜单 -->
+                        <ul>
+                            <li>
+                                <a href="#常用AI-API" class="smooth">
+                                    <span class="title">常用AI-API</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#常用远程" class="smooth">
+                                    <span class="title">常用远程</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#VPS资源" class="smooth">
+                                    <span class="title">VPS资源</span>
+                                    <span class="label label-pink pull-right hidden-collapsed">Hot</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    <li>
+                        <a>
+                            <i class="linecons-thumbs-up"></i>
+                            <span class="title">素材资源</span>
+                        </a>
+                        <ul>
+                            <li>
+                                <a href="#图标素材" class="smooth">
+                                    <span class="title">图标素材</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#LOGO设计" class="smooth">
+                                    <span class="title">LOGO设计</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#平面素材" class="smooth">
+                                    <span class="title">平面素材</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#UI资源" class="smooth">
+                                    <span class="title">UI资源</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#Sketch资源" class="smooth">
+                                    <span class="title">Sketch资源</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#字体资源" class="smooth">
+                                    <span class="title">字体资源</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#Mockup" class="smooth">
+                                    <span class="title">Mockup</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#摄影图库" class="smooth">
+                                    <span class="title">摄影图库</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#PPT资源" class="smooth">
+                                    <span class="title">PPT资源</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    <li>
+                        <a>
+                            <i class="linecons-diamond"></i>
+                            <span class="title">常用工具</span>
+                        </a>
+                        <ul>
+                            <li>
+                                <a href="#图形创意" class="smooth">
+                                    <span class="title">图形创意</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#界面设计" class="smooth">
+                                    <span class="title">界面设计</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#交互动效" class="smooth">
+                                    <span class="title">交互动效</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#在线配色" class="smooth">
+                                    <span class="title">在线配色</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#在线工具" class="smooth">
+                                    <span class="title">在线工具</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#Chrome插件" class="smooth">
+                                    <span class="title">Chrome插件</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    <li>
+                        <a>
+                            <i class="linecons-pencil"></i>
+                            <span class="title">学习教程</span>
+                        </a>
+                        <ul>
+                            <li>
+                                <a href="#设计规范" class="smooth">
+                                    <span class="title">设计规范</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#视频教程" class="smooth">
+                                    <span class="title">视频教程</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#设计文章" class="smooth">
+                                    <span class="title">设计文章</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#设计电台" class="smooth">
+                                    <span class="title">设计电台</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#交互设计" class="smooth">
+                                    <span class="title">交互设计</span>
+                                    <span class="label label-pink pull-right hidden-collapsed">Hot</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    <li>
+                        <a href="#数字货币" class="smooth">
+                            <i class="linecons-money"></i>
+                            <span class="title">数字货币</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#金价行情" class="smooth">
+                            <i class="linecons-diamond"></i>
+                            <span class="title">金价行情</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="about.html">
+                            <i class="linecons-heart"></i>
+                            <span class="tooltip-blue">关于本站</span>
+                            <span class="label label-Primary pull-right hidden-collapsed">♥︎</span>
+                        </a>
+                    </li>
+                    <!-- 提醒系统容器 -->
+                    <li id="reminderSystemContainer"></li>
+                    </ul>
+            </div>
+        </div>
+        <div class="main-content">
+            <nav class="navbar user-info-navbar" role="navigation">
+                <!-- User Info, Notifications and Menu Bar -->
+                <!-- Left links for user info navbar -->
+                <ul class="user-info-menu left-links list-inline list-unstyled">
+                    <li class="hidden-sm hidden-xs">
+                    </li>
+                </ul>
+                <ul class="user-info-menu right-links list-inline list-unstyled"
+                    style="display: flex; align-items: center; margin-bottom: 0; height: 100%;">
+                    <!-- 暗黑模式开关 -->
+                    <li style="height: 100%; display: flex; align-items: center;">
+                        <a href="javascript:void(0)" onclick="toggleDarkMode()" title="切换暗黑模式/日间模式"
+                            style="height: 100%; display: flex; align-items: center; padding: 0 15px;">
+                            <i class="fa fa-moon-o dark-mode-icon" id="darkModeIcon"></i>
+                        </a>
+                    </li>
+                    <li class="hidden-sm hidden-xs" style="height: 100%; display: flex; align-items: center;">
+                        <a href="https://github.com/WebStackPage/WebStackPage.github.io" target="_blank"
+                            style="height: 100%; display: flex; align-items: center; padding: 0 15px;">
+                            <i class="fa-github"></i> GitHub
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+
+            <!-- 我的收藏 -->
+            <h4 class="text-gray">
+                <i class="linecons-heart" style="margin-right: 7px;" id="我的收藏"></i>我的收藏
+                <span style="float: right; font-size: 13px; margin-top: 2px;">
+                    <a href="javascript:;" onclick="exportFavorites()" title="备份收藏数据"
+                        class="backup-btn">
+                        <i class="fa fa-download"></i> 备份
+                    </a>
+                    <a href="javascript:;" onclick="document.getElementById('importFile').click()" title="恢复收藏数据"
+                        class="backup-btn">
+                        <i class="fa fa-upload"></i> 恢复
+                    </a>
+                </span>
+            </h4>
+            <!-- 隐藏的文件输入框，用于恢复数据 -->
+            <input type="file" id="importFile" style="display: none;" accept=".json" onchange="importFavorites(this)">
+
+            <div class="row" id="my-favorites-list">
+                <!-- 动态加载 -->
+            </div>
+            <!-- 添加按钮行 (单独一行，通过JS控制是否合并) -->
+            <div class="row" id="add-card-row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info add-card-btn" onclick="openAddCardModal()">
+                        <div class="add-card-inner">
+                            <i class="fa fa-plus"></i>
+                            <span>添加收藏</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br />
+            <!-- 工作常用 -->
+            <h4 class="text-gray"><i class="linecons-star" style="margin-right: 7px;" id="工作常用"></i>工作常用</h4>
+
+            <!-- 第一行：4个 -->
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://ms.liantuobank.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://ms.liantuobank.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/liantuo.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>联拓小精灵后台</strong>
+                                </a>
+                                <p class="overflowClip_2">联拓小精灵后台系统</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://houtai.liantuofu.com/login', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://houtai.liantuofu.com/login">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/liantuo.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>小精灵商户后台</strong>
+                                </a>
+                                <p class="overflowClip_2">小精灵商户后台登录</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://gas.taimi100.com/agent/User/login', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://gas.taimi100.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/taimi.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>太米加油站</strong>
+                                </a>
+                                <p class="overflowClip_2">太米加油站后台登录系统</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://8.fuioupay.com/main.fuiou##', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://8.fuioupay.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/pinterest.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>富友作业平台</strong>
+                                </a>
+                                <p class="overflowClip_2">富友作业平台管理系统</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 第二行：4个 -->
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://sp.mxipos.com/login', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://sp.mxipos.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/pinterest.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>富友SAAS商户管理平台</strong>
+                                </a>
+                                <p class="overflowClip_2">SAAS系统后台</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://wmp.fuioupay.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://wmp.fuioupay.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/pinterest.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <span class="label label-info" data-toggle="tooltip" data-placement="left" title=""
+                                data-original-title="Hello I am a Tooltip"></span>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>富友商户服务平台</strong>
+                                </a>
+                                <p class="overflowClip_2">商户管理后台</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://sly.tcsl.com.cn/login/index', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.tcsl.com.cn/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/tiancai.png" class="lozad img-circle" width="40">
+                            </a>
+                            <span class="label label-info" data-toggle="tooltip" data-placement="left" title=""
+                                data-original-title="Hello I am a Tooltip"></span>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>天财商龙</strong>
+                                </a>
+                                <p class="overflowClip_2">天财商龙后台管理系统</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://eshop-mch.xgd.com/web/user/login?redirect=https%3A%2F%2Feshop-mch.xgd.com%2Fweb%2Fadmin%2Fhome', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://eshop-mch.xgd.com">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/yundian.ico" class="lozad img-circle" width="40">
+                            </a>
+                            <span class="label label-info" data-toggle="tooltip" data-placement="left" title=""
+                                data-original-title="Hello I am a Tooltip"></span>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>嘉联云店</strong>
+                                </a>
+                                <p class="overflowClip_2">SAAS商户后台管理平台</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 第三行：4个 -->
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://hg188.dpdns.org', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://hg188.dpdns.org">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/favicon.png" class="lozad img-circle" width="40">
+                            </a>
+                            <span class="label label-info" data-toggle="tooltip" data-placement="left" title=""
+                                data-original-title="Hello I am a Tooltip"></span>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>我的博客</strong>
+                                </a>
+                                <p class="overflowClip_2">个人博客，分享一些内容</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://github.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://github.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/github.png" class="lozad img-circle" width="40">
+                            </a>
+                            <span class="label label-info" data-toggle="tooltip" data-placement="left" title=""
+                                data-original-title="Hello I am a Tooltip"></span>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>github</strong>
+                                </a>
+                                <p class="overflowClip_2">全球最大的开源网</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://dash.cloudflare.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://dash.cloudflare.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/cf.ico" class="lozad img-circle" width="40">
+                            </a>
+                            <span class="label label-info" data-toggle="tooltip" data-placement="left" title=""
+                                data-original-title="Hello I am a Tooltip"></span>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>cloudflare托管</strong>
+                                </a>
+                                <p class="overflowClip_2">全球最大的DNS托管平台</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://dash.domain.digitalplat.org/panel/main?page=%2Fpanel%2Fmanager%2Fhq168.dpdns.org', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://dash.domain.digitalplat.org">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/dfd.jpg" class="lozad img-circle" width="40">
+                            </a>
+                            <span class="label label-info" data-toggle="tooltip" data-placement="left" title=""
+                                data-original-title="Hello I am a Tooltip"></span>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>域名续签</strong>
+                                </a>
+                                <p class="overflowClip_2">2026年6月23日续约域名</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br />
+            <!-- END 工作常用 -->
+            <!-- 推荐 -->
+            <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="推荐"></i>推荐</h4>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://antping.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://antping.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/ant.svg" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Ant Ping 一站式网络检测工具</strong>
+                                </a>
+                                <p class="overflowClip_2">网站IP测试网</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://curlconverter.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://curlconverter.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/curl.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>curl转换代码</strong>
+                                </a>
+                                <p class="overflowClip_2">将curl命令转换为Python、JavaScript等</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.xn--mes358aby2apfg.site/register?code=YkLcFh1t','_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://www.赔钱机场.site/login">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/peiqian.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>赔钱-科学上网</strong>
+                                </a>
+                                <p class="overflowClip_2">优秀的科学上网（贼便宜，长期稳定，点击注册领取优惠券）</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info" onclick="window.open('https://www.xn--mes358aby2apfg.site/register?code=YkLcFh1t', '_blank')" data-toggle="tooltip" data-placement="bottom" title="" data-original-title="https://www.赔钱机场.site/login">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/peiqian.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>赔钱-科学上网</strong>
+                                </a>
+                                <p class="overflowClip_2">优秀的科学上网（贼便宜，长期稳定，点击注册领取优惠券）</p>
+                            </div>
+                        </div>
+                    </div>
+                </div> -->
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://vercel.com/javas-projects-7d91ea6e', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://vercel.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/vercel.ico" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>vercel</strong>
+                                </a>
+                                <p class="overflowClip_2">前端项目的一键部署与托管平台。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://linux.do/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://linux.do/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/LINUX.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Linux.do</strong>
+                                </a>
+                                <p class="overflowClip_2">LINUXDO -新的理想型社区</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://eleduck.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://eleduck.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/eleduck.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>电鸭社区</strong>
+                                </a>
+                                <p class="overflowClip_2">国内最早的远程工作社区，也是互联网工作者们的聚集地，非常适合设计开发小伙伴关注</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br />
+            <!--END 推荐 -->
+            <!-- 常用AI -->
+            <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="常用AI"></i>常用AI</h4>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.chatgpt.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.openai.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/openai.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>openai</strong>
+                                </a>
+                                <p class="overflowClip_2">全球最大的AI网gpt-5.2</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://claude.ai/new', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://claude.ai/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/claude.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>claude</strong>
+                                </a>
+                                <p class="overflowClip_2">全球claude-4.7编程强大</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://aistudio.google.com/prompts/new_chat?model=gemini-3-pro-image-preview', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://aistudio.google.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/googleAI.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>google-gemini-3</strong>
+                                </a>
+                                <p class="overflowClip_2">gemini-3-pro-image-preview</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://chatglm.cn/main/alltoolsdetail?lang=zh', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title="" data-original-title="https://chatglm.cn">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/zpqy.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>智谱清言</strong>
+                                </a>
+                                <p class="overflowClip_2">模型：GLM-4.7</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.doubao.com/chat/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.doubao.com">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/doubao.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>豆包AI</strong>
+                                </a>
+                                <p class="overflowClip_2">国产AI字节跳动</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://chat.deepseek.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://chat.deepseek.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/deepseek.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>deepseek</strong>
+                                </a>
+                                <p class="overflowClip_2">deepseek-V3.2</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.kimi.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.kimi.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/kimi.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>kimi</strong>
+                                </a>
+                                <p class="overflowClip_2">Kimi-K2长思考版</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.qianwen.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.qianwen.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/qianwen.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>千问-Qwen</strong>
+                                </a>
+                                <p class="overflowClip_2">模型：Qwen3-Max-Thinking-Preview</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://cursor.com/cn', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://cursor.com/cn">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/cursor.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>cursor</strong>
+                                </a>
+                                <p class="overflowClip_2">cursor-AI写编程代码助手</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.trae.cn/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.trae.cn/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/trae.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>trae</strong>
+                                </a>
+                                <p class="overflowClip_2">trae-ai编程助手</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://windsurfcn.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://windsurfcn.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/windsurf.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>windsurf</strong>
+                                </a>
+                                <p class="overflowClip_2">windsurf-AI编程助手</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://lingma.aliyun.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://lingma.aliyun.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/tongyi.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>通义灵码</strong>
+                                </a>
+                                <p class="overflowClip_2">通义灵码-AI编程助手</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br />
+            <!--END 常用AI -->
+            <!-- 常用AI-API -->
+            <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="常用AI-API"></i>常用AI-API</h4>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.88code.ai/register?ref=6WSPPP', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://www.88code.ai/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/88code.png" class="lozad img-circle" width="40">
+                            </a>
+                            <span class="label label-info" data-toggle="tooltip" data-placement="left" title=""
+                                data-original-title="Hello I am a Tooltip"></span>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>88code</strong>
+                                </a>
+                                <p class="overflowClip_2">88code-API中转站</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://foxcode.rjj.cc/auth/register?aff=59DR20Q6', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://foxaihub.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/88code.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>foxcode</strong>
+                                </a>
+                                <p class="overflowClip_2">foxcode-API中转站</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://oneapi.6868ai.com', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="oneapi.6868ai.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/6868API.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>柏拉图API</strong>
+                                </a>
+                                <p class="overflowClip_2">柏拉图API-API中转站</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://free.duckcoding.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://free.duckcoding.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/duckcoding.gif" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>duckcoding</strong>
+                                </a>
+                                <p class="overflowClip_2">duckcoding-(Claude Code · CodeX · Gemini CLI)API中转站</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://today.itjuzi.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://today.itjuzi.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/today.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Today</strong>
+                                </a>
+                                <p class="overflowClip_2">为身边的新产品喝彩</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://faxian.appinn.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://faxian.appinn.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/appinn.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>小众软件</strong>
+                                </a>
+                                <p class="overflowClip_2">在这里发现更多有趣的应用</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br />
+            <!--END 常用AI-API -->
+            <!-- 常用远程 -->
+            <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="常用远程"></i>常用远程</h4>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://sunlogin.oray.com/product/feat', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://sunlogin.oray.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/xiangrikui.ico" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>向日葵远程控制</strong>
+                                </a>
+                                <p class="overflowClip_2">远程控制，随时互联。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://uuyc.163.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://uuyc.163.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/UU.ico" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>UU远程控制</strong>
+                                </a>
+                                <p class="overflowClip_2">随时跨屏协作。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.gotohttp.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.gotohttp.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/gotohttp.ico" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>GotoHTTP</strong>
+                                </a>
+                                <p class="overflowClip_2">远程控屏工具</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://rustdesk.com/zh/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://rustdesk.com/zh/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/RustDesk.ico" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>RustDesk</strong>
+                                </a>
+                                <p class="overflowClip_2">安全开源自托管远控</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!--END 常用远程 -->
+            <br />
+            <!-- VPS资源 -->
+            <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="VPS资源"></i>VPS资源</h4>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://dashboard.render.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://dashboard.render.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/favicon-light.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>render免费VPS转发</strong>
+                                </a>
+                                <p class="overflowClip_2">Render 云应用部署平台
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://uptimerobot.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://uptimerobot.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/favicon.ico" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>免费5分钟监控网站</strong>
+                                </a>
+                                <p class="overflowClip_2">网站监控与 uptime 追踪</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://thefwa.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://thefwa.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/fwa.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>The FWA</strong>
+                                </a>
+                                <p class="overflowClip_2">FWA - showcasing innovation every day since 2000</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.ecommercefolio.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.ecommercefolio.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/Ecommercefolio.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Ecommercefolio</strong>
+                                </a>
+                                <p class="overflowClip_2">Only the Best Ecommerce Design Inspiration</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.lapa.ninja/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.lapa.ninja/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/Lapa.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Lapa</strong>
+                                </a>
+                                <p class="overflowClip_2">The best landing page design inspiration from around the web.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://reeoo.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://reeoo.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/reeoo.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Reeoo</strong>
+                                </a>
+                                <p class="overflowClip_2">web design inspiration and website gallery</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://designmunk.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://designmunk.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/designmunk.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Designmunk</strong>
+                                </a>
+                                <p class="overflowClip_2">Best Homepage Design Inspiration</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://bestwebsite.gallery/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://bestwebsite.gallery/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/BWG.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Best Websites Gallery</strong>
+                                </a>
+                                <p class="overflowClip_2">Website Showcase Inspiration | Best Websites Gallery</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.pages.xyz/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.pages.xyz/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/pages.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Pages</strong>
+                                </a>
+                                <p class="overflowClip_2">Curated directory of the best Pages</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://sitesee.co/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://sitesee.co/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/SiteSee.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>SiteSee</strong>
+                                </a>
+                                <p class="overflowClip_2">SiteSee is a curated gallery of beautiful, modern websites
+                                    collections.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.siteinspire.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.siteinspire.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/siteInspire.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Site Inspire</strong>
+                                </a>
+                                <p class="overflowClip_2">A CSS gallery and showcase of the best web design inspiration.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://web.uedna.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://web.uedna.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/WebInspiration.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>WebInspiration</strong>
+                                </a>
+                                <p class="overflowClip_2">网页设计欣赏,全球顶级网页设计</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://navnav.co/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://navnav.co/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/navnav.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>navnav</strong>
+                                </a>
+                                <p class="overflowClip_2">A ton of CSS, jQuery, and JavaScript responsive navigation
+                                    examples, demos, and tutorials from all over the web.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.reallygoodux.io/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.reallygoodux.io/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/ReallyGoodUX.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Really Good UX</strong>
+                                </a>
+                                <p class="overflowClip_2">A library of screenshots and examples of really good UX.
+                                    Brought
+                                    to you by
+                                    <Appcues class=""></Appcues>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br />
+            <!--END VPS资源 -->
+            <!-- 图标素材 -->
+            <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="图标素材"></i>图标素材</h4>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.iconfinder.com', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.iconfinder.com">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/Iconfinder.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Iconfinder</strong>
+                                </a>
+                                <p class="overflowClip_2">2,100,000+ free and premium vector icons.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.iconfont.cn/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.iconfont.cn/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/iconfont.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>iconfont</strong>
+                                </a>
+                                <p class="overflowClip_2">阿里巴巴矢量图标库</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://iconmonstr.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://iconmonstr.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/iconmonstr.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>iconmonstr</strong>
+                                </a>
+                                <p class="overflowClip_2">Free simple icons for your next project</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.iconarchive.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.iconarchive.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/iconarchive.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Icon Archive</strong>
+                                </a>
+                                <p class="overflowClip_2">Search 590,912 free icons</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://findicons.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://findicons.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/FindIcons.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>FindIcons</strong>
+                                </a>
+                                <p class="overflowClip_2">Search through 300,000 free icons</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://icomoon.io/app/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://icomoon.io/app/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/IcoMoonApp.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>IcoMoonApp</strong>
+                                </a>
+                                <p class="overflowClip_2">Icon Font, SVG, PDF &amp; PNG Generator</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.easyicon.net/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.easyicon.net/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/easyicon.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>easyicon</strong>
+                                </a>
+                                <p class="overflowClip_2">PNG、ICO、ICNS格式图标搜索、图标下载服务</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.flaticon.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.flaticon.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/flaticon.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>flaticon</strong>
+                                </a>
+                                <p class="overflowClip_2">634,000+ Free vector icons in SVG, PSD, PNG, EPS format or as
+                                    ICON
+                                    FONT.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://ui-cloud.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://ui-cloud.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/UICloud.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>UICloud</strong>
+                                </a>
+                                <p class="overflowClip_2">The largest user interface design database in the world.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://material.io/icons/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://material.io/icons/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/Materialicons.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Material icons</strong>
+                                </a>
+                                <p class="overflowClip_2">Access over 900 material system icons, available in a variety
+                                    of
+                                    sizes and densities, and as a web font.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('fontawesomeicon', '_blank')" data-toggle="tooltip" data-placement="bottom"
+                        title="" data-original-title="fontawesomeicon">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/fontawesomeicon.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Font Awesome Icon</strong>
+                                </a>
+                                <p class="overflowClip_2">The complete set of 675 icons in Font Awesome</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://ionicons.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://ionicons.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/ionicons.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>ion icons</strong>
+                                </a>
+                                <p class="overflowClip_2">The premium icon font for Ionic Framework.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://simplelineicons.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://simplelineicons.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/simplelineicons.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Simpleline Icons</strong>
+                                </a>
+                                <p class="overflowClip_2">Simple line Icons pack</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br />
+            <!--END 图标素材 -->
+            <!-- LOGO设计 -->
+            <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="LOGO设计"></i>LOGO设计</h4>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.iconsfeed.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.iconsfeed.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/iconsfeed.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Iconsfeed</strong>
+                                </a>
+                                <p class="overflowClip_2">iOS icons gallery</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://iosicongallery.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://iosicongallery.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/iosicongallery.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>iOS Icon Gallery</strong>
+                                </a>
+                                <p class="overflowClip_2">Showcasing beautiful icon designs from the iOS App Store</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://worldvectorlogo.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://worldvectorlogo.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/worldvectorlogo.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>World Vector Logo</strong>
+                                </a>
+                                <p class="overflowClip_2">Brand logos free to download</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://instantlogosearch.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://instantlogosearch.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/InstantLogoSearch.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Instant Logo Search</strong>
+                                </a>
+                                <p class="overflowClip_2">Search & download thousands of logos instantly</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br />
+            <!--END LOGO设计 -->
+            <!-- 平面素材 -->
+            <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="平面素材"></i>平面素材</h4>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.gulusucai.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.gulusucai.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/gulusucai.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>咕噜素材</strong>
+                                </a>
+                                <p class="overflowClip_2">质量很高的设计素材网站（良心推荐）</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://wallhalla.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://wallhalla.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/wallhalla.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>wallhalla</strong>
+                                </a>
+                                <p class="overflowClip_2">Find awesome high quality wallpapers for desktop and mobile in
+                                    one
+                                    place.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://365psd.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://365psd.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/365PSD.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>365PSD</strong>
+                                </a>
+                                <p class="overflowClip_2">Free PSD &amp; Graphics, Illustrations</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://medialoot.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://medialoot.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/Medialoot.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Medialoot</strong>
+                                </a>
+                                <p class="overflowClip_2">Free &amp; Premium Design Resources &mdash; Medialoot</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.58pic.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.58pic.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/qiantu.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>千图网</strong>
+                                </a>
+                                <p class="overflowClip_2">专注免费设计素材下载的网站</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://588ku.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://588ku.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/qianku.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>千库网</strong>
+                                </a>
+                                <p class="overflowClip_2">免费png图片背景素材下载</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.ooopic.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.ooopic.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/wotu.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>我图网</strong>
+                                </a>
+                                <p class="overflowClip_2">我图网,提供图片素材及模板下载,专注正版设计作品交易</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://90sheji.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://90sheji.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/90sheji.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>90设计</strong>
+                                </a>
+                                <p class="overflowClip_2">电商设计（淘宝美工）千图免费淘宝素材库</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.nipic.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.nipic.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/nipic.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>昵图网</strong>
+                                </a>
+                                <p class="overflowClip_2">原创素材共享平台</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.lanrentuku.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.lanrentuku.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/lanrentuku.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>懒人图库</strong>
+                                </a>
+                                <p class="overflowClip_2">懒人图库专注于提供网页素材下载</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://so.ui001.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://so.ui001.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/sousucai.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>素材搜索</strong>
+                                </a>
+                                <p class="overflowClip_2">设计素材搜索聚合</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://psefan.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://psefan.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/psefan.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>PS饭团网</strong>
+                                </a>
+                                <p class="overflowClip_2">不一样的设计素材库！让自己的设计与众不同！</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.sccnn.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.sccnn.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/sccnn.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>素材中国</strong>
+                                </a>
+                                <p class="overflowClip_2">免费素材共享平台</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.freepik.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.freepik.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/freepik.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>freepik</strong>
+                                </a>
+                                <p class="overflowClip_2">More than a million free vectors, PSD, photos and free icons.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br />
+            <!--END 素材图库 -->
+            <!-- UI资源 -->
+            <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="UI资源"></i>UI资源</h4>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.gulusucai.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.gulusucai.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/gulusucai.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>咕噜素材</strong>
+                                </a>
+                                <p class="overflowClip_2">质量很高的设计素材网站（良心推荐）</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://freebiesbug.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://freebiesbug.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/freebiesbug.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Freebiesbug</strong>
+                                </a>
+                                <p class="overflowClip_2">Hand-picked resources for web designer and developers,
+                                    constantly
+                                    updated.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://freebiesupply.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://freebiesupply.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/freebiesupply.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Freebie Supply</strong>
+                                </a>
+                                <p class="overflowClip_2">Free Resources For Designers</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.yrucd.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.yrucd.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/yrucd.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>云瑞</strong>
+                                </a>
+                                <p class="overflowClip_2">优秀设计资源的分享网站</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://xituqu.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://xituqu.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/xituqu.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>稀土区</strong>
+                                </a>
+                                <p class="overflowClip_2">优质设计开发资源分享</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://ui8.net/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://ui8.net/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/ui8.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>ui8</strong>
+                                </a>
+                                <p class="overflowClip_2">UI Kits, Wireframe Kits, Templates, Icons and More</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.uplabs.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.uplabs.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/uplabs.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>uplabs</strong>
+                                </a>
+                                <p class="overflowClip_2">Daily resources for product designers & developers</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.uikit.me/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.uikit.me/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/uikitme.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>UIkit.me</strong>
+                                </a>
+                                <p class="overflowClip_2">最便捷新鲜的uikit资源下载网站</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.fribbble.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.fribbble.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/Fribbble.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Fribbble</strong>
+                                </a>
+                                <p class="overflowClip_2">Free PSD files and other free design resources by Dribbblers.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://principlerepo.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://principlerepo.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/PrincipleRepo.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>PrincipleRepo</strong>
+                                </a>
+                                <p class="overflowClip_2">Free, High Quality Principle Resources</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://designmodo.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://designmodo.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/Designmodo.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Designmodo</strong>
+                                </a>
+                                <p class="overflowClip_2">Web Design Blog and Shop</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br />
+            <!--END UI资源 -->
+            <!-- Sketch资源 -->
+            <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="Sketch资源"></i>Sketch资源</h4>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://sketchapp.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://sketchapp.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/Sketch.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Sketch</strong>
+                                </a>
+                                <p class="overflowClip_2">The digital design toolkit</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://utom.design/measure/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://utom.design/measure/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/SketchMeasure.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Sketch Measure</strong>
+                                </a>
+                                <p class="overflowClip_2">Friendly user interface offers you a more intuitive way of
+                                    making
+                                    marks.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.sketchappsources.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.sketchappsources.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/sketchappsources.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Sketch App Sources</strong>
+                                </a>
+                                <p class="overflowClip_2">Free design resources and plugins - Icons, UI Kits,
+                                    Wireframes,
+                                    iOS, Android Templates for Sketch</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.sketch.im/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.sketch.im/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/sketchIm.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Sketch.im</strong>
+                                </a>
+                                <p class="overflowClip_2">Sketch 相关资源汇聚</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://sketchhunt.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://sketchhunt.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/sketchhunt.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Sketch Hunt</strong>
+                                </a>
+                                <p class="overflowClip_2">Sketch Hunt is an independent blog sharing gems in learning,
+                                    plugins &amp; design tools for fans of Sketch app.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.sketchcn.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.sketchcn.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/sketchcn.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Sketch中文网</strong>
+                                </a>
+                                <p class="overflowClip_2">分享最新的Sketch中文手册</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://awesome-sket.ch/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://awesome-sket.ch/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/AwesomeSketchPlugins.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Awesome Sketch Plugins</strong>
+                                </a>
+                                <p class="overflowClip_2">A collection of really useful Sketch plugins.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.sketchcasts.net/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.sketchcasts.net/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/sketchcasts.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Sketchcasts</strong>
+                                </a>
+                                <p class="overflowClip_2">Learn Sketch Train your design skills with a weekly video
+                                    tutorial
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br />
+            <!--END Sketch资源 -->
+            <!-- 字体资源 -->
+            <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="字体资源"></i>字体资源</h4>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.ziticangku.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.ziticangku.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/ziticangku.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>字体仓库</strong>
+                                </a>
+                                <p class="overflowClip_2">最全的免费商用字体库</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://fonts.google.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://fonts.google.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/googlefont.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Google Font</strong>
+                                </a>
+                                <p class="overflowClip_2">Making the web more beautiful, fast, and open through great
+                                    typography</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://typekit.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://typekit.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/typekit.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Typekit</strong>
+                                </a>
+                                <p class="overflowClip_2">Quality fonts from the world’s best foundries.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.foundertype.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.foundertype.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/Fondertype.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>方正字库</strong>
+                                </a>
+                                <p class="overflowClip_2">方正字库官方网站</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://ziticq.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://ziticq.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/ziticq.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>字体传奇网</strong>
+                                </a>
+                                <p class="overflowClip_2">中国首个字体品牌技术员交流网</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.fontsquirrel.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.fontsquirrel.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/fontsquirrel.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Fontsquirrel</strong>
+                                </a>
+                                <p class="overflowClip_2">FREE fonts for graphic designers</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.urbanfonts.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.urbanfonts.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/UrbanFonts.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Urban Fonts</strong>
+                                </a>
+                                <p class="overflowClip_2">Download Free Fonts and Free Dingbats.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.losttype.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.losttype.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/losttype.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Lost Type</strong>
+                                </a>
+                                <p class="overflowClip_2">Lost Type is a Collaborative Digital Type Foundry</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://fonts2u.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://fonts2u.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/fonts2u.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>FONTS2U</strong>
+                                </a>
+                                <p class="overflowClip_2">Download free fonts for Windows and Macintosh.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.fontex.org/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.fontex.org/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/fontex.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Fontex</strong>
+                                </a>
+                                <p class="overflowClip_2">Free Fonts to Download + Premium Typefaces</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://fontm.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://fontm.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/FontM.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>FontM</strong>
+                                </a>
+                                <p class="overflowClip_2">Free Fonts</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.myfonts.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.myfonts.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/MyFonts.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>My Fonts</strong>
+                                </a>
+                                <p class="overflowClip_2">Fonts for Print, Products & Screens</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.dafont.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.dafont.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/dafont.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Da Font</strong>
+                                </a>
+                                <p class="overflowClip_2">Archive of freely downloadable fonts.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.onlinewebfonts.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.onlinewebfonts.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/OnlineWebFonts.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>OnlineWebFonts</strong>
+                                </a>
+                                <p class="overflowClip_2">WEB Free Fonts for Windows and Mac / Font free Download</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.abstractfonts.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.abstractfonts.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/abstractfonts.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Abstract Fonts</strong>
+                                </a>
+                                <p class="overflowClip_2">Abstract Fonts (13,866 free fonts)</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br />
+            <!--END 字体资源 -->
+            <!-- Mockup -->
+            <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="Mockup"></i>Mockup</h4>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://mockup.zone/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://mockup.zone/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/MockupZone.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>MockupZone</strong>
+                                </a>
+                                <p class="overflowClip_2">Mockup Zone is an online store where you can find free and
+                                    premium
+                                    PSD mockup files to show your designs in a professional way.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://dunnnk.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://dunnnk.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/Dunnnk.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Dunnnk</strong>
+                                </a>
+                                <p class="overflowClip_2"> Generate Product Mockups For Free</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.graphberry.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.graphberry.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/graphberry.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Graphberry</strong>
+                                </a>
+                                <p class="overflowClip_2">Free design resources, Mockups, PSD web templates, Icons</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://threed.io/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://threed.io/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/threed.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Threed</strong>
+                                </a>
+                                <p class="overflowClip_2">Generate 3D Mockups right in your Browser</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://free.lstore.graphics/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://free.lstore.graphics/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/mockupworld.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Mockup World</strong>
+                                </a>
+                                <p class="overflowClip_2">The best free Mockups from the Web</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://free.lstore.graphics/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://free.lstore.graphics/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/lstore.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Lstore</strong>
+                                </a>
+                                <p class="overflowClip_2">Exclusive mindblowing freebies for designers and developers
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.pixeden.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.pixeden.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/pixeden.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>pixeden</strong>
+                                </a>
+                                <p class="overflowClip_2">free web resources and graphic design templates.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://forgraphictm.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://forgraphictm.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/forgraphictm.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>For Graphic TM</strong>
+                                </a>
+                                <p class="overflowClip_2">High Quality PSD Mockups for Graphic Designers.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br />
+            <!--END Mockup -->
+            <!-- 摄影图库 -->
+            <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="摄影图库"></i>摄影图库</h4>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://unsplash.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://unsplash.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/unsplash.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Unsplash</strong>
+                                </a>
+                                <p class="overflowClip_2">Beautiful, free photos.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://visualhunt.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://visualhunt.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/visualhunt.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>visualhunt</strong>
+                                </a>
+                                <p class="overflowClip_2">100% Free High Quality Photos</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://librestock.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://librestock.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/librestock.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>librestock</strong>
+                                </a>
+                                <p class="overflowClip_2">65,084 high quality do-what-ever-you-want stock photos</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://pixabay.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://pixabay.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/pixabay.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>pixabay</strong>
+                                </a>
+                                <p class="overflowClip_2">可在任何地方使用的免费图片和视频</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.splitshire.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.splitshire.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/SplitShire.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>SplitShire</strong>
+                                </a>
+                                <p class="overflowClip_2">Free Stock Photos and Videos for commercial use.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://stocksnap.io/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://stocksnap.io/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/StockSnap.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>StockSnap</strong>
+                                </a>
+                                <p class="overflowClip_2">Beautiful free stock photos</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://albumarium.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://albumarium.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/albumarium.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>albumarium</strong>
+                                </a>
+                                <p class="overflowClip_2">The best place to find & share beautiful images</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://myphotopack.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://myphotopack.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/myphotopack.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>myphotopack</strong>
+                                </a>
+                                <p class="overflowClip_2">A free photo pack just for you. Every month.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://notaselfie.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://notaselfie.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/notaselfie.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Notaselfie</strong>
+                                </a>
+                                <p class="overflowClip_2">Photos that happen along the way. You can use the images
+                                    anyway
+                                    you like. Have fun!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://papers.co/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://papers.co/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/papers.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>papers</strong>
+                                </a>
+                                <p class="overflowClip_2">Wallpapers Every Hour!Hand collected :)</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://stokpic.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://stokpic.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/stokpic.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>stokpic</strong>
+                                </a>
+                                <p class="overflowClip_2">Free Stock Photos For Commercial Use</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://55mm.co/visuals', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://55mm.co/visuals">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/55mm.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>55mm</strong>
+                                </a>
+                                <p class="overflowClip_2">Use our FREE photos to tell your story! </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://thestocks.im/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://thestocks.im/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/thestocks.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>thestocks</strong>
+                                </a>
+                                <p class="overflowClip_2">Use our FREE photos to tell your story! </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://freenaturestock.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://freenaturestock.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/freenaturestock.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>freenaturestock</strong>
+                                </a>
+                                <p class="overflowClip_2">Exclusive mindblowing freebies for designers and developers
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://negativespace.co/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://negativespace.co/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/negativespace.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>negativespace</strong>
+                                </a>
+                                <p class="overflowClip_2">Beautiful, High-Resolution Free Stock Photos</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://gratisography.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://gratisography.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/gratisography.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>gratisography</strong>
+                                </a>
+                                <p class="overflowClip_2">Free high-resolution pictures you can use on your personal and
+                                    commercial projects, free of copyright restrictions. </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://imcreator.com/free', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://imcreator.com/free">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/imcreator.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>imcreator</strong>
+                                </a>
+                                <p class="overflowClip_2">A curated collection of free web design resources, all for
+                                    commercial use.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.lifeofpix.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.lifeofpix.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/lifeofpix.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>lifeofpix</strong>
+                                </a>
+                                <p class="overflowClip_2">Free high resolution photography</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://skitterphoto.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://skitterphoto.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/skitterphoto.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>skitterphoto</strong>
+                                </a>
+                                <p class="overflowClip_2">Free Stock Photos for Creative Professionals</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://mmtstock.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://mmtstock.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/mmtstock.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>mmtstock</strong>
+                                </a>
+                                <p class="overflowClip_2">Free photos for commercial use</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://skitterphoto.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://skitterphoto.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/skitterphoto.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>skitterphoto</strong>
+                                </a>
+                                <p class="overflowClip_2">a place to find, show and share public domain photos</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://magdeleine.co/browse/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://magdeleine.co/browse/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/magdeleine.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>magdeleine</strong>
+                                </a>
+                                <p class="overflowClip_2">HAND-PICKED FREE PHOTOS FOR YOUR INSPIRATION</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://jeshoots.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://jeshoots.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/jeshoots.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>jeshoots</strong>
+                                </a>
+                                <p class="overflowClip_2">New Free Photos & Mockups in to your Inbox!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.hdwallpapers.net', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.hdwallpapers.net">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/hdwallpapers.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>hdwallpapers</strong>
+                                </a>
+                                <p class="overflowClip_2">High Definition Wallpapers & Desktop Backgrounds</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://publicdomainarchive.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://publicdomainarchive.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/publicdomainarchive.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>publicdomainarchive</strong>
+                                </a>
+                                <p class="overflowClip_2">New 100% Free Stock Photos. Every. Single. Week.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br />
+            <!--END 摄影图库 -->
+            <!-- PPT资源 -->
+            <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="PPT资源"></i>PPT资源</h4>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.officeplus.cn/Template/Home.shtml', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="http://www.officeplus.cn/Template/Home.shtml">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/officeplus.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>OfficePLUS</strong>
+                                </a>
+                                <p class="overflowClip_2">OfficePLUS，微软Office官方在线模板网站！</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.ypppt.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.ypppt.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/ypppt.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>优品PPT</strong>
+                                </a>
+                                <p class="overflowClip_2">高质量的模版，而且还有PPT图表，PPT背景图等资源</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.pptplus.cn/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.pptplus.cn/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/pptplus.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>PPT+</strong>
+                                </a>
+                                <p class="overflowClip_2">PPT加直播、录制和分享—PPT+语音内容分享平台</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.pptmind.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.pptmind.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/pptmind.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>PPTMind</strong>
+                                </a>
+                                <p class="overflowClip_2">分享高端ppt模板与keynote模板的数字作品交易平台</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.tretars.com/ppt-templates', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.tretars.com/ppt-templates">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/tretars.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>tretars</strong>
+                                </a>
+                                <p class="overflowClip_2">The best free Mockups from the Web</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://ppt.500d.me/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://ppt.500d.me/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/500d.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>5百丁</strong>
+                                </a>
+                                <p class="overflowClip_2">中国领先的PPT模板共享平台</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br />
+            <!--END PPT资源 -->
+            <!-- 图形创意 -->
+            <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="图形创意"></i>图形创意</h4>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.adobe.com/cn/products/photoshop.html', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://www.adobe.com/cn/products/photoshop.html">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/photoshop.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>photoshop</strong>
+                                </a>
+                                <p class="overflowClip_2">Photoshop不需要解释</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://affinity.serif.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://affinity.serif.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/AffinityDesigner.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Affinity Designer</strong>
+                                </a>
+                                <p class="overflowClip_2">专业创意软件</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.adobe.com/cn/products/illustrator/', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://www.adobe.com/cn/products/illustrator/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/Illustrator.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Illustrator</strong>
+                                </a>
+                                <p class="overflowClip_2">矢量图形和插图。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.adobe.com/cn/products/indesign.html', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="http://www.adobe.com/cn/products/indesign.html">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/INDESIGN .png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>indesign</strong>
+                                </a>
+                                <p class="overflowClip_2">页面设计、布局和出版。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.maxon.net/en/products/cinema-4d/overview/', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://www.maxon.net/en/products/cinema-4d/overview/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/cinema4d.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>cinema-4d</strong>
+                                </a>
+                                <p class="overflowClip_2">Cinema 4D is the perfect package for all 3D artists who want
+                                    to
+                                    achieve breathtaking results fast and hassle-free.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.autodesk.com/products/3ds-max/overview', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://www.autodesk.com/products/3ds-max/overview">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/3dsmax.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>3ds-max</strong>
+                                </a>
+                                <p class="overflowClip_2">3D modeling, animation, and rendering software</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.blender.org/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.blender.org/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/blender.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Blender</strong>
+                                </a>
+                                <p class="overflowClip_2">Blender is the free and open source 3D creation suite.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br />
+            <!--END 图形创意 -->
+            <!-- 界面设计 -->
+            <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="界面设计"></i>界面设计</h4>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://sketchapp.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://sketchapp.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/sketchapp.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Sketch</strong>
+                                </a>
+                                <p class="overflowClip_2">The digital design toolkit</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.adobe.com/products/xd.html', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.adobe.com/products/xd.html">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/ADOBEXDCC.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Adobe XD</strong>
+                                </a>
+                                <p class="overflowClip_2">Introducing Adobe XD. Design. Prototype. Experience.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.invisionapp.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.invisionapp.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/invisionapp.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>invisionapp</strong>
+                                </a>
+                                <p class="overflowClip_2">Powerful design prototyping tools</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://marvelapp.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://marvelapp.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/marvelapp.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>marvelapp</strong>
+                                </a>
+                                <p class="overflowClip_2">Simple design, prototyping and collaboration</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://creative.adobe.com/zh-cn/products/download/muse', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://creative.adobe.com/zh-cn/products/download/muse">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/MuseCC.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Muse CC</strong>
+                                </a>
+                                <p class="overflowClip_2">无需利用编码即可进行网站设计。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.figma.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.figma.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/figma.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>figma</strong>
+                                </a>
+                                <p class="overflowClip_2">Design, prototype, and gather feedback all in one place with
+                                    Figma.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br />
+            <!--END 界面设计 -->
+            <!-- 交互动效 -->
+            <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="交互动效"></i>交互动效</h4>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.adobe.com/cn/products/aftereffects/', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://www.adobe.com/cn/products/aftereffects/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/AdobeAfterEffectsCC.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Adobe After Effects CC</strong>
+                                </a>
+                                <p class="overflowClip_2">电影般的视觉效果和动态图形。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://principleformac.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://principleformac.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/principle.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>principle</strong>
+                                </a>
+                                <p class="overflowClip_2">Animate Your Ideas, Design Better Apps</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.flinto.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.flinto.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/flinto.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>flinto</strong>
+                                </a>
+                                <p class="overflowClip_2">Flinto is a Mac app used by top designers around the world to
+                                    create interactive and animated prototypes of their app designs.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://framer.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://framer.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/framer.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>framer</strong>
+                                </a>
+                                <p class="overflowClip_2">Design everything from detailed icons to high-fidelity
+                                    interactions—all in one place.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.protopie.cn/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.protopie.cn/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/protopie.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>ProtoPie</strong>
+                                </a>
+                                <p class="overflowClip_2">高保真交互原型设计</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br />
+            <!--END 交互动效 -->
+            <!-- 在线配色 -->
+            <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="在线配色"></i>在线配色</h4>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://khroma.co/generator/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://khroma.co/generator/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/khroma.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>khroma</strong>
+                                </a>
+                                <p class="overflowClip_2">Khroma is the fastest way to discover, search, and save color
+                                    combos you'll want to use.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://uigradients.com', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://uigradients.com">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/uigradients.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>uigradients</strong>
+                                </a>
+                                <p class="overflowClip_2">Beautiful colored gradients</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://gradients.io/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://gradients.io/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/gradients.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>gradients</strong>
+                                </a>
+                                <p class="overflowClip_2">Curated gradients for designers and developers</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://webkul.github.io/coolhue/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://webkul.github.io/coolhue/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/Coolest.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Coolest</strong>
+                                </a>
+                                <p class="overflowClip_2">Coolest handpicked Gradient Hues for your next super ⚡ amazing
+                                    stuff</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://webgradients.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://webgradients.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/webgradients.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>webgradients</strong>
+                                </a>
+                                <p class="overflowClip_2">WebGradients is a free collection of 180 linear gradients that
+                                    you
+                                    can use as content backdrops in any part of your website. </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.grabient.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.grabient.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/grabient.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>grabient</strong>
+                                </a>
+                                <p class="overflowClip_2">2017 Grabient by unfold</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.thedayscolor.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.thedayscolor.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/thedayscolor.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>thedayscolor</strong>
+                                </a>
+                                <p class="overflowClip_2">The daily color digest</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://flatuicolors.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://flatuicolors.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/flatuicolors.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>flatuicolors</strong>
+                                </a>
+                                <p class="overflowClip_2">Copy Paste Color Pallette from Flat UI Theme</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://coolors.co/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://coolors.co/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/coolors.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>coolors</strong>
+                                </a>
+                                <p class="overflowClip_2">The super fast color schemes generator!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.colorhunt.co/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.colorhunt.co/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/colorhunt.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>colorhunt</strong>
+                                </a>
+                                <p class="overflowClip_2">Beautiful Color Palettes</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://color.adobe.com/zh/create/color-wheel', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://color.adobe.com/zh/create/color-wheel">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/AdobeColorCC.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Adobe Color CC</strong>
+                                </a>
+                                <p class="overflowClip_2">Create color schemes with the color wheel or browse thousands
+                                    of
+                                    color combinations from the Color community.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.flatuicolorpicker.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.flatuicolorpicker.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/flatuicolorpicker.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>flatuicolorpicker</strong>
+                                </a>
+                                <p class="overflowClip_2">Best Flat Colors For UI Design</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://qrohlf.com/trianglify-generator/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://qrohlf.com/trianglify-generator/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/trianglify.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>trianglify</strong>
+                                </a>
+                                <p class="overflowClip_2">Trianglify Generator</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://klart.co/colors/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://klart.co/colors/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/klart.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>klart</strong>
+                                </a>
+                                <p class="overflowClip_2">Beautiful colors and designs to your inbox every week</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.vanschneider.com/colors', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.vanschneider.com/colors">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/vanschneider.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>vanschneider</strong>
+                                </a>
+                                <p class="overflowClip_2">Color Claim was created in 2012 by Tobias van Schneider with
+                                    the
+                                    goal to collect & combine unique colors for my future projects.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br />
+            <!--END 在线配色 -->
+            <!-- 在线工具 -->
+            <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="在线工具"></i>在线工具</h4>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://tinypng.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://tinypng.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/tinypng.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>tinypng</strong>
+                                </a>
+                                <p class="overflowClip_2">Optimize your images with a perfect balance in quality and
+                                    file
+                                    size.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://goqr.me/', '_blank')" data-toggle="tooltip" data-placement="bottom"
+                        title="" data-original-title="http://goqr.me/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/goqr.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>goqr</strong>
+                                </a>
+                                <p class="overflowClip_2">create QR codes for free (Logo, T-Shirt, vCard, EPS)</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://ezgif.com', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://ezgif.com">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/ezgif.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>ezgif</strong>
+                                </a>
+                                <p class="overflowClip_2">simple online GIF maker and toolset for basic animated GIF
+                                    editing.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://inloop.github.io/shadow4android/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://inloop.github.io/shadow4android/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/Android9patch.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Android 9 patch</strong>
+                                </a>
+                                <p class="overflowClip_2">Android 9-patch shadow generator fully customizable shadows
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://screensiz.es/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://screensiz.es/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/screensizes.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>screen sizes</strong>
+                                </a>
+                                <p class="overflowClip_2">Viewport Sizes and Pixel Densities for Popular Devices</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://jakearchibald.github.io/svgomg/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://jakearchibald.github.io/svgomg/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/svgomg.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>svgomg</strong>
+                                </a>
+                                <p class="overflowClip_2">SVG在线压缩平台</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.gaoding.com', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.gaoding.com">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/gaoding.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>稿定抠图</strong>
+                                </a>
+                                <p class="overflowClip_2">免费在线抠图软件,图片快速换背景-抠白底图</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br />
+            <!--END 在线工具 -->
+            <!-- Chrome插件 -->
+            <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="Chrome插件"></i>Chrome插件</h4>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.wappalyzer.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.wappalyzer.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/wappalyzer.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>wappalyzer</strong>
+                                </a>
+                                <p class="overflowClip_2">Identify technology on websites</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://usepanda.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://usepanda.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/usepanda.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Panda</strong>
+                                </a>
+                                <p class="overflowClip_2">A smart news reader built for productivity.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://sizzy.co/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://sizzy.co/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/sizzy.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>sizzy</strong>
+                                </a>
+                                <p class="overflowClip_2">A tool for developing responsive websites crazy-fast</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://csspeeper.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://csspeeper.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/csspeeper.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>csspeeper</strong>
+                                </a>
+                                <p class="overflowClip_2">Smart CSS viewer tailored for Designers.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://insight.io/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://insight.io/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/insight.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>insight</strong>
+                                </a>
+                                <p class="overflowClip_2">IDE-like code search and navigation, on the cloud</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://mustsee.earth/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://mustsee.earth/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/mustsee.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>mustsee</strong>
+                                </a>
+                                <p class="overflowClip_2">Discover the world's most beautiful places at every opened
+                                    tab.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br />
+            <!--END Chrome插件 -->
+            <!-- 设计规范 -->
+            <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="设计规范"></i>设计规范</h4>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://designguidelines.co/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://designguidelines.co/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/designguidelines.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Design Guidelines</strong>
+                                </a>
+                                <p class="overflowClip_2">Design Guidelines &mdash; The way products are built.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://github.com/alexpate/awesome-design-systems', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://github.com/alexpate/awesome-design-systems">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/awesome_design_systems.png"
+                                    class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Awesome design systems</strong>
+                                </a>
+                                <p class="overflowClip_2"> A collection of awesome design systems</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://material.io/guidelines/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://material.io/guidelines/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/Material_Design.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Material Design</strong>
+                                </a>
+                                <p class="overflowClip_2">Introduction - Material Design</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://developer.apple.com/ios/human-interface-guidelines', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://developer.apple.com/ios/human-interface-guidelines">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/human_interface_guidelines.png"
+                                    class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Human Interface Guidelines</strong>
+                                </a>
+                                <p class="overflowClip_2">Human Interface Guidelines iOS</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://viggoz.com/photoshopetiquette/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://viggoz.com/photoshopetiquette/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/photoshopetiquette.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Photoshop Etiquette</strong>
+                                </a>
+                                <p class="overflowClip_2">PS礼仪-WEB设计指南</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br />
+            <!--END 设计规范 -->
+            <!-- 视频教程 -->
+            <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="视频教程"></i>视频教程</h4>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.photoshoplady.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.photoshoplady.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/PhotoshopLady.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Photoshop Lady</strong>
+                                </a>
+                                <p class="overflowClip_2">Your Favourite Photoshop Tutorials in One Place</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://doyoudo.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://doyoudo.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/doyoudo.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>doyoudo</strong>
+                                </a>
+                                <p class="overflowClip_2">创意设计软件学习平台</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.c945.com/web-ui-tutorial/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.c945.com/web-ui-tutorial/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/web_ui_tutorial.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>没位道</strong>
+                                </a>
+                                <p class="overflowClip_2">WEB UI免费视频公开课</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.imooc.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.imooc.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/imooc.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>慕课网</strong>
+                                </a>
+                                <p class="overflowClip_2">程序员的梦工厂（有UI课程）</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br />
+            <!--END 视频教程 -->
+            <!-- 设计文章 -->
+            <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="设计文章"></i>设计文章</h4>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://www.uisdc.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://www.uisdc.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/uisdc.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>优设网</strong>
+                                </a>
+                                <p class="overflowClip_2">技术员交流学习平台</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://webdesignledger.com', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://webdesignledger.com">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/webdesignledger.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Web Design Ledger</strong>
+                                </a>
+                                <p class="overflowClip_2">Web Design Blog</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://medium.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://medium.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/medium.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Medium</strong>
+                                </a>
+                                <p class="overflowClip_2">Read, write and share stories that matter</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br />
+            <!--END 设计文章 -->
+            <!-- 设计电台 -->
+            <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="设计电台"></i>设计电台</h4>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://uxcoffee.co/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://uxcoffee.co/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/uxcoffee.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>UX Coffee</strong>
+                                </a>
+                                <p class="overflowClip_2">《UX Coffee
+                                    设计咖》是一档关于用户体验的播客节目。我们邀请来自硅谷和国内的学者和职人来聊聊「产品设计」、「用户体验」和「个人成长」。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://anyway.fm/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://anyway.fm/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/anyway.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Anyway.FM</strong>
+                                </a>
+                                <p class="overflowClip_2">设计杂谈 • UI 技术员 JJ 和 Leon 主播的设计播客</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.yineng.fm', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.yineng.fm">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/yineng.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>异能电台</strong>
+                                </a>
+                                <p class="overflowClip_2">将全宇宙技术员的故事讲给你听。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br />
+            <!--END 设计电台 -->
+            <!-- 交互设计 -->
+            <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="交互设计"></i>交互设计</h4>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://littlebigdetails.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://littlebigdetails.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/littlebigdetails.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Little Big Details</strong>
+                                </a>
+                                <p class="overflowClip_2">Little Big Details is a curated collection of the finer
+                                    details of
+                                    design, updated every day. </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.smashingmagazine.com/category/user-experience', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://www.smashingmagazine.com/category/user-experience">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/smashingmagazine.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Smashing Magazine</strong>
+                                </a>
+                                <p class="overflowClip_2">Below you’ll find the best tips to take not only your UX
+                                    design
+                                    process but also the experiences you craft to the next level.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.nngroup.com/articles/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.nngroup.com/articles/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/nngroup.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>nngroup</strong>
+                                </a>
+                                <p class="overflowClip_2">Evidence-Based User Experience Research, Training, and
+                                    Consulting
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://boxesandarrows.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://boxesandarrows.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/boxesandarrows.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>Boxes and Arrows</strong>
+                                </a>
+                                <p class="overflowClip_2">Boxes and Arrows is devoted to the practice, innovation, and
+                                    discussion of design; including graphic design, interaction design, information
+                                    architecture and the design of business. </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://uxdesignweekly.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://uxdesignweekly.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/uxdesignweekly.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>UX Design Weekly</strong>
+                                </a>
+                                <p class="overflowClip_2"> get a hand picked list of the best user experience design
+                                    links
+                                    every week. </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('http://uxren.cn/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="http://uxren.cn/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/uxren.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>UX Ren</strong>
+                                </a>
+                                <p class="overflowClip_2">用户体验人的专业社区</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://www.gulusucai.com/', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://www.gulusucai.com/">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="../assets/images/logos/gulusucai.png" class="lozad img-circle"
+                                    width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>咕噜素材</strong>
+                                </a>
+                                <p class="overflowClip_2">质量很高的设计素材网站（良心推荐）</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!--END 交互设计 -->
+
+            <!-- 数字货币板块占位符（由JS动态生成内容） -->
+            <div id="crypto-section-placeholder"></div>
+            <!--END 数字货币 -->
+
+            <!-- 数字货币行情JavaScript模块 -->
+            <script src="../assets/js/crypto.js"></script>
+
+            <!-- 金价行情板块占位符（由JS动态生成内容） -->
+            <div id="metals-section-placeholder"></div>
+            <!--END 金价行情 -->
+
+            <!-- 金价行情JavaScript模块 -->
+            <script src="../assets/js/metalsData.js"></script>
+            <!-- Main Footer -->
+            <!-- Choose between footer styles: "footer-type-1" or "footer-type-2" -->
+            <!-- Add class "sticky" to  always stick the footer to the end of page (if page contents is small) -->
+            <!-- Or class "fixed" to  always fix the footer to the end of page -->
+            <footer class="main-footer sticky footer-type-1">
+                <div class="footer-inner">
+                    <!-- Add your copyright text here -->
+                    <div class="footer-text">
+                        &copy; 2017 - 2026 何哥的网站导航系统|持续更新中
+                    </div>
+                    <!-- Go to Top Link, just add rel="go-top" to any link to add this functionality -->
+                    <div class="go-up">
+                        <a href="#" rel="go-top">
+                            <i class="fa-angle-up"></i>
+                        </a>
+                    </div>
+                </div>
+            </footer>
+        </div>
+    </div>
+    <!-- 锚点平滑移动 -->
+    <script type="text/javascript">
+        $(document).ready(function () {
+            //img lazy loaded
+            const observer = lozad();
+            observer.observe();
+
+            $(document).on('click', '.has-sub', function () {
+                var _this = $(this)
+                if (!$(this).hasClass('expanded')) {
+                    setTimeout(function () {
+                        _this.find('ul').attr("style", "")
+                    }, 300);
+
+                } else {
+                    $('.has-sub ul').each(function (id, ele) {
+                        var _that = $(this)
+                        if (_this.find('ul')[0] != ele) {
+                            setTimeout(function () {
+                                _that.attr("style", "")
+                            }, 300);
+                        }
+                    })
+                }
+            })
+            $('.user-info-menu .hidden-sm').click(function () {
+                if ($('.sidebar-menu').hasClass('collapsed')) {
+                    $('.has-sub.expanded > ul').attr("style", "")
+                } else {
+                    $('.has-sub.expanded > ul').show()
+                }
+            })
+            $("#main-menu li ul li").click(function () {
+                $(this).siblings('li').removeClass('active'); // 删除其他兄弟元素的样式
+                $(this).addClass('active'); // 添加当前元素的样式
+            });
+
+            // 初始化tooltip，确保显示在最上层
+            $('[data-toggle="tooltip"]').tooltip({
+                container: 'body',
+                placement: 'bottom',
+                trigger: 'hover'
+            });
+
+            $("a.smooth").click(function (ev) {
+                ev.preventDefault();
+
+                public_vars.$mainMenu.add(public_vars.$sidebarProfile).toggleClass('mobile-is-visible');
+                ps_destroy();
+                $("html, body").animate({
+                    scrollTop: $($(this).attr("href")).offset().top - 30
+                }, {
+                    duration: 500,
+                    easing: "swing"
+                });
+            });
+            return false;
+        });
+
+        var href = "";
+        var pos = 0;
+        $("a.smooth").click(function (e) {
+            $("#main-menu li").each(function () {
+                $(this).removeClass("active");
+            });
+            $(this).parent("li").addClass("active");
+            e.preventDefault();
+            href = $(this).attr("href");
+            pos = $(href).position().top - 30;
+        });
+    </script>
+    <!-- Bottom Scripts -->
+    <script src="../assets/js/bootstrap.min.js"></script>
+    <script src="../assets/js/TweenMax.min.js"></script>
+    <script src="../assets/js/resizeable.js"></script>
+    <script src="../assets/js/joinable.js"></script>
+    <script src="../assets/js/xenon-api.js"></script>
+    <script src="../assets/js/xenon-toggles.js"></script>
+    <!-- JavaScripts initializations and stuff -->
+    <script src="../assets/js/xenon-custom.js"></script>
+    <script src="../assets/js/lozad.js"></script>
+    <div class="back-to-top" onclick="backToTop()">
+        <i class="fa fa-arrow-up"></i>
+    </div>
+    <script>
+        function backToTop() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+
+        window.addEventListener('scroll', function () {
+            const btn = document.querySelector('.back-to-top');
+            if (!btn) return;
+
+            if (window.scrollY > 300) {
+                btn.classList.add('visible');
+            } else {
+                btn.classList.remove('visible');
+            }
+        });
+    </script>
+    <!-- 全局固定搜索（支持站内+Bing+谷歌） -->
+    <div class="global-search">
+        <div class="global-search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" id="globalSearchInput" placeholder="搜索站内或网络..." />
+            <button class="search-engine-btn active" data-engine="local" title="搜索本站导航链接">站内</button>
+            <button class="search-engine-btn" data-engine="bing" title="使用必应搜索">Bing</button>
+            <button class="search-engine-btn" data-engine="google" title="使用谷歌搜索">谷歌</button>
+        </div>
+    </div>
+    <script>
+        (function () {
+            const input = document.querySelector('#globalSearchInput');
+            if (!input) return;
+
+            let currentEngine = 'local'; // 默认站内搜索
+
+            // 搜索引擎切换按钮
+            const engineBtns = document.querySelectorAll('.search-engine-btn');
+            engineBtns.forEach(btn => {
+                btn.addEventListener('click', function () {
+                    // 移除所有active类
+                    engineBtns.forEach(b => b.classList.remove('active'));
+                    // 添加当前按钮的active类
+                    this.classList.add('active');
+                    // 更新当前搜索引擎
+                    currentEngine = this.dataset.engine;
+
+                    // 更新输入框提示文字
+                    if (currentEngine === 'local') {
+                        input.placeholder = '搜索站内或网络...';
+                    } else if (currentEngine === 'bing') {
+                        input.placeholder = '必应搜索 (按Enter)...';
+                    } else if (currentEngine === 'google') {
+                        input.placeholder = '谷歌搜索 (按Enter)...';
+                    }
+
+                    // 聚焦输入框
+                    input.focus();
+                });
+            });
+
+            // 站内搜索逻辑（实时过滤）
+            input.addEventListener('input', function () {
+                if (currentEngine !== 'local') return; // 只在站内模式才实时过滤
+
+                const keyword = this.value.toLowerCase().trim();
+                const cards = document.querySelectorAll('.xe-widget');
+
+                // 1. 过滤所有卡片
+                cards.forEach(card => {
+                    const cardContainer = card.closest('.col-sm-3');
+                    // 跳过被手动隐藏的卡片
+                    if (cardContainer && cardContainer.classList.contains('card-hidden')) {
+                        return;
+                    }
+
+                    const text = card.innerText.toLowerCase();
+                    const isMatch = keyword === '' || text.includes(keyword);
+
+                    // 隐藏/显示整个列容器，消除空白占位
+                    if (cardContainer) {
+                        cardContainer.style.display = isMatch ? '' : 'none';
+                    }
+                });
+
+                // 2. 自动隐藏没有结果的分类标题
+                // 页面结构：h4.text-gray -> div.row -> col-sm-3...
+                const categories = document.querySelectorAll('h4.text-gray');
+                categories.forEach(h4 => {
+                    // 获取标题紧跟的下一个元素（通常是 row）
+                    let nextElem = h4.nextElementSibling;
+                    // 跳过可能的空文本节点或注释（稍微向下查找）
+                    while (nextElem && nextElem.nodeType !== 1) {
+                        nextElem = nextElem.nextSibling;
+                    }
+
+                    if (nextElem && nextElem.classList.contains('row')) {
+                        const row = nextElem;
+                        // 检查该分类下是否有任何可见的卡片
+                        // 注意：style.display !== 'none' 检查内联样式
+                        const hasVisibleCards = Array.from(row.querySelectorAll('.col-sm-3')).some(col => {
+                            return col.style.display !== 'none' && !col.classList.contains('card-hidden');
+                        });
+
+                        // 如果有匹配结果，显示标题和行；否则隐藏
+                        if (hasVisibleCards) {
+                            h4.style.display = '';
+                            row.style.display = '';
+                        } else {
+                            h4.style.display = 'none';
+                            row.style.display = 'none';
+                        }
+                    }
+                });
+            });
+
+            // Enter键触发搜索引擎搜索
+            input.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    const keyword = this.value.trim();
+                    if (!keyword) return;
+
+                    if (currentEngine === 'bing') {
+                        window.open(`https://www.bing.com/search?q=${encodeURIComponent(keyword)}`, '_blank');
+                        this.value = ''; // 清空输入框
+                    } else if (currentEngine === 'google') {
+                        window.open(`https://www.google.com/search?q=${encodeURIComponent(keyword)}`, '_blank');
+                        this.value = ''; // 清空输入框
+                    }
+                    // 站内搜索无需处理 Enter，已通过 input 事件实时过滤
+                }
+            });
+        })();
+    </script>
+    <button id="resetOrder" class="btn-reset">恢复默认排序</button>
+    <button id="showHiddenCards" class="btn-show-hidden">显示已隐藏</button>
+
+    <!-- 隐藏卡片管理面板 -->
+    <div class="panel-overlay" id="panelOverlay"></div>
+    <div class="hidden-cards-panel" id="hiddenCardsPanel">
+        <button class="panel-close" id="panelClose">×</button>
+        <h3>已隐藏的卡片</h3>
+        <div class="hidden-cards-list" id="hiddenCardsList">
+            <p style="color: #999; text-align: center;">暂无隐藏的卡片</p>
+        </div>
+    </div>
+
+    <style>
+        /* 恢复默认排序按钮样式 */
+        .btn-reset {
+            position: fixed;
+            bottom: 90px;
+            right: 24px;
+            padding: 10px 20px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 9998;
+            font-size: 14px;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, .35);
+            transition: all .3s ease;
+        }
+
+        .btn-reset:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(59, 130, 246, .45);
+        }
+
+        /* 显示已隐藏卡片按钮 */
+        .btn-show-hidden {
+            position: fixed;
+            bottom: 150px;
+            right: 24px;
+            padding: 10px 20px;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 9998;
+            font-size: 14px;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, .35);
+            transition: all .3s ease;
+        }
+
+        .btn-show-hidden:hover {
+            background: #059669;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(16, 185, 129, .45);
+        }
+
+        /* 隐藏卡片管理面板 */
+        .hidden-cards-panel {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(20, 20, 20, 0.95);
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 600px;
+            max-height: 70vh;
+            overflow-y: auto;
+            z-index: 10000;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            display: none;
+            backdrop-filter: blur(10px);
+        }
+
+        .hidden-cards-panel.active {
+            display: block;
+        }
+
+        .hidden-cards-panel h3 {
+            color: #fff;
+            margin: 0 0 20px 0;
+            font-size: 20px;
+        }
+
+        .hidden-cards-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .hidden-card-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            position: relative;
+        }
+
+        .hidden-card-item .card-title {
+            color: #fff;
+            font-size: 14px;
+            margin-bottom: 8px;
+            word-break: break-word;
+        }
+
+        .hidden-card-item .card-restore-btn {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .hidden-card-item .card-restore-btn:hover {
+            background: #059669;
+        }
+
+        .panel-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .panel-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .panel-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 9999;
+            display: none;
+        }
+
+        .panel-overlay.active {
+            display: block;
+        }
+    </style>
+
+    <script>
+        // 卡片管理功能：拖拽排序 + 隐藏/显示
+        document.addEventListener('DOMContentLoaded', function () {
+            // ========== 1. 为所有卡片添加ID和draggable属性 ==========
+            let cardCounter = 1;
+            document.querySelectorAll('.col-sm-3').forEach(card => {
+                if (!card.id) {
+                    card.id = `card-${cardCounter++}`;
+                }
+                if (!card.hasAttribute('draggable')) {
+                    card.setAttribute('draggable', 'true');
+                }
+            });
+
+            // ========== 2. 为所有卡片添加隐藏按钮 ==========
+            document.querySelectorAll('.xe-widget').forEach(widget => {
+                // 检查是否已有隐藏按钮
+                if (widget.querySelector('.card-hide-btn')) return;
+
+                const hideBtn = document.createElement('button');
+                hideBtn.className = 'card-hide-btn';
+                hideBtn.innerHTML = '×';
+                hideBtn.title = '隐藏此卡片';
+                hideBtn.onclick = function (e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    hideCard(widget);
+                };
+                widget.appendChild(hideBtn);
+            });
+
+            // ========== 3. 隐藏卡片功能 ==========
+            function hideCard(widget) {
+                const cardContainer = widget.closest('.col-sm-3');
+                if (!cardContainer) {
+                    console.error('无法找到卡片容器');
+                    return;
+                }
+
+                const cardId = cardContainer.id;
+                if (!cardId) {
+                    console.error('卡片没有ID');
+                    return;
+                }
+
+                const cardTitle = widget.querySelector('.xe-user-name strong')?.textContent || '未命名卡片';
+
+                // 添加隐藏类
+                cardContainer.classList.add('card-hidden');
+
+                // 保存到localStorage
+                let hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
+
+                // 检查是否已存在（数组存储的是对象，需要检查id属性）
+                const exists = hiddenCards.some(card => card && card.id === cardId);
+                if (!exists) {
+                    hiddenCards.push({
+                        id: cardId,
+                        title: cardTitle,
+                        widget: widget.outerHTML
+                    });
+                    localStorage.setItem('hiddenCards', JSON.stringify(hiddenCards));
+                }
+
+                // 更新管理面板
+                updateHiddenPanel();
+            }
+
+            // ========== 4. 显示卡片功能 ==========
+            function showCard(cardId) {
+                const cardContainer = document.getElementById(cardId);
+                if (cardContainer) {
+                    cardContainer.classList.remove('card-hidden');
+
+                    // 从localStorage移除
+                    let hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
+                    hiddenCards = hiddenCards.filter(card => card.id !== cardId);
+                    localStorage.setItem('hiddenCards', JSON.stringify(hiddenCards));
+
+                    // 更新管理面板
+                    updateHiddenPanel();
+                }
+            }
+
+            // ========== 5. 更新隐藏卡片管理面板 ==========
+            function updateHiddenPanel() {
+                const hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
+                const listContainer = document.getElementById('hiddenCardsList');
+
+                if (!listContainer) return;
+
+                // 清空容器
+                while (listContainer.firstChild) {
+                    listContainer.removeChild(listContainer.firstChild);
+                }
+
+                if (hiddenCards.length === 0) {
+                    const emptyMsg = document.createElement('p');
+                    emptyMsg.className = 'empty-state';
+                    emptyMsg.textContent = '暂无隐藏的卡片';
+                    listContainer.appendChild(emptyMsg);
+                    return;
+                }
+
+                // 使用安全的DOM操作，避免XSS
+                // 确保显示所有隐藏的卡片，包括那些可能丢失的
+                hiddenCards.forEach((card, index) => {
+                    // 验证卡片数据完整性
+                    if (!card || !card.id) {
+                        return;
+                    }
+
+                    const item = document.createElement('div');
+                    item.className = 'hidden-card-item';
+                    item.setAttribute('data-card-id', card.id);
+
+                    const title = document.createElement('div');
+                    title.className = 'card-title';
+                    title.textContent = card.title || `卡片 ${index + 1}`;
+
+                    const restoreBtn = document.createElement('button');
+                    restoreBtn.className = 'card-restore-btn';
+                    restoreBtn.textContent = '恢复显示';
+                    restoreBtn.onclick = function () {
+                        restoreCard(card.id);
+                    };
+
+                    item.appendChild(title);
+                    item.appendChild(restoreBtn);
+                    listContainer.appendChild(item);
+                });
+
+            }
+
+            // ========== 6. 恢复卡片（全局函数） ==========
+            window.restoreCard = function (cardId) {
+                showCard(cardId);
+            };
+
+            // ========== 7. 加载已隐藏的卡片 ==========
+            // 注意：需要在添加隐藏按钮之后执行，确保所有卡片都已初始化
+            setTimeout(function () {
+                const hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
+                hiddenCards.forEach(card => {
+                    if (card && card.id) {
+                        const cardContainer = document.getElementById(card.id);
+                        if (cardContainer) {
+                            cardContainer.classList.add('card-hidden');
+                        }
+                    }
+                });
+            }, 100);
+
+            // ========== 8. 拖拽排序功能 - 支持跨栏拖动（类似iPhone APP）==========
+            const allRows = document.querySelectorAll('.row');
+            let draggedCardId = null; // 全局拖拽卡片ID
+            let draggedCardElement = null; // 全局拖拽卡片元素
+            let lastDragTime = 0; // 用于节流
+            const DRAG_THROTTLE = 50; // 节流时间（毫秒）
+
+            // 为所有卡片添加拖拽事件（支持跨栏）
+            document.querySelectorAll('.col-sm-3[draggable="true"]').forEach(card => {
+                if (card.classList.contains('card-hidden')) return;
+
+                card.addEventListener('dragstart', function (e) {
+                    draggedCardId = this.id;
+                    draggedCardElement = this;
+                    e.dataTransfer.setData('text/plain', this.id);
+                    e.dataTransfer.effectAllowed = 'move';
+
+                    // 添加拖动样式
+                    this.classList.add('dragging');
+
+                    // 创建拖动预览图像
+                    const dragImage = this.cloneNode(true);
+                    dragImage.style.transform = 'rotate(5deg)';
+                    dragImage.style.opacity = '0.8';
+                    document.body.appendChild(dragImage);
+                    dragImage.style.position = 'absolute';
+                    dragImage.style.top = '-1000px';
+                    e.dataTransfer.setDragImage(dragImage, e.offsetX, e.offsetY);
+                    setTimeout(() => {
+                        if (document.body.contains(dragImage)) {
+                            document.body.removeChild(dragImage);
+                        }
+                    }, 0);
+                });
+
+                card.addEventListener('dragend', function () {
+                    // 清除所有拖动样式（所有容器）
+                    this.classList.remove('dragging');
+                    allRows.forEach(container => {
+                        container.querySelectorAll('.col-sm-3').forEach(c => {
+                            c.classList.remove('drag-insert-before', 'drag-insert-after', 'drag-over');
+                        });
+                    });
+                    draggedCardId = null;
+                    draggedCardElement = null;
+                    lastDragTime = 0;
+                });
+            });
+
+            // 为所有容器添加跨栏拖动支持
+            allRows.forEach((container, rowIndex) => {
+                const cards = container.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)');
+                if (cards.length === 0) return;
+
+                const storageKey = `cardOrder_${rowIndex}`;
+                const defaultKey = `defaultOrder_${rowIndex}`;
+
+                // 保存默认顺序（首次加载时记录，排除隐藏的卡片）
+                if (!localStorage.getItem(defaultKey)) {
+                    const defaultIds = Array.from(cards)
+                        .filter(card => !card.classList.contains('card-hidden'))
+                        .map(card => card.id);
+                    localStorage.setItem(defaultKey, JSON.stringify(defaultIds));
+                }
+
+                // 加载用户保存的顺序
+                const savedOrder = localStorage.getItem(storageKey);
+                if (savedOrder) {
+                    applyOrder(container, JSON.parse(savedOrder));
+                }
+
+                // 使用节流的dragover事件处理
+                container.addEventListener('dragover', function (e) {
+                    e.preventDefault();
+
+                    // 节流控制
+                    const now = Date.now();
+                    if (now - lastDragTime < DRAG_THROTTLE) {
+                        return;
+                    }
+                    lastDragTime = now;
+
+                    if (!draggedCardId || !draggedCardElement) return;
+
+                    // 清除当前容器的所有插入指示器
+                    container.querySelectorAll('.col-sm-3').forEach(card => {
+                        card.classList.remove('drag-insert-before', 'drag-insert-after', 'drag-over');
+                    });
+
+                    // 如果拖动的卡片不在当前容器，先移动到当前容器
+                    if (!container.contains(draggedCardElement)) {
+                        // 找到插入位置
+                        const afterElement = getDragAfterElement(container, e.clientY);
+                        if (afterElement) {
+                            container.insertBefore(draggedCardElement, afterElement);
+                        } else {
+                            container.appendChild(draggedCardElement);
+                        }
+                    } else {
+                        // 在同一容器内移动
+                        const afterElement = getDragAfterElement(container, e.clientY);
+
+                        if (afterElement && afterElement !== draggedCardElement) {
+                            afterElement.classList.add('drag-insert-before');
+                            container.insertBefore(draggedCardElement, afterElement);
+                        } else if (!afterElement) {
+                            // 最后一个元素
+                            const lastCard = container.querySelector('.col-sm-3:last-of-type:not(.dragging)');
+                            if (lastCard && lastCard !== draggedCardElement) {
+                                lastCard.classList.add('drag-insert-after');
+                            }
+                            container.appendChild(draggedCardElement);
+                        }
+                    }
+                });
+
+                // 保存新顺序
+                container.addEventListener('drop', function (e) {
+                    e.preventDefault();
+
+                    // 清除所有拖动样式
+                    allRows.forEach(c => {
+                        c.querySelectorAll('.col-sm-3').forEach(card => {
+                            card.classList.remove('drag-insert-before', 'drag-insert-after', 'drag-over');
+                        });
+                    });
+
+                    // 保存当前容器的顺序
+                    const newOrder = Array.from(container.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)')).map(card => card.id);
+                    localStorage.setItem(storageKey, JSON.stringify(newOrder));
+
+                    // 更新所有容器的顺序（因为可能跨栏移动）
+                    allRows.forEach((c, idx) => {
+                        const order = Array.from(c.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)')).map(card => card.id);
+                        localStorage.setItem(`cardOrder_${idx}`, JSON.stringify(order));
+                    });
+                });
+
+                // 拖动进入容器
+                container.addEventListener('dragenter', function (e) {
+                    e.preventDefault();
+                });
+
+                // 拖动离开容器时清除样式
+                container.addEventListener('dragleave', function (e) {
+                    // 只有当真正离开容器时才清除
+                    if (!container.contains(e.relatedTarget)) {
+                        container.querySelectorAll('.col-sm-3').forEach(card => {
+                            card.classList.remove('drag-insert-before', 'drag-insert-after', 'drag-over');
+                        });
+                    }
+                });
+            });
+
+            // ========== 9. 恢复默认排序按钮 ==========
+            const resetBtn = document.getElementById('resetOrder');
+            if (resetBtn) {
+                resetBtn.addEventListener('click', async function () {
+                    if (await showConfirm('确定要恢复默认排序吗？')) {
+                        allRows.forEach((container, rowIndex) => {
+                            const defaultKey = `defaultOrder_${rowIndex}`;
+                            const defaultOrder = localStorage.getItem(defaultKey);
+                            if (defaultOrder) {
+                                applyOrder(container, JSON.parse(defaultOrder));
+                                localStorage.removeItem(`cardOrder_${rowIndex}`);
+                            }
+                        });
+                    }
+                });
+            }
+
+            // ========== 10. 显示已隐藏卡片按钮 ==========
+            const showHiddenBtn = document.getElementById('showHiddenCards');
+            const panel = document.getElementById('hiddenCardsPanel');
+            const overlay = document.getElementById('panelOverlay');
+            const panelClose = document.getElementById('panelClose');
+
+            if (showHiddenBtn && panel && overlay) {
+                showHiddenBtn.addEventListener('click', function () {
+                    updateHiddenPanel();
+                    panel.classList.add('active');
+                    overlay.classList.add('active');
+                });
+            }
+
+            function closePanel() {
+                if (panel) panel.classList.remove('active');
+                if (overlay) overlay.classList.remove('active');
+            }
+
+            if (panelClose) {
+                panelClose.addEventListener('click', closePanel);
+            }
+
+            if (overlay) {
+                overlay.addEventListener('click', closePanel);
+            }
+
+            // ========== 辅助函数 ==========
+            function getDragAfterElement(container, y) {
+                const cards = [...container.querySelectorAll('.col-sm-3[draggable="true"]:not(.dragging):not(.card-hidden)')];
+                if (cards.length === 0) return null;
+
+                return cards.reduce((closest, card) => {
+                    const box = card.getBoundingClientRect();
+                    const offset = y - box.top - box.height / 2;
+                    if (offset < 0 && offset > closest.offset) {
+                        return { offset: offset, element: card };
+                    }
+                    return closest;
+                }, { offset: Number.NEGATIVE_INFINITY }).element;
+            }
+
+            function applyOrder(container, order) {
+                order.forEach(id => {
+                    const card = document.getElementById(id);
+                    if (card && container.contains(card) && !card.classList.contains('card-hidden')) {
+                        container.appendChild(card);
+                    }
+                });
+            }
+
+            // 全局拖动处理：支持跨容器拖动（类似iPhone APP）
+            document.addEventListener('dragover', function (e) {
+                if (!draggedCardId || !draggedCardElement) return;
+
+                // 找到鼠标位置下的所有容器
+                const elementsBelow = document.elementsFromPoint(e.clientX, e.clientY);
+                const targetRow = elementsBelow.find(el => el.classList.contains('row'));
+
+                if (targetRow && targetRow !== draggedCardElement.closest('.row')) {
+                    // 鼠标在另一个容器上，触发该容器的dragover
+                    e.preventDefault();
+                    const event = new DragEvent('dragover', {
+                        bubbles: true,
+                        cancelable: true,
+                        clientX: e.clientX,
+                        clientY: e.clientY
+                    });
+                    targetRow.dispatchEvent(event);
+                }
+            }, false);
+
+            // 初始化管理面板
+            updateHiddenPanel();
+        });
+    </script>
+    
+
+    
+    <!-- 添加链接模态框 -->
+    <div class="panel-overlay" id="addCardOverlay"></div>
+    <div class="hidden-cards-panel" id="addCardModal">
+        <button class="panel-close" onclick="closeAddCardModal()">×</button>
+        <h3>添加收藏</h3>
+        <div class="add-card-form">
+            <div class="form-group">
+                <label>网站标题</label>
+                <input type="text" id="cardTitle" class="form-control" placeholder="例如：我的博客">
+            </div>
+            <div class="form-group">
+                <label>网站链接 (URL)</label>
+                <input type="text" id="cardUrl" class="form-control" placeholder="https://example.com"
+                    onblur="autoFillFavicon()">
+                <small class="help-text">输入链接后移开鼠标，尝试自动获取图标</small>
+            </div>
+            <div class="form-group">
+                <label>描述 (可选)</label>
+                <input type="text" id="cardDesc" class="form-control" placeholder="关于这个网站的描述...">
+            </div>
+            <div class="form-group">
+                <label>图标链接 (可选)</label>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <img id="cardIconPreview" src="../assets/images/logos/pinterest.png" width="40" height="40"
+                                             class="img-circle" style="border-radius: 50%; background: #333;">                    <input type="text" id="cardIcon" class="form-control" placeholder="图标URL，留空则自动获取">
+                </div>
+            </div>
+            <button class="btn-save-card" onclick="saveNewCard()">保存链接</button>
+        </div>
+    </div>
+
+    <style>
+        /* 我的收藏样式 */
+        .add-card-btn {
+            border: 2px dashed rgba(255, 255, 255, 0.1) !important;
+            background: transparent !important;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100px;
+            transition: all 0.3s;
+            box-shadow: none !important;
+        }
+
+        .add-card-btn:hover {
+            border-color: rgba(255, 255, 255, 0.3) !important;
+            background: rgba(255, 255, 255, 0.02) !important;
+            transform: translateY(-2px);
+        }
+
+        .add-card-inner {
+            text-align: center;
+            color: #888;
+        }
+
+        .add-card-inner i {
+            font-size: 24px;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        /* 模态框表单样式 */
+        .add-card-form {
+            text-align: left;
+        }
+
+        .add-card-form .form-group {
+            margin-bottom: 15px;
+        }
+
+        .add-card-form label {
+            display: block;
+            color: #ccc;
+            margin-bottom: 5px;
+        }
+
+        .add-card-form .form-control {
+            width: 100%;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border-radius: 4px;
+        }
+
+        .add-card-form .form-control:focus {
+            border-color: #3b82f6;
+            outline: none;
+        }
+
+        .btn-save-card {
+            width: 100%;
+            padding: 12px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background 0.2s;
+        }
+
+        .btn-save-card:hover {
+            background: #2563eb;
+        }
+
+        /* 自定义卡片删除按钮 */
+        .card-delete-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 20px;
+            height: 20px;
+            background: #ef4444;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.2s;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        .xe-widget:hover .card-delete-btn {
+            opacity: 1;
+        }
+    </style>
+
+    <script>
+        // ========== 我的收藏功能 ==========
+        const FAV_KEY = 'my_favorites_v1';
+
+        function openAddCardModal() {
+            document.getElementById('addCardOverlay').classList.add('active');
+            document.getElementById('addCardModal').classList.add('active');
+            // 清空表单
+            document.getElementById('cardTitle').value = '';
+            document.getElementById('cardUrl').value = '';
+            document.getElementById('cardDesc').value = '';
+            document.getElementById('cardIcon').value = '';
+            document.getElementById('cardIconPreview').src = '../assets/images/logos/pinterest.png';
+        }
+
+        function closeAddCardModal() {
+            document.getElementById('addCardOverlay').classList.remove('active');
+            document.getElementById('addCardModal').classList.remove('active');
+        }
+
+        // 自动提取 favicon
+        function autoFillFavicon() {
+            const url = document.getElementById('cardUrl').value.trim();
+            if (!url) return;
+
+            try {
+                // 如果没有输入图标，尝试自动获取
+                if (!document.getElementById('cardIcon').value) {
+                    let domain = new URL(url).origin;
+                    let favicon = `${domain}/favicon.ico`;
+                    document.getElementById('cardIconPreview').src = favicon;
+                    document.getElementById('cardIcon').value = favicon; // 隐式填入
+                }
+            } catch (e) { }
+        }
+
+        // 监听图标输入变化
+        document.getElementById('cardIcon').addEventListener('input', function () {
+            if (this.value) {
+                document.getElementById('cardIconPreview').src = this.value;
+            }
+        });
+
+        function saveNewCard() {
+            const title = document.getElementById('cardTitle').value.trim();
+            const url = document.getElementById('cardUrl').value.trim();
+            const desc = document.getElementById('cardDesc').value.trim() || '我的自定义收藏链接';
+            let icon = document.getElementById('cardIcon').value.trim();
+
+            if (!title || !url) {
+                showToast('请填写标题和链接！', 'error');
+                return;
+            }
+
+            if (!icon) {
+                try {
+                    icon = new URL(url).origin + '/favicon.ico';
+                } catch (e) {
+                    icon = '../assets/images/logos/pinterest.png';
+                }
+            }
+
+            const newCard = {
+                id: 'fav_' + Date.now(),
+                title,
+                url,
+                desc,
+                icon
+            };
+
+            // 保存到 LocalStorage
+            let favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
+            favs.push(newCard);
+            localStorage.setItem(FAV_KEY, JSON.stringify(favs));
+
+            // 渲染
+            renderFavorites();
+            closeAddCardModal();
+        }
+
+        async function deleteFavCard(id, e) {
+            e.stopPropagation(); // 防止触发点击跳转
+            if (await showConfirm('确定要删除这个收藏吗？')) {
+                let favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
+                favs = favs.filter(c => c.id !== id);
+                localStorage.setItem(FAV_KEY, JSON.stringify(favs));
+                renderFavorites();
+            }
+        }
+
+        function renderFavorites() {
+            const container = document.getElementById('my-favorites-list');
+            if (!container) return;
+
+            const favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
+
+            // 清空现有内容
+            container.innerHTML = '';
+
+            favs.forEach(card => {
+                const html = `
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info" 
+                         onclick="window.open('${card.url}', '_blank')" 
+                         data-toggle="tooltip" 
+                         data-placement="bottom" 
+                         title="${card.url}"
+                         style="position: relative;">
+                        
+                        <div class="card-delete-btn" onclick="deleteFavCard('${card.id}', event)">×</div>
+                        
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img src="${card.icon}" class="lozad img-circle" width="40" 
+                                     onerror="this.src='../assets/images/logos/pinterest.png'">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>${card.title}</strong>
+                                </a>
+                                <p class="overflowClip_2">${card.desc}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+                container.insertAdjacentHTML('beforeend', html);
+            });
+
+            // 重新初始化 tooltip
+            if (window.jQuery && window.jQuery.fn.tooltip) {
+                $('[data-toggle="tooltip"]').tooltip({
+                    container: 'body',
+                    placement: 'bottom',
+                    trigger: 'hover'
+                });
+            }
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function () {
+            renderFavorites();
+
+            // 点击遮罩关闭
+            document.getElementById('addCardOverlay').addEventListener('click', closeAddCardModal);
+        });
+
+        // 导出收藏数据
+        function exportFavorites() {
+            const favs = localStorage.getItem(FAV_KEY);
+            if (!favs || favs === '[]') {
+                showToast('还没有收藏任何链接哦！', 'info');
+                return;
+            }
+            const blob = new Blob([favs], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'my_nav_backup_' + new Date().toISOString().slice(0, 10) + '.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // 导入收藏数据
+        function importFavorites(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function (e) {
+                try {
+                    const json = e.target.result;
+                    const data = JSON.parse(json);
+                    if (Array.isArray(data)) {
+                        if (await showConfirm('导入将覆盖当前的收藏数据，确定要继续吗？')) {
+                            localStorage.setItem(FAV_KEY, JSON.stringify(data));
+                            renderFavorites();
+                            showToast('导入成功！', 'success');
+                            closeAddCardModal();
+                        }
+                    } else {
+                        showToast('文件格式不正确！', 'error');
+                    }
+                } catch (err) {
+                    showToast('无法解析文件，请确保是有效的备份文件。', 'error');
+                }
+                // 清重input，防止同名文件不触发onchange
+                input.value = '';
+            };
+            reader.readAsText(file);
+        }
+    </script>
+
+    <!-- 备份功能样式补丁 -->
+    <style>
+        .backup-btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .backup-btn-group button {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+            font-size: 13px;
+            transition: opacity 0.2s;
+        }
+
+        .backup-btn-group button:hover {
+            opacity: 0.9;
+        }
+    </style>
+    <style>
+        /* ==================== 暗黑模式样式 ==================== */
+        /* 页面主体暗黑模式 */
+        body.dark-mode {
+            background-color: #1a1a1a; /* 背景色：深灰色 */
+            color: #b0b0b0; /* 文字颜色：浅灰色 */
+        }
+
+        /* 侧边栏暗黑模式 */
+        body.dark-mode .page-container .sidebar-menu {
+            background-color: #222; /* 背景色：深灰色 */
+        }
+
+        /* 主内容区域暗黑模式 */
+        body.dark-mode .page-container .main-content {
+            background-color: #1a1a1a; /* 背景色：深灰色 */
+        }
+
+        /* 导航栏暗黑模式 */
+        body.dark-mode .navbar {
+            background-color: #222; /* 背景色：深灰色 */
+            border-bottom: 1px solid #333; /* 底部边框 */
+        }
+
+        /* 标题暗黑模式 */
+        body.dark-mode h1,
+        body.dark-mode h2,
+        body.dark-mode h3,
+        body.dark-mode h4,
+        body.dark-mode h5,
+        body.dark-mode h6 {
+            color: #e0e0e0 !important; /* 文字颜色：浅灰色 */
+        }
+
+        /* ==================== 卡片暗黑样式 ==================== */
+        body.dark-mode .xe-widget {
+            background: #252525; /* 背景色：深灰色 */
+            border-color: #333; /* 边框颜色 */
+        }
+
+        body.dark-mode .xe-widget .xe-comment-entry .xe-user-name strong {
+            color: #ddd; /* 用户名颜色：浅灰色 */
+        }
+
+        body.dark-mode .xe-widget .xe-comment-entry p {
+            color: #888; /* 描述文字颜色：灰色 */
+        }
+
+        /* ==================== 搜索框暗黑样式 ==================== */
+        body.dark-mode .global-search-box {
+            background: rgba(255, 255, 255, 0.08); /* 背景色：白色半透明 */
+            border-color: #444; /* 边框颜色 */
+        }
+
+        body.dark-mode #globalSearchInput {
+            color: #fff;
+        }
+
+        /* 模态框暗黑样式 */
+        body.dark-mode .hidden-cards-panel {
+            background: #2a2a2a;
+            color: #eee;
+        }
+
+        body.dark-mode .add-card-form .form-control {
+            background: #333;
+            border-color: #444;
+            color: #fff;
+        }
+
+        /* 侧边栏激活状态 */
+        body.dark-mode .sidebar-menu li.active>a {
+            background-color: #333;
+        }
+
+        body.dark-mode .sidebar-menu li ul {
+            background-color: #222;
+        }
+
+        /* 页脚暗黑模式强化补丁 */
+        body.dark-mode .main-footer {
+            background-color: #1a1a1a !important;
+            color: #666 !important;
+            border-top: 1px solid #333 !important;
+        }
+
+        body.dark-mode .main-footer a,
+        body.dark-mode .main-footer strong {
+            color: #888 !important;
+        }
+
+        body.dark-mode .footer-inner {
+            background: transparent !important;
+        }
+    </style>
+
+    <!-- ==================== 暗黑模式逻辑 ==================== -->
+    <script>
+        // ==================== 暗黑模式逻辑 ====================
+        /**
+         * 切换暗黑模式/日间模式
+         * 功能：切换页面的主题模式，并保存用户偏好到本地存储
+         */
+        function toggleDarkMode() {
+            const body = document.body; // 获取body元素
+            body.classList.toggle('dark-mode'); // 切换dark-mode类
+
+            const isDark = body.classList.contains('dark-mode'); // 检查当前是否为暗黑模式
+
+            // 切换图标显示
+            const icon = document.getElementById('darkModeIcon'); // 获取图标元素
+            if (icon) {
+                // 如果是暗黑模式显示太阳图标，否则显示月亮图标
+                icon.className = isDark ? 'fa fa-sun-o' : 'fa fa-moon-o';
+            }
+
+            // 保存用户偏好到本地存储
+            localStorage.setItem('theme_mode', isDark ? 'dark' : 'light');
+        }
+
+        // ==================== 初始化暗黑模式 ====================
+        /**
+         * 页面加载时初始化暗黑模式
+         * 功能：根据用户之前的选择或系统偏好自动应用暗黑模式
+         */
+        (function () {
+            const savedMode = localStorage.getItem('theme_mode'); // 获取用户保存的模式设置
+            // 检查系统是否偏好暗黑模式（用于首次访问）
+            const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+            // 如果用户之前设置了暗黑模式，或者没有设置但系统偏好暗黑模式
+            if (savedMode === 'dark' || (!savedMode && sysDark)) {
+                toggleDarkMode(); // 自动切换到暗黑模式
+            }
+        })();
+    </script>
+    <!-- ==================== 移动端防遮挡优化补丁 ==================== -->
+    <style>
+        /* 移动端样式适配（屏幕宽度小于等于768px） */
+        @media screen and (max-width: 768px) {
+
+            /* 增加页面底部内边距，确保内容可以滚动到浮动按钮上方 */
+            /* 给body和main-content都加，双重保险 */
+            body,
+            .main-content {
+                padding-bottom: 150px !important; /* 底部内边距150px */
+            }
+
+            /* 调整返回顶部等浮动按钮的位置或样式，使其不那么碍事 */
+            .go-top,
+            #showHiddenCards,
+            #resetOrder {
+                bottom: 80px !important; /* 稍微抬高一点，避开某些手机浏览器的底部栏 */
+                opacity: 0.8; /* 半透明，减少遮挡感 */
+                transform: scale(0.9); /* 缩小一点 */
+                transition: opacity 0.3s ease, visibility 0.3s ease;
+            }
+
+            /* 浮动按钮淡出动画 */
+            .fade-out {
+                opacity: 0 !important;
+                visibility: hidden !important;
+                transition: opacity 0.3s ease, visibility 0.3s ease;
+            }
+
+            /* 显示隐藏卡片按钮的位置调整 */
+            #showHiddenCards {
+                bottom: 120px !important; /* 更高的位置 */
+            }
+
+            /* 重置顺序按钮的位置调整 */
+            #resetOrder {
+                bottom: 160px !important; /* 最高的位置 */
+            }
+
+            /* 确保移动端侧边栏切换按钮可见 */
+            .mobile-menu-toggle {
+                z-index: 10000 !important; /* 最高层级 */
+                display: block !important; /* 显示 */
+                visibility: visible !important; /* 可见 */
+            }
+
+            /* 针对移动端侧边栏的优化：防止收缩状态在手机端漏出 */
+            .sidebar-menu.collapsed {
+                width: 0 !important; /* 宽度为0 */
+                display: none !important; /* 不显示 */
+            }
+
+            /* 移动端侧边栏显示状态 */
+            .sidebar-menu.mobile-is-visible {
+                width: 280px !important; /* 宽度280px */
+                display: block !important; /* 显示 */
+            }
+
+            /* 移动端主内容区域适配 */
+            .main-content {
+                margin-left: 0 !important; /* 左边距为0 */
+                padding-bottom: 120px !important; /* 底部内边距120px */
+                padding-left: 10px !important; /* 左侧内边距10px */
+                padding-right: 10px !important; /* 右侧内边距10px */
+            }
+        }
+
+        /* ==================== 浮动按钮淡出效果 ==================== */
+        .fade-out {
+            opacity: 0 !important; /* 透明 */
+            visibility: hidden !important; /* 不可见 */
+            pointer-events: none !important; /* 不响应鼠标事件 */
+            transition: opacity 0.4s ease, visibility 0.4s ease !important; /* 过渡动画 */
+        }
+
+        /* ==================== 回到顶部按钮移动端位置微调 ==================== */
+        @media screen and (max-width: 768px) {
+            .go-top,
+            .back-to-top {
+                right: 20px !important; /* 距离右侧20px */
+                bottom: 24px !important; /* 距离底部24px */
+                z-index: 9999 !important; /* 最高层级 */
+            }
+        }
+
+        /* ==================== 页脚暗黑模式补丁 ==================== */
+        body.dark-mode .main-footer {
+            background-color: #1a1a1a !important; /* 背景色 */
+            color: #666 !important; /* 文字颜色 */
+            border-top: 1px solid #333 !important; /* 顶部边框 */
+        }
+
+        body.dark-mode .main-footer a,
+        body.dark-mode .main-footer strong {
+            color: #888 !important; /* 链接和加粗文字颜色 */
+        }
+
+        body.dark-mode .footer-inner {
+            background: transparent !important; /* 透明背景 */
+        }
+
+        /* ==================== 移动端跳转提示弹窗 ==================== */
+        /* 弹窗遮罩层 */
+        .mobile-redirect-overlay {
+            display: none;
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
             background: rgba(0, 0, 0, 0.7);
-            z-index: 100002;
-            display: none;
+            z-index: 99999;
             justify-content: center;
             align-items: center;
             backdrop-filter: blur(5px);
         }
 
-        @keyframes reminderSlideIn {
+        /* 圆角卡片弹窗容器 */
+        .mobile-redirect-dialog {
+            width: 320px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+            display: flex;
+            flex-direction: column;
+            padding: 30px 25px;
+            text-align: center;
+            animation: slideIn 0.3s ease-out;
+            position: relative;
+        }
+
+        /* 暗黑模式下的弹窗 */
+        body.dark-mode .mobile-redirect-dialog {
+            background: rgba(42, 42, 42, 0.95);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+        }
+
+        /* 弹窗标题 */
+        .mobile-redirect-title {
+            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-size: 18px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 8px;
+        }
+
+        body.dark-mode .mobile-redirect-title {
+            color: #e0e0e0;
+        }
+
+        /* 弹窗描述 */
+        .mobile-redirect-desc {
+            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-size: 14px;
+            color: #718096;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        body.dark-mode .mobile-redirect-desc {
+            color: #a0aec0;
+        }
+
+        /* 选项组 */
+        .mobile-redirect-options {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 100%;
+        }
+
+        /* 选项按钮 */
+        .mobile-redirect-option {
+            padding: 14px 20px;
+            border-radius: 12px;
+            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 2px solid transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        /* 数字货币选项 */
+        .mobile-redirect-option.crypto {
+            background: rgba(59, 130, 246, 0.1);
+            color: #3b82f6;
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        .mobile-redirect-option.crypto:hover {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: #3b82f6;
+            transform: translateY(-2px);
+        }
+
+        body.dark-mode .mobile-redirect-option.crypto {
+            background: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+            border-color: rgba(59, 130, 246, 0.4);
+        }
+
+        body.dark-mode .mobile-redirect-option.crypto:hover {
+            background: rgba(59, 130, 246, 0.25);
+        }
+
+        /* 金价行情选项 */
+        .mobile-redirect-option.gold {
+            background: rgba(251, 191, 36, 0.1);
+            color: #f59e0b;
+            border-color: rgba(251, 191, 36, 0.3);
+        }
+
+        .mobile-redirect-option.gold:hover {
+            background: rgba(251, 191, 36, 0.2);
+            border-color: #f59e0b;
+            transform: translateY(-2px);
+        }
+
+        /* 添加到主屏幕按钮 */
+        .mobile-redirect-option.homescreen {
+            background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);
+            color: #fff;
+        }
+
+        .mobile-redirect-option.homescreen:hover {
+            background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);
+            transform: scale(1.02);
+        }
+
+        body.dark-mode .mobile-redirect-option.gold {
+            background: rgba(251, 191, 36, 0.15);
+            color: #fbbf24;
+            border-color: rgba(251, 191, 36, 0.4);
+        }
+
+        body.dark-mode .mobile-redirect-option.gold:hover {
+            background: rgba(251, 191, 36, 0.25);
+        }
+
+        /* 取消按钮 */
+        .mobile-redirect-cancel {
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+            background: rgba(0, 0, 0, 0.05);
+            color: #718096;
+            margin-top: 8px;
+        }
+
+        body.dark-mode .mobile-redirect-cancel {
+            background: rgba(255, 255, 255, 0.1);
+            color: #a0aec0;
+        }
+
+        .mobile-redirect-cancel:hover {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        body.dark-mode .mobile-redirect-cancel:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        /* 滑入动画 */
+        @keyframes slideIn {
             from {
                 transform: translateY(-30px);
                 opacity: 0;
@@ -34,1458 +6698,510 @@ function injectReminderStyles() {
             }
         }
 
-        .reminder-modal-dialog {
-            width: 500px;
-            max-width: 90%;
-            max-height: 85vh;
-            border-radius: 10px;
-            background: #ffffff;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+        /* 仅在移动端显示 */
+        @media screen and (min-width: 769px) {
+            .mobile-redirect-overlay {
+                display: none !important;
+            }
+        }
+
+        /* ==================== 自定义 Toast 提示 ==================== */
+        .toast-container {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 100000;
             display: flex;
             flex-direction: column;
-            overflow: hidden;
-            animation: reminderSlideIn 0.3s ease-out;
+            gap: 10px;
         }
 
-        body.dark-mode .reminder-modal-dialog {
-            background: #1a1a1a;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-        }
-
-        .reminder-modal-header {
+        .toast {
+            min-width: 300px;
+            padding: 16px 20px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            padding: 20px 24px;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            gap: 12px;
+            animation: toastSlideIn 0.3s ease-out;
+            opacity: 0;
+            transform: translateX(100%);
         }
 
-        body.dark-mode .reminder-modal-header {
-            border-bottom-color: rgba(255, 255, 255, 0.1);
+        body.dark-mode .toast {
+            background: rgba(42, 42, 42, 0.95);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
         }
 
-        .reminder-modal-title {
-            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+        .toast.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .toast.hide {
+            opacity: 0;
+            transform: translateX(100%);
+        }
+
+        .toast-icon {
             font-size: 20px;
-            font-weight: 600;
-            color: #333;
         }
 
-        body.dark-mode .reminder-modal-title {
+        .toast-message {
+            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-size: 14px;
+            color: #2d3748;
+            flex: 1;
+        }
+
+        body.dark-mode .toast-message {
             color: #e0e0e0;
         }
 
-        .reminder-modal-close {
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            color: #718096;
-            transition: color 0.2s;
-            padding: 0;
-            width: 32px;
-            height: 32px;
-            display: flex;
-            align-items: center;
+        .toast-success {
+            border-left: 4px solid #10b981;
+        }
+
+        .toast-success .toast-icon {
+            color: #10b981;
+        }
+
+        .toast-error {
+            border-left: 4px solid #ef4444;
+        }
+
+        .toast-error .toast-icon {
+            color: #ef4444;
+        }
+
+        .toast-info {
+            border-left: 4px solid #3b82f6;
+        }
+
+        .toast-info .toast-icon {
+            color: #3b82f6;
+        }
+
+        .toast-warning {
+            border-left: 4px solid #f59e0b;
+        }
+
+        .toast-warning .toast-icon {
+            color: #f59e0b;
+        }
+
+        @keyframes toastSlideIn {
+            from {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes toastSlideOut {
+            from {
+                opacity: 1;
+                transform: translateX(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+        }
+
+        /* ==================== 自定义 Modal 确认框 ==================== */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 100001;
             justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(5px);
         }
 
-        .reminder-modal-close:hover {
+        .modal-dialog {
+            width: 400px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            animation: modalScaleIn 0.2s ease-out;
+        }
+
+        body.dark-mode .modal-dialog {
+            background: rgba(42, 42, 42, 0.95);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-title {
+            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-size: 18px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 12px;
+        }
+
+        body.dark-mode .modal-title {
             color: #e0e0e0;
         }
 
-        .reminder-modal-body {
-            padding: 24px;
-            overflow-y: auto;
-            max-height: calc(85vh - 80px);
-        }
-
-        /* 滚动条样式 - 亮色模式 */
-        .reminder-modal-body::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .reminder-modal-body::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 4px;
-        }
-
-        .reminder-modal-body::-webkit-scrollbar-thumb {
-            background: #c1c1c1;
-            border-radius: 4px;
-        }
-
-        .reminder-modal-body::-webkit-scrollbar-thumb:hover {
-            background: #a1a1a1;
-        }
-
-        /* 滚动条样式 - 暗色模式 */
-        body.dark-mode .reminder-modal-body::-webkit-scrollbar-track {
-            background: #2a2a2a;
-        }
-
-        body.dark-mode .reminder-modal-body::-webkit-scrollbar-thumb {
-            background: #4a4a4a;
-        }
-
-        body.dark-mode .reminder-modal-body::-webkit-scrollbar-thumb:hover {
-            background: #5a5a5a;
-        }
-
-        /* 提醒表单样式 */
-        .reminder-form {
+        .modal-message {
+            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-size: 14px;
+            color: #718096;
+            line-height: 1.6;
             margin-bottom: 24px;
-            padding-bottom: 24px;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
         }
 
-        body.dark-mode .reminder-form {
-            border-bottom-color: rgba(255, 255, 255, 0.1);
+        body.dark-mode .modal-message {
+            color: #a0aec0;
         }
 
-        .form-group {
-            margin-bottom: 16px;
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
         }
 
-        .form-group label {
-            display: block;
+        .modal-btn {
+            padding: 10px 20px;
+            border-radius: 8px;
             font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
             font-size: 14px;
             font-weight: 500;
-            color: #333;
-            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
         }
 
-        body.dark-mode .form-group label {
+        .modal-btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .modal-btn-primary:hover {
+            background: #2563eb;
+        }
+
+        .modal-btn-secondary {
+            background: rgba(0, 0, 0, 0.05);
+            color: #4a5568;
+        }
+
+        body.dark-mode .modal-btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
             color: #cbd5e0;
         }
 
-        .form-group input,
-        .form-group select {
-            width: 100%;
-            padding: 10px 14px;
-            border: 1px solid rgba(0, 0, 0, 0.2);
-            border-radius: 10px;
-            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
-            font-size: 14px;
-            color: #333;
-            background: #f5f5f5;
-            transition: all 0.2s;
+        .modal-btn-secondary:hover {
+            background: rgba(0, 0, 0, 0.1);
         }
 
-        body.dark-mode .form-group input,
-        body.dark-mode .form-group select {
-            color: #e0e0e0;
-            background: #2a2a2a;
-            border-color: rgba(255, 255, 255, 0.2);
+        body.dark-mode .modal-btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
         }
 
-        .form-group input:focus,
-        .form-group select:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        /* 修复select下拉选项的暗黑模式背景 */
-        .form-group select option {
-            background: #2a2a2a;
-            color: #e0e0e0;
-        }
-
-        .form-group input[type="checkbox"] {
-            width: auto;
-            margin-right: 8px;
-        }
-
-        /* 时间段选择样式 */
-        .time-range-group {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-
-        .time-range-group .form-group {
-            flex: 1;
-            margin-bottom: 0;
-        }
-
-        .time-range-separator {
-            color: #a0aec0;
-            font-weight: 600;
-        }
-
-        /* 重复提醒设置样式 */
-        .repeat-settings {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 12px;
-            border-radius: 10px;
-            margin-top: 12px;
-        }
-
-        .repeat-interval-group {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-top: 8px;
-        }
-
-        .repeat-interval-group input[type="number"] {
-            width: 80px !important;
-        }
-
-        /* 添加提醒按钮样式 - 与主页按钮一致 */
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #fff;
-            border: none;
-            border-radius: 10px;
-            padding: 12px 24px;
-            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.35);
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.45);
-        }
-
-        /* 提醒通知弹窗样式 */
-        .reminder-notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            max-width: 400px;
-            padding: 16px 20px;
-            border-radius: 10px;
-            background: rgba(255, 255, 255, 0.02);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-            z-index: 100003;
-            animation: notificationSlideIn 0.3s ease-out;
-            display: none;
-        }
-
-        @keyframes notificationSlideIn {
+        @keyframes modalScaleIn {
             from {
-                transform: translateX(100%);
+                transform: scale(0.9);
                 opacity: 0;
             }
             to {
-                transform: translateX(0);
+                transform: scale(1);
                 opacity: 1;
             }
         }
 
-        .reminder-notification.show {
+        /* ==================== 备份恢复按钮样式 ==================== */
+        .backup-btn {
+            color: #888;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .backup-btn:hover {
+            color: #fff;
+        }
+
+        /* ==================== 空状态提示样式 ==================== */
+        .empty-state {
+            color: #999;
+            text-align: center;
+            padding: 20px;
+        }
+
+        /* ==================== 帮助文本样式 ==================== */
+        .help-text {
+            color: #666;
             display: block;
-        }
-
-        .reminder-notification-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-
-        .reminder-notification-title {
-            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
-            font-size: 16px;
-            font-weight: 600;
-            color: #e0e0e0;
-        }
-
-        .reminder-notification-close {
-            background: none;
-            border: none;
-            font-size: 20px;
-            cursor: pointer;
-            color: #a0aec0;
-            padding: 0;
-            width: 24px;
-            height: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .reminder-notification-body {
-            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
-            font-size: 14px;
-            color: #cbd5e0;
-            margin-bottom: 16px;
-        }
-
-        .reminder-notification-actions {
-            display: flex;
-            gap: 8px;
-        }
-
-        .reminder-notification-btn {
-            flex: 1;
-            padding: 10px 16px;
-            border-radius: 10px;
-            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-            border: none;
-        }
-
-        .reminder-notification-btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #fff;
-        }
-
-        .reminder-notification-btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.35);
-        }
-
-        .reminder-notification-btn-secondary {
-            background: rgba(255, 255, 255, 0.05);
-            color: #cbd5e0;
-        }
-
-        .reminder-notification-btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        /* 提醒列表样式 */
-        .reminder-list-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
-            font-size: 16px;
-            font-weight: 600;
-            color: #e0e0e0;
-        }
-
-        .reminder-items {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .reminder-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 16px;
-            border-radius: 10px;
-            background: #f5f5f5;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            border: 1px solid rgba(0, 0, 0, 0.08);
-        }
-
-        body.dark-mode .reminder-item {
-            background: rgba(255, 255, 255, 0.02);
-        }
-
-        .reminder-item:hover {
-            transform: translateY(-6px) scale(1.01);
-            box-shadow: 0 14px 32px rgba(0, 0, 0, 0.55);
-            z-index: 100;
-        }
-
-        .reminder-item.disabled {
-            opacity: 0.5;
-        }
-
-        .reminder-item-content {
-            flex: 1;
-        }
-
-        .reminder-item-title {
-            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
-            font-size: 15px;
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 4px;
-        }
-
-        body.dark-mode .reminder-item-title {
-            color: #e0e0e0;
-        }
-
-        .reminder-item-detail {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 13px;
-            color: #a0aec0;
-        }
-
-        .reminder-type-badge {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 4px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #fff;
-            font-size: 11px;
-            font-weight: 500;
-        }
-
-        .reminder-item-actions {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-
-        .reminder-toggle-btn,
-        .reminder-delete-btn,
-        .reminder-test-btn {
-            background: none;
-            border: none;
-            font-size: 18px;
-            cursor: pointer;
-            padding: 6px;
-            border-radius: 6px;
-            transition: all 0.2s;
-        }
-
-        .reminder-toggle-btn:hover {
-            background: rgba(102, 126, 234, 0.1);
-        }
-
-        .reminder-test-btn:hover {
-            background: rgba(240, 147, 251, 0.1);
-        }
-
-        .reminder-delete-btn:hover {
-            background: rgba(239, 68, 68, 0.1);
-        }
-
-        /* 三个杠菜单按钮样式 */
-        #reminderMenuBtn {
-            position: fixed;
-            bottom: 24px;
-            left: 84px;
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #fff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
-            transition: all 0.3s ease;
-            z-index: 9999;
-            border: none;
-            font-size: 20px;
-        }
-
-        #reminderMenuBtn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.5);
-        }
-
-        /* 提醒按钮样式 */
-        #reminderBtn {
-            position: fixed;
-            bottom: 24px;
-            left: 24px;
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #fff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
-            transition: all 0.3s ease;
-            z-index: 9999;
-            border: none;
-            font-size: 20px;
-        }
-
-        #reminderBtn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.5);
-        }
-
-        /* 按钮上方的倒计时卡片容器 */
-        .reminder-countdowns-container {
-            position: fixed;
-            bottom: 84px;
-            left: 24px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            z-index: 9999;
-        }
-
-        /* 收起状态的倒计时容器 */
-        .reminder-countdowns-container.collapsed {
-            display: none;
-        }
-
-        /* 倒计时卡片统一样式 */
-        .reminder-countdown-card {
-            padding: 12px 16px;
-            border-radius: 10px;
-            background: rgba(255, 255, 255, 0.02);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            border: 1px solid rgba(0, 0, 0, 0.08);
-            min-width: 180px;
-            max-width: 280px;
-            box-sizing: border-box;
-        }
-
-        /* 事件倒计时卡片 */
-        .reminder-countdown-card.countdown-main {
-            animation: countdownPulse 2s infinite;
-            border-left: 3px solid #667eea;
-        }
-
-        /* 其他提醒卡片 */
-        .reminder-countdown-card.countdown-side {
-            border-left: 3px solid #764ba2;
-            animation: none;
-        }
-
-        .reminder-countdown-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
-        }
-
-        @keyframes countdownPulse {
-            0%, 100% {
-                transform: scale(1);
-            }
-            50% {
-                transform: scale(1.02);
-            }
-        }
-
-        .reminder-countdown-title {
-            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
-            font-size: 11px;
-            font-weight: 600;
-            color: #a0aec0;
-            margin-bottom: 2px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            word-break: break-all;
-        }
-
-        .reminder-countdown-timer {
-            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
-            font-size: 16px;
-            font-weight: 700;
-            color: #e0e0e0;
-            word-break: break-all;
-            line-height: 1.3;
-        }
-
-        .reminder-countdown-detail {
-            font-family: "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+            margin-top: 5px;
             font-size: 12px;
-            font-weight: 600;
-            color: #e0e0e0;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            word-break: break-all;
         }
 
-        /* 移动端隐藏提醒系统 */
-        @media (max-width: 768px) {
-            #reminderBtn,
-            #reminderMenuBtn,
-            .reminder-modal-overlay,
-            .reminder-countdowns-container {
-                display: none !important;
-            }
+        /* ==================== 暗黑模式图标样式 ==================== */
+        .dark-mode-icon {
+            font-size: 16px;
         }
-    `;
-    document.head.appendChild(style);
-}
+    </style>
 
-// ==================== 注入HTML到页面 ====================
-function injectReminderHTML() {
-    // 检查是否已经注入过
-    if (document.getElementById('reminderBtn')) {
-        return;
-    }
+    <!-- Toast 容器 -->
+    <div class="toast-container" id="toastContainer"></div>
 
-    // 三个杠菜单按钮
-    const menuBtn = document.createElement('button');
-    menuBtn.id = 'reminderMenuBtn';
-    menuBtn.onclick = toggleCountdownDisplay;
-    menuBtn.title = '切换倒计时显示';
-    menuBtn.innerHTML = '☰';
-    document.body.appendChild(menuBtn);
-
-    // 提醒管理按钮
-    const reminderBtn = document.createElement('button');
-    reminderBtn.id = 'reminderBtn';
-    reminderBtn.onclick = openReminderModal;
-    reminderBtn.title = '提醒管理';
-    reminderBtn.textContent = '🔔';
-    document.body.appendChild(reminderBtn);
-
-    // 倒计时小卡片容器
-    const countdownsContainer = document.createElement('div');
-    countdownsContainer.id = 'reminderCountdownsContainer';
-    countdownsContainer.className = 'reminder-countdowns-container collapsed';
-    document.body.appendChild(countdownsContainer);
-
-    // 提醒管理弹窗
-    const modalHTML = `
-        <div class="reminder-modal-overlay" id="reminderModal" style="display: none;">
-            <div class="reminder-modal-dialog">
-                <div class="reminder-modal-header">
-                    <div class="reminder-modal-title">📅 提醒管理</div>
-                    <button class="reminder-modal-close" onclick="closeReminderModal()">✕</button>
-                </div>
-
-                <div class="reminder-modal-body">
-                    <!-- 添加新提醒表单 -->
-                    <div class="reminder-form">
-                        <div class="form-group">
-                            <label>提醒标题</label>
-                            <input type="text" id="reminderTitle" placeholder="例如：缴纳电费、春节倒计时">
-                        </div>
-
-                        <div class="form-group">
-                            <label>提醒类型</label>
-                            <select id="reminderType" onchange="handleReminderTypeChange()">
-                                <option value="daily">每日提醒</option>
-                                <option value="monthly">月度提醒（每月固定日期）</option>
-                                <option value="dateRange">日期范围提醒（如6-8号）</option>
-                                <option value="countdown">事件倒计时</option>
-                            </select>
-                        </div>
-
-                        <!-- 每日提醒选项 -->
-                        <div class="reminder-type-option" id="dailyOption">
-                            <div class="form-group">
-                                <label>提醒时间段</label>
-                                <div class="time-range-group">
-                                    <div class="form-group">
-                                        <input type="time" id="dailyStartTime" value="09:00">
-                                    </div>
-                                    <span class="time-range-separator">至</span>
-                                    <div class="form-group">
-                                        <input type="time" id="dailyEndTime" value="24:00">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label style="display: flex; align-items: center; gap: 8px;">
-                                    <input type="checkbox" id="dailyRepeat" checked>
-                                    启用重复提醒
-                                </label>
-                                <div class="repeat-settings" id="dailyRepeatSettings">
-                                    <label style="font-size: 13px; color: #718096; margin-bottom: 8px;">重复提醒间隔（分钟）</label>
-                                    <div class="repeat-interval-group">
-                                        <input type="number" id="dailyRepeatInterval" min="1" max="60" value="5">
-                                        <span style="color: #718096;">分钟</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 月度提醒选项 -->
-                        <div class="reminder-type-option" id="monthlyOption" style="display: none;">
-                            <div class="form-group">
-                                <label>每月几号</label>
-                                <input type="number" id="monthlyDate" min="1" max="31" value="1">
-                            </div>
-                            <div class="form-group">
-                                <label>提醒时间段</label>
-                                <div class="time-range-group">
-                                    <div class="form-group">
-                                        <input type="time" id="monthlyStartTime" value="09:00">
-                                    </div>
-                                    <span class="time-range-separator">至</span>
-                                    <div class="form-group">
-                                        <input type="time" id="monthlyEndTime" value="24:00">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label style="display: flex; align-items: center; gap: 8px;">
-                                    <input type="checkbox" id="monthlyRepeat" checked>
-                                    启用重复提醒
-                                </label>
-                                <div class="repeat-settings" id="monthlyRepeatSettings">
-                                    <label style="font-size: 13px; color: #718096; margin-bottom: 8px;">重复提醒间隔（分钟）</label>
-                                    <div class="repeat-interval-group">
-                                        <input type="number" id="monthlyRepeatInterval" min="1" max="60" value="5">
-                                        <span style="color: #718096;">分钟</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 日期范围提醒选项 -->
-                        <div class="reminder-type-option" id="dateRangeOption" style="display: none;">
-                            <div class="form-group">
-                                <label>起始日期</label>
-                                <input type="number" id="rangeStartDate" min="1" max="31" value="6">
-                            </div>
-                            <div class="form-group">
-                                <label>结束日期</label>
-                                <input type="number" id="rangeEndDate" min="1" max="31" value="8">
-                            </div>
-                            <div class="form-group">
-                                <label>提醒时间段</label>
-                                <div class="time-range-group">
-                                    <div class="form-group">
-                                        <input type="time" id="rangeStartTime" value="09:00">
-                                    </div>
-                                    <span class="time-range-separator">至</span>
-                                    <div class="form-group">
-                                        <input type="time" id="rangeEndTime" value="24:00">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label style="display: flex; align-items: center; gap: 8px;">
-                                    <input type="checkbox" id="rangeRepeat" checked>
-                                    启用重复提醒
-                                </label>
-                                <div class="repeat-settings" id="rangeRepeatSettings">
-                                    <label style="font-size: 13px; color: #718096; margin-bottom: 8px;">重复提醒间隔（分钟）</label>
-                                    <div class="repeat-interval-group">
-                                        <input type="number" id="rangeRepeatInterval" min="1" max="60" value="5">
-                                        <span style="color: #718096;">分钟</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 倒计时选项 -->
-                        <div class="reminder-type-option" id="countdownOption" style="display: none;">
-                            <div class="form-group">
-                                <label>目标日期</label>
-                                <input type="date" id="countdownDate">
-                            </div>
-                            <div class="form-group">
-                                <label>目标时间</label>
-                                <input type="time" id="countdownTime" value="00:00">
-                            </div>
-                            <div class="form-group">
-                                <label style="display: flex; align-items: center; gap: 8px;">
-                                    <input type="checkbox" id="showInCorner" checked>
-                                    在左下角显示倒计时
-                                </label>
-                            </div>
-                        </div>
-
-                        <button class="btn btn-primary" onclick="addReminder()" style="width: 100%; margin-top: 10px;">
-                            ➕ 添加提醒
-                        </button>
-                    </div>
-
-                    <!-- 提醒列表 -->
-                    <div class="reminder-list">
-                        <div class="reminder-list-header">
-                            <span>我的提醒</span>
-                            <span id="reminderCount">0</span>
-                        </div>
-                        <div id="reminderList" class="reminder-items">
-                            <div class="empty-state">暂无提醒</div>
-                        </div>
-                    </div>
-                </div>
+    <!-- Modal 确认框 -->
+    <div class="modal-overlay" id="confirmModal">
+        <div class="modal-dialog">
+            <div class="modal-title" id="modalTitle">确认操作</div>
+            <div class="modal-message" id="modalMessage">确定要执行此操作吗？</div>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-secondary" id="modalCancel">取消</button>
+                <button class="modal-btn modal-btn-primary" id="modalConfirm">确定</button>
             </div>
         </div>
+    </div>
 
-        <!-- 提醒通知弹窗 -->
-        <div class="reminder-notification" id="reminderNotification">
-            <div class="reminder-notification-header">
-                <div class="reminder-notification-title">🔔 提醒</div>
-                <button class="reminder-notification-close" onclick="closeReminderNotification()">✕</button>
+    <!-- 移动端跳转提示弹窗 -->
+    <div class="mobile-redirect-overlay" id="mobileRedirectOverlay">
+        <div class="mobile-redirect-dialog">
+            <div class="mobile-redirect-title">移动端快捷导航</div>
+            <div class="mobile-redirect-desc">
+                检测到您正在使用移动设备访问
             </div>
-            <div class="reminder-notification-body" id="reminderNotificationBody">
-                您有一个提醒需要处理
-            </div>
-            <div class="reminder-notification-actions">
-                <button class="reminder-notification-btn reminder-notification-btn-secondary" onclick="snoozeReminder()">稍后提醒</button>
-                <button class="reminder-notification-btn reminder-notification-btn-primary" onclick="acknowledgeReminder()">已知晓</button>
+            <div class="mobile-redirect-options">
+                <button class="mobile-redirect-option crypto" onclick="handleMobileRedirect('crypto')">
+                    <span>💰</span>
+                    <span>跳转数字货币</span>
+                </button>
+                <button class="mobile-redirect-option gold" onclick="handleMobileRedirect('gold')">
+                    <span>📈</span>
+                    <span>跳转金价行情</span>
+                </button>
+                <button class="mobile-redirect-option homescreen" onclick="handleMobileRedirect('homescreen')">
+                    <span>📱</span>
+                    <span>添加到主屏幕</span>
+                </button>
+                <button class="mobile-redirect-cancel" onclick="handleMobileRedirect('cancel')">
+                    取消，继续浏览
+                </button>
             </div>
         </div>
-    `;
+    </div>
 
-    // 创建临时容器并插入HTML
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = modalHTML;
-    document.body.appendChild(tempDiv);
-
-    // 将子元素移到body
-    while (tempDiv.firstChild) {
-        document.body.appendChild(tempDiv.firstChild);
-    }
-
-    // 移除临时容器
-    document.body.removeChild(tempDiv);
-}
-
-// ==================== 提醒系统核心功能 ====================
-
-// 提醒数据存储键名
-const REMINDER_STORAGE_KEY = 'webstack_reminders';
-
-// 提醒数据
-let reminders = [];
-
-// 倒计时定时器
-let countdownInterval = null;
-
-/**
- * 初始化提醒系统
- */
-function initReminderSystem() {
-    injectReminderStyles();
-    injectReminderHTML();
-    loadReminders();
-    renderReminderList();
-    startReminderCheck();
-    updateCountdownWidget();
-}
-
-/**
- * 从localStorage加载提醒数据
- */
-function loadReminders() {
-    try {
-        const data = localStorage.getItem(REMINDER_STORAGE_KEY);
-        if (data) {
-            reminders = JSON.parse(data);
+    <!-- 移动端跳转逻辑 -->
+    <script>
+        // 检测是否为移动设备
+        function isMobileDevice() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                   window.innerWidth <= 768;
         }
-    } catch (e) {
-        console.error('加载提醒数据失败:', e);
-        reminders = [];
-    }
-}
 
-/**
- * 保存提醒数据到localStorage
- */
-function saveReminders() {
-    try {
-        localStorage.setItem(REMINDER_STORAGE_KEY, JSON.stringify(reminders));
-    } catch (e) {
-        console.error('保存提醒数据失败:', e);
-    }
-}
+        // 处理移动端跳转
+        function handleMobileRedirect(option) {
+            const overlay = document.getElementById('mobileRedirectOverlay');
+            overlay.style.display = 'none';
 
-/**
- * 打开提醒管理弹窗
- */
-function openReminderModal() {
-    const modal = document.getElementById('reminderModal');
-    modal.style.display = 'flex';
-    renderReminderList();
-}
-
-/**
- * 关闭提醒管理弹窗
- */
-function closeReminderModal() {
-    const modal = document.getElementById('reminderModal');
-    modal.style.display = 'none';
-}
-
-/**
- * 处理提醒类型变化
- */
-function handleReminderTypeChange() {
-    const type = document.getElementById('reminderType').value;
-
-    // 隐藏所有选项
-    document.getElementById('dailyOption').style.display = 'none';
-    document.getElementById('monthlyOption').style.display = 'none';
-    document.getElementById('dateRangeOption').style.display = 'none';
-    document.getElementById('countdownOption').style.display = 'none';
-
-    // 显示对应选项
-    switch(type) {
-        case 'daily':
-            document.getElementById('dailyOption').style.display = 'block';
-            break;
-        case 'monthly':
-            document.getElementById('monthlyOption').style.display = 'block';
-            break;
-        case 'dateRange':
-            document.getElementById('dateRangeOption').style.display = 'block';
-            break;
-        case 'countdown':
-            document.getElementById('countdownOption').style.display = 'block';
-            break;
-    }
-}
-
-/**
- * 添加提醒
- */
-function addReminder() {
-    const title = document.getElementById('reminderTitle').value.trim();
-    const type = document.getElementById('reminderType').value;
-
-    if (!title) {
-        alert('请输入提醒标题');
-        return;
-    }
-
-    const reminder = {
-        id: Date.now(),
-        title: title,
-        type: type,
-        enabled: true,
-        createdAt: new Date().toISOString()
-    };
-
-    // 根据类型设置具体参数
-    switch(type) {
-        case 'daily':
-            reminder.startTime = document.getElementById('dailyStartTime').value;
-            reminder.endTime = document.getElementById('dailyEndTime').value;
-            reminder.repeat = document.getElementById('dailyRepeat').checked;
-            reminder.repeatInterval = reminder.repeat ? parseInt(document.getElementById('dailyRepeatInterval').value) : 0;
-            break;
-        case 'monthly':
-            reminder.day = parseInt(document.getElementById('monthlyDate').value);
-            reminder.startTime = document.getElementById('monthlyStartTime').value;
-            reminder.endTime = document.getElementById('monthlyEndTime').value;
-            reminder.repeat = document.getElementById('monthlyRepeat').checked;
-            reminder.repeatInterval = reminder.repeat ? parseInt(document.getElementById('monthlyRepeatInterval').value) : 0;
-            break;
-        case 'dateRange':
-            reminder.startDate = parseInt(document.getElementById('rangeStartDate').value);
-            reminder.endDate = parseInt(document.getElementById('rangeEndDate').value);
-            reminder.startTime = document.getElementById('rangeStartTime').value;
-            reminder.endTime = document.getElementById('rangeEndTime').value;
-            reminder.repeat = document.getElementById('rangeRepeat').checked;
-            reminder.repeatInterval = reminder.repeat ? parseInt(document.getElementById('rangeRepeatInterval').value) : 0;
-            break;
-        case 'countdown':
-            reminder.targetDate = document.getElementById('countdownDate').value;
-            reminder.targetTime = document.getElementById('countdownTime').value;
-            reminder.showInCorner = document.getElementById('showInCorner').checked;
-            break;
-    }
-
-    reminders.push(reminder);
-    saveReminders();
-    renderReminderList();
-    updateCountdownWidget();
-
-    // 清空表单
-    document.getElementById('reminderTitle').value = '';
-}
-
-/**
- * 删除提醒
- */
-function deleteReminder(id) {
-    if (confirm('确定要删除这个提醒吗？')) {
-        reminders = reminders.filter(r => r.id !== id);
-        saveReminders();
-        renderReminderList();
-        updateCountdownWidget();
-        alert('提醒已删除');
-    }
-}
-
-/**
- * 切换提醒启用状态
- */
-function toggleReminder(id) {
-    const reminder = reminders.find(r => r.id === id);
-    if (reminder) {
-        reminder.enabled = !reminder.enabled;
-        saveReminders();
-        renderReminderList();
-        updateCountdownWidget();
-    }
-}
-
-/**
- * 切换倒计时显示
- */
-function toggleCountdownDisplay() {
-    const container = document.getElementById('reminderCountdownsContainer');
-    const sidebarMenuInner = document.querySelector('.sidebar-menu-inner');
-    const cards = container.querySelectorAll('.reminder-countdown-card');
-
-    if (container.classList.contains('collapsed')) {
-        // 当前是收起状态，展开显示所有卡片
-        container.classList.remove('collapsed');
-        cards.forEach((card, index) => {
-            card.style.display = 'block';
-        });
-
-        // 延迟滚动，等待DOM更新
-        setTimeout(() => {
-            if (sidebarMenuInner) {
-                // 滚动到底部，确保所有倒计时卡片都可见
-                sidebarMenuInner.scrollTo({
-                    top: sidebarMenuInner.scrollHeight,
-                    behavior: 'smooth'
-                });
+            if (option === 'crypto') {
+                // 跳转到数字货币
+                const cryptoSection = document.getElementById('数字货币');
+                if (cryptoSection) {
+                    cryptoSection.scrollIntoView({ behavior: 'smooth' });
+                }
+            } else if (option === 'gold') {
+                // 跳转到金价行情
+                const goldSection = document.getElementById('金价行情');
+                if (goldSection) {
+                    goldSection.scrollIntoView({ behavior: 'smooth' });
+                }
+            } else if (option === 'homescreen') {
+                // 添加到主屏幕
+                showAddToHomeScreenInstructions();
             }
-        }, 100);
-    } else {
-        // 当前是展开状态，检查是否只显示第一个卡片
-        let onlyFirstVisible = true;
-        cards.forEach((card, index) => {
-            if (index > 0 && card.style.display !== 'none') {
-                onlyFirstVisible = false;
+            // 如果是 'cancel'，则不做任何操作，关闭弹窗即可
+        }
+
+        // 显示添加到主屏幕的说明
+        function showAddToHomeScreenInstructions() {
+            const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+            let instructions = '';
+            let title = '';
+
+            // 检测 iOS
+            if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
+                title = 'iOS 添加到主屏幕';
+                instructions = '1. 点击底部的"分享"按钮（方框向上箭头图标）<br>2. 向下滑动并点击"添加到主屏幕"<br>3. 点击右上角的"添加"按钮';
             }
-        });
+            // 检测 Android
+            else if (/Android/.test(userAgent)) {
+                title = 'Android 添加到主屏幕';
+                instructions = '1. 点击右上角的菜单按钮（三个点）<br>2. 点击"添加到主屏幕"或"安装应用"<br>3. 点击"添加"或"安装"按钮';
+            }
+            // 其他设备
+            else {
+                title = '添加到主屏幕';
+                instructions = '请使用浏览器菜单中的"添加到主屏幕"或"安装应用"功能';
+            }
 
-        if (onlyFirstVisible) {
-            // 只显示第一个卡片，现在展开显示所有卡片
-            cards.forEach((card, index) => {
-                card.style.display = 'block';
-            });
-
-            // 延迟滚动，等待DOM更新
-            setTimeout(() => {
-                if (sidebarMenuInner) {
-                    // 滚动到底部，确保所有倒计时卡片都可见
-                    sidebarMenuInner.scrollTo({
-                        top: sidebarMenuInner.scrollHeight,
-                        behavior: 'smooth'
-                    });
-                }
-            }, 100);
-        } else {
-            // 显示所有卡片，现在收起只显示第一个卡片
-            cards.forEach((card, index) => {
-                if (index === 0) {
-                    card.style.display = 'block';
-                } else {
-                    card.style.display = 'none';
-                }
-            });
-
-            // 延迟滚动，等待DOM更新
-            setTimeout(() => {
-                if (sidebarMenuInner) {
-                    // 滚动到底部，确保看到第一个倒计时卡片和按钮
-                    sidebarMenuInner.scrollTo({
-                        top: sidebarMenuInner.scrollHeight,
-                        behavior: 'smooth'
-                    });
-                }
-            }, 100);
-        }
-    }
-}
-/**
- * 测试当前提醒
- */
-function testCurrentReminder(id) {
-    const reminder = reminders.find(r => r.id === id);
-    if (!reminder) return;
-
-    if (reminder.type === 'countdown') {
-        showReminderNotification(reminder);
-    } else {
-        showReminderNotification(reminder);
-    }
-}
-
-/**
- * 渲染提醒列表
- */
-function renderReminderList() {
-    const container = document.getElementById('reminderList');
-    const countEl = document.getElementById('reminderCount');
-
-    countEl.textContent = reminders.length;
-
-    if (reminders.length === 0) {
-        container.innerHTML = '<div class="empty-state">暂无提醒</div>';
-        return;
-    }
-
-    container.innerHTML = reminders.map(reminder => {
-        const typeLabels = {
-            daily: '每日提醒',
-            monthly: '月度提醒',
-            dateRange: '日期范围',
-            countdown: '倒计时'
-        };
-
-        let detail = '';
-        switch(reminder.type) {
-            case 'daily':
-                detail = `每天 ${reminder.startTime}-${reminder.endTime}`;
-                if (reminder.repeat) {
-                    detail += ` | 每${reminder.repeatInterval}分钟重复`;
-                }
-                break;
-            case 'monthly':
-                detail = `每月${reminder.day}号 ${reminder.startTime}-${reminder.endTime}`;
-                if (reminder.repeat) {
-                    detail += ` | 每${reminder.repeatInterval}分钟重复`;
-                }
-                break;
-            case 'dateRange':
-                detail = `${reminder.startDate}-${reminder.endDate}号 ${reminder.startTime}-${reminder.endTime}`;
-                if (reminder.repeat) {
-                    detail += ` | 每${reminder.repeatInterval}分钟重复`;
-                }
-                break;
-            case 'countdown':
-                detail = `${reminder.targetDate} ${reminder.targetTime}`;
-                break;
+            // 使用自定义 Modal 显示说明
+            showInstructionsModal(title, instructions);
         }
 
-        return `
-            <div class="reminder-item ${reminder.enabled ? '' : 'disabled'}">
-                <div class="reminder-item-content">
-                    <div class="reminder-item-title">${reminder.title}</div>
-                    <div class="reminder-item-detail">
-                        <span class="reminder-type-badge">${typeLabels[reminder.type]}</span>
-                        <span>${detail}</span>
-                    </div>
-                </div>
-                <div class="reminder-item-actions">
-                    <button class="reminder-toggle-btn" onclick="toggleReminder(${reminder.id})"
-                        title="${reminder.enabled ? '禁用' : '启用'}">
-                        ${reminder.enabled ? '🔔' : '🔕'}
-                    </button>
-                    ${reminder.type === 'countdown' ? `
-                    <button class="reminder-test-btn" onclick="testCurrentReminder(${reminder.id})" title="当前测试">
-                        🧪
-                    </button>
-                    ` : ''}
-                    <button class="reminder-delete-btn" onclick="deleteReminder(${reminder.id})" title="删除">
-                        🗑️
-                    </button>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
+        // 显示说明 Modal
+        function showInstructionsModal(title, message) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('confirmModal');
+                const modalTitle = document.getElementById('modalTitle');
+                const modalMessage = document.getElementById('modalMessage');
+                const modalConfirm = document.getElementById('modalConfirm');
+                const modalCancel = document.getElementById('modalCancel');
 
-/**
- * 开始检查提醒
- */
-function startReminderCheck() {
-    // 每分钟检查一次
-    setInterval(checkReminders, 60000);
-    // 立即检查一次
-    checkReminders();
-}
-
-/**
- * 检查提醒
- */
-function checkReminders() {
-    const now = new Date();
-    const currentDate = now.getDate();
-    const currentTime = now.toTimeString().slice(0, 5); // HH:MM
-    const todayKey = now.toDateString();
-
-    reminders.forEach(reminder => {
-        if (!reminder.enabled) return;
-
-        // 倒计时类型不使用定时提醒
-        if (reminder.type === 'countdown') return;
-
-        // 检查是否在时间段内
-        let inTimeRange = false;
-        let shouldCheck = false;
-
-        switch(reminder.type) {
-            case 'daily':
-                shouldCheck = true;
-                break;
-            case 'monthly':
-                if (currentDate === reminder.day) {
-                    shouldCheck = true;
+                if (!modal) {
+                    resolve(false);
+                    return;
                 }
-                break;
-            case 'dateRange':
-                if (currentDate >= reminder.startDate && currentDate <= reminder.endDate) {
-                    shouldCheck = true;
-                }
-                break;
-        }
 
-        if (!shouldCheck) return;
+                modalTitle.textContent = title;
+                modalMessage.innerHTML = message;
+                modalConfirm.textContent = '知道了';
+                modalCancel.style.display = 'none';
+                modal.style.display = 'flex';
 
-        // 检查是否在时间段内
-        if (currentTime >= reminder.startTime && currentTime <= reminder.endTime) {
-            inTimeRange = true;
-        }
+                const handleConfirm = () => {
+                    modal.style.display = 'none';
+                    modalCancel.style.display = 'block';
+                    modalConfirm.removeEventListener('click', handleConfirm);
+                    modalCancel.removeEventListener('click', handleCancel);
+                    resolve(true);
+                };
 
-        if (!inTimeRange) return;
+                const handleCancel = () => {
+                    modal.style.display = 'none';
+                    modalCancel.style.display = 'block';
+                    modalConfirm.removeEventListener('click', handleConfirm);
+                    modalCancel.removeEventListener('click', handleCancel);
+                    resolve(false);
+                };
 
-        // 检查用户是否已经点击"已知晓"
-        const acknowledgedKey = `reminder_${reminder.id}_${todayKey}_acknowledged`;
-        if (localStorage.getItem(acknowledgedKey)) return;
-
-        // 检查是否需要提醒
-        const reminderKey = `reminder_${reminder.id}_${todayKey}_${currentTime}`;
-
-        // 如果不启用重复提醒，检查今天是否已经提醒过
-        if (!reminder.repeat) {
-            const todayReminded = localStorage.getItem(`reminder_${reminder.id}_${todayKey}`);
-            if (todayReminded) return;
-        } else {
-            // 如果启用重复提醒，检查当前分钟是否已经提醒过
-            if (localStorage.getItem(reminderKey)) return;
-        }
-
-        // 显示提醒通知
-        showReminderNotification(reminder);
-
-        // 记录提醒状态
-        if (reminder.repeat) {
-            // 重复提醒：记录当前分钟
-            localStorage.setItem(reminderKey, 'true');
-            // 5分钟后清除记录（允许下次提醒）
-            setTimeout(() => {
-                localStorage.removeItem(reminderKey);
-            }, reminder.repeatInterval * 60 * 1000);
-        } else {
-            // 不重复：记录今天已提醒
-            localStorage.setItem(`reminder_${reminder.id}_${todayKey}`, 'true');
-        }
-    });
-}
-
-/**
- * 显示提醒通知
- */
-function showReminderNotification(reminder) {
-    const notification = document.getElementById('reminderNotification');
-    const notificationBody = document.getElementById('reminderNotificationBody');
-
-    notificationBody.textContent = reminder.title;
-    notification.classList.add('show');
-
-    // 保存当前提醒ID
-    notification.dataset.reminderId = reminder.id;
-
-    // 使用浏览器通知（如果允许）
-    if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification('提醒', {
-            body: reminder.title,
-            icon: '../assets/images/favicon.png'
-        });
-    }
-}
-
-/**
- * 关闭提醒通知
- */
-function closeReminderNotification() {
-    const notification = document.getElementById('reminderNotification');
-    notification.classList.remove('show');
-}
-
-/**
- * 稍后提醒（推迟5分钟）
- */
-function snoozeReminder() {
-    const notification = document.getElementById('reminderNotification');
-    const reminderId = parseInt(notification.dataset.reminderId);
-    
-    closeReminderNotification();
-    
-    // 5分钟后再次提醒
-    const reminder = reminders.find(r => r.id === reminderId);
-    if (reminder && reminder.repeat) {
-        setTimeout(() => {
-            showReminderNotification(reminder);
-        }, 5 * 60 * 1000);
-    }
-}
-
-/**
- * 已知晓（停止重复提醒）
- */
-function acknowledgeReminder() {
-    const notification = document.getElementById('reminderNotification');
-    const reminderId = parseInt(notification.dataset.reminderId);
-    const todayKey = new Date().toDateString();
-    
-    closeReminderNotification();
-    
-    // 记录今天已知晓，不再重复提醒
-    localStorage.setItem(`reminder_${reminderId}_${todayKey}_acknowledged`, 'true');
-}
-
-/**
- * 更新倒计时组件
- */
-function updateCountdownWidget() {
-    const container = document.getElementById('reminderCountdownsContainer');
-
-    // 清除旧的定时器
-    if (countdownInterval) {
-        clearInterval(countdownInterval);
-        countdownInterval = null;
-    }
-
-    // 清空容器
-    container.innerHTML = '';
-
-    // 获取当前时间
-    const now = new Date();
-    const currentTime = now.toTimeString().slice(0, 5); // HH:MM
-    const currentDate = now.getDate();
-    const currentMonth = now.getMonth() + 1;
-    const currentYear = now.getFullYear();
-
-    // 1. 查找所有事件倒计时（countdown类型，启用且显示在左下角）
-    const countdownReminders = reminders.filter(r =>
-        r.type === 'countdown' && r.enabled && r.showInCorner
-    ).map(r => ({
-        ...r,
-        targetDateTime: new Date(`${r.targetDate}T${r.targetTime}`),
-        cardType: 'countdown-main'
-    }));
-
-    // 2. 查找其他类型的提醒（每日、月度、日期范围）
-    const otherReminders = [];
-
-    reminders.forEach(reminder => {
-        if (!reminder.enabled) return;
-        if (reminder.type === 'countdown') return;
-
-        let targetDateTime = null;
-
-        switch(reminder.type) {
-            case 'daily':
-                const [dailyEndHours, dailyEndMinutes] = reminder.endTime.split(':');
-                targetDateTime = new Date();
-                targetDateTime.setHours(parseInt(dailyEndHours), parseInt(dailyEndMinutes), 0, 0);
-                
-                if (targetDateTime <= now) {
-                    targetDateTime.setDate(targetDateTime.getDate() + 1);
-                }
-                break;
-                
-            case 'monthly':
-                const [monthlyEndHours, monthlyEndMinutes] = reminder.endTime.split(':');
-                targetDateTime = new Date();
-                targetDateTime.setHours(parseInt(monthlyEndHours), parseInt(monthlyEndMinutes), 0, 0);
-                targetDateTime.setDate(reminder.day);
-                
-                if (targetDateTime <= now) {
-                    targetDateTime.setMonth(targetDateTime.getMonth() + 1);
-                }
-                break;
-                
-            case 'dateRange':
-                const [rangeEndHours, rangeEndMinutes] = reminder.endTime.split(':');
-                targetDateTime = new Date();
-                targetDateTime.setHours(parseInt(rangeEndHours), parseInt(rangeEndMinutes), 0, 0);
-                targetDateTime.setDate(reminder.endDate);
-                
-                if (targetDateTime <= now) {
-                    targetDateTime.setMonth(targetDateTime.getMonth() + 1);
-                }
-                break;
-        }
-
-        if (targetDateTime) {
-            otherReminders.push({
-                ...reminder,
-                targetDateTime,
-                cardType: 'countdown-side'
+                modalConfirm.addEventListener('click', handleConfirm);
+                modalCancel.addEventListener('click', handleCancel);
             });
         }
-    });
 
-    // 3. 合并所有倒计时提醒
-    const allReminders = [...countdownReminders, ...otherReminders];
-
-    // 4. 按目标时间排序，最近的在前
-    allReminders.sort((a, b) => a.targetDateTime - b.targetDateTime);
-
-    // 如果没有任何内容显示，直接返回
-    if (allReminders.length === 0) {
-        return;
-    }
-
-    // 5. 创建所有倒计时卡片（先创建所有，然后根据展开/收起状态控制显示）
-    allReminders.forEach((reminder, index) => {
-        const card = document.createElement('div');
-        card.className = `reminder-countdown-card ${reminder.cardType}`;
-        // 只显示第一个卡片，其他隐藏
-        if (index > 0) {
-            card.style.display = 'none';
-        }
-
-        const title = document.createElement('div');
-        title.className = 'reminder-countdown-title';
-        title.textContent = reminder.title;
-
-        const timer = document.createElement('div');
-        timer.className = 'reminder-countdown-timer';
-        timer.id = `countdown-${reminder.id}`;
-
-        card.appendChild(title);
-        card.appendChild(timer);
-        container.appendChild(card);
-    });
-
-    // 初始状态：只显示第一个卡片，容器保持展开
-    container.classList.remove('collapsed');
-
-    // 更新倒计时
-    const updateTimers = () => {
-        allReminders.forEach(reminder => {
-            const timerEl = document.getElementById(`countdown-${reminder.id}`);
-            if (!timerEl) return;
-
-            const now = new Date();
-            const diff = reminder.targetDateTime - now;
-
-            if (diff <= 0) {
-                timerEl.textContent = '已到达！';
+        // 检查是否需要显示弹窗
+        function checkMobileRedirect() {
+            // 只在移动端显示
+            if (!isMobileDevice()) {
                 return;
             }
 
-            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            // 显示弹窗
+            setTimeout(() => {
+                const overlay = document.getElementById('mobileRedirectOverlay');
+                if (overlay) {
+                    overlay.style.display = 'flex';
+                }
+            }, 1000); // 延迟1秒显示，让页面先加载
+        }
 
-            timerEl.textContent = `${days}天 ${hours}小时 ${minutes}分 ${seconds}秒`;
-        });
-    };
+        // 页面加载完成后检查
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', checkMobileRedirect);
+        } else {
+            checkMobileRedirect();
+        }
 
-    updateTimers();
-    countdownInterval = setInterval(updateTimers, 1000);
-}
+        // ==================== 自定义 Toast 功能 ====================
+        function showToast(message, type = 'info', duration = 3000) {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
 
-/**
- * 请求通知权限
- */
-function requestNotificationPermission() {
-    if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission();
-    }
-}
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
 
-// ==================== 页面加载时初始化 ====================
-document.addEventListener('DOMContentLoaded', () => {
-    initReminderSystem();
-    requestNotificationPermission();
-});
+            const icons = {
+                success: '✓',
+                error: '✕',
+                info: 'ℹ',
+                warning: '⚠'
+            };
+
+            toast.innerHTML = `
+                <span class="toast-icon">${icons[type] || icons.info}</span>
+                <span class="toast-message">${message}</span>
+            `;
+
+            container.appendChild(toast);
+
+            // 强制重绘以触发动画
+            requestAnimationFrame(() => {
+                toast.classList.add('show');
+            });
+
+            // 自动隐藏
+            setTimeout(() => {
+                toast.classList.remove('show');
+                toast.classList.add('hide');
+                setTimeout(() => {
+                    if (container.contains(toast)) {
+                        container.removeChild(toast);
+                    }
+                }, 300);
+            }, duration);
+        }
+
+        // ==================== 自定义 Modal 确认框功能 ====================
+        function showConfirm(title, message) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('confirmModal');
+                const modalTitle = document.getElementById('modalTitle');
+                const modalMessage = document.getElementById('modalMessage');
+                const modalConfirm = document.getElementById('modalConfirm');
+                const modalCancel = document.getElementById('modalCancel');
+
+                if (!modal) {
+                    resolve(false);
+                    return;
+                }
+
+                modalTitle.textContent = title;
+                modalMessage.textContent = message;
+                modal.style.display = 'flex';
+
+                const handleConfirm = () => {
+                    modal.style.display = 'none';
+                    modalConfirm.removeEventListener('click', handleConfirm);
+                    modalCancel.removeEventListener('click', handleCancel);
+                    resolve(true);
+                };
+
+                const handleCancel = () => {
+                    modal.style.display = 'none';
+                    modalConfirm.removeEventListener('click', handleConfirm);
+                    modalCancel.removeEventListener('click', handleCancel);
+                    resolve(false);
+                };
+
+                modalConfirm.addEventListener('click', handleConfirm);
+                modalCancel.addEventListener('click', handleCancel);
+            });
+        }
+    </script>
+
+    <!-- 提醒系统JS -->
+    <script src="../assets/js/reminder-system.js"></script>
+
+    <!-- 行情功能模块 -->
+
+</body>
+
+</html>

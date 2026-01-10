@@ -733,15 +733,15 @@ function initBinanceWebSocket() {
                 try {
                     // 将币安API字段映射到标准格式，并过滤无效数据
                     const newData = data
-                        .filter(item => item && item.symbol && typeof item.symbol === 'string' && item.symbol.endsWith('USDT'))
+                        .filter(item => item && item.s && typeof item.s === 'string' && item.s.endsWith('USDT'))
                         .filter(item => {
                             // 过滤掉价格为0或异常的交易对
-                            const price = parseFloat(item.lastPrice || item.c);
-                            const volume = parseFloat(item.volume || item.v);
-                            return price > 0 && volume > 0 && (item.lastPrice || item.c);
+                            const price = parseFloat(item.c);
+                            const volume = parseFloat(item.v);
+                            return price > 0 && volume > 0 && item.c && item.v;
                         })
                         .map(item => {
-                            const symbol = item.symbol.replace('USDT', '').toLowerCase();
+                            const symbol = item.s.replace('USDT', '').toLowerCase();
                             const symbolUpper = symbol.toUpperCase();
 
                             // 获取币种ID映射
@@ -757,17 +757,17 @@ function initBinanceWebSocket() {
 
                             return {
                                 symbol: symbol,
-                                name: item.symbol.replace('USDT', ''),
+                                name: item.s.replace('USDT', ''),
                                 image: logo1,  // 优先使用CoinCap
                                 fallbackIcon1: logo2,  // CoinMarketCap作为第二选择
                                 fallbackIcon2: logo3,  // CoinGecko作为第三选择
                                 fallbackIcon3: svgIcon,  // SVG作为最后选择
-                                current_price: parseFloat(item.lastPrice || item.c) || 0,
-                                price_change_percentage_24h: parseFloat(item.priceChangePercent || item.P) || 0,
-                                market_cap: parseFloat(item.quoteVolume || item.q) || 0,
-                                total_volume: parseFloat(item.volume || item.v) || 0,
-                                quoteVolume: parseFloat(item.quoteVolume || item.q) || 0,
-                                volume: parseFloat(item.volume || item.v) || 0
+                                current_price: parseFloat(item.c) || 0,
+                                price_change_percentage_24h: parseFloat(item.P) || 0,
+                                market_cap: parseFloat(item.c) * parseFloat(item.v) || 0,
+                                total_volume: parseFloat(item.q) || 0,
+                                quoteVolume: parseFloat(item.q) || 0,
+                                volume: parseFloat(item.v) || 0
                             };
                         });
 
@@ -1496,6 +1496,15 @@ async function fetchCryptoData() {
         tbody: !!tbody
     });
 
+    // 优先使用缓存数据
+    const cachedData = loadCachedCryptoData();
+    if (cachedData && cachedData.length > 0) {
+        cryptoData = cachedData;
+        renderCryptoTable(cryptoData);
+        updateCryptoUI(cryptoData);
+        Logger.info('[行情同步] ✅ 已从缓存加载:', cryptoData.length, '个币种');
+    }
+
     // 初始化币安WebSocket连接
     if (!binanceConnected) {
         initBinanceWebSocket();
@@ -1504,22 +1513,8 @@ async function fetchCryptoData() {
     // 后台同步汇率
     syncRate();
 
-    // 优先使用缓存数据初始化 binanceMarketData
-    const cachedData = await loadCachedCryptoData();
-    if (cachedData && cachedData.length > 0) {
-        // 将缓存数据复制到 binanceMarketData，确保币种数量正确
-        binanceMarketData = [...cachedData];
-        cryptoData = binanceMarketData;
-        renderCryptoTable(cryptoData);
-        updateCryptoUI(cryptoData);
-        Logger.info('[行情同步] ✅ 已从缓存加载:', cryptoData.length, '个币种');
-    }
-
-    // 如果WebSocket已连接且有数据,立即渲染（但不覆盖缓存数据）
-    if (cachedData && cachedData.length > 0 && binanceMarketData.length > 0) {
-        // 使用缓存数据作为基础，WebSocket数据只用于更新价格
-        Logger.info('[行情同步] 使用缓存数据作为基础，WebSocket实时更新价格');
-    } else if (binanceMarketData.length > 0) {
+    // 如果WebSocket已连接且有数据,立即渲染（覆盖缓存）
+    if (binanceMarketData.length > 0) {
         cryptoData = binanceMarketData;
         renderCryptoTable(cryptoData);
         updateCryptoUI(cryptoData);
@@ -1620,8 +1615,7 @@ function renderCryptoTable(data) {
     });
 
     // 渲染所有币种（不限制数量）
-    data.forEach((coin, index) => {
-        const coinIndex = index + 1; // 序号从1开始
+    data.forEach(coin => {
         const rawPrice = coin.current_price;
         const price = (rawPrice * rate).toLocaleString(undefined, {
             minimumFractionDigits: 2,
@@ -1640,7 +1634,7 @@ function renderCryptoTable(data) {
             });
         }
 
-        const change = coin.price_change_percentage_24h || 0;
+        const change = coin.price_change_percentage_24h;
         const changeClass = change >= 0 ? 'change-up' : 'change-down';
         const changeSign = change >= 0 ? '+' : '';
 
@@ -1667,7 +1661,6 @@ function renderCryptoTable(data) {
             <tr class="main-row" data-symbol="${coin.symbol}" onclick="event.stopPropagation(); toggleCoinDetail('${coin.symbol}')">
                 <td>
                     <div class="coin-info">
-                        <span class="coin-index" style="display:inline-block; width:24px; height:24px; line-height:24px; text-align:center; background:#f0f0f0; border-radius:50%; font-size:11px; font-weight:bold; color:#666; margin-right:8px;">${coinIndex}</span>
                         <img src="${coin.image}" class="coin-icon" alt="${coin.symbol}"
                              onerror="this.src='${coin.fallbackIcon1}'; this.onerror=function(){this.src='${coin.fallbackIcon2}'; this.onerror=function(){this.src='${coin.fallbackIcon3}';}}">
                         <div class="coin-name-wrap">

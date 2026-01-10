@@ -273,7 +273,7 @@ function injectReminderStyles() {
 
         .reminder-item {
             display: flex;
-            align-items: flex-start;
+            align-items: stretch; // 修改点：使用 stretch 让所有子元素高度一致
             gap: 12px;
             padding: 16px;
             border-radius: 10px;
@@ -286,15 +286,33 @@ function injectReminderStyles() {
         .reminder-item:hover {
             transform: translateY(-6px);
             box-shadow: 0 14px 32px rgba(0, 0, 0, 0.55);
+            border-color: rgba(102, 126, 234, 0.3); // 修改点：hover 时边框高亮
         }
 
         .reminder-item.disabled { opacity: 0.5; }
+
+        // 修改点：新增 icon 区域样式
+        .reminder-item-icon {
+            flex-shrink: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        // 修改点：新增图标 emoji 样式
+        .reminder-icon-emoji {
+            font-size: 20px;
+            line-height: 1;
+        }
 
         .reminder-item-content {
             flex: 1;
             display: flex;
             flex-direction: column;
             gap: 4px;
+            min-width: 0; // 修改点：防止 flex 子元素溢出
         }
 
         .reminder-item-title {
@@ -302,12 +320,12 @@ function injectReminderStyles() {
             font-size: 15px;
             font-weight: 600;
             color: #e0e0e0;
-            margin-bottom: 4px;
+            line-height: 1.4; // 修改点：添加行高，移除 margin-bottom（已有 gap）
         }
 
         .reminder-item-detail {
             display: flex;
-            align-items: flex-start;
+            align-items: center; // 修改点：改为 center，让 badge 和文本垂直居中
             gap: 8px;
             font-size: 13px;
             color: #a0aec0;
@@ -315,13 +333,16 @@ function injectReminderStyles() {
         }
 
         .reminder-type-badge {
-            display: inline-block;
+            display: inline-flex; // 修改点：改为 inline-flex 以支持 align-items
+            align-items: center;
             padding: 2px 8px;
             border-radius: 4px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: #fff;
             font-size: 11px;
             font-weight: 500;
+            line-height: 1.4; // 修改点：添加行高
+            white-space: nowrap; // 修改点：防止换行
         }
 
         .reminder-item-actions {
@@ -329,6 +350,7 @@ function injectReminderStyles() {
             gap: 8px;
             align-items: center;
             flex-shrink: 0;
+            margin-left: auto; // 修改点：确保 actions 区域靠右
         }
 
         .reminder-toggle-btn, .reminder-delete-btn {
@@ -829,9 +851,13 @@ function renderReminderList() {
         if (r.type === 'monthly') detail = `每月${r.day}号 ${r.startTime}-${r.endTime}${r.repeat ? ` | 每${r.repeatInterval}分钟` : ''}`;
         if (r.type === 'dateRange') detail = `${r.startDate}-${r.endDate}号 ${r.startTime}-${r.endTime}${r.repeat ? ` | 每${r.repeatInterval}分钟` : ''}`;
         if (r.type === 'countdown') detail = `${r.targetDate} ${r.targetTime}`;
-        
+
+        // 修改点：重构 HTML 结构，添加 reminder-item-icon 容器
         return `
             <div class="reminder-item ${r.enabled ? '' : 'disabled'}">
+                <div class="reminder-item-icon">
+                    <span class="reminder-icon-emoji">${r.enabled ? '🔔' : '🔕'}</span>
+                </div>
                 <div class="reminder-item-content">
                     <div class="reminder-item-title">${r.title}</div>
                     <div class="reminder-item-detail">
@@ -840,7 +866,7 @@ function renderReminderList() {
                     </div>
                 </div>
                 <div class="reminder-item-actions">
-                    <button class="reminder-toggle-btn" onclick="toggleReminder(${r.id})">${r.enabled ? '🔔' : '🔕'}</button>
+                    <button class="reminder-toggle-btn" onclick="toggleReminder(${r.id})">🔔</button>
                     <button class="reminder-delete-btn" onclick="deleteReminder(${r.id})">🗑️</button>
                 </div>
             </div>

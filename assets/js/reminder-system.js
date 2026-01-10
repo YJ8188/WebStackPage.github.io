@@ -273,7 +273,7 @@ function injectReminderStyles() {
 
         .reminder-item {
             display: flex;
-            align-items: stretch; // 修改点：使用 stretch 让所有子元素高度一致
+            align-items: stretch;
             gap: 12px;
             padding: 16px;
             border-radius: 10px;
@@ -286,12 +286,11 @@ function injectReminderStyles() {
         .reminder-item:hover {
             transform: translateY(-6px);
             box-shadow: 0 14px 32px rgba(0, 0, 0, 0.55);
-            border-color: rgba(102, 126, 234, 0.3); // 修改点：hover 时边框高亮
+            border-color: rgba(102, 126, 234, 0.3);
         }
 
         .reminder-item.disabled { opacity: 0.5; }
 
-        // 修改点：新增 icon 区域样式
         .reminder-item-icon {
             flex-shrink: 0;
             width: 32px;
@@ -301,7 +300,6 @@ function injectReminderStyles() {
             justify-content: center;
         }
 
-        // 修改点：新增图标 emoji 样式
         .reminder-icon-emoji {
             font-size: 20px;
             line-height: 1;
@@ -312,7 +310,7 @@ function injectReminderStyles() {
             display: flex;
             flex-direction: column;
             gap: 4px;
-            min-width: 0; // 修改点：防止 flex 子元素溢出
+            min-width: 0;
         }
 
         .reminder-item-title {
@@ -320,12 +318,12 @@ function injectReminderStyles() {
             font-size: 15px;
             font-weight: 600;
             color: #e0e0e0;
-            line-height: 1.4; // 修改点：添加行高，移除 margin-bottom（已有 gap）
+            line-height: 1.4;
         }
 
         .reminder-item-detail {
             display: flex;
-            align-items: center; // 修改点：改为 center，让 badge 和文本垂直居中
+            align-items: center;
             gap: 8px;
             font-size: 13px;
             color: #a0aec0;
@@ -333,7 +331,7 @@ function injectReminderStyles() {
         }
 
         .reminder-type-badge {
-            display: inline-flex; // 修改点：改为 inline-flex 以支持 align-items
+            display: inline-flex;
             align-items: center;
             padding: 2px 8px;
             border-radius: 4px;
@@ -341,8 +339,8 @@ function injectReminderStyles() {
             color: #fff;
             font-size: 11px;
             font-weight: 500;
-            line-height: 1.4; // 修改点：添加行高
-            white-space: nowrap; // 修改点：防止换行
+            line-height: 1.4;
+            white-space: nowrap;
         }
 
         .reminder-item-actions {
@@ -350,7 +348,7 @@ function injectReminderStyles() {
             gap: 8px;
             align-items: center;
             flex-shrink: 0;
-            margin-left: auto; // 修改点：确保 actions 区域靠右
+            margin-left: auto;
         }
 
         .reminder-toggle-btn, .reminder-delete-btn {
@@ -414,9 +412,9 @@ function injectReminderStyles() {
             min-width: 180px;
             width: auto;
             z-index: 9998;
-            display: flex; // 修改点：添加 flex 布局
-            flex-direction: column; // 修改点：纵向排列
-            gap: 8px; // 修改点：添加间距
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
 
         .reminder-countdown-card.countdown-side {
@@ -430,9 +428,9 @@ function injectReminderStyles() {
             border: 1px solid rgba(0, 0, 0, 0.08);
             box-sizing: border-box;
             z-index: 9998;
-            display: flex; // 修改点：添加 flex 布局
-            flex-direction: row; // 修改点：改为横向排列
-            gap: 8px; // 修改点：添加间距
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
 
         .reminder-countdown-card:hover {
@@ -445,7 +443,6 @@ function injectReminderStyles() {
             50% { transform: scale(1.02); }
         }
 
-        // 修改点：新增 countdown-main 容器样式
         .countdown-main {
             display: flex;
             flex-direction: column;
@@ -471,14 +468,12 @@ function injectReminderStyles() {
             line-height: 1.3;
         }
 
-        // 修改点：新增 countdown-footer 容器样式
         .countdown-footer {
             display: flex;
             gap: 8px;
             align-items: center;
         }
 
-        // 修改点：新增 countdown-icon 样式
         .countdown-icon {
             flex-shrink: 0;
             width: 32px;
@@ -490,19 +485,9 @@ function injectReminderStyles() {
             line-height: 1;
         }
 
-        // 修改点：新增 countdown-extra 样式
         .countdown-extra {
             flex: 1;
             min-width: 0;
-        }
-
-        // 修改点：隐藏空的 countdown-extra 和 footer，避免空白
-        .countdown-extra:empty {
-            display: none;
-        }
-
-        .countdown-footer:has(.countdown-extra:empty) {
-            display: none;
         }
 
         /* 空状态样式 */
@@ -898,7 +883,6 @@ function renderReminderList() {
         if (r.type === 'dateRange') detail = `${r.startDate}-${r.endDate}号 ${r.startTime}-${r.endTime}${r.repeat ? ` | 每${r.repeatInterval}分钟` : ''}`;
         if (r.type === 'countdown') detail = `${r.targetDate} ${r.targetTime}`;
 
-        // 修改点：重构 HTML 结构，添加 reminder-item-icon 容器
         return `
             <div class="reminder-item ${r.enabled ? '' : 'disabled'}">
                 <div class="reminder-item-icon">
@@ -1055,10 +1039,10 @@ function updateCountdownWidget() {
             const [h, m] = r.endTime.split(':');
             target = new Date();
             target.setHours(parseInt(h), parseInt(m), 0, 0);
-            target.setDate(1); // 先设置为每月1号
-            target.setMonth(target.getMonth() + (target.getDate() > r.day ? 1 : 0)); // 如果当前日期大于目标日期，加一个月
-            const daysInMonth = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate(); // 获取该月的天数
-            target.setDate(Math.min(r.day, daysInMonth)); // 使用目标日期和该月天数的较小值
+            target.setDate(1);
+            target.setMonth(target.getMonth() + (target.getDate() > r.day ? 1 : 0));
+            const daysInMonth = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+            target.setDate(Math.min(r.day, daysInMonth));
             if (target <= now) {
                 target.setMonth(target.getMonth() + 1);
                 const daysInNextMonth = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
@@ -1077,30 +1061,45 @@ function updateCountdownWidget() {
     
     others.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
     
+    // 判断是否显示底部区域（关键改动）
+    const showFooter = others.length > 0;
+    
     if (countdowns.length > 0) {
         const r = countdowns[0];
         const card = document.createElement('div');
         card.className = 'reminder-countdown-card countdown-main';
+        
+        // 根据是否有其他项目动态构建HTML
+        const footerHTML = showFooter ? `
+            <div class="countdown-footer">
+                <div class="countdown-icon">🔔</div>
+                <div class="countdown-extra"></div>
+            </div>
+        ` : '';
+        
         card.innerHTML = `
             <div class="countdown-main">
                 <div class="reminder-countdown-title">${r.title}</div>
                 <div class="reminder-countdown-timer" id="countdown-${r.id}"></div>
             </div>
+            ${footerHTML}
         `;
         document.body.appendChild(card);
     }
 
-    if (others.length > 0) {
+    // 只在有其他项目时创建side卡片（关键改动）
+    if (showFooter) {
         const r = others[0];
         const card = document.createElement('div');
         card.className = 'reminder-countdown-card countdown-side';
         card.innerHTML = `
+            <div class="countdown-main">
+                <div class="reminder-countdown-title">${r.title}</div>
+                <div class="reminder-countdown-timer" id="side-countdown-${r.id}" style="font-size: 14px; color: #667eea;"></div>
+            </div>
             <div class="countdown-footer">
                 <div class="countdown-icon">🔔</div>
-                <div class="countdown-extra">
-                    <div class="reminder-countdown-title">${r.title}</div>
-                    <div class="reminder-countdown-timer" id="side-countdown-${r.id}" style="font-size: 14px; color: #667eea;"></div>
-                </div>
+                <div class="countdown-extra"></div>
             </div>
         `;
         document.body.appendChild(card);
@@ -1155,7 +1154,6 @@ function updateCountdownWidget() {
     countdownInterval = setInterval(update, 1000);
     setTimeout(sync, 100);
     
-    // 移除旧的 resize 监听器（防止内存泄漏）
     if (resizeListener) {
         window.removeEventListener('resize', resizeListener);
     }

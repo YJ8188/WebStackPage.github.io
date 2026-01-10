@@ -442,7 +442,7 @@ function injectReminderStyles() {
         /* 按钮上方的倒计时卡片（事件倒计时） */
         .reminder-countdown-card.countdown-main {
             position: fixed;
-            bottom: 84px;
+            bottom: 80px;
             left: 24px;
             padding: 16px 20px;
             border-radius: 10px;
@@ -453,6 +453,7 @@ function injectReminderStyles() {
             animation: countdownPulse 2s infinite;
             min-width: 180px;
             width: auto;
+            z-index: 9998;
         }
 
         /* 按钮右侧的提醒卡片（当前时间段提醒） */

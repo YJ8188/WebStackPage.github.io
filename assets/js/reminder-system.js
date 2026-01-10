@@ -465,7 +465,7 @@ function injectReminderStyles() {
 
         /* 三个杠菜单按钮样式 */
         #reminderMenuBtn {
-            position: fixed;
+            position: absolute;
             bottom: 24px;
             left: 84px;
             width: 48px;
@@ -491,7 +491,7 @@ function injectReminderStyles() {
 
         /* 提醒按钮样式 */
         #reminderBtn {
-            position: fixed;
+            position: absolute;
             bottom: 24px;
             left: 24px;
             width: 48px;
@@ -517,7 +517,7 @@ function injectReminderStyles() {
 
         /* 按钮上方的倒计时卡片容器 */
         .reminder-countdowns-container {
-            position: fixed;
+            position: absolute;
             bottom: 84px;
             left: 24px;
             display: flex;
@@ -611,6 +611,40 @@ function injectReminderStyles() {
                 display: none !important;
             }
         }
+
+        /* 导航栏收缩状态下的提醒系统样式 */
+        .sidebar-menu.collapsed #reminderSystemContainer {
+            padding: 24px 12px;
+        }
+
+        .sidebar-menu.collapsed #reminderBtn,
+        .sidebar-menu.collapsed #reminderMenuBtn {
+            width: 40px;
+            height: 40px;
+            font-size: 18px;
+        }
+
+        .sidebar-menu.collapsed #reminderMenuBtn {
+            left: 52px;
+        }
+
+        .sidebar-menu.collapsed #reminderBtn {
+            left: 12px;
+        }
+
+        .sidebar-menu.collapsed .reminder-countdowns-container {
+            left: 12px;
+        }
+
+        /* 提醒系统容器样式 */
+        #reminderSystemContainer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 24px;
+            box-sizing: border-box;
+        }
     `;
     document.head.appendChild(style);
 }
@@ -622,13 +656,30 @@ function injectReminderHTML() {
         return;
     }
 
+    // 获取左侧导航栏容器
+    const sidebarMenuInner = document.querySelector('.sidebar-menu-inner');
+    if (!sidebarMenuInner) {
+        console.error('未找到左侧导航栏容器');
+        return;
+    }
+
+    // 创建提醒系统容器
+    const reminderContainer = document.createElement('div');
+    reminderContainer.id = 'reminderSystemContainer';
+    reminderContainer.style.position = 'absolute';
+    reminderContainer.style.bottom = '0';
+    reminderContainer.style.left = '0';
+    reminderContainer.style.width = '100%';
+    reminderContainer.style.padding = '24px';
+    reminderContainer.style.boxSizing = 'border-box';
+
     // 三个杠菜单按钮
     const menuBtn = document.createElement('button');
     menuBtn.id = 'reminderMenuBtn';
     menuBtn.onclick = toggleCountdownDisplay;
     menuBtn.title = '切换倒计时显示';
     menuBtn.innerHTML = '☰';
-    document.body.appendChild(menuBtn);
+    reminderContainer.appendChild(menuBtn);
 
     // 提醒管理按钮
     const reminderBtn = document.createElement('button');
@@ -636,13 +687,16 @@ function injectReminderHTML() {
     reminderBtn.onclick = openReminderModal;
     reminderBtn.title = '提醒管理';
     reminderBtn.textContent = '🔔';
-    document.body.appendChild(reminderBtn);
+    reminderContainer.appendChild(reminderBtn);
 
     // 倒计时小卡片容器
     const countdownsContainer = document.createElement('div');
     countdownsContainer.id = 'reminderCountdownsContainer';
     countdownsContainer.className = 'reminder-countdowns-container collapsed';
-    document.body.appendChild(countdownsContainer);
+    reminderContainer.appendChild(countdownsContainer);
+
+    // 将容器插入到左侧导航栏内
+    sidebarMenuInner.appendChild(reminderContainer);
 
     // 提醒管理弹窗
     const modalHTML = `

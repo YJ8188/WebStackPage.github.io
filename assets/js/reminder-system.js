@@ -1072,7 +1072,6 @@ function updateCountdownWidget() {
         const r = countdowns[0];
         const card = document.createElement('div');
         card.className = 'reminder-countdown-card countdown-main';
-        // 修改点：重构 innerHTML 结构，实现上下两层布局
         card.innerHTML = `
             <div class="countdown-main">
                 <div class="reminder-countdown-title">${r.title}</div>
@@ -1090,7 +1089,6 @@ function updateCountdownWidget() {
         const r = others[0];
         const card = document.createElement('div');
         card.className = 'reminder-countdown-card countdown-side';
-        // 修改点：重构 innerHTML 结构，实现上下两层布局
         card.innerHTML = `
             <div class="countdown-main">
                 <div class="reminder-countdown-title">${r.title}</div>

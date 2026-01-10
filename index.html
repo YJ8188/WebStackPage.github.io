@@ -7047,7 +7047,7 @@
             border: 1px solid rgba(0, 0, 0, 0.1);
             border-radius: 8px;
             font-size: 14px;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
             background: rgba(255, 255, 255, 0.9);
             color: #2d3748;
         }
@@ -7063,12 +7063,65 @@
             border-color: #3b82f6;
         }
 
+        /* 提醒类型选择器 */
+        .reminder-type-selector {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .type-option {
+            flex: 1;
+            min-width: 70px;
+            padding: 8px 12px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            font-size: 13px;
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        body.dark-mode .type-option {
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .type-option:hover {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: #3b82f6;
+        }
+
+        .type-option input[type="radio"] {
+            display: none;
+        }
+
+        .type-option:has(input:checked) {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+
+        .type-option span {
+            display: block;
+        }
+
+        /* 提醒设置区域 */
+        .reminder-setting {
+            margin-bottom: 15px;
+        }
+
         .time-selector {
             display: flex;
             gap: 10px;
         }
 
-        .time-selector select {
+        .time-selector select,
+        .reminder-setting select,
+        .reminder-setting input[type="time"],
+        .reminder-setting input[type="date"] {
             flex: 1;
             padding: 12px;
             border: 1px solid rgba(0, 0, 0, 0.1);
@@ -7079,13 +7132,42 @@
             cursor: pointer;
         }
 
-        body.dark-mode .time-selector select {
+        body.dark-mode .time-selector select,
+        body.dark-mode .reminder-setting select,
+        body.dark-mode .reminder-setting input[type="time"],
+        body.dark-mode .reminder-setting input[type="date"] {
             border: 1px solid rgba(255, 255, 255, 0.1);
             background: rgba(0, 0, 0, 0.2);
             color: #e0e0e0;
         }
 
+        .time-input-group,
+        .date-range-group,
+        .event-date-group,
+        .event-time-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .time-input-group label,
+        .date-range-group label,
+        .event-date-group label,
+        .event-time-group label {
+            font-size: 14px;
+            color: #2d3748;
+            white-space: nowrap;
+        }
+
+        body.dark-mode .time-input-group label,
+        body.dark-mode .date-range-group label,
+        body.dark-mode .event-date-group label,
+        body.dark-mode .event-time-group label {
+            color: #e0e0e0;
+        }
+
         .add-btn {
+            width: 100%;
             padding: 12px 20px;
             background: #3b82f6;
             color: white;
@@ -7321,8 +7403,30 @@
         <div class="notification-body">
             <!-- 添加提醒表单 -->
             <div class="add-reminder-form">
-                <input type="text" id="reminderInput" placeholder="输入提醒内容（例如：喝水）" maxlength="50">
-                <div class="time-selector">
+                <input type="text" id="reminderInput" placeholder="输入提醒内容（例如：喝水、缴电费）" maxlength="50">
+
+                <!-- 提醒类型选择 -->
+                <div class="reminder-type-selector">
+                    <label class="type-option">
+                        <input type="radio" name="reminderType" value="countdown" checked onchange="toggleReminderType()">
+                        <span>⏱️ 倒计时</span>
+                    </label>
+                    <label class="type-option">
+                        <input type="radio" name="reminderType" value="schedule" onchange="toggleReminderType()">
+                        <span>⏰ 定时</span>
+                    </label>
+                    <label class="type-option">
+                        <input type="radio" name="reminderType" value="repeat" onchange="toggleReminderType()">
+                        <span>📅 定期</span>
+                    </label>
+                    <label class="type-option">
+                        <input type="radio" name="reminderType" value="event" onchange="toggleReminderType()">
+                        <span>🎉 事件</span>
+                    </label>
+                </div>
+
+                <!-- 倒计时设置 -->
+                <div class="reminder-setting countdown-setting" id="countdownSetting">
                     <select id="reminderTime">
                         <option value="1">1 分钟</option>
                         <option value="5">5 分钟</option>
@@ -7332,8 +7436,108 @@
                         <option value="60">1 小时</option>
                         <option value="120">2 小时</option>
                     </select>
-                    <button class="add-btn" onclick="addReminder()">添加提醒</button>
                 </div>
+
+                <!-- 定时提醒设置 -->
+                <div class="reminder-setting schedule-setting" id="scheduleSetting" style="display: none;">
+                    <div class="time-input-group">
+                        <input type="time" id="scheduleTime" value="14:00">
+                        <select id="scheduleRepeat">
+                            <option value="once">仅一次</option>
+                            <option value="daily" selected>每天</option>
+                            <option value="weekly">每周</option>
+                            <option value="monthly">每月</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 定期提醒设置 -->
+                <div class="reminder-setting repeat-setting" id="repeatSetting" style="display: none;">
+                    <div class="date-range-group">
+                        <label>每月：</label>
+                        <select id="repeatStartDay">
+                            <option value="1">1号</option>
+                            <option value="2">2号</option>
+                            <option value="3">3号</option>
+                            <option value="4">4号</option>
+                            <option value="5">5号</option>
+                            <option value="6" selected>6号</option>
+                            <option value="7">7号</option>
+                            <option value="8">8号</option>
+                            <option value="9">9号</option>
+                            <option value="10">10号</option>
+                            <option value="11">11号</option>
+                            <option value="12">12号</option>
+                            <option value="13">13号</option>
+                            <option value="14">14号</option>
+                            <option value="15">15号</option>
+                            <option value="16">16号</option>
+                            <option value="17">17号</option>
+                            <option value="18">18号</option>
+                            <option value="19">19号</option>
+                            <option value="20">20号</option>
+                            <option value="21">21号</option>
+                            <option value="22">22号</option>
+                            <option value="23">23号</option>
+                            <option value="24">24号</option>
+                            <option value="25">25号</option>
+                            <option value="26">26号</option>
+                            <option value="27">27号</option>
+                            <option value="28">28号</option>
+                            <option value="29">29号</option>
+                            <option value="30">30号</option>
+                            <option value="31">31号</option>
+                        </select>
+                        <span>至</span>
+                        <select id="repeatEndDay">
+                            <option value="1">1号</option>
+                            <option value="2">2号</option>
+                            <option value="3">3号</option>
+                            <option value="4">4号</option>
+                            <option value="5">5号</option>
+                            <option value="6">6号</option>
+                            <option value="7">7号</option>
+                            <option value="8" selected>8号</option>
+                            <option value="9">9号</option>
+                            <option value="10">10号</option>
+                            <option value="11">11号</option>
+                            <option value="12">12号</option>
+                            <option value="13">13号</option>
+                            <option value="14">14号</option>
+                            <option value="15">15号</option>
+                            <option value="16">16号</option>
+                            <option value="17">17号</option>
+                            <option value="18">18号</option>
+                            <option value="19">19号</option>
+                            <option value="20">20号</option>
+                            <option value="21">21号</option>
+                            <option value="22">22号</option>
+                            <option value="23">23号</option>
+                            <option value="24">24号</option>
+                            <option value="25">25号</option>
+                            <option value="26">26号</option>
+                            <option value="27">27号</option>
+                            <option value="28">28号</option>
+                            <option value="29">29号</option>
+                            <option value="30">30号</option>
+                            <option value="31">31号</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 事件倒计时设置 -->
+                <div class="reminder-setting event-setting" id="eventSetting" style="display: none;">
+                    <div class="event-date-group">
+                        <label>事件日期：</label>
+                        <input type="date" id="eventDate">
+                    </div>
+                    <div class="event-time-group">
+                        <label>事件时间：</label>
+                        <input type="time" id="eventTime" value="00:00">
+                    </div>
+                </div>
+
+                <button class="add-btn" onclick="addReminder()">添加提醒</button>
             </div>
             <!-- 提醒列表 -->
             <div class="reminder-list" id="reminderList">

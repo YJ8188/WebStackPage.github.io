@@ -326,7 +326,6 @@
         /* 菜单项链接 */
         .sidebar-menu li>a {
             border-radius: 10px; /* 圆角 */
-            transition: all 0.3s ease; /* 过渡动画 */
         }
 
         /* 激活的菜单项 */
@@ -355,33 +354,6 @@
         /* 菜单图标样式 */
         .sidebar-menu li>a i {
             opacity: 0.85; /* 透明度 */
-        }
-
-        /* 子菜单样式 */
-        .sidebar-menu ul {
-            transition: all 0.3s ease; /* 子菜单过渡动画 */
-        }
-
-        /* 展开的菜单项 */
-        .sidebar-menu li.expanded > a {
-            background-color: rgba(255, 255, 255, 0.05); /* 展开时的背景色 */
-        }
-
-        /* 子菜单项样式 */
-        .sidebar-menu ul li {
-            border-radius: 8px; /* 子菜单项圆角 */
-            margin: 2px 10px; /* 子菜单项间距 */
-            transition: all 0.2s ease; /* 子菜单项过渡动画 */
-        }
-
-        /* 子菜单项悬停效果 */
-        .sidebar-menu ul li:hover {
-            background-color: rgba(255, 255, 255, 0.05); /* 子菜单项悬停背景色 */
-        }
-
-        /* 子菜单项激活状态 */
-        .sidebar-menu ul li.active {
-            background-color: rgba(255, 255, 255, 0.1); /* 子菜单项激活背景色 */
         }
 
         /* ==================== 导航栏样式优化 ==================== */
@@ -548,7 +520,7 @@
     <!-- ==================== 页面容器 ==================== -->
     <div class="page-container">
         <!-- ==================== 左侧侧边栏菜单 ==================== -->
-        <div class="sidebar-menu toggle-others fixed" style="z-index: 1000;">
+        <div class="sidebar-menu toggle-others fixed">
             <div class="sidebar-menu-inner">
                 <!-- Logo区域 -->
                 <header class="logo-env">
@@ -772,8 +744,6 @@
                             <span class="label label-Primary pull-right hidden-collapsed">♥︎</span>
                         </a>
                     </li>
-                    <!-- 提醒系统容器 -->
-                    <li id="reminderSystemContainer" class="reminder-container"></li>
                     </ul>
             </div>
         </div>
@@ -801,50 +771,6 @@
                         </a>
                     </li>
                 </ul>
-            </div>
-        </div>
-        <div class="main-content">
-            <nav class="navbar user-info-navbar" role="navigation">
-                <!-- User Info, Notifications and Menu Bar -->
-                <!-- Left links for user info navbar -->
-                <ul class="user-info-menu left-links list-inline list-unstyled">
-                    <li class="hidden-sm hidden-xs">
-                    </li>
-                </ul>
-                <ul class="user-info-menu right-links list-inline list-unstyled"
-                    style="display: flex; align-items: center; margin-bottom: 0; height: 100%;">
-                    <!-- 暗黑模式开关 -->
-                    <li style="height: 100%; display: flex; align-items: center;">
-                        <a href="javascript:void(0)" onclick="toggleDarkMode()" title="切换暗黑模式/日间模式"
-                            style="height: 100%; display: flex; align-items: center; padding: 0 15px;">
-                            <i class="fa fa-moon-o dark-mode-icon" id="darkModeIcon"></i>
-                        </a>
-                    </li>
-                    <li class="hidden-sm hidden-xs" style="height: 100%; display: flex; align-items: center;">
-                        <a href="https://github.com/WebStackPage/WebStackPage.github.io" target="_blank"
-                            style="height: 100%; display: flex; align-items: center; padding: 0 15px;">
-                            <i class="fa-github"></i> GitHub
-                        </a>
-                    </li>
-                </ul>
-            </nav>
-
-            <!-- 我的收藏 -->
-            <h4 class="text-gray">
-                <i class="linecons-heart" style="margin-right: 7px;" id="我的收藏"></i>我的收藏
-                <span style="float: right; font-size: 13px; margin-top: 2px;">
-                    <a href="javascript:;" onclick="exportFavorites()" title="备份收藏数据"
-                        class="backup-btn">
-                        <i class="fa fa-download"></i> 备份
-                    </a>
-                    <a href="javascript:;" onclick="document.getElementById('importFile').click()" title="恢复收藏数据"
-                        class="backup-btn">
-                        <i class="fa fa-upload"></i> 恢复
-                    </a>
-                </span>
-            </h4>
-            <!-- 隐藏的文件输入框，用于恢复数据 -->
-            <input type="file" id="importFile" style="display: none;" accept=".json" onchange="importFavorites(this)">
             </nav>
 
             <!-- 我的收藏 -->
@@ -7268,12 +7194,6 @@
             });
         }
     </script>
-
-    <!-- 提醒系统JS -->
-    <script src="../assets/js/reminder-system.js"></script>
-
-    <!-- 行情功能模块 -->
-
 </body>
 
 </html>

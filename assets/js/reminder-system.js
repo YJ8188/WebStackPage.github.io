@@ -462,8 +462,8 @@ function injectReminderStyles() {
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             border: 1px solid rgba(0, 0, 0, 0.08);
-            min-width: 120px;
-            max-width: 200px;
+            min-width: 180px;
+            max-width: 180px;
         }
 
         .reminder-countdown-card:hover {

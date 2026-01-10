@@ -444,7 +444,7 @@ function injectReminderStyles() {
             position: fixed;
             bottom: 84px;
             left: 24px;
-            padding: 16px 20px;
+            padding: 12px 16px;
             border-radius: 10px;
             background: rgba(255, 255, 255, 0.02);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
@@ -453,10 +453,15 @@ function injectReminderStyles() {
             animation: countdownPulse 2s infinite;
             min-width: 180px;
             width: auto;
+            max-height: 60px; // 修改点：限制最大高度，防止盖住按钮
+            overflow: hidden; // 修改点：隐藏超出部分
         }
 
         /* 按钮右侧的提醒卡片（当前时间段提醒） */
         .reminder-countdown-card.countdown-side {
+            position: fixed;
+            bottom: 24px;
+            left: 84px;
             padding: 8px 12px;
             border-radius: 10px;
             background: rgba(255, 255, 255, 0.02);
@@ -464,7 +469,11 @@ function injectReminderStyles() {
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             border: 1px solid rgba(0, 0, 0, 0.08);
             box-sizing: border-box;
-            /* 动态宽度，由JS控制 */
+            display: flex; // 修改点：添加 flex 布局
+            flex-direction: row; // 修改点：横向排列
+            gap: 8px; // 修改点：添加间距
+            align-items: center; // 修改点：垂直居中
+            z-index: 9998;
         }
 
         .reminder-countdown-card:hover {

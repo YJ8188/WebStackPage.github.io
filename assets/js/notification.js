@@ -260,6 +260,7 @@ function startReminderCheck() {
     // 每秒检查一次
     checkInterval = setInterval(() => {
         const now = new Date().getTime();
+        let dataChanged = false;
 
         reminders.forEach(reminder => {
             if (!reminder.active) return;
@@ -282,6 +283,7 @@ function startReminderCheck() {
                         if (!reminder.nextTrigger && reminder.repeat === 'once') {
                             reminder.active = false;
                         }
+                        dataChanged = true;
                     }
                     break;
 
@@ -290,18 +292,24 @@ function startReminderCheck() {
                         shouldTrigger = true;
                         // 计算下一次触发时间
                         reminder.nextTrigger = calculateNextRepeatTrigger(reminder.startDay, reminder.endDay);
+                        dataChanged = true;
                     }
                     break;
             }
 
             if (shouldTrigger) {
                 triggerReminder(reminder);
+                dataChanged = true;
             }
         });
 
-        // 更新列表显示
+        // 只在数据改变时保存
+        if (dataChanged) {
+            saveReminders();
+        }
+
+        // 每秒更新列表显示（为了倒计时）
         updateReminderList();
-        saveReminders();
         updateBadge();
 
     }, 1000);
@@ -379,10 +387,6 @@ function updateReminderList() {
     const activeCount = document.getElementById('activeCount');
     const completedCount = document.getElementById('completedCount');
 
-    // 清空列表
-    activeList.innerHTML = '';
-    completedList.innerHTML = '';
-
     // 分组提醒
     const activeReminders = reminders.filter(r => r.active);
     const completedReminders = reminders.filter(r => !r.active);
@@ -391,25 +395,108 @@ function updateReminderList() {
     activeCount.textContent = activeReminders.length;
     completedCount.textContent = completedReminders.length;
 
-    // 显示正在处理的提醒
+    // 检查是否需要完全重新渲染
+    const activeItems = activeList.querySelectorAll('.reminder-item');
+    const completedItems = completedList.querySelectorAll('.reminder-item');
+
+    // 更新正在处理的提醒
     if (activeReminders.length === 0) {
-        activeList.innerHTML = '<div class="empty-reminders">暂无正在处理的事件</div>';
+        if (activeItems.length > 0 || !activeList.querySelector('.empty-reminders')) {
+            activeList.innerHTML = '<div class="empty-reminders">暂无正在处理的事件</div>';
+        }
     } else {
-        activeReminders.forEach(reminder => {
-            const item = createReminderItem(reminder);
-            activeList.appendChild(item);
-        });
+        // 智能更新：只更新倒计时文字
+        updateReminderItems(activeList, activeReminders, activeItems);
     }
 
-    // 显示已完成的提醒
+    // 更新已完成的提醒
     if (completedReminders.length === 0) {
-        completedList.innerHTML = '<div class="empty-reminders">暂无已办事件</div>';
+        if (completedItems.length > 0 || !completedList.querySelector('.empty-reminders')) {
+            completedList.innerHTML = '<div class="empty-reminders">暂无已办事件</div>';
+        }
     } else {
-        completedReminders.forEach(reminder => {
+        // 智能更新：只更新倒计时文字
+        updateReminderItems(completedList, completedReminders, completedItems);
+    }
+}
+
+// ==================== 智能更新提醒项 ====================
+function updateReminderItems(container, reminders, existingItems) {
+    const existingIds = Array.from(existingItems).map(item => parseInt(item.dataset.reminderId));
+    const currentIds = reminders.map(r => r.id);
+
+    // 检查是否需要完全重新渲染
+    const needsFullRender = existingIds.length !== currentIds.length ||
+        !existingIds.every(id => currentIds.includes(id));
+
+    if (needsFullRender) {
+        // 完全重新渲染
+        container.innerHTML = '';
+        reminders.forEach(reminder => {
             const item = createReminderItem(reminder);
-            item.style.opacity = '0.6'; // 已完成的提醒半透明显示
-            completedList.appendChild(item);
+            if (!reminder.active) {
+                item.style.opacity = '0.6';
+            }
+            container.appendChild(item);
         });
+    } else {
+        // 只更新倒计时文字
+        existingItems.forEach(item => {
+            const reminderId = parseInt(item.dataset.reminderId);
+            const reminder = reminders.find(r => r.id === reminderId);
+            if (reminder) {
+                const timeElement = item.querySelector('.reminder-time');
+                if (timeElement) {
+                    const timeText = calculateTimeText(reminder);
+                    timeElement.textContent = `${reminder.displayText} - ${timeText}`;
+                }
+            }
+        });
+    }
+}
+
+// ==================== 计算时间文本 ====================
+function calculateTimeText(reminder) {
+    if (!reminder.active) {
+        return '已完成';
+    }
+
+    switch (reminder.type) {
+        case 'countdown':
+            const remaining = Math.max(0, Math.floor((reminder.endTime - new Date().getTime()) / 1000));
+            const minutes = Math.floor(remaining / 60);
+            const seconds = remaining % 60;
+            return `剩余 ${minutes}分${seconds}秒`;
+
+        case 'schedule':
+        case 'repeat':
+            if (reminder.nextTrigger) {
+                const remaining = Math.max(0, Math.floor((reminder.nextTrigger - new Date().getTime()) / 1000));
+                const days = Math.floor(remaining / (24 * 60 * 60));
+                const hours = Math.floor((remaining % (24 * 60 * 60)) / (60 * 60));
+                const minutes = Math.floor((remaining % (60 * 60)) / 60);
+                if (days > 0) {
+                    return `还有 ${days}天${hours}小时`;
+                } else if (hours > 0) {
+                    return `还有 ${hours}小时${minutes}分钟`;
+                } else {
+                    return `还有 ${minutes}分钟`;
+                }
+            } else {
+                return '等待中';
+            }
+
+        case 'event':
+            const eventRemaining = Math.max(0, Math.floor((reminder.endTime - new Date().getTime()) / 1000));
+            const eventDays = Math.floor(eventRemaining / (24 * 60 * 60));
+            const eventHours = Math.floor((eventRemaining % (24 * 60 * 60)) / (60 * 60));
+            if (eventDays > 0) {
+                return `还有 ${eventDays}天${eventHours}小时`;
+            } else if (eventHours > 0) {
+                return `还有 ${eventHours}小时`;
+            } else {
+                return '即将到来';
+            }
     }
 }
 
@@ -417,56 +504,11 @@ function updateReminderList() {
 function createReminderItem(reminder) {
     const item = document.createElement('div');
     item.className = 'reminder-item';
+    item.dataset.reminderId = reminder.id; // 添加ID用于智能更新
 
     // 计算显示文本
-    let timeText = '';
-    let statusClass = '';
-
-    if (!reminder.active) {
-        timeText = '已完成';
-        statusClass = 'completed';
-    } else {
-        switch (reminder.type) {
-            case 'countdown':
-                const remaining = Math.max(0, Math.floor((reminder.endTime - new Date().getTime()) / 1000));
-                const minutes = Math.floor(remaining / 60);
-                const seconds = remaining % 60;
-                timeText = `剩余 ${minutes}分${seconds}秒`;
-                break;
-
-            case 'schedule':
-            case 'repeat':
-                if (reminder.nextTrigger) {
-                    const remaining = Math.max(0, Math.floor((reminder.nextTrigger - new Date().getTime()) / 1000));
-                    const days = Math.floor(remaining / (24 * 60 * 60));
-                    const hours = Math.floor((remaining % (24 * 60 * 60)) / (60 * 60));
-                    const minutes = Math.floor((remaining % (60 * 60)) / 60);
-                    if (days > 0) {
-                        timeText = `还有 ${days}天${hours}小时`;
-                    } else if (hours > 0) {
-                        timeText = `还有 ${hours}小时${minutes}分钟`;
-                    } else {
-                        timeText = `还有 ${minutes}分钟`;
-                    }
-                } else {
-                    timeText = '等待中';
-                }
-                break;
-
-            case 'event':
-                const eventRemaining = Math.max(0, Math.floor((reminder.endTime - new Date().getTime()) / 1000));
-                const eventDays = Math.floor(eventRemaining / (24 * 60 * 60));
-                const eventHours = Math.floor((eventRemaining % (24 * 60 * 60)) / (60 * 60));
-                if (eventDays > 0) {
-                    timeText = `还有 ${eventDays}天${eventHours}小时`;
-                } else if (eventHours > 0) {
-                    timeText = `还有 ${eventHours}小时`;
-                } else {
-                    timeText = '即将到来';
-                }
-                break;
-        }
-    }
+    const timeText = calculateTimeText(reminder);
+    const statusClass = !reminder.active ? 'completed' : '';
 
     // 创建HTML
     item.innerHTML = `

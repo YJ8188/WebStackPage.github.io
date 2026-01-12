@@ -9,12 +9,17 @@
 let reminders = []; // 提醒列表
 let reminderTimers = {}; // 定时器对象
 let checkInterval = null; // 检查提醒的定时器
+let deviceId = null; // 设备唯一标识符
+let db = null; // IndexedDB 数据库实例
 
 // ==================== 初始化 ====================
 document.addEventListener('DOMContentLoaded', function() {
-    loadReminders(); // 加载保存的提醒
-    updateReminderList(); // 更新提醒列表显示
-    startReminderCheck(); // 开始检查提醒
+    initDeviceId(); // 初始化设备ID
+    initIndexedDB().then(() => {
+        loadReminders(); // 加载保存的提醒
+        updateReminderList(); // 更新提醒列表显示
+        startReminderCheck(); // 开始检查提醒
+    });
     updateDateTime(); // 更新时间日期
     setInterval(updateDateTime, 1000); // 每秒更新时间
     initNotificationCenterEvents(); // 初始化通知中心事件监听
@@ -562,20 +567,6 @@ function updateBadge() {
     }
 }
 
-// ==================== 保存提醒到本地存储 ====================
-function saveReminders() {
-    localStorage.setItem('reminders', JSON.stringify(reminders));
-}
-
-// ==================== 从本地存储加载提醒 ====================
-function loadReminders() {
-    const saved = localStorage.getItem('reminders');
-    if (saved) {
-        reminders = JSON.parse(saved);
-        updateBadge();
-    }
-}
-
 // ==================== 播放提示音 ====================
 function playNotificationSound() {
     try {
@@ -636,4 +627,133 @@ function showToast(message, type = 'info', duration = 3000) {
             }
         }, 300);
     }, duration);
+}
+
+// ==================== 初始化设备ID ====================
+function initDeviceId() {
+    // 尝试从 localStorage 获取设备ID
+    deviceId = localStorage.getItem('reminder_device_id');
+
+    if (!deviceId) {
+        // 生成新的设备ID
+        deviceId = generateDeviceId();
+        localStorage.setItem('reminder_device_id', deviceId);
+    }
+
+    console.log('设备ID:', deviceId);
+}
+
+// ==================== 生成设备ID ====================
+function generateDeviceId() {
+    // 生成基于浏览器指纹的唯一ID
+    const fingerprint = [
+        navigator.userAgent,
+        navigator.language,
+        screen.width + 'x' + screen.height,
+        new Date().getTimezoneOffset(),
+        !!window.sessionStorage,
+        !!window.localStorage
+    ].join('|');
+
+    // 使用简单的哈希算法生成ID
+    let hash = 0;
+    for (let i = 0; i < fingerprint.length; i++) {
+        const char = fingerprint.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // 转换为32位整数
+    }
+
+    // 添加随机数确保唯一性
+    const randomPart = Math.random().toString(36).substring(2, 15);
+    const timestamp = Date.now().toString(36);
+
+    return `device_${Math.abs(hash).toString(36)}_${randomPart}_${timestamp}`;
+}
+
+// ==================== 初始化 IndexedDB ====================
+function initIndexedDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open('ReminderDB', 1);
+
+        request.onerror = (event) => {
+            console.error('IndexedDB 打开失败:', event);
+            reject(event);
+        };
+
+        request.onsuccess = (event) => {
+            db = event.target.result;
+            console.log('IndexedDB 初始化成功');
+            resolve(db);
+        };
+
+        request.onupgradeneeded = (event) => {
+            db = event.target.result;
+
+            // 创建提醒存储对象
+            if (!db.objectStoreNames.contains('reminders')) {
+                const objectStore = db.createObjectStore('reminders', { keyPath: 'id' });
+                objectStore.createIndex('deviceId', 'deviceId', { unique: false });
+                objectStore.createIndex('active', 'active', { unique: false });
+                console.log('IndexedDB 对象存储创建成功');
+            }
+        };
+    });
+}
+
+// ==================== 保存提醒到 IndexedDB ====================
+function saveReminders() {
+    if (!db) {
+        console.warn('IndexedDB 未初始化，无法保存提醒');
+        return;
+    }
+
+    const transaction = db.transaction(['reminders'], 'readwrite');
+    const objectStore = transaction.objectStore('reminders');
+
+    // 清除当前设备的旧提醒
+    const clearRequest = objectStore.index('deviceId').openCursor(IDBKeyRange.only(deviceId));
+    clearRequest.onsuccess = (event) => {
+        const cursor = event.target.result;
+        if (cursor) {
+            cursor.delete();
+            cursor.continue();
+        }
+    };
+
+    // 添加新提醒
+    reminders.forEach(reminder => {
+        reminder.deviceId = deviceId; // 关联设备ID
+        objectStore.put(reminder);
+    });
+
+    transaction.oncomplete = () => {
+        console.log('提醒已保存到 IndexedDB');
+    };
+
+    transaction.onerror = (event) => {
+        console.error('保存提醒失败:', event);
+    };
+}
+
+// ==================== 从 IndexedDB 加载提醒 ====================
+function loadReminders() {
+    if (!db) {
+        console.warn('IndexedDB 未初始化，无法加载提醒');
+        return;
+    }
+
+    const transaction = db.transaction(['reminders'], 'readonly');
+    const objectStore = transaction.objectStore('reminders');
+    const index = objectStore.index('deviceId');
+    const request = index.getAll(deviceId);
+
+    request.onsuccess = (event) => {
+        reminders = event.target.result || [];
+        console.log(`已加载 ${reminders.length} 条提醒`);
+        updateBadge();
+    };
+
+    request.onerror = (event) => {
+        console.error('加载提醒失败:', event);
+    };
 }

@@ -32,6 +32,16 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 });
 
+// 监听用户数据加载完成事件
+window.addEventListener('userDataLoaded', async function(event) {
+    console.log('[Notification] 收到 userDataLoaded 事件');
+    console.log('[Notification] 配置数据:', event.detail);
+    
+    // 重新加载提醒
+    await loadReminders();
+    updateReminderList();
+});
+
 // ==================== 更新时间日期 ====================
 function updateDateTime() {
     const now = new Date();

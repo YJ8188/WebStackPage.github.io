@@ -134,8 +134,19 @@ const userData = {
             try {
                 console.log('[UserData] 开始保存到数据库...');
                 console.log('[UserData] user.id:', this.user.id);
+                console.log('[UserData] 准备保存的数据:', {
+                    user_id: this.user.id,
+                    dark_mode: this.config.darkMode,
+                    hidden_cards: this.config.hiddenCards,
+                    card_order: this.config.cardOrder,
+                    notification_panel_open: this.config.notificationPanelOpen,
+                    reminders: this.config.reminders,
+                    favorites: this.config.favorites,
+                    updated_at: new Date()
+                });
                 
-                const { data, error } = await supabaseClient
+                console.log('[UserData] 执行 upsert 操作...');
+                const { data, error, status, statusText } = await supabaseClient
                     .from('user_config')
                     .upsert({
                         user_id: this.user.id,
@@ -149,8 +160,11 @@ const userData = {
                     })
                     .select();
 
+                console.log('[UserData] upsert 操作完成');
                 console.log('[UserData] Supabase 返回 data:', data);
                 console.log('[UserData] Supabase 返回 error:', error);
+                console.log('[UserData] Supabase 返回 status:', status);
+                console.log('[UserData] Supabase 返回 statusText:', statusText);
 
                 if (error) {
                     console.error('[UserData] 保存配置失败:', error);

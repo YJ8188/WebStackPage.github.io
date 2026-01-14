@@ -97,8 +97,16 @@ const userData = {
     },
 
     async saveConfig() {
+        console.log('[UserData] saveConfig 被调用');
+        console.log('[UserData] isLoggedIn:', this.isLoggedIn);
+        console.log('[UserData] user:', this.user);
+        console.log('[UserData] config:', this.config);
+        
         if (this.isLoggedIn) {
             try {
+                console.log('[UserData] 开始保存到数据库...');
+                console.log('[UserData] user.id:', this.user.id);
+                
                 const { data, error } = await supabaseClient
                     .from('user_config')
                     .upsert({
@@ -113,18 +121,32 @@ const userData = {
                     })
                     .select();
 
+                console.log('[UserData] Supabase 返回 data:', data);
+                console.log('[UserData] Supabase 返回 error:', error);
+
                 if (error) {
                     console.error('[UserData] 保存配置失败:', error);
+                    console.error('[UserData] 错误详情:', {
+                        message: error.message,
+                        code: error.code,
+                        details: error.details,
+                        hint: error.hint
+                    });
                     return false;
                 }
 
-                console.log('[UserData] 配置已保存到数据库');
+                console.log('[UserData] ✅ 配置已保存到数据库');
                 return true;
             } catch (error) {
                 console.error('[UserData] 保存配置异常:', error);
+                console.error('[UserData] 异常详情:', {
+                    message: error.message,
+                    stack: error.stack
+                });
                 return false;
             }
         } else {
+            console.log('[UserData] ⚠️ 未登录，保存到 localStorage');
             try {
                 localStorage.setItem('userConfig', JSON.stringify(this.config));
                 console.log('[UserData] 配置已保存到 localStorage');

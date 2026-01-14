@@ -145,10 +145,22 @@ const userData = {
                     updated_at: new Date()
                 });
                 
-                console.log('[UserData] 执行 upsert 操作...');
+                console.log('[UserData] 先删除旧数据...');
+                const { error: deleteError } = await supabaseClient
+                    .from('user_config')
+                    .delete()
+                    .eq('user_id', this.user.id);
+                
+                if (deleteError) {
+                    console.error('[UserData] 删除旧数据失败:', deleteError);
+                } else {
+                    console.log('[UserData] ✅ 旧数据已删除');
+                }
+                
+                console.log('[UserData] 执行插入操作...');
                 const { data, error, status, statusText } = await supabaseClient
                     .from('user_config')
-                    .upsert({
+                    .insert({
                         user_id: this.user.id,
                         dark_mode: this.config.darkMode,
                         hidden_cards: this.config.hiddenCards,
@@ -160,7 +172,7 @@ const userData = {
                     })
                     .select();
 
-                console.log('[UserData] upsert 操作完成');
+                console.log('[UserData] 插入操作完成');
                 console.log('[UserData] Supabase 返回 data:', data);
                 console.log('[UserData] Supabase 返回 error:', error);
                 console.log('[UserData] Supabase 返回 status:', status);

@@ -213,13 +213,17 @@ var MetalsData = {
                     var changePercent = silverData.changepercent.replace('+', '').replace('%', '');
                     var changeValue = parseFloat(changePercent);
 
+                    // 格式化日期，统一格式为 2026-1-14（去掉前导零）
+                    var formattedDate = silverData.date.replace(/-0(\d)/g, '-$1');
+
                     return {
+                        品种: silverData.title,
                         最新价: parseFloat(silverData.buyprice),
                         涨跌: changeValue,
                         幅度: silverData.changepercent,
                         最高价: parseFloat(silverData.maxprice),
                         最低价: parseFloat(silverData.minprice),
-                        报价时间: silverData.date
+                        报价时间: formattedDate
                     };
                 }
             }
@@ -294,12 +298,12 @@ var MetalsData = {
                     if (silverData) {
                         // 更新国内黄金数据中的白银价格
                         var silverIndex = self.prices.goldRecycle.findIndex(function(item) {
-                            return item.品种 === '国内银价';
+                            return item.品种 && item.品种.includes('银');
                         });
                         if (silverIndex !== -1) {
                             console.log('%c[金价行情] 更新白银价格:', 'color: #10b981;', silverData);
                             self.prices.goldRecycle[silverIndex] = {
-                                品种: '国内银价',
+                                品种: silverData.品种,
                                 最新价: silverData.最新价,
                                 涨跌: silverData.涨跌,
                                 幅度: silverData.幅度,

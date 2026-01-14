@@ -37,8 +37,10 @@ window.addEventListener('userDataLoaded', async function(event) {
     console.log('[Notification] 收到 userDataLoaded 事件');
     console.log('[Notification] 配置数据:', event.detail);
     
-    // 重新加载提醒
-    await loadReminders();
+    // 使用配置中的提醒数据，不重新加载
+    reminders = event.detail.reminders || [];
+    console.log('[Notification] 使用配置中的提醒数据:', reminders);
+    updateBadge();
     updateReminderList();
 });
 

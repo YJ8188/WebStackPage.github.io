@@ -309,6 +309,8 @@ var MetalsData = {
                             };
                         }
                     }
+                    // 更新UI显示
+                    self.updateUI();
                 });
             } else {
                 console.error('%c[金价行情] 数据格式错误:', 'color: #f59e0b;', data);

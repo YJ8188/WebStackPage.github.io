@@ -107,6 +107,9 @@ const userData = {
                     favorites: []
                 };
             }
+            
+            console.log('[UserData] 触发 userDataLoaded 事件');
+            window.dispatchEvent(new CustomEvent('userDataLoaded', { detail: this.config }));
         } catch (error) {
             console.error('[UserData] 加载配置异常:', error);
         }

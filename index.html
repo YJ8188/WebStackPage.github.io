@@ -6495,7 +6495,10 @@
          * 页面加载时初始化暗黑模式
          * 功能：根据用户之前的选择或系统偏好自动应用暗黑模式
          */
-        (async function () {
+        document.addEventListener('DOMContentLoaded', async function () {
+            // 等待 userData 初始化完成
+            await userData.init();
+            
             // 先从数据库加载（如果已登录）
             if (userData.isLoggedIn) {
                 await userData.loadConfig();
@@ -6512,7 +6515,7 @@
                     toggleDarkMode(); // 自动切换到暗黑模式
                 }
             }
-        })();
+        });
     </script>
     <!-- ==================== 移动端防遮挡优化补丁 ==================== -->
     <style>

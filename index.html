@@ -6344,25 +6344,13 @@
 
             // 如果已登录且不强制使用 localStorage，从数据库加载收藏
             if (userData.isLoggedIn && !useLocalStorageOnly) {
-                console.log('[收藏] 已登录，从数据库加载收藏...');
-                userData.loadFavorites().then(dbFavs => {
-                    console.log('[收藏] 数据库返回收藏数:', dbFavs.length);
-                    if (dbFavs && dbFavs.length > 0) {
-                        favs = dbFavs;
-                        console.log('[收藏] ✅ 使用数据库收藏数据');
-                        renderFavoritesList(container, favs);
-                    } else {
-                        console.log('[收藏] 数据库为空，使用 localStorage 数据');
-                        renderFavoritesList(container, favs);
-                    }
-                }).catch(error => {
-                    console.error('[收藏] 从数据库加载收藏失败:', error);
-                    renderFavoritesList(container, favs);
-                });
-            } else {
-                console.log('[收藏] 使用 localStorage 数据');
-                renderFavoritesList(container, favs);
+                console.log('[收藏] 已登录，使用当前配置中的收藏数据');
+                favs = userData.config.favorites || [];
+                console.log('[收藏] 配置中的收藏数:', favs.length);
             }
+
+            console.log('[收藏] 最终渲染的收藏数:', favs.length);
+            renderFavoritesList(container, favs);
         }
 
         function renderFavoritesList(container, favs) {

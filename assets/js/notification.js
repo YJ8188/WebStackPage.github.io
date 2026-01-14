@@ -648,61 +648,81 @@ function showToast(message, type = 'info', duration = 3000) {
 
 // ==================== 保存提醒到 localStorage ====================
 function saveReminders() {
+    console.log('[Notification] saveReminders 被调用');
+    console.log('[Notification] 当前提醒列表:', reminders);
+    console.log('[Notification] userData.isLoggedIn:', userData.isLoggedIn);
+    
     try {
         // 总是保存到 localStorage 作为备份
         localStorage.setItem('reminders', JSON.stringify(reminders));
-        console.log('提醒已保存到 localStorage');
+        console.log('[Notification] ✅ 提醒已保存到 localStorage');
         
         // 如果已登录，也保存到数据库
         if (userData.isLoggedIn) {
+            console.log('[Notification] 开始保存到数据库...');
             userData.saveReminders(reminders).then(success => {
                 if (success) {
-                    console.log('提醒已同步到数据库');
+                    console.log('[Notification] ✅ 提醒已同步到数据库');
                 } else {
-                    console.log('数据库保存失败，仅使用 localStorage');
+                    console.log('[Notification] ❌ 数据库保存失败，仅使用 localStorage');
                 }
+            }).catch(error => {
+                console.error('[Notification] 保存到数据库时发生异常:', error);
             });
+        } else {
+            console.log('[Notification] ⚠️ 未登录，跳过数据库保存');
         }
     } catch (error) {
-        console.error('保存提醒失败:', error);
+        console.error('[Notification] 保存提醒失败:', error);
         showToast('保存提醒失败，请检查浏览器存储空间', 'error');
     }
 }
 
 // ==================== 从 localStorage 加载提醒 ====================
 async function loadReminders() {
+    console.log('[Notification] loadReminders 被调用');
+    console.log('[Notification] userData.isLoggedIn:', userData.isLoggedIn);
+    
     try {
         if (userData.isLoggedIn) {
+            console.log('[Notification] 开始从数据库加载提醒...');
             const dbReminders = await userData.loadReminders();
+            
+            console.log('[Notification] 数据库返回的提醒:', dbReminders);
+            console.log('[Notification] dbReminders.length:', dbReminders ? dbReminders.length : 'null/undefined');
             
             // 如果数据库中有数据（非空数组），使用数据库数据
             if (dbReminders && dbReminders.length > 0) {
                 reminders = dbReminders;
-                console.log(`已从数据库加载 ${reminders.length} 条提醒`);
+                console.log(`[Notification] ✅ 已从数据库加载 ${reminders.length} 条提醒`);
             } else {
+                console.log('[Notification] 数据库为空或未返回数据，尝试从 localStorage 加载');
                 // 如果数据库为空，尝试从 localStorage 加载
                 const saved = localStorage.getItem('reminders');
                 if (saved) {
                     reminders = JSON.parse(saved);
-                    console.log(`数据库为空，已从 localStorage 加载 ${reminders.length} 条提醒`);
+                    console.log(`[Notification] ✅ 数据库为空，已从 localStorage 加载 ${reminders.length} 条提醒`);
                     
                     // 将 localStorage 的数据同步到数据库
+                    console.log('[Notification] 开始将 localStorage 数据同步到数据库...');
                     await userData.saveReminders(reminders);
                 } else {
                     reminders = [];
-                    console.log('没有找到保存的提醒');
+                    console.log('[Notification] ℹ️ 没有找到保存的提醒');
                 }
             }
         } else {
+            console.log('[Notification] 未登录，从 localStorage 加载');
             const saved = localStorage.getItem('reminders');
             if (saved) {
                 reminders = JSON.parse(saved);
-                console.log(`已从 localStorage 加载 ${reminders.length} 条提醒`);
+                console.log(`[Notification] ✅ 已从 localStorage 加载 ${reminders.length} 条提醒`);
             } else {
                 reminders = [];
-                console.log('没有找到保存的提醒');
+                console.log('[Notification] ℹ️ 没有找到保存的提醒');
             }
         }
+        console.log('[Notification] 最终加载的提醒列表:', reminders);
         updateBadge();
     } catch (error) {
         console.error('加载提醒失败:', error);

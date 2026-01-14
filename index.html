@@ -779,6 +779,12 @@
                             <i class="fa-github"></i> GitHub
                         </a>
                     </li>
+                    <li style="height: 100%; display: flex; align-items: center;">
+                        <a href="login.html" id="loginBtn" title="登录/注册"
+                            style="height: 100%; display: flex; align-items: center; padding: 0 15px;">
+                            <i class="fa-user"></i> <span id="loginText">登录</span>
+                        </a>
+                    </li>
                 </ul>
             </nav>
 
@@ -8019,6 +8025,12 @@
             });
         }
     </script>
+
+    <!-- ==================== Supabase 配置脚本 ==================== -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <script src="../assets/js/supabase-config.js"></script>
+    <script src="../assets/js/user-data.js"></script>
+    <script src="../assets/js/auth-ui.js"></script>
 
     <!-- ==================== 提醒系统脚本 ==================== -->
     <script src="../assets/js/notification.js"></script>

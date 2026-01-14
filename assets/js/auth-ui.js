@@ -21,7 +21,7 @@ async function handleLogout() {
     const confirmed = await showConfirmModal('确定要登出吗？');
     
     if (confirmed) {
-        const { error } = await supabase.auth.signOut();
+        const { error } = await supabaseClient.auth.signOut();
         
         if (error) {
             showToast('登出失败：' + error.message, 'error');
@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     await userData.init();
     updateLoginButton();
     
-    supabase.auth.onAuthStateChange((event, session) => {
+    supabaseClient.auth.onAuthStateChange((event, session) => {
         updateLoginButton();
     });
 });

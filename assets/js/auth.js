@@ -65,7 +65,7 @@ authForm.addEventListener('submit', async function(e) {
 });
 
 async function signIn(email, password) {
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
         email: email,
         password: password
     });
@@ -82,7 +82,7 @@ async function signIn(email, password) {
 }
 
 async function signUp(email, password) {
-    const { data, error } = await supabase.auth.signUp({
+    const { data, error } = await supabaseClient.auth.signUp({
         email: email,
         password: password
     });

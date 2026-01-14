@@ -2,6 +2,7 @@ const userData = {
     isLoggedIn: false,
     user: null,
     initialized: false,
+    isOnline: navigator.onLine,
     config: {
         darkMode: false,
         hiddenCards: [],
@@ -18,6 +19,28 @@ const userData = {
         }
         
         this.initialized = true;
+        
+        // 监听网络状态变化
+        window.addEventListener('online', () => {
+            this.isOnline = true;
+            console.log('[UserData] 网络已连接');
+            if (typeof showToast === 'function') {
+                showToast('网络已连接', 'success');
+            }
+            
+            // 如果已登录，重新同步数据
+            if (this.isLoggedIn) {
+                this.syncData();
+            }
+        });
+        
+        window.addEventListener('offline', () => {
+            this.isOnline = false;
+            console.log('[UserData] 网络已断开');
+            if (typeof showToast === 'function') {
+                showToast('网络已断开，使用离线模式', 'warning');
+            }
+        });
         
         const { data: { session } } = await supabaseClient.auth.getSession();
         
@@ -38,6 +61,8 @@ const userData = {
                     this.user = session.user;
                     console.log('[UserData] 用户已登录:', this.user.email);
                     await this.loadConfig();
+                } else if (event === 'TOKEN_REFRESHED') {
+                    console.log('[UserData] Token 已刷新');
                 }
             });
         } else {
@@ -46,7 +71,22 @@ const userData = {
         }
     },
 
-    async loadConfig() {
+    async syncData() {
+        console.log('[UserData] 开始同步数据');
+        if (!this.isOnline) {
+            console.log('[UserData] 离线模式，跳过同步');
+            return;
+        }
+        
+        try {
+            await this.loadConfig();
+            console.log('[UserData] 数据同步完成');
+        } catch (error) {
+            console.error('[UserData] 数据同步失败:', error);
+        }
+    },
+
+    async loadConfig(triggerEvent = true) {
         console.log('[UserData] loadConfig 被调用');
         console.log('[UserData] user.id:', this.user?.id);
         
@@ -108,8 +148,10 @@ const userData = {
                 };
             }
             
-            console.log('[UserData] 触发 userDataLoaded 事件');
-            window.dispatchEvent(new CustomEvent('userDataLoaded', { detail: this.config }));
+            if (triggerEvent) {
+                console.log('[UserData] 触发 userDataLoaded 事件');
+                window.dispatchEvent(new CustomEvent('userDataLoaded', { detail: this.config }));
+            }
         } catch (error) {
             console.error('[UserData] 加载配置异常:', error);
         }
@@ -207,12 +249,11 @@ const userData = {
 
     async saveReminders(reminders) {
         this.config.reminders = reminders;
-        return await this.saveConfig();
+        await this.saveConfig();
     },
 
     async loadReminders() {
         if (this.isLoggedIn) {
-            await this.loadConfig();
             return this.config.reminders || [];
         } else {
             this.loadFromLocalStorage();
@@ -222,17 +263,16 @@ const userData = {
 
     async saveDarkMode(isDark) {
         this.config.darkMode = isDark;
-        return await this.saveConfig();
+        await this.saveConfig();
     },
 
     async saveHiddenCards(hiddenCards) {
         this.config.hiddenCards = hiddenCards;
-        return await this.saveConfig();
+        await this.saveConfig();
     },
 
     async loadHiddenCards() {
         if (this.isLoggedIn) {
-            await this.loadConfig();
             return this.config.hiddenCards || [];
         } else {
             this.loadFromLocalStorage();
@@ -242,12 +282,11 @@ const userData = {
 
     async saveCardOrder(cardOrder) {
         this.config.cardOrder = cardOrder;
-        return await this.saveConfig();
+        await this.saveConfig();
     },
 
     async loadCardOrder() {
         if (this.isLoggedIn) {
-            await this.loadConfig();
             return this.config.cardOrder || [];
         } else {
             this.loadFromLocalStorage();
@@ -257,12 +296,11 @@ const userData = {
 
     async saveNotificationPanelOpen(isOpen) {
         this.config.notificationPanelOpen = isOpen;
-        return await this.saveConfig();
+        await this.saveConfig();
     },
 
     async loadNotificationPanelOpen() {
         if (this.isLoggedIn) {
-            await this.loadConfig();
             return this.config.notificationPanelOpen || false;
         } else {
             this.loadFromLocalStorage();
@@ -272,12 +310,11 @@ const userData = {
 
     async saveFavorites(favorites) {
         this.config.favorites = favorites;
-        return await this.saveConfig();
+        await this.saveConfig();
     },
 
     async loadFavorites() {
         if (this.isLoggedIn) {
-            await this.loadConfig();
             return this.config.favorites || [];
         } else {
             this.loadFromLocalStorage();

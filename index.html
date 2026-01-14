@@ -6161,12 +6161,18 @@
         });
 
         async function saveNewCard() {
+            console.log('[收藏] saveNewCard 被调用');
+            
             const title = document.getElementById('cardTitle').value.trim();
             const url = document.getElementById('cardUrl').value.trim();
             const desc = document.getElementById('cardDesc').value.trim() || '我的自定义收藏链接';
             let icon = document.getElementById('cardIcon').value.trim();
 
+            console.log('[收藏] 输入数据:', { title, url, desc, icon });
+            console.log('[收藏] userData.isLoggedIn:', userData.isLoggedIn);
+
             if (!title || !url) {
+                console.log('[收藏] ❌ 标题或链接为空');
                 showToast('请填写标题和链接！', 'error');
                 return;
             }
@@ -6187,54 +6193,114 @@
                 icon
             };
 
+            console.log('[收藏] 新卡片:', newCard);
+
             // 保存到 LocalStorage
             let favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
             favs.push(newCard);
             localStorage.setItem(FAV_KEY, JSON.stringify(favs));
+            console.log('[收藏] ✅ 已保存到 localStorage, 当前数量:', favs.length);
 
             // 保存到数据库（如果已登录）
             if (userData.isLoggedIn) {
-                const dbFavs = await userData.loadFavorites();
-                dbFavs.push(newCard);
-                await userData.saveFavorites(dbFavs);
+                console.log('[收藏] 开始保存到数据库...');
+                try {
+                    const dbFavs = await userData.loadFavorites();
+                    console.log('[收藏] 数据库当前收藏数:', dbFavs.length);
+                    dbFavs.push(newCard);
+                    console.log('[收藏] 准备保存到数据库, 总数:', dbFavs.length);
+                    const result = await userData.saveFavorites(dbFavs);
+                    console.log('[收藏] 数据库保存结果:', result);
+                    if (result) {
+                        console.log('[收藏] ✅ 已保存到数据库');
+                    } else {
+                        console.log('[收藏] ❌ 数据库保存失败');
+                    }
+                } catch (error) {
+                    console.error('[收藏] 数据库保存异常:', error);
+                }
+            } else {
+                console.log('[收藏] ⚠️ 未登录，跳过数据库保存');
             }
 
             // 渲染
-            renderFavorites();
+            console.log('[收藏] 开始渲染...');
+            await renderFavorites();
             closeAddCardModal();
+            console.log('[收藏] ✅ 保存完成');
         }
 
         async function deleteFavCard(id, e) {
+            console.log('[收藏] deleteFavCard 被调用, id:', id);
             e.stopPropagation(); // 防止触发点击跳转
             if (await showConfirm('确定要删除这个收藏吗？')) {
+                console.log('[收藏] 开始删除收藏');
+                
                 let favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
+                console.log('[收藏] localStorage 当前收藏数:', favs.length);
                 favs = favs.filter(c => c.id !== id);
                 localStorage.setItem(FAV_KEY, JSON.stringify(favs));
+                console.log('[收藏] ✅ 已从 localStorage 删除');
 
                 // 从数据库删除（如果已登录）
                 if (userData.isLoggedIn) {
-                    const dbFavs = await userData.loadFavorites();
-                    const newDbFavs = dbFavs.filter(c => c.id !== id);
-                    await userData.saveFavorites(newDbFavs);
+                    console.log('[收藏] 开始从数据库删除...');
+                    try {
+                        const dbFavs = await userData.loadFavorites();
+                        console.log('[收藏] 数据库当前收藏数:', dbFavs.length);
+                        const newDbFavs = dbFavs.filter(c => c.id !== id);
+                        console.log('[收藏] 删除后数据库收藏数:', newDbFavs.length);
+                        const result = await userData.saveFavorites(newDbFavs);
+                        console.log('[收藏] 数据库删除结果:', result);
+                        if (result) {
+                            console.log('[收藏] ✅ 已从数据库删除');
+                        } else {
+                            console.log('[收藏] ❌ 数据库删除失败');
+                        }
+                    } catch (error) {
+                        console.error('[收藏] 数据库删除异常:', error);
+                    }
+                } else {
+                    console.log('[收藏] ⚠️ 未登录，跳过数据库删除');
                 }
 
-                renderFavorites();
+                console.log('[收藏] 开始重新渲染...');
+                await renderFavorites();
+                console.log('[收藏] ✅ 删除完成');
             }
         }
 
         async function renderFavorites() {
+            console.log('[收藏] renderFavorites 被调用');
             const container = document.getElementById('my-favorites-list');
-            if (!container) return;
+            if (!container) {
+                console.log('[收藏] ❌ 找不到容器元素 #my-favorites-list');
+                return;
+            }
 
             let favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
+            console.log('[收藏] localStorage 收藏数:', favs.length);
 
             // 如果已登录，从数据库加载收藏
             if (userData.isLoggedIn) {
-                const dbFavs = await userData.loadFavorites();
-                if (dbFavs && dbFavs.length > 0) {
-                    favs = dbFavs;
+                console.log('[收藏] 已登录，从数据库加载收藏...');
+                try {
+                    const dbFavs = await userData.loadFavorites();
+                    console.log('[收藏] 数据库返回收藏数:', dbFavs.length);
+                    if (dbFavs && dbFavs.length > 0) {
+                        favs = dbFavs;
+                        console.log('[收藏] ✅ 使用数据库收藏数据');
+                    } else {
+                        console.log('[收藏] 数据库为空，使用 localStorage 数据');
+                    }
+                } catch (error) {
+                    console.error('[收藏] 从数据库加载收藏失败:', error);
                 }
+            } else {
+                console.log('[收藏] 未登录，使用 localStorage 数据');
             }
+
+            console.log('[收藏] 最终渲染的收藏数:', favs.length);
 
             // 清空现有内容
             container.innerHTML = '';
@@ -6267,6 +6333,8 @@
                 </div>`;
                 container.insertAdjacentHTML('beforeend', html);
             });
+
+            console.log('[收藏] ✅ 渲染完成');
 
             // 重新初始化 tooltip
             if (window.jQuery && window.jQuery.fn.tooltip) {

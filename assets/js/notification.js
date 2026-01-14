@@ -19,6 +19,17 @@ document.addEventListener('DOMContentLoaded', async function() {
     updateDateTime();
     setInterval(updateDateTime, 1000);
     initNotificationCenterEvents();
+    
+    // 如果已登录，加载通知面板状态
+    if (userData.isLoggedIn) {
+        const isOpen = await userData.loadNotificationPanelOpen();
+        if (isOpen) {
+            const panel = document.getElementById('notificationPanel');
+            if (panel) {
+                panel.style.display = 'flex';
+            }
+        }
+    }
 });
 
 // ==================== 更新时间日期 ====================
@@ -53,6 +64,11 @@ function toggleNotificationCenter() {
         closeNotificationCenter();
     } else {
         panel.style.display = 'flex';
+        
+        // 保存到数据库（如果已登录）
+        if (userData.isLoggedIn) {
+            userData.saveNotificationPanelOpen(true);
+        }
     }
 }
 
@@ -60,6 +76,11 @@ function toggleNotificationCenter() {
 function closeNotificationCenter() {
     const panel = document.getElementById('notificationPanel');
     panel.style.display = 'none';
+    
+    // 保存到数据库（如果已登录）
+    if (userData.isLoggedIn) {
+        userData.saveNotificationPanelOpen(false);
+    }
 }
 
 // ==================== 初始化通知中心事件监听 ====================

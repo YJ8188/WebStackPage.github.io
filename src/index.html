@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <!-- 基础设置 -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="何哥的网站导航系统 - 收集国内外优秀设计网站、UI设计资源网站、灵感创意网站、素材资源网站，定时更新分享优质产品设计书签">
+    <meta name="keywords" content="UI设计,UI设计素材,设计导航,网址导航,设计资源,创意导航,创意网站导航,技术员网址大全,设计素材大全">
+    <meta name="author" content="何哥">
+    
+    <!-- SEO优化 -->
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="何哥的网站导航系统">
+    <meta property="og:description" content="收集国内外优秀设计网站、UI设计资源网站、灵感创意网站、素材资源网站">
+    <meta property="og:image" content="/assets/images/logo@2x.png">
+    <meta property="og:url" content="">
+    
+    <!-- Twitter Cards -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="何哥的网站导航系统">
+    <meta name="twitter:description" content="收集国内外优秀设计网站、UI设计资源网站">
+    <meta name="twitter:image" content="/assets/images/logo@2x.png">
+    
+    <!-- 网站图标 -->
+    <link rel="icon" type="image/png" href="/assets/images/favicon.png">
+    <link rel="shortcut icon" href="/assets/images/favicon.png">
+    <link rel="apple-touch-icon" href="/assets/images/favicon.png">
+    
+    <!-- DNS预解析和预连接 -->
+    <link rel="dns-prefetch" href="//cdn.jsdelivr.net">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    
+    <!-- 字体资源 -->
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/harmonyos-sans@1.0.6/css/harmonyos-sans.min.css" as="style">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/harmonyos-sans@1.0.6/css/harmonyos-sans.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Arimo:400,700,400italic">
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    
+    <!-- 自定义CSS -->
+    <link rel="stylesheet" href="./css/variables.css">
+    <link rel="stylesheet" href="./css/reset.css">
+    <link rel="stylesheet" href="./css/components.css">
+    <link rel="stylesheet" href="./css/layout.css">
+    <link rel="stylesheet" href="./css/animations.css">
+    <link rel="stylesheet" href="./css/responsive.css">
+    <link rel="stylesheet" href="./css/dark-mode.css">
+    <link rel="stylesheet" href="./css/accessibility.css">
+    
+    <title>何哥 - 技术员网址导航</title>
+    
+    <!-- 安全策略 -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://supabase.co; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https://*.supabase.co;">
+</head>
+
+<body>
+    <!-- 页面容器 -->
+    <div class="page-container" id="app">
+        <!-- 侧边栏菜单 -->
+        <aside class="sidebar-menu" role="navigation" aria-label="主导航">
+            <div class="sidebar-menu-inner">
+                <!-- Logo区域 -->
+                <header class="logo-env">
+                    <div class="logo">
+                        <a href="index.html" class="logo-expanded" aria-label="首页">
+                            <img src="/assets/images/logo@2x.png" alt="何哥导航" width="100%">
+                        </a>
+                        <a href="index.html" class="logo-collapsed" aria-label="首页">
+                            <img src="/assets/images/logo-collapsed@2x.png" alt="何哥" width="40">
+                        </a>
+                    </div>
+                    
+                    <!-- 移动端菜单切换 -->
+                    <div class="mobile-menu-toggle visible-xs">
+                        <button 
+                            type="button" 
+                            class="btn btn-link" 
+                            onclick="toggleDarkMode()" 
+                            aria-label="切换暗黑模式"
+                            title="切换暗黑模式/日间模式">
+                            <i class="fa fa-moon-o dark-mode-icon" id="darkModeIcon"></i>
+                        </button>
+                        <button 
+                            type="button" 
+                            class="btn btn-link" 
+                            data-bs-toggle="collapse" 
+                            data-bs-target="#sidebarMenu"
+                            aria-label="菜单">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                    </div>
+                </header>
+                
+                <!-- 主菜单 -->
+                <nav class="main-menu" id="sidebarMenu">
+                    <ul class="nav nav-pills nav-stacked flex-column" role="menubar">
+                        <!-- 通知中心 -->
+                        <li class="nav-item">
+                            <button 
+                                type="button" 
+                                class="nav-link"
+                                onclick="toggleNotificationCenter()"
+                                aria-label="通知中心">
+                                <i class="linecons-clock me-2"></i>
+                                <span>通知中心</span>
+                                <span class="badge bg-warning" id="notificationBadge" style="display: none;">0</span>
+                            </button>
+                        </li>
+                        
+                        <!-- 我的收藏 -->
+                        <li class="nav-item">
+                            <a href="#我的收藏" class="nav-link smooth" aria-label="我的收藏">
+                                <i class="linecons-heart me-2"></i>
+                                <span>我的收藏</span>
+                                <span class="badge bg-primary">New</span>
+                            </a>
+                        </li>
+                        
+                        <!-- 其他菜单项将在这里动态生成 -->
+                    </ul>
+                </nav>
+            </div>
+        </aside>
+        
+        <!-- 主内容区域 -->
+        <main class="main-content" role="main">
+            <!-- 顶部导航栏 -->
+            <nav class="navbar navbar-expand-lg navbar-dark bg-dark user-info-navbar">
+                <div class="container-fluid">
+                    <!-- 左侧链接 -->
+                    <div class="navbar-nav me-auto">
+                        <div class="nav-item">
+                            <a 
+                                href="https://github.com/WebStackPage/WebStackPage.github.io" 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                class="nav-link"
+                                aria-label="GitHub项目">
+                                <i class="fa-brands fa-github me-1"></i>
+                                GitHub
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <!-- 右侧用户信息 -->
+                    <div class="navbar-nav">
+                        <!-- 暗黑模式切换 -->
+                        <div class="nav-item">
+                            <button 
+                                type="button" 
+                                class="nav-link"
+                                onclick="toggleDarkMode()"
+                                aria-label="切换暗黑模式"
+                                title="切换暗黑模式/日间模式">
+                                <i class="fa fa-moon-o dark-mode-icon" id="darkModeIconDesktop"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- 登录/用户信息 -->
+                        <div class="nav-item">
+                            <a 
+                                href="login.html" 
+                                id="loginBtn"
+                                class="nav-link"
+                                aria-label="登录/注册">
+                                <i class="fa fa-user me-1"></i>
+                                <span id="loginText">登录</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+            
+            <!-- 内容区域 -->
+            <div class="content-wrapper">
+                <!-- 全局搜索框 -->
+                <div class="global-search">
+                    <div class="global-search-box">
+                        <i class="fa fa-search me-2"></i>
+                        <input 
+                            type="text" 
+                            id="globalSearchInput" 
+                            class="form-control" 
+                            placeholder="搜索网站..."
+                            aria-label="搜索网站"
+                            autocomplete="off">
+                        
+                        <!-- 搜索引擎切换 -->
+                        <div class="btn-group" role="group">
+                            <input 
+                                type="radio" 
+                                class="btn-check" 
+                                name="searchEngine" 
+                                id="localSearch" 
+                                value="local" 
+                                checked>
+                            <label 
+                                class="btn btn-outline-light btn-sm" 
+                                for="localSearch">
+                                站内
+                            </label>
+                            
+                            <input 
+                                type="radio" 
+                                class="btn-check" 
+                                name="searchEngine" 
+                                id="bingSearch" 
+                                value="bing">
+                            <label 
+                                class="btn btn-outline-light btn-sm" 
+                                for="bingSearch">
+                                Bing
+                            </label>
+                            
+                            <input 
+                                type="radio" 
+                                class="btn-check" 
+                                name="searchEngine" 
+                                id="googleSearch" 
+                                value="google">
+                            <label 
+                                class="btn btn-outline-light btn-sm" 
+                                for="googleSearch">
+                                Google
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 卡片内容区域 -->
+                <div id="cardContent">
+                    <!-- 动态内容将在这里生成 -->
+                </div>
+                
+                <!-- 返回顶部按钮 -->
+                <button 
+                    type="button" 
+                    class="back-to-top"
+                    id="backToTop"
+                    aria-label="返回顶部"
+                    title="返回顶部">
+                    <i class="fa fa-arrow-up"></i>
+                </button>
+            </div>
+        </main>
+    </div>
+    
+    <!-- 模态框和面板 -->
+    <!-- 添加收藏模态框 -->
+    <div class="modal fade" id="addCardModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">添加收藏</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addCardForm">
+                        <div class="mb-3">
+                            <label for="cardTitle" class="form-label">网站标题</label>
+                            <input type="text" class="form-control" id="cardTitle" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="cardUrl" class="form-label">网站链接</label>
+                            <input type="url" class="form-control" id="cardUrl" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="cardDesc" class="form-label">描述</label>
+                            <textarea class="form-control" id="cardDesc" rows="2"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="cardIcon" class="form-label">图标链接（可选）</label>
+                            <div class="input-group">
+                                <input type="url" class="form-control" id="cardIcon">
+                                <span class="input-group-text">
+                                    <img id="cardIconPreview" src="/assets/images/logos/pinterest.png" width="20" height="20" alt="预览">
+                                </span>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="saveNewCard()">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 通知中心面板 -->
+    <div class="notification-panel" id="notificationPanel" style="display: none;">
+        <div class="notification-header">
+            <h3>通知中心</h3>
+            <div class="current-datetime">
+                <div class="current-date" id="currentDate"></div>
+                <div class="current-time" id="currentTime"></div>
+            </div>
+            <button type="button" class="btn-close" onclick="toggleNotificationCenter()" aria-label="关闭"></button>
+        </div>
+        <div class="notification-body">
+            <!-- 通知内容将在这里生成 -->
+        </div>
+    </div>
+    
+    <!-- 确认对话框 -->
+    <div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitle">确认</h5>
+                </div>
+                <div class="modal-body">
+                    <p id="modalMessage">确定要执行此操作吗？</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="modalCancel">取消</button>
+                    <button type="button" class="btn btn-primary" id="modalConfirm">确定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast容器 -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer">
+        <!-- Toast消息将在这里生成 -->
+    </div>
+    
+    <!-- JavaScript -->
+    <script type="module" src="./js/main.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

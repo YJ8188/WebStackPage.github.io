@@ -1,0 +1,424 @@
+/* ==================== 暗黑模式样式 ==================== */
+
+/* 暗黑模式基础设置 */
+[data-theme="dark"] {
+  /* 背景颜色 */
+  --bg-primary: #0f0f0f;
+  --bg-secondary: #1a1a1a;
+  --bg-tertiary: #2d2d2d;
+  --bg-dark-primary: #1a1a1a;
+  --bg-dark-secondary: #2a2a2a;
+  --bg-dark-tertiary: #333333;
+  
+  /* 文字颜色 */
+  --text-primary: #e0e0e0;
+  --text-secondary: #b0b0b0;
+  --text-tertiary: #888888;
+  --text-dark-primary: #e0e0e0;
+  --text-dark-secondary: #b0b0b0;
+  --text-dark-tertiary: #888888;
+  
+  /* 边框和分割线 */
+  --border-color: #374151;
+  --border-dark-color: #4b5563;
+  --divider-color: #374151;
+  --divider-dark-color: #4b5563;
+  
+  /* 阴影 */
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+  --shadow-xl: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+  
+  /* 特殊背景 */
+  --card-bg: rgba(255, 255, 255, 0.05);
+  --overlay-bg: rgba(0, 0, 0, 0.8);
+  --glass-bg: rgba(255, 255, 255, 0.1);
+  --glass-border: rgba(255, 255, 255, 0.2);
+}
+
+/* 页面容器 */
+[data-theme="dark"] body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* 侧边栏 */
+[data-theme="dark"] .sidebar-menu {
+  background-color: var(--bg-dark-primary);
+  border-color: var(--border-dark-color);
+}
+
+[data-theme="dark"] .logo-env {
+  border-color: var(--border-dark-color);
+}
+
+[data-theme="dark"] .mobile-menu-toggle {
+  border-color: var(--border-dark-color);
+}
+
+[data-theme="dark"] .main-menu .nav-link {
+  color: var(--text-dark-primary);
+}
+
+[data-theme="dark"] .main-menu .nav-link:hover,
+[data-theme="dark"] .main-menu .nav-link:focus,
+[data-theme="dark"] .main-menu .nav-link.active {
+  background-color: var(--primary-color);
+  color: var(--text-inverse);
+}
+
+/* 主内容区域 */
+[data-theme="dark"] .main-content {
+  background-color: var(--bg-primary);
+}
+
+/* 顶部导航栏 */
+[data-theme="dark"] .user-info-navbar {
+  background-color: var(--bg-dark-primary);
+  border-color: var(--border-dark-color);
+}
+
+/* 全局搜索框 */
+[data-theme="dark"] .global-search {
+  background-color: var(--bg-dark-secondary);
+  border-color: var(--border-dark-color);
+}
+
+[data-theme="dark"] .global-search-box {
+  background-color: var(--bg-dark-primary);
+  border-color: var(--border-dark-color);
+}
+
+[data-theme="dark"] .global-search-box input {
+  background-color: transparent;
+  color: var(--text-dark-primary);
+}
+
+[data-theme="dark"] .global-search-box i {
+  color: var(--text-dark-secondary);
+}
+
+/* 卡片 */
+[data-theme="dark"] .card {
+  background-color: var(--card-bg);
+  border-color: var(--border-dark-color);
+  color: var(--text-dark-primary);
+}
+
+[data-theme="dark"] .card:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .card-header {
+  background-color: var(--bg-dark-secondary);
+  border-color: var(--border-dark-color);
+}
+
+[data-theme="dark"] .card-footer {
+  background-color: var(--bg-dark-secondary);
+  border-color: var(--border-dark-color);
+}
+
+/* 按钮 */
+[data-theme="dark"] .btn-primary {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: var(--text-inverse);
+}
+
+[data-theme="dark"] .btn-secondary {
+  background-color: var(--bg-dark-secondary);
+  border-color: var(--border-dark-color);
+  color: var(--text-dark-primary);
+}
+
+[data-theme="dark"] .btn-outline-primary {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+[data-theme="dark"] .btn-outline-primary:hover {
+  background-color: var(--primary-color);
+  color: var(--text-inverse);
+}
+
+[data-theme="dark"] .btn-outline-secondary {
+  border-color: var(--border-dark-color);
+  color: var(--text-dark-primary);
+}
+
+/* 表单 */
+[data-theme="dark"] .form-control {
+  background-color: var(--bg-dark-primary);
+  border-color: var(--border-dark-color);
+  color: var(--text-dark-primary);
+}
+
+[data-theme="dark"] .form-control:focus {
+  border-color: var(--primary-color);
+  background-color: var(--bg-dark-primary);
+}
+
+[data-theme="dark"] .form-label {
+  color: var(--text-dark-primary);
+}
+
+[data-theme="dark"] .form-group {
+  margin-bottom: var(--spacing);
+}
+
+/* 徽章 */
+[data-theme="dark"] .badge {
+  color: var(--text-inverse);
+}
+
+[data-theme="dark"] .badge-primary {
+  background-color: var(--primary-color);
+}
+
+[data-theme="dark"] .badge-secondary {
+  background-color: var(--bg-dark-secondary);
+  color: var(--text-dark-primary);
+}
+
+/* Toast */
+[data-theme="dark"] .toast {
+  background-color: var(--bg-dark-secondary);
+  border-color: var(--border-dark-color);
+  color: var(--text-dark-primary);
+}
+
+[data-theme="dark"] .toast-success {
+  background-color: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #86efac;
+}
+
+[data-theme="dark"] .toast-error {
+  background-color: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .toast-warning {
+  background-color: rgba(245, 158, 11, 0.2);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .toast-info {
+  background-color: rgba(6, 182, 212, 0.2);
+  border-color: rgba(6, 182, 212, 0.3);
+  color: #67e8f9;
+}
+
+/* 模态框 */
+[data-theme="dark"] .modal-content {
+  background-color: var(--bg-dark-primary);
+  border-color: var(--border-dark-color);
+  color: var(--text-dark-primary);
+}
+
+[data-theme="dark"] .modal-header {
+  background-color: var(--bg-dark-secondary);
+  border-color: var(--border-dark-color);
+}
+
+[data-theme="dark"] .modal-footer {
+  background-color: var(--bg-dark-secondary);
+  border-color: var(--border-dark-color);
+}
+
+[data-theme="dark"] .modal-title {
+  color: var(--text-dark-primary);
+}
+
+[data-theme="dark"] .modal-backdrop {
+  background-color: rgba(0, 0, 0, 0.7);
+}
+
+/* 通知面板 */
+[data-theme="dark"] .notification-panel {
+  background-color: var(--bg-dark-primary);
+  border-color: var(--border-dark-color);
+}
+
+[data-theme="dark"] .notification-header {
+  background-color: var(--bg-dark-secondary);
+  border-color: var(--border-dark-color);
+}
+
+[data-theme="dark"] .notification-body {
+  background-color: var(--bg-dark-primary);
+}
+
+[data-theme="dark"] .current-datetime {
+  color: var(--text-dark-secondary);
+}
+
+/* 卡片网格 */
+[data-theme="dark"] .card-grid {
+  gap: var(--spacing);
+}
+
+[data-theme="dark"] .card-section-title {
+  color: var(--text-dark-primary);
+  border-color: var(--primary-color);
+}
+
+/* 返回顶部按钮 */
+[data-theme="dark"] .back-to-top {
+  background-color: var(--bg-dark-secondary);
+  color: var(--text-dark-primary);
+  border: 1px solid var(--border-dark-color);
+}
+
+[data-theme="dark"] .back-to-top:hover {
+  background-color: var(--bg-dark-tertiary);
+}
+
+/* 搜索框 */
+[data-theme="dark"] .btn-check:checked + .btn-outline-light {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: var(--text-inverse);
+}
+
+[data-theme="dark"] .btn-outline-light {
+  border-color: var(--border-dark-color);
+  color: var(--text-dark-primary);
+}
+
+/* 登录页面 */
+[data-theme="dark"] body.bg-gradient {
+  background: linear-gradient(135deg, var(--bg-dark-primary) 0%, var(--bg-dark-secondary) 100%);
+}
+
+[data-theme="dark"] .login-card {
+  background-color: var(--bg-dark-secondary);
+  border-color: var(--border-dark-color);
+  color: var(--text-dark-primary);
+}
+
+[data-theme="dark"] .login-form .form-control {
+  background-color: var(--bg-dark-primary);
+  border-color: var(--border-dark-color);
+  color: var(--text-dark-primary);
+}
+
+[data-theme="dark"] .login-form .form-label {
+  color: var(--text-dark-primary);
+}
+
+/* 工具提示 */
+[data-theme="dark"] .tooltip .tooltip-text {
+  background-color: var(--text-dark-primary);
+  color: var(--bg-dark-primary);
+}
+
+/* 滚动条 */
+[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: var(--bg-dark-secondary);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: var(--border-dark-color);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: var(--text-dark-secondary);
+}
+
+[data-theme="dark"] * {
+  scrollbar-color: var(--border-dark-color) var(--bg-dark-secondary);
+}
+
+/* 高亮文本选择 */
+[data-theme="dark"] ::selection {
+  background-color: var(--primary-color);
+  color: var(--text-inverse);
+}
+
+/* 玻璃态效果 */
+[data-theme="dark"] .glass-effect {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(10px);
+}
+
+/* 卡片隐藏按钮 */
+[data-theme="dark"] .card-hide-btn {
+  background: var(--danger-color);
+  color: var(--text-inverse);
+}
+
+[data-theme="dark"] .card-hide-btn:hover {
+  background: var(--danger-hover);
+}
+
+/* 拖拽效果 */
+[data-theme="dark"] .dragging {
+  opacity: 0.5;
+  transform: rotate(5deg) scale(0.95);
+  background: var(--bg-dark-tertiary);
+}
+
+[data-theme="dark"] .drag-over {
+  border-color: var(--primary-color);
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+[data-theme="dark"] .drag-insert-before::before,
+[data-theme="dark"] .drag-insert-after::after {
+  background-color: var(--primary-color);
+}
+
+/* 暗黑模式切换动画 */
+[data-theme="dark"] .dark-mode-icon {
+  transition: transform var(--transition);
+}
+
+[data-theme="dark"] .dark-mode-icon.fa-moon-o {
+  transform: rotate(180deg);
+}
+
+/* 特殊暗黑模式元素 */
+[data-theme="dark"] .dark-mode-only {
+  display: block;
+}
+
+[data-theme="dark"] .light-mode-only {
+  display: none;
+}
+
+[data-theme="light"] .dark-mode-only {
+  display: none;
+}
+
+[data-theme="light"] .light-mode-only {
+  display: block;
+}
+
+/* 代码块 */
+[data-theme="dark"] pre,
+[data-theme="dark"] code {
+  background-color: var(--bg-dark-tertiary);
+  color: var(--text-dark-primary);
+  border: 1px solid var(--border-dark-color);
+}
+
+/* 表格 */
+[data-theme="dark"] table {
+  background-color: var(--bg-dark-primary);
+  color: var(--text-dark-primary);
+}
+
+[data-theme="dark"] th,
+[data-theme="dark"] td {
+  border-color: var(--border-dark-color);
+}
+
+[data-theme="dark"] th {
+  background-color: var(--bg-dark-secondary);
+}

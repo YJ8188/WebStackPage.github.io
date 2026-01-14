@@ -5547,6 +5547,55 @@
             });
         }
 
+        // ========== 全局函数：更新隐藏卡片面板 ==========
+        function updateHiddenPanel() {
+            const hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
+            const listContainer = document.getElementById('hiddenCardsList');
+
+            if (!listContainer) return;
+
+            // 清空容器
+            while (listContainer.firstChild) {
+                listContainer.removeChild(listContainer.firstChild);
+            }
+
+            if (hiddenCards.length === 0) {
+                const emptyMsg = document.createElement('p');
+                emptyMsg.className = 'empty-state';
+                emptyMsg.textContent = '暂无隐藏的卡片';
+                listContainer.appendChild(emptyMsg);
+                return;
+            }
+
+            // 使用安全的DOM操作，避免XSS
+            // 确保显示所有隐藏的卡片，包括那些可能丢失的
+            hiddenCards.forEach((card, index) => {
+                // 验证卡片数据完整性
+                if (!card || !card.id) {
+                    return;
+                }
+
+                const item = document.createElement('div');
+                item.className = 'hidden-card-item';
+                item.setAttribute('data-card-id', card.id);
+
+                const title = document.createElement('div');
+                title.className = 'card-title';
+                title.textContent = card.title || `卡片 ${index + 1}`;
+
+                const restoreBtn = document.createElement('button');
+                restoreBtn.className = 'card-restore-btn';
+                restoreBtn.textContent = '恢复显示';
+                restoreBtn.onclick = function () {
+                    restoreCard(card.id);
+                };
+
+                item.appendChild(title);
+                item.appendChild(restoreBtn);
+                listContainer.appendChild(item);
+            });
+        }
+
         // 卡片管理功能：拖拽排序 + 隐藏/显示
         document.addEventListener('DOMContentLoaded', async function () {
             // ========== 1. 为所有卡片添加ID和draggable属性 ==========
@@ -5654,57 +5703,6 @@
                         });
                     }
                 }
-            }
-
-            // ========== 5. 更新隐藏卡片管理面板 ==========
-            function updateHiddenPanel() {
-                const hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
-                const listContainer = document.getElementById('hiddenCardsList');
-
-                if (!listContainer) return;
-
-                // 清空容器
-                while (listContainer.firstChild) {
-                    listContainer.removeChild(listContainer.firstChild);
-                }
-
-                if (hiddenCards.length === 0) {
-                    const emptyMsg = document.createElement('p');
-                    emptyMsg.className = 'empty-state';
-                    emptyMsg.textContent = '暂无隐藏的卡片';
-                    listContainer.appendChild(emptyMsg);
-                    return;
-                }
-
-                // 使用安全的DOM操作，避免XSS
-                // 确保显示所有隐藏的卡片，包括那些可能丢失的
-                hiddenCards.forEach((card, index) => {
-                    // 验证卡片数据完整性
-                    if (!card || !card.id) {
-                        return;
-                    }
-
-                    const item = document.createElement('div');
-                    item.className = 'hidden-card-item';
-                    item.setAttribute('data-card-id', card.id);
-
-                    const title = document.createElement('div');
-                    title.className = 'card-title';
-                    title.textContent = card.title || `卡片 ${index + 1}`;
-
-                    const restoreBtn = document.createElement('button');
-                    restoreBtn.className = 'card-restore-btn';
-                    restoreBtn.textContent = '恢复显示';
-                    restoreBtn.onclick = function () {
-                        restoreCard(card.id);
-                    };
-
-                    item.appendChild(title);
-                    item.appendChild(restoreBtn);
-                    listContainer.appendChild(item);
-                });
-
-            }
 
             // ========== 6. 恢复卡片（全局函数） ==========
             window.restoreCard = function (cardId) {

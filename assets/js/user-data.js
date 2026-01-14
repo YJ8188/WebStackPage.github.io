@@ -3,14 +3,14 @@ const userData = {
     user: null,
 
     async init() {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session } } = await supabaseClient.auth.getSession();
         
         if (session) {
             this.isLoggedIn = true;
             this.user = session.user;
             console.log('[UserData] 用户已登录:', this.user.email);
             
-            supabase.auth.onAuthStateChange((event, session) => {
+            supabaseClient.auth.onAuthStateChange((event, session) => {
                 if (event === 'SIGNED_OUT') {
                     this.isLoggedIn = false;
                     this.user = null;
@@ -33,7 +33,7 @@ const userData = {
         }
 
         try {
-            const { data, error } = await supabase
+            const { data, error } = await supabaseClient
                 .from('user_config')
                 .upsert({
                     user_id: this.user.id,
@@ -62,7 +62,7 @@ const userData = {
         }
 
         try {
-            const { data, error } = await supabase
+            const { data, error } = await supabaseClient
                 .from('user_config')
                 .select('reminders')
                 .eq('user_id', this.user.id)
@@ -92,7 +92,7 @@ const userData = {
         }
 
         try {
-            const { data, error } = await supabase
+            const { data, error } = await supabaseClient
                 .from('user_config')
                 .upsert({
                     user_id: this.user.id,
@@ -121,7 +121,7 @@ const userData = {
         }
 
         try {
-            const { data, error } = await supabase
+            const { data, error } = await supabaseClient
                 .from('user_config')
                 .select('hidden_cards')
                 .eq('user_id', this.user.id)

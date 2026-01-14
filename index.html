@@ -5600,17 +5600,22 @@
                     localStorage.setItem('hiddenCards', JSON.stringify(hiddenCards));
                 }
 
-                // 保存到数据库（如果已登录）
-                if (userData.isLoggedIn) {
-                    const dbHiddenCards = await userData.loadHiddenCards();
-                    if (!dbHiddenCards.includes(cardId)) {
-                        dbHiddenCards.push(cardId);
-                        await userData.saveHiddenCards(dbHiddenCards);
-                    }
-                }
-
                 // 更新管理面板
                 updateHiddenPanel();
+
+                // 后台异步保存到数据库（不阻塞 UI）
+                if (userData.isLoggedIn) {
+                    userData.loadHiddenCards().then(dbHiddenCards => {
+                        if (!dbHiddenCards.includes(cardId)) {
+                            dbHiddenCards.push(cardId);
+                            return userData.saveHiddenCards(dbHiddenCards);
+                        }
+                    }).then(result => {
+                        console.log('[卡片] ✅ 隐藏卡片数据库同步成功');
+                    }).catch(error => {
+                        console.error('[卡片] 隐藏卡片数据库同步异常:', error);
+                    });
+                }
             }
 
             // ========== 4. 显示卡片功能 ==========
@@ -5624,15 +5629,20 @@
                     hiddenCards = hiddenCards.filter(card => card.id !== cardId);
                     localStorage.setItem('hiddenCards', JSON.stringify(hiddenCards));
 
-                    // 从数据库移除（如果已登录）
-                    if (userData.isLoggedIn) {
-                        const dbHiddenCards = await userData.loadHiddenCards();
-                        const newHiddenCards = dbHiddenCards.filter(id => id !== cardId);
-                        await userData.saveHiddenCards(newHiddenCards);
-                    }
-
                     // 更新管理面板
                     updateHiddenPanel();
+
+                    // 后台异步从数据库移除（不阻塞 UI）
+                    if (userData.isLoggedIn) {
+                        userData.loadHiddenCards().then(dbHiddenCards => {
+                            const newHiddenCards = dbHiddenCards.filter(id => id !== cardId);
+                            return userData.saveHiddenCards(newHiddenCards);
+                        }).then(result => {
+                            console.log('[卡片] ✅ 显示卡片数据库同步成功');
+                        }).catch(error => {
+                            console.error('[卡片] 显示卡片数据库同步异常:', error);
+                        });
+                    }
                 }
             }
 
@@ -5861,14 +5871,18 @@
                         localStorage.setItem(`cardOrder_${idx}`, JSON.stringify(order));
                     });
 
-                    // 保存到数据库（如果已登录）
+                    // 后台异步保存到数据库（不阻塞 UI）
                     if (userData.isLoggedIn) {
                         const allCardsOrder = [];
                         allRows.forEach(c => {
                             const order = Array.from(c.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)')).map(card => card.id);
                             allCardsOrder.push(...order);
                         });
-                        await userData.saveCardOrder(allCardsOrder);
+                        userData.saveCardOrder(allCardsOrder).then(result => {
+                            console.log('[卡片] ✅ 排序数据库同步成功');
+                        }).catch(error => {
+                            console.error('[卡片] 排序数据库同步异常:', error);
+                        });
                     }
                 });
 
@@ -6252,32 +6266,27 @@
             localStorage.setItem(FAV_KEY, JSON.stringify(favs));
             console.log('[收藏] ✅ 已保存到 localStorage, 当前数量:', favs.length);
 
-            // 保存到数据库（如果已登录）
-            if (userData.isLoggedIn) {
-                console.log('[收藏] 开始保存到数据库...');
-                try {
-                    const dbFavs = await userData.loadFavorites();
-                    console.log('[收藏] 数据库当前收藏数:', dbFavs.length);
-                    dbFavs.push(newCard);
-                    console.log('[收藏] 准备保存到数据库, 总数:', dbFavs.length);
-                    const result = await userData.saveFavorites(dbFavs);
-                    console.log('[收藏] 数据库保存结果:', result);
-                    if (result) {
-                        console.log('[收藏] ✅ 已保存到数据库');
-                    } else {
-                        console.log('[收藏] ❌ 数据库保存失败');
-                    }
-                } catch (error) {
-                    console.error('[收藏] 数据库保存异常:', error);
-                }
-            } else {
-                console.log('[收藏] ⚠️ 未登录，跳过数据库保存');
-            }
-
-            // 渲染
-            console.log('[收藏] 开始渲染...');
+            // 立即渲染并关闭模态框
             await renderFavorites();
             closeAddCardModal();
+            console.log('[收藏] ✅ 本地操作完成');
+
+            // 后台异步保存到数据库（不阻塞 UI）
+            if (userData.isLoggedIn) {
+                console.log('[收藏] 开始后台同步到数据库...');
+                userData.saveFavorites(favs).then(result => {
+                    if (result) {
+                        console.log('[收藏] ✅ 数据库同步成功');
+                    } else {
+                        console.log('[收藏] ❌ 数据库同步失败');
+                    }
+                }).catch(error => {
+                    console.error('[收藏] 数据库同步异常:', error);
+                });
+            } else {
+                console.log('[收藏] ⚠️ 未登录，跳过数据库同步');
+            }
+
             console.log('[收藏] ✅ 保存完成');
         }
 
@@ -6293,30 +6302,26 @@
                 localStorage.setItem(FAV_KEY, JSON.stringify(favs));
                 console.log('[收藏] ✅ 已从 localStorage 删除');
 
-                // 从数据库删除（如果已登录）
+                // 立即渲染
+                await renderFavorites();
+                console.log('[收藏] ✅ 本地删除完成');
+
+                // 后台异步从数据库删除（不阻塞 UI）
                 if (userData.isLoggedIn) {
-                    console.log('[收藏] 开始从数据库删除...');
-                    try {
-                        const dbFavs = await userData.loadFavorites();
-                        console.log('[收藏] 数据库当前收藏数:', dbFavs.length);
-                        const newDbFavs = dbFavs.filter(c => c.id !== id);
-                        console.log('[收藏] 删除后数据库收藏数:', newDbFavs.length);
-                        const result = await userData.saveFavorites(newDbFavs);
-                        console.log('[收藏] 数据库删除结果:', result);
+                    console.log('[收藏] 开始后台同步到数据库...');
+                    userData.saveFavorites(favs).then(result => {
                         if (result) {
-                            console.log('[收藏] ✅ 已从数据库删除');
+                            console.log('[收藏] ✅ 数据库同步成功');
                         } else {
-                            console.log('[收藏] ❌ 数据库删除失败');
+                            console.log('[收藏] ❌ 数据库同步失败');
                         }
-                    } catch (error) {
-                        console.error('[收藏] 数据库删除异常:', error);
-                    }
+                    }).catch(error => {
+                        console.error('[收藏] 数据库同步异常:', error);
+                    });
                 } else {
-                    console.log('[收藏] ⚠️ 未登录，跳过数据库删除');
+                    console.log('[收藏] ⚠️ 未登录，跳过数据库同步');
                 }
 
-                console.log('[收藏] 开始重新渲染...');
-                await renderFavorites();
                 console.log('[收藏] ✅ 删除完成');
             }
         }

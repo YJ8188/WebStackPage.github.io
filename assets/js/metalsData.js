@@ -181,6 +181,56 @@ var MetalsData = {
         });
     },
 
+    // 获取白银价格（使用新API）
+    fetchSilverPrice: function() {
+        var self = this;
+        console.log('%c[金价行情] 开始获取白银价格数据...', 'color: #10b981;');
+
+        return fetch('https://tools.mgtv100.com/external/v1/pear/goldPrice', {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            }
+        })
+        .then(function(response) {
+            if (!response.ok) {
+                throw new Error('HTTP ' + response.status);
+            }
+            return response.json();
+        })
+        .then(function(data) {
+            console.log('%c[金价行情] 白银价格数据获取成功:', 'color: #10b981;', data);
+
+            if (data.status === 'success' && data.data) {
+                // 查找白银（含税）的数据
+                var silverData = data.data.find(function(item) {
+                    return item.dir === 'Ag' || item.title === '白银（含税）';
+                });
+
+                if (silverData) {
+                    console.log('%c[金价行情] 找到白银数据:', 'color: #10b981;', silverData);
+                    // 提取涨跌幅数字（去掉+号和%号）
+                    var changePercent = silverData.changepercent.replace('+', '').replace('%', '');
+                    var changeValue = parseFloat(changePercent);
+
+                    return {
+                        最新价: parseFloat(silverData.buyprice),
+                        涨跌: changeValue,
+                        幅度: silverData.changepercent,
+                        最高价: parseFloat(silverData.maxprice),
+                        最低价: parseFloat(silverData.minprice),
+                        报价时间: silverData.date
+                    };
+                }
+            }
+            return null;
+        })
+        .catch(function(error) {
+            console.error('%c[金价行情] 白银价格获取失败:', 'color: #f59e0b;', error);
+            return null;
+        });
+    },
+
     // 获取黄金价格数据
     fetchGoldPrice: function() {
         var self = this;
@@ -239,15 +289,27 @@ var MetalsData = {
                 // 缓存数据
                 self.cachedData = JSON.parse(JSON.stringify(newData));
 
-                self.updateUI();
-
-                // 更新下次刷新时间
-                self.nextRefreshTime = Date.now() + self.refreshInterval;
-
-                // 更新API状态指示为成功
-                if (statusDot) {
-                    statusDot.style.color = '#10b981';
-                }
+                // 调用新API获取白银价格
+                return self.fetchSilverPrice().then(function(silverData) {
+                    if (silverData) {
+                        // 更新国内黄金数据中的白银价格
+                        var silverIndex = self.prices.goldRecycle.findIndex(function(item) {
+                            return item.品种 === '国内银价';
+                        });
+                        if (silverIndex !== -1) {
+                            console.log('%c[金价行情] 更新白银价格:', 'color: #10b981;', silverData);
+                            self.prices.goldRecycle[silverIndex] = {
+                                品种: '国内银价',
+                                最新价: silverData.最新价,
+                                涨跌: silverData.涨跌,
+                                幅度: silverData.幅度,
+                                最高价: silverData.最高价,
+                                最低价: silverData.最低价,
+                                报价时间: silverData.报价时间
+                            };
+                        }
+                    }
+                });
             } else {
                 console.error('%c[金价行情] 数据格式错误:', 'color: #f59e0b;', data);
 

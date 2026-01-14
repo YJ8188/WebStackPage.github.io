@@ -70,6 +70,8 @@ async function signIn(email, password) {
         password: password
     });
 
+    setLoading(false);
+
     if (error) {
         throw new Error(error.message);
     }
@@ -86,6 +88,8 @@ async function signUp(email, password) {
         email: email,
         password: password
     });
+
+    setLoading(false);
 
     if (error) {
         throw new Error(error.message);

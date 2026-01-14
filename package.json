@@ -1,0 +1,39 @@
+{
+  "name": "modern-nav-website",
+  "version": "2.0.0",
+  "description": "现代化网站导航系统 - 何哥技术员网址导航",
+  "main": "src/js/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "serve": "npm run build && npx http-server dist -p 3000 -c-1",
+    "lint": "eslint src/js --fix",
+    "format": "prettier --write \"src/**/*.{js,css,html}\"",
+    "test": "echo \"测试功能待实现\" && exit 0"
+  },
+  "keywords": [
+    "navigation",
+    "website",
+    "bookmark",
+    "dashboard",
+    "supabase"
+  ],
+  "author": "何哥",
+  "license": "MIT",
+  "devDependencies": {
+    "@eslint/js": "^9.15.0",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.3",
+    "vite": "^5.4.10"
+  },
+  "dependencies": {
+    "@fortawesome/fontawesome-free": "^6.6.0",
+    "bootstrap": "^5.3.3",
+    "lozad": "^1.16.0",
+    "source-map-js": "^1.2.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

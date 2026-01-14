@@ -5537,7 +5537,15 @@
     </style>
 
     <script>
-        // ========== 全局函数：卡片排序 ==========
+        // ========== 卡片管理功能：拖拽排序 + 隐藏/显示 ==========
+        
+        // 全局变量
+        let draggedCardId = null;
+        let draggedCardElement = null;
+        let lastDragTime = 0;
+        const DRAG_THROTTLE = 50;
+        
+        // 全局函数：应用排序
         function applyOrder(container, order) {
             order.forEach(id => {
                 const card = document.getElementById(id);
@@ -5546,59 +5554,133 @@
                 }
             });
         }
-
-        // ========== 全局函数：更新隐藏卡片面板 ==========
+        
+        // 全局函数：更新隐藏卡片面板
         function updateHiddenPanel() {
             const hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
             const listContainer = document.getElementById('hiddenCardsList');
-
+            
             if (!listContainer) return;
-
+            
             // 清空容器
-            while (listContainer.firstChild) {
-                listContainer.removeChild(listContainer.firstChild);
-            }
-
+            listContainer.innerHTML = '';
+            
             if (hiddenCards.length === 0) {
-                const emptyMsg = document.createElement('p');
-                emptyMsg.className = 'empty-state';
-                emptyMsg.textContent = '暂无隐藏的卡片';
-                listContainer.appendChild(emptyMsg);
+                listContainer.innerHTML = '<p style="color: #999; text-align: center;">暂无隐藏的卡片</p>';
                 return;
             }
-
-            // 使用安全的DOM操作，避免XSS
-            // 确保显示所有隐藏的卡片，包括那些可能丢失的
+            
+            // 显示隐藏的卡片
             hiddenCards.forEach((card, index) => {
-                // 验证卡片数据完整性
-                if (!card || !card.id) {
-                    return;
-                }
-
+                if (!card || !card.id) return;
+                
                 const item = document.createElement('div');
                 item.className = 'hidden-card-item';
                 item.setAttribute('data-card-id', card.id);
-
+                
                 const title = document.createElement('div');
                 title.className = 'card-title';
                 title.textContent = card.title || `卡片 ${index + 1}`;
-
+                
                 const restoreBtn = document.createElement('button');
                 restoreBtn.className = 'card-restore-btn';
                 restoreBtn.textContent = '恢复显示';
                 restoreBtn.onclick = function () {
                     restoreCard(card.id);
                 };
-
+                
                 item.appendChild(title);
                 item.appendChild(restoreBtn);
                 listContainer.appendChild(item);
             });
         }
-
-        // 卡片管理功能：拖拽排序 + 隐藏/显示
-        document.addEventListener('DOMContentLoaded', async function () {
-            // ========== 1. 为所有卡片添加ID和draggable属性 ==========
+        
+        // 隐藏卡片功能
+        async function hideCard(widget) {
+            const cardContainer = widget.closest('.col-sm-3');
+            if (!cardContainer) {
+                console.error('无法找到卡片容器');
+                return;
+            }
+            
+            const cardId = cardContainer.id;
+            if (!cardId) {
+                console.error('卡片没有ID');
+                return;
+            }
+            
+            const cardTitle = widget.querySelector('.xe-user-name strong')?.textContent || '未命名卡片';
+            
+            // 添加隐藏类
+            cardContainer.classList.add('card-hidden');
+            
+            // 保存到localStorage
+            let hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
+            const exists = hiddenCards.some(card => card && card.id === cardId);
+            if (!exists) {
+                hiddenCards.push({
+                    id: cardId,
+                    title: cardTitle
+                });
+                localStorage.setItem('hiddenCards', JSON.stringify(hiddenCards));
+            }
+            
+            // 更新管理面板
+            updateHiddenPanel();
+            
+            // 后台异步保存到数据库
+            if (typeof userData !== 'undefined' && userData.isLoggedIn) {
+                try {
+                    const dbHiddenCards = await userData.loadHiddenCards();
+                    if (!dbHiddenCards.includes(cardId)) {
+                        dbHiddenCards.push(cardId);
+                        await userData.saveHiddenCards(dbHiddenCards);
+                        console.log('[卡片] ✅ 隐藏卡片数据库同步成功');
+                    }
+                } catch (error) {
+                    console.error('[卡片] 隐藏卡片数据库同步异常:', error);
+                }
+            }
+        }
+        
+        // 显示卡片功能
+        async function showCard(cardId) {
+            const cardContainer = document.getElementById(cardId);
+            if (cardContainer) {
+                cardContainer.classList.remove('card-hidden');
+                
+                // 从localStorage移除
+                let hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
+                hiddenCards = hiddenCards.filter(card => card.id !== cardId);
+                localStorage.setItem('hiddenCards', JSON.stringify(hiddenCards));
+                
+                // 更新管理面板
+                updateHiddenPanel();
+                
+                // 后台异步从数据库移除
+                if (typeof userData !== 'undefined' && userData.isLoggedIn) {
+                    try {
+                        const dbHiddenCards = await userData.loadHiddenCards();
+                        const newHiddenCards = dbHiddenCards.filter(id => id !== cardId);
+                        await userData.saveHiddenCards(newHiddenCards);
+                        console.log('[卡片] ✅ 显示卡片数据库同步成功');
+                    } catch (error) {
+                        console.error('[卡片] 显示卡片数据库同步异常:', error);
+                    }
+                }
+            }
+        }
+        
+        // 恢复卡片（全局函数）
+        window.restoreCard = function(cardId) {
+            showCard(cardId);
+        };
+        
+        // 初始化卡片管理功能
+        function initCardManagement() {
+            console.log('[卡片] 开始初始化卡片管理功能');
+            
+            // 1. 为所有卡片添加ID和draggable属性
             let cardCounter = 1;
             document.querySelectorAll('.col-sm-3').forEach(card => {
                 if (!card.id) {
@@ -5608,169 +5690,53 @@
                     card.setAttribute('draggable', 'true');
                 }
             });
-
-            // ========== 2. 为所有卡片添加隐藏按钮 ==========
+            
+            // 2. 为所有卡片添加隐藏按钮
             document.querySelectorAll('.xe-widget').forEach(widget => {
-                // 检查是否已有隐藏按钮
                 if (widget.querySelector('.card-hide-btn')) return;
-
+                
                 const hideBtn = document.createElement('button');
                 hideBtn.className = 'card-hide-btn';
                 hideBtn.innerHTML = '×';
                 hideBtn.title = '隐藏此卡片';
-                hideBtn.onclick = async function (e) {
+                hideBtn.onclick = async function(e) {
                     e.stopPropagation();
                     e.preventDefault();
                     await hideCard(widget);
                 };
                 widget.appendChild(hideBtn);
             });
-
-            // ========== 3. 隐藏卡片功能 ==========
-            async function hideCard(widget) {
-                const cardContainer = widget.closest('.col-sm-3');
-                if (!cardContainer) {
-                    console.error('无法找到卡片容器');
-                    return;
-                }
-
-                const cardId = cardContainer.id;
-                if (!cardId) {
-                    console.error('卡片没有ID');
-                    return;
-                }
-
-                const cardTitle = widget.querySelector('.xe-user-name strong')?.textContent || '未命名卡片';
-
-                // 添加隐藏类
-                cardContainer.classList.add('card-hidden');
-
-                // 保存到localStorage
-                let hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
-
-                // 检查是否已存在（数组存储的是对象，需要检查id属性）
-                const exists = hiddenCards.some(card => card && card.id === cardId);
-                if (!exists) {
-                    hiddenCards.push({
-                        id: cardId,
-                        title: cardTitle,
-                        widget: widget.outerHTML
-                    });
-                    localStorage.setItem('hiddenCards', JSON.stringify(hiddenCards));
-                }
-
-                // 更新管理面板
-                updateHiddenPanel();
-
-                // 后台异步保存到数据库（不阻塞 UI）
-                if (userData.isLoggedIn) {
-                    userData.loadHiddenCards().then(dbHiddenCards => {
-                        if (!dbHiddenCards.includes(cardId)) {
-                            dbHiddenCards.push(cardId);
-                            return userData.saveHiddenCards(dbHiddenCards);
-                        }
-                    }).then(result => {
-                        console.log('[卡片] ✅ 隐藏卡片数据库同步成功');
-                    }).catch(error => {
-                        console.error('[卡片] 隐藏卡片数据库同步异常:', error);
-                    });
-                }
-            }
-
-            // ========== 4. 显示卡片功能 ==========
-            async function showCard(cardId) {
-                const cardContainer = document.getElementById(cardId);
-                if (cardContainer) {
-                    cardContainer.classList.remove('card-hidden');
-
-                    // 从localStorage移除
-                    let hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
-                    hiddenCards = hiddenCards.filter(card => card.id !== cardId);
-                    localStorage.setItem('hiddenCards', JSON.stringify(hiddenCards));
-
-                    // 更新管理面板
-                    updateHiddenPanel();
-
-                    // 后台异步从数据库移除（不阻塞 UI）
-                    if (userData.isLoggedIn) {
-                        userData.loadHiddenCards().then(dbHiddenCards => {
-                            const newHiddenCards = dbHiddenCards.filter(id => id !== cardId);
-                            return userData.saveHiddenCards(newHiddenCards);
-                        }).then(result => {
-                            console.log('[卡片] ✅ 显示卡片数据库同步成功');
-                        }).catch(error => {
-                            console.error('[卡片] 显示卡片数据库同步异常:', error);
-                        });
-                    }
-                }
-
-            // ========== 6. 恢复卡片（全局函数） ==========
-            window.restoreCard = function (cardId) {
-                showCard(cardId);
-            };
-
-            // ========== 7. 加载已隐藏的卡片 ==========
-            // 注意：需要在添加隐藏按钮之后执行，确保所有卡片都已初始化
-            setTimeout(async function () {
-                const localStorageHiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
-                localStorageHiddenCards.forEach(card => {
-                    if (card && card.id) {
-                        const cardContainer = document.getElementById(card.id);
-                        if (cardContainer) {
-                            cardContainer.classList.add('card-hidden');
-                        }
-                    }
-                });
-
-                // 如果已登录，从数据库加载隐藏卡片
-                if (userData.isLoggedIn) {
-                    const dbHiddenCards = await userData.loadHiddenCards();
-                    dbHiddenCards.forEach(cardId => {
-                        const cardContainer = document.getElementById(cardId);
-                        if (cardContainer) {
-                            cardContainer.classList.add('card-hidden');
-                        }
-                    });
-                }
-            }, 100);
-
-            // ========== 8. 拖拽排序功能 - 支持跨栏拖动（类似iPhone APP）==========
+            
+            // 3. 初始化拖拽排序功能
+            initDragSort();
+            
+            // 4. 加载已隐藏的卡片
+            loadHiddenCards();
+            
+            // 5. 初始化管理面板
+            initHiddenPanel();
+            
+            console.log('[卡片] ✅ 卡片管理功能初始化完成');
+        }
+        
+        // 初始化拖拽排序功能
+        function initDragSort() {
             const allRows = document.querySelectorAll('.row');
-            let draggedCardId = null; // 全局拖拽卡片ID
-            let draggedCardElement = null; // 全局拖拽卡片元素
-            let lastDragTime = 0; // 用于节流
-            const DRAG_THROTTLE = 50; // 节流时间（毫秒）
-
-            // 为所有卡片添加拖拽事件（支持跨栏）
+            
+            // 为所有卡片添加拖拽事件
             document.querySelectorAll('.col-sm-3[draggable="true"]').forEach(card => {
                 if (card.classList.contains('card-hidden')) return;
-
-                card.addEventListener('dragstart', function (e) {
+                
+                card.addEventListener('dragstart', function(e) {
                     draggedCardId = this.id;
                     draggedCardElement = this;
                     e.dataTransfer.setData('text/plain', this.id);
                     e.dataTransfer.effectAllowed = 'move';
-
-                    // 添加拖动样式
+                    
                     this.classList.add('dragging');
-
-                    // 创建拖动预览图像
-                    const dragImage = this.cloneNode(true);
-                    dragImage.style.transform = 'rotate(5deg)';
-                    dragImage.style.opacity = '0.8';
-                    document.body.appendChild(dragImage);
-                    dragImage.style.position = 'absolute';
-                    dragImage.style.top = '-1000px';
-                    e.dataTransfer.setDragImage(dragImage, e.offsetX, e.offsetY);
-                    setTimeout(() => {
-                        if (document.body.contains(dragImage)) {
-                            document.body.removeChild(dragImage);
-                        }
-                    }, 0);
                 });
-
-                card.addEventListener('dragend', function () {
-                    // 清除所有拖动样式（所有容器）
+                
+                card.addEventListener('dragend', function() {
                     this.classList.remove('dragging');
                     allRows.forEach(container => {
                         container.querySelectorAll('.col-sm-3').forEach(c => {
@@ -5779,61 +5745,44 @@
                     });
                     draggedCardId = null;
                     draggedCardElement = null;
-                    lastDragTime = 0;
                 });
             });
-
-            // 为所有容器添加跨栏拖动支持
+            
+            // 为所有容器添加拖拽支持
             allRows.forEach(async (container, rowIndex) => {
                 const cards = container.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)');
                 if (cards.length === 0) return;
-
+                
                 const storageKey = `cardOrder_${rowIndex}`;
                 const defaultKey = `defaultOrder_${rowIndex}`;
-
-                // 保存默认顺序（首次加载时记录，排除隐藏的卡片）
+                
+                // 保存默认顺序
                 if (!localStorage.getItem(defaultKey)) {
-                    const defaultIds = Array.from(cards)
-                        .filter(card => !card.classList.contains('card-hidden'))
-                        .map(card => card.id);
+                    const defaultIds = Array.from(cards).map(card => card.id);
                     localStorage.setItem(defaultKey, JSON.stringify(defaultIds));
                 }
-
-                // 加载用户保存的顺序
+                
+                // 加载保存的顺序
                 const savedOrder = localStorage.getItem(storageKey);
                 if (savedOrder) {
                     applyOrder(container, JSON.parse(savedOrder));
                 }
-
-                // 如果已登录，从数据库加载排序
-                if (userData.isLoggedIn) {
-                    const dbCardOrder = await userData.loadCardOrder();
-                    if (dbCardOrder && dbCardOrder.length > 0) {
-                        applyOrder(container, dbCardOrder);
-                    }
-                }
-
-                // 使用节流的dragover事件处理
-                container.addEventListener('dragover', function (e) {
+                
+                // 拖拽事件处理
+                container.addEventListener('dragover', function(e) {
                     e.preventDefault();
-
-                    // 节流控制
+                    
                     const now = Date.now();
-                    if (now - lastDragTime < DRAG_THROTTLE) {
-                        return;
-                    }
+                    if (now - lastDragTime < DRAG_THROTTLE) return;
                     lastDragTime = now;
-
+                    
                     if (!draggedCardId || !draggedCardElement) return;
-
-                    // 清除当前容器的所有插入指示器
+                    
                     container.querySelectorAll('.col-sm-3').forEach(card => {
                         card.classList.remove('drag-insert-before', 'drag-insert-after', 'drag-over');
                     });
-
-                    // 如果拖动的卡片不在当前容器，先移动到当前容器
+                    
                     if (!container.contains(draggedCardElement)) {
-                        // 找到插入位置
                         const afterElement = getDragAfterElement(container, e.clientY);
                         if (afterElement) {
                             container.insertBefore(draggedCardElement, afterElement);
@@ -5841,80 +5790,119 @@
                             container.appendChild(draggedCardElement);
                         }
                     } else {
-                        // 在同一容器内移动
                         const afterElement = getDragAfterElement(container, e.clientY);
-
                         if (afterElement && afterElement !== draggedCardElement) {
                             afterElement.classList.add('drag-insert-before');
                             container.insertBefore(draggedCardElement, afterElement);
                         } else if (!afterElement) {
-                            // 最后一个元素
-                            const lastCard = container.querySelector('.col-sm-3:last-of-type:not(.dragging)');
-                            if (lastCard && lastCard !== draggedCardElement) {
-                                lastCard.classList.add('drag-insert-after');
-                            }
                             container.appendChild(draggedCardElement);
                         }
                     }
                 });
-
-                // 保存新顺序
-                container.addEventListener('drop', async function (e) {
+                
+                container.addEventListener('drop', async function(e) {
                     e.preventDefault();
-
-                    // 清除所有拖动样式
+                    
                     allRows.forEach(c => {
                         c.querySelectorAll('.col-sm-3').forEach(card => {
                             card.classList.remove('drag-insert-before', 'drag-insert-after', 'drag-over');
                         });
                     });
-
-                    // 保存当前容器的顺序
+                    
+                    // 保存新顺序
                     const newOrder = Array.from(container.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)')).map(card => card.id);
                     localStorage.setItem(storageKey, JSON.stringify(newOrder));
-
-                    // 更新所有容器的顺序（因为可能跨栏移动）
+                    
+                    // 更新所有容器的顺序
                     allRows.forEach((c, idx) => {
                         const order = Array.from(c.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)')).map(card => card.id);
                         localStorage.setItem(`cardOrder_${idx}`, JSON.stringify(order));
                     });
-
-                    // 后台异步保存到数据库（不阻塞 UI）
-                    if (userData.isLoggedIn) {
-                        const allCardsOrder = [];
-                        allRows.forEach(c => {
-                            const order = Array.from(c.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)')).map(card => card.id);
-                            allCardsOrder.push(...order);
-                        });
-                        userData.saveCardOrder(allCardsOrder).then(result => {
+                    
+                    // 后台异步保存到数据库
+                    if (typeof userData !== 'undefined' && userData.isLoggedIn) {
+                        try {
+                            const allCardsOrder = [];
+                            allRows.forEach(c => {
+                                const order = Array.from(c.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)')).map(card => card.id);
+                                allCardsOrder.push(...order);
+                            });
+                            await userData.saveCardOrder(allCardsOrder);
                             console.log('[卡片] ✅ 排序数据库同步成功');
-                        }).catch(error => {
+                        } catch (error) {
                             console.error('[卡片] 排序数据库同步异常:', error);
-                        });
+                        }
                     }
                 });
-
-                // 拖动进入容器
-                container.addEventListener('dragenter', function (e) {
+                
+                container.addEventListener('dragenter', function(e) {
                     e.preventDefault();
                 });
-
-                // 拖动离开容器时清除样式
-                container.addEventListener('dragleave', function (e) {
-                    // 只有当真正离开容器时才清除
-                    if (!container.contains(e.relatedTarget)) {
-                        container.querySelectorAll('.col-sm-3').forEach(card => {
-                            card.classList.remove('drag-insert-before', 'drag-insert-after', 'drag-over');
-                        });
-                    }
-                });
             });
-
-            // ========== 9. 恢复默认排序按钮 ==========
+        }
+        
+        // 加载已隐藏的卡片
+        async function loadHiddenCards() {
+            // 从localStorage加载
+            const localStorageHiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
+            localStorageHiddenCards.forEach(card => {
+                if (card && card.id) {
+                    const cardContainer = document.getElementById(card.id);
+                    if (cardContainer) {
+                        cardContainer.classList.add('card-hidden');
+                    }
+                }
+            });
+            
+            // 从数据库加载
+            if (typeof userData !== 'undefined' && userData.isLoggedIn) {
+                try {
+                    const dbHiddenCards = await userData.loadHiddenCards();
+                    dbHiddenCards.forEach(cardId => {
+                        const cardContainer = document.getElementById(cardId);
+                        if (cardContainer) {
+                            cardContainer.classList.add('card-hidden');
+                        }
+                    });
+                } catch (error) {
+                    console.error('[卡片] 加载数据库隐藏卡片失败:', error);
+                }
+            }
+        }
+        
+        // 初始化隐藏卡片管理面板
+        function initHiddenPanel() {
+            const showHiddenBtn = document.getElementById('showHiddenCards');
+            const panel = document.getElementById('hiddenCardsPanel');
+            const overlay = document.getElementById('panelOverlay');
+            const panelClose = document.getElementById('panelClose');
             const resetBtn = document.getElementById('resetOrder');
+            
+            if (showHiddenBtn && panel && overlay) {
+                showHiddenBtn.addEventListener('click', function() {
+                    updateHiddenPanel();
+                    panel.classList.add('active');
+                    overlay.classList.add('active');
+                });
+            }
+            
+            function closePanel() {
+                if (panel) panel.classList.remove('active');
+                if (overlay) overlay.classList.remove('active');
+            }
+            
+            if (panelClose) {
+                panelClose.addEventListener('click', closePanel);
+            }
+            
+            if (overlay) {
+                overlay.addEventListener('click', closePanel);
+            }
+            
             if (resetBtn) {
-                resetBtn.addEventListener('click', async function () {
-                    if (await showConfirm('确定要恢复默认排序吗？')) {
+                resetBtn.addEventListener('click', async function() {
+                    if (typeof showConfirm === 'function' && await showConfirm('确定要恢复默认排序吗？')) {
+                        const allRows = document.querySelectorAll('.row');
                         allRows.forEach((container, rowIndex) => {
                             const defaultKey = `defaultOrder_${rowIndex}`;
                             const defaultOrder = localStorage.getItem(defaultKey);
@@ -5926,99 +5914,62 @@
                     }
                 });
             }
-
-            // ========== 10. 显示已隐藏卡片按钮 ==========
-            const showHiddenBtn = document.getElementById('showHiddenCards');
-            const panel = document.getElementById('hiddenCardsPanel');
-            const overlay = document.getElementById('panelOverlay');
-            const panelClose = document.getElementById('panelClose');
-
-            if (showHiddenBtn && panel && overlay) {
-                showHiddenBtn.addEventListener('click', function () {
-                    updateHiddenPanel();
-                    panel.classList.add('active');
-                    overlay.classList.add('active');
-                });
-            }
-
-            function closePanel() {
-                if (panel) panel.classList.remove('active');
-                if (overlay) overlay.classList.remove('active');
-            }
-
-            if (panelClose) {
-                panelClose.addEventListener('click', closePanel);
-            }
-
-            if (overlay) {
-                overlay.addEventListener('click', closePanel);
-            }
-
-            // ========== 辅助函数 ==========
-            function getDragAfterElement(container, y) {
-                const cards = [...container.querySelectorAll('.col-sm-3[draggable="true"]:not(.dragging):not(.card-hidden)')];
-                if (cards.length === 0) return null;
-
-                return cards.reduce((closest, card) => {
-                    const box = card.getBoundingClientRect();
-                    const offset = y - box.top - box.height / 2;
-                    if (offset < 0 && offset > closest.offset) {
-                        return { offset: offset, element: card };
-                    }
-                    return closest;
-                }, { offset: Number.NEGATIVE_INFINITY }).element;
-            }
-
-            // 全局拖动处理：支持跨容器拖动（类似iPhone APP）
-            document.addEventListener('dragover', function (e) {
-                if (!draggedCardId || !draggedCardElement) return;
-
-                // 找到鼠标位置下的所有容器
-                const elementsBelow = document.elementsFromPoint(e.clientX, e.clientY);
-                const targetRow = elementsBelow.find(el => el.classList.contains('row'));
-
-                if (targetRow && targetRow !== draggedCardElement.closest('.row')) {
-                    // 鼠标在另一个容器上，触发该容器的dragover
-                    e.preventDefault();
-                    const event = new DragEvent('dragover', {
-                        bubbles: true,
-                        cancelable: true,
-                        clientX: e.clientX,
-                        clientY: e.clientY
-                    });
-                    targetRow.dispatchEvent(event);
-                }
-            }, false);
-
-            // 初始化管理面板
-            updateHiddenPanel();
-        });
-
-        // 监听用户数据加载完成事件 - 重新加载隐藏卡片和排序
-        window.addEventListener('userDataLoaded', async function(event) {
-            console.log('[卡片] 收到 userDataLoaded 事件');
             
-            // 重新加载隐藏卡片
-            if (userData.isLoggedIn) {
-                console.log('[卡片] 从数据库加载隐藏卡片...');
-                const dbHiddenCards = await userData.loadHiddenCards();
-                dbHiddenCards.forEach(cardId => {
-                    const cardContainer = document.getElementById(cardId);
-                    if (cardContainer) {
-                        cardContainer.classList.add('card-hidden');
-                    }
-                });
-                console.log('[卡片] ✅ 隐藏卡片已应用');
+            updateHiddenPanel();
+        }
+        
+        // 辅助函数：获取拖拽后的元素位置
+        function getDragAfterElement(container, y) {
+            const cards = [...container.querySelectorAll('.col-sm-3[draggable="true"]:not(.dragging):not(.card-hidden)')];
+            if (cards.length === 0) return null;
+            
+            return cards.reduce((closest, card) => {
+                const box = card.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: card };
+                }
+                return closest;
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 等待其他脚本加载完成
+            setTimeout(initCardManagement, 500);
+        });
+        
+        // 监听用户数据加载完成事件
+        window.addEventListener('userDataLoaded', async function(event) {
+            console.log('[卡片] 收到 userDataLoaded 事件，重新应用设置');
+            
+            if (typeof userData !== 'undefined' && userData.isLoggedIn) {
+                // 重新加载隐藏卡片
+                try {
+                    const dbHiddenCards = await userData.loadHiddenCards();
+                    dbHiddenCards.forEach(cardId => {
+                        const cardContainer = document.getElementById(cardId);
+                        if (cardContainer) {
+                            cardContainer.classList.add('card-hidden');
+                        }
+                    });
+                    console.log('[卡片] ✅ 隐藏卡片已应用');
+                } catch (error) {
+                    console.error('[卡片] 应用隐藏卡片失败:', error);
+                }
                 
                 // 重新加载排序
-                console.log('[卡片] 从数据库加载排序...');
-                const dbCardOrder = await userData.loadCardOrder();
-                if (dbCardOrder && dbCardOrder.length > 0) {
-                    const allRows = document.querySelectorAll('.row');
-                    allRows.forEach(container => {
-                        applyOrder(container, dbCardOrder);
-                    });
-                    console.log('[卡片] ✅ 排序已应用');
+                try {
+                    const dbCardOrder = await userData.loadCardOrder();
+                    if (dbCardOrder && dbCardOrder.length > 0) {
+                        const allRows = document.querySelectorAll('.row');
+                        allRows.forEach(container => {
+                            applyOrder(container, dbCardOrder);
+                        });
+                        console.log('[卡片] ✅ 排序已应用');
+                    }
+                } catch (error) {
+                    console.error('[卡片] 应用排序失败:', error);
                 }
                 
                 // 更新管理面板

@@ -11,13 +11,14 @@ let reminderTimers = {}; // 定时器对象
 let checkInterval = null; // 检查提醒的定时器
 
 // ==================== 初始化 ====================
-document.addEventListener('DOMContentLoaded', function() {
-    loadReminders(); // 加载保存的提醒
-    updateReminderList(); // 更新提醒列表显示
-    startReminderCheck(); // 开始检查提醒
-    updateDateTime(); // 更新时间日期
-    setInterval(updateDateTime, 1000); // 每秒更新时间
-    initNotificationCenterEvents(); // 初始化通知中心事件监听
+document.addEventListener('DOMContentLoaded', async function() {
+    await userData.init();
+    await loadReminders();
+    updateReminderList();
+    startReminderCheck();
+    updateDateTime();
+    setInterval(updateDateTime, 1000);
+    initNotificationCenterEvents();
 });
 
 // ==================== 更新时间日期 ====================
@@ -627,8 +628,19 @@ function showToast(message, type = 'info', duration = 3000) {
 // ==================== 保存提醒到 localStorage ====================
 function saveReminders() {
     try {
-        localStorage.setItem('reminders', JSON.stringify(reminders));
-        console.log('提醒已保存到 localStorage');
+        if (userData.isLoggedIn) {
+            userData.saveReminders(reminders).then(success => {
+                if (success) {
+                    console.log('提醒已保存到数据库');
+                } else {
+                    console.log('数据库保存失败，使用 localStorage');
+                    localStorage.setItem('reminders', JSON.stringify(reminders));
+                }
+            });
+        } else {
+            localStorage.setItem('reminders', JSON.stringify(reminders));
+            console.log('提醒已保存到 localStorage');
+        }
     } catch (error) {
         console.error('保存提醒失败:', error);
         showToast('保存提醒失败，请检查浏览器存储空间', 'error');
@@ -636,15 +648,32 @@ function saveReminders() {
 }
 
 // ==================== 从 localStorage 加载提醒 ====================
-function loadReminders() {
+async function loadReminders() {
     try {
-        const saved = localStorage.getItem('reminders');
-        if (saved) {
-            reminders = JSON.parse(saved);
-            console.log(`已加载 ${reminders.length} 条提醒`);
+        if (userData.isLoggedIn) {
+            const dbReminders = await userData.loadReminders();
+            if (dbReminders !== null) {
+                reminders = dbReminders;
+                console.log(`已从数据库加载 ${reminders.length} 条提醒`);
+            } else {
+                const saved = localStorage.getItem('reminders');
+                if (saved) {
+                    reminders = JSON.parse(saved);
+                    console.log(`已从 localStorage 加载 ${reminders.length} 条提醒`);
+                } else {
+                    reminders = [];
+                    console.log('没有找到保存的提醒');
+                }
+            }
         } else {
-            reminders = [];
-            console.log('没有找到保存的提醒');
+            const saved = localStorage.getItem('reminders');
+            if (saved) {
+                reminders = JSON.parse(saved);
+                console.log(`已从 localStorage 加载 ${reminders.length} 条提醒`);
+            } else {
+                reminders = [];
+                console.log('没有找到保存的提醒');
+            }
         }
         updateBadge();
     } catch (error) {

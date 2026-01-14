@@ -47,14 +47,35 @@ const userData = {
     },
 
     async loadConfig() {
+        console.log('[UserData] loadConfig 被调用');
+        console.log('[UserData] user.id:', this.user?.id);
+        
         try {
-            const { data, error } = await supabaseClient
+            console.log('[UserData] 开始查询数据库...');
+            
+            const { data, error, count, status, statusText } = await supabaseClient
                 .from('user_config')
                 .select('*')
                 .eq('user_id', this.user.id)
                 .single();
 
+            console.log('[UserData] 查询结果:');
+            console.log('[UserData] data:', data);
+            console.log('[UserData] error:', error);
+            console.log('[UserData] status:', status);
+            console.log('[UserData] statusText:', statusText);
+            console.log('[UserData] count:', count);
+
             if (error) {
+                console.error('[UserData] 错误详情:', {
+                    message: error.message,
+                    code: error.code,
+                    details: error.details,
+                    hint: error.hint,
+                    status: status,
+                    statusText: statusText
+                });
+                
                 if (error.code === 'PGRST116') {
                     console.log('[UserData] 用户配置不存在，使用默认配置');
                     this.config = {
@@ -65,8 +86,12 @@ const userData = {
                         reminders: [],
                         favorites: []
                     };
-                } else {
-                    console.error('[UserData] 加载配置失败:', error);
+                } else if (status === 406) {
+                    console.error('[UserData] 406 错误 - 可能是 RLS 策略或权限问题');
+                    console.error('[UserData] 建议检查:');
+                    console.error('[UserData] 1. RLS 策略是否启用');
+                    console.error('[UserData] 2. API key 是否正确');
+                    console.error('[UserData] 3. 表权限是否正确配置');
                 }
             } else {
                 this.config = {

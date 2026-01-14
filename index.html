@@ -6260,15 +6260,17 @@
 
             console.log('[收藏] 新卡片:', newCard);
 
+            // 立即关闭模态框
+            closeAddCardModal();
+            
             // 保存到 LocalStorage
             let favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
             favs.push(newCard);
             localStorage.setItem(FAV_KEY, JSON.stringify(favs));
             console.log('[收藏] ✅ 已保存到 localStorage, 当前数量:', favs.length);
 
-            // 立即渲染并关闭模态框
-            await renderFavorites();
-            closeAddCardModal();
+            // 立即渲染（不等待，使用 localStorage）
+            renderFavorites(true);
             console.log('[收藏] ✅ 本地操作完成');
 
             // 后台异步保存到数据库（不阻塞 UI）
@@ -6290,44 +6292,47 @@
             console.log('[收藏] ✅ 保存完成');
         }
 
-        async function deleteFavCard(id, e) {
+        function deleteFavCard(id, e) {
             console.log('[收藏] deleteFavCard 被调用, id:', id);
             e.stopPropagation(); // 防止触发点击跳转
-            if (await showConfirm('确定要删除这个收藏吗？')) {
-                console.log('[收藏] 开始删除收藏');
-                
-                let favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
-                console.log('[收藏] localStorage 当前收藏数:', favs.length);
-                favs = favs.filter(c => c.id !== id);
-                localStorage.setItem(FAV_KEY, JSON.stringify(favs));
-                console.log('[收藏] ✅ 已从 localStorage 删除');
+            
+            showConfirm('确定要删除这个收藏吗？').then(confirmed => {
+                if (confirmed) {
+                    console.log('[收藏] 开始删除收藏');
+                    
+                    let favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
+                    console.log('[收藏] localStorage 当前收藏数:', favs.length);
+                    favs = favs.filter(c => c.id !== id);
+                    localStorage.setItem(FAV_KEY, JSON.stringify(favs));
+                    console.log('[收藏] ✅ 已从 localStorage 删除');
 
-                // 立即渲染
-                await renderFavorites();
-                console.log('[收藏] ✅ 本地删除完成');
+                    // 立即渲染（不等待，使用 localStorage）
+                    renderFavorites(true);
+                    console.log('[收藏] ✅ 本地删除完成');
 
-                // 后台异步从数据库删除（不阻塞 UI）
-                if (userData.isLoggedIn) {
-                    console.log('[收藏] 开始后台同步到数据库...');
-                    userData.saveFavorites(favs).then(result => {
-                        if (result) {
-                            console.log('[收藏] ✅ 数据库同步成功');
-                        } else {
-                            console.log('[收藏] ❌ 数据库同步失败');
-                        }
-                    }).catch(error => {
-                        console.error('[收藏] 数据库同步异常:', error);
-                    });
-                } else {
-                    console.log('[收藏] ⚠️ 未登录，跳过数据库同步');
+                    // 后台异步从数据库删除（不阻塞 UI）
+                    if (userData.isLoggedIn) {
+                        console.log('[收藏] 开始后台同步到数据库...');
+                        userData.saveFavorites(favs).then(result => {
+                            if (result) {
+                                console.log('[收藏] ✅ 数据库同步成功');
+                            } else {
+                                console.log('[收藏] ❌ 数据库同步失败');
+                            }
+                        }).catch(error => {
+                            console.error('[收藏] 数据库同步异常:', error);
+                        });
+                    } else {
+                        console.log('[收藏] ⚠️ 未登录，跳过数据库同步');
+                    }
+
+                    console.log('[收藏] ✅ 删除完成');
                 }
-
-                console.log('[收藏] ✅ 删除完成');
-            }
+            });
         }
 
-        async function renderFavorites() {
-            console.log('[收藏] renderFavorites 被调用');
+        function renderFavorites(useLocalStorageOnly = false) {
+            console.log('[收藏] renderFavorites 被调用, useLocalStorageOnly:', useLocalStorageOnly);
             const container = document.getElementById('my-favorites-list');
             if (!container) {
                 console.log('[收藏] ❌ 找不到容器元素 #my-favorites-list');
@@ -6337,26 +6342,31 @@
             let favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
             console.log('[收藏] localStorage 收藏数:', favs.length);
 
-            // 如果已登录，从数据库加载收藏
-            if (userData.isLoggedIn) {
+            // 如果已登录且不强制使用 localStorage，从数据库加载收藏
+            if (userData.isLoggedIn && !useLocalStorageOnly) {
                 console.log('[收藏] 已登录，从数据库加载收藏...');
-                try {
-                    const dbFavs = await userData.loadFavorites();
+                userData.loadFavorites().then(dbFavs => {
                     console.log('[收藏] 数据库返回收藏数:', dbFavs.length);
                     if (dbFavs && dbFavs.length > 0) {
                         favs = dbFavs;
                         console.log('[收藏] ✅ 使用数据库收藏数据');
+                        renderFavoritesList(container, favs);
                     } else {
                         console.log('[收藏] 数据库为空，使用 localStorage 数据');
+                        renderFavoritesList(container, favs);
                     }
-                } catch (error) {
+                }).catch(error => {
                     console.error('[收藏] 从数据库加载收藏失败:', error);
-                }
+                    renderFavoritesList(container, favs);
+                });
             } else {
-                console.log('[收藏] 未登录，使用 localStorage 数据');
+                console.log('[收藏] 使用 localStorage 数据');
+                renderFavoritesList(container, favs);
             }
+        }
 
-            console.log('[收藏] 最终渲染的收藏数:', favs.length);
+        function renderFavoritesList(container, favs) {
+            console.log('[收藏] 开始渲染列表, 收藏数:', favs.length);
 
             // 清空现有内容
             container.innerHTML = '';
@@ -6404,7 +6414,7 @@
 
         // 初始化
         document.addEventListener('DOMContentLoaded', async function () {
-            await renderFavorites();
+            renderFavorites();
 
             // 点击遮罩关闭
             document.getElementById('addCardOverlay').addEventListener('click', closeAddCardModal);
@@ -6413,7 +6423,7 @@
         // 监听用户数据加载完成事件
         window.addEventListener('userDataLoaded', async function(event) {
             console.log('[收藏] 收到 userDataLoaded 事件');
-            await renderFavorites();
+            renderFavorites();
         });
 
         // 导出收藏数据
@@ -6450,10 +6460,10 @@
 
                             // 保存到数据库（如果已登录）
                             if (userData.isLoggedIn) {
-                                await userData.saveFavorites(data);
+                                userData.saveFavorites(data);
                             }
 
-                            renderFavorites();
+                            renderFavorites(true);
                             showToast('导入成功！', 'success');
                             closeAddCardModal();
                         }

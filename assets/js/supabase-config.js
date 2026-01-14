@@ -1,5 +1,5 @@
 const supabaseUrl = 'https://yzyhtqiwcbpqsglfbvqa.supabase.co';
-const supabaseKey = 'sb_publishable_hgJCIbPhEyiCOWHV1hJMeg_QArg-t_v';
+const supabaseKey = 'sb_secret_CM8uXSzTlk6TWkuzdarQyw_2mPb0sw-';
 
 console.log('[Supabase] URL:', supabaseUrl);
 console.log('[Supabase] Key:', supabaseKey);

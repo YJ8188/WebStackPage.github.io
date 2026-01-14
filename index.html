@@ -5538,7 +5538,7 @@
 
     <script>
         // 卡片管理功能：拖拽排序 + 隐藏/显示
-        document.addEventListener('DOMContentLoaded', function () {
+        document.addEventListener('DOMContentLoaded', async function () {
             // ========== 1. 为所有卡片添加ID和draggable属性 ==========
             let cardCounter = 1;
             document.querySelectorAll('.col-sm-3').forEach(card => {
@@ -5559,16 +5559,16 @@
                 hideBtn.className = 'card-hide-btn';
                 hideBtn.innerHTML = '×';
                 hideBtn.title = '隐藏此卡片';
-                hideBtn.onclick = function (e) {
+                hideBtn.onclick = async function (e) {
                     e.stopPropagation();
                     e.preventDefault();
-                    hideCard(widget);
+                    await hideCard(widget);
                 };
                 widget.appendChild(hideBtn);
             });
 
             // ========== 3. 隐藏卡片功能 ==========
-            function hideCard(widget) {
+            async function hideCard(widget) {
                 const cardContainer = widget.closest('.col-sm-3');
                 if (!cardContainer) {
                     console.error('无法找到卡片容器');
@@ -5600,12 +5600,21 @@
                     localStorage.setItem('hiddenCards', JSON.stringify(hiddenCards));
                 }
 
+                // 保存到数据库（如果已登录）
+                if (userData.isLoggedIn) {
+                    const dbHiddenCards = await userData.loadHiddenCards();
+                    if (!dbHiddenCards.includes(cardId)) {
+                        dbHiddenCards.push(cardId);
+                        await userData.saveHiddenCards(dbHiddenCards);
+                    }
+                }
+
                 // 更新管理面板
                 updateHiddenPanel();
             }
 
             // ========== 4. 显示卡片功能 ==========
-            function showCard(cardId) {
+            async function showCard(cardId) {
                 const cardContainer = document.getElementById(cardId);
                 if (cardContainer) {
                     cardContainer.classList.remove('card-hidden');
@@ -5614,6 +5623,13 @@
                     let hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
                     hiddenCards = hiddenCards.filter(card => card.id !== cardId);
                     localStorage.setItem('hiddenCards', JSON.stringify(hiddenCards));
+
+                    // 从数据库移除（如果已登录）
+                    if (userData.isLoggedIn) {
+                        const dbHiddenCards = await userData.loadHiddenCards();
+                        const newHiddenCards = dbHiddenCards.filter(id => id !== cardId);
+                        await userData.saveHiddenCards(newHiddenCards);
+                    }
 
                     // 更新管理面板
                     updateHiddenPanel();
@@ -5677,9 +5693,9 @@
 
             // ========== 7. 加载已隐藏的卡片 ==========
             // 注意：需要在添加隐藏按钮之后执行，确保所有卡片都已初始化
-            setTimeout(function () {
-                const hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
-                hiddenCards.forEach(card => {
+            setTimeout(async function () {
+                const localStorageHiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
+                localStorageHiddenCards.forEach(card => {
                     if (card && card.id) {
                         const cardContainer = document.getElementById(card.id);
                         if (cardContainer) {
@@ -5687,6 +5703,17 @@
                         }
                     }
                 });
+
+                // 如果已登录，从数据库加载隐藏卡片
+                if (userData.isLoggedIn) {
+                    const dbHiddenCards = await userData.loadHiddenCards();
+                    dbHiddenCards.forEach(cardId => {
+                        const cardContainer = document.getElementById(cardId);
+                        if (cardContainer) {
+                            cardContainer.classList.add('card-hidden');
+                        }
+                    });
+                }
             }, 100);
 
             // ========== 8. 拖拽排序功能 - 支持跨栏拖动（类似iPhone APP）==========
@@ -5739,7 +5766,7 @@
             });
 
             // 为所有容器添加跨栏拖动支持
-            allRows.forEach((container, rowIndex) => {
+            allRows.forEach(async (container, rowIndex) => {
                 const cards = container.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)');
                 if (cards.length === 0) return;
 
@@ -5758,6 +5785,14 @@
                 const savedOrder = localStorage.getItem(storageKey);
                 if (savedOrder) {
                     applyOrder(container, JSON.parse(savedOrder));
+                }
+
+                // 如果已登录，从数据库加载排序
+                if (userData.isLoggedIn) {
+                    const dbCardOrder = await userData.loadCardOrder();
+                    if (dbCardOrder && dbCardOrder.length > 0) {
+                        applyOrder(container, dbCardOrder);
+                    }
                 }
 
                 // 使用节流的dragover事件处理
@@ -5806,7 +5841,7 @@
                 });
 
                 // 保存新顺序
-                container.addEventListener('drop', function (e) {
+                container.addEventListener('drop', async function (e) {
                     e.preventDefault();
 
                     // 清除所有拖动样式
@@ -5825,6 +5860,16 @@
                         const order = Array.from(c.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)')).map(card => card.id);
                         localStorage.setItem(`cardOrder_${idx}`, JSON.stringify(order));
                     });
+
+                    // 保存到数据库（如果已登录）
+                    if (userData.isLoggedIn) {
+                        const allCardsOrder = [];
+                        allRows.forEach(c => {
+                            const order = Array.from(c.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)')).map(card => card.id);
+                            allCardsOrder.push(...order);
+                        });
+                        await userData.saveCardOrder(allCardsOrder);
+                    }
                 });
 
                 // 拖动进入容器
@@ -6115,7 +6160,7 @@
             }
         });
 
-        function saveNewCard() {
+        async function saveNewCard() {
             const title = document.getElementById('cardTitle').value.trim();
             const url = document.getElementById('cardUrl').value.trim();
             const desc = document.getElementById('cardDesc').value.trim() || '我的自定义收藏链接';
@@ -6147,6 +6192,13 @@
             favs.push(newCard);
             localStorage.setItem(FAV_KEY, JSON.stringify(favs));
 
+            // 保存到数据库（如果已登录）
+            if (userData.isLoggedIn) {
+                const dbFavs = await userData.loadFavorites();
+                dbFavs.push(newCard);
+                await userData.saveFavorites(dbFavs);
+            }
+
             // 渲染
             renderFavorites();
             closeAddCardModal();
@@ -6158,15 +6210,31 @@
                 let favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
                 favs = favs.filter(c => c.id !== id);
                 localStorage.setItem(FAV_KEY, JSON.stringify(favs));
+
+                // 从数据库删除（如果已登录）
+                if (userData.isLoggedIn) {
+                    const dbFavs = await userData.loadFavorites();
+                    const newDbFavs = dbFavs.filter(c => c.id !== id);
+                    await userData.saveFavorites(newDbFavs);
+                }
+
                 renderFavorites();
             }
         }
 
-        function renderFavorites() {
+        async function renderFavorites() {
             const container = document.getElementById('my-favorites-list');
             if (!container) return;
 
-            const favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
+            let favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
+
+            // 如果已登录，从数据库加载收藏
+            if (userData.isLoggedIn) {
+                const dbFavs = await userData.loadFavorites();
+                if (dbFavs && dbFavs.length > 0) {
+                    favs = dbFavs;
+                }
+            }
 
             // 清空现有内容
             container.innerHTML = '';
@@ -6211,8 +6279,8 @@
         }
 
         // 初始化
-        document.addEventListener('DOMContentLoaded', function () {
-            renderFavorites();
+        document.addEventListener('DOMContentLoaded', async function () {
+            await renderFavorites();
 
             // 点击遮罩关闭
             document.getElementById('addCardOverlay').addEventListener('click', closeAddCardModal);
@@ -6249,6 +6317,12 @@
                     if (Array.isArray(data)) {
                         if (await showConfirm('导入将覆盖当前的收藏数据，确定要继续吗？')) {
                             localStorage.setItem(FAV_KEY, JSON.stringify(data));
+
+                            // 保存到数据库（如果已登录）
+                            if (userData.isLoggedIn) {
+                                await userData.saveFavorites(data);
+                            }
+
                             renderFavorites();
                             showToast('导入成功！', 'success');
                             closeAddCardModal();
@@ -6409,6 +6483,11 @@
 
             // 保存用户偏好到本地存储
             localStorage.setItem('theme_mode', isDark ? 'dark' : 'light');
+            
+            // 保存到数据库（如果已登录）
+            if (userData.isLoggedIn) {
+                userData.saveDarkMode(isDark);
+            }
         }
 
         // ==================== 初始化暗黑模式 ====================
@@ -6416,14 +6495,22 @@
          * 页面加载时初始化暗黑模式
          * 功能：根据用户之前的选择或系统偏好自动应用暗黑模式
          */
-        (function () {
-            const savedMode = localStorage.getItem('theme_mode'); // 获取用户保存的模式设置
-            // 检查系统是否偏好暗黑模式（用于首次访问）
-            const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        (async function () {
+            // 先从数据库加载（如果已登录）
+            if (userData.isLoggedIn) {
+                await userData.loadConfig();
+                if (userData.config.darkMode) {
+                    toggleDarkMode();
+                }
+            } else {
+                const savedMode = localStorage.getItem('theme_mode'); // 获取用户保存的模式设置
+                // 检查系统是否偏好暗黑模式（用于首次访问）
+                const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-            // 如果用户之前设置了暗黑模式，或者没有设置但系统偏好暗黑模式
-            if (savedMode === 'dark' || (!savedMode && sysDark)) {
-                toggleDarkMode(); // 自动切换到暗黑模式
+                // 如果用户之前设置了暗黑模式，或者没有设置但系统偏好暗黑模式
+                if (savedMode === 'dark' || (!savedMode && sysDark)) {
+                    toggleDarkMode(); // 自动切换到暗黑模式
+                }
             }
         })();
     </script>

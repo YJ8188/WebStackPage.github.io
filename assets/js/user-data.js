@@ -6,7 +6,8 @@ const userData = {
         hiddenCards: [],
         cardOrder: [],
         notificationPanelOpen: false,
-        reminders: []
+        reminders: [],
+        favorites: []
     },
 
     async init() {
@@ -53,7 +54,8 @@ const userData = {
                         hiddenCards: [],
                         cardOrder: [],
                         notificationPanelOpen: false,
-                        reminders: []
+                        reminders: [],
+                        favorites: []
                     };
                 } else {
                     console.error('[UserData] 加载配置失败:', error);
@@ -64,7 +66,8 @@ const userData = {
                     hiddenCards: data.hidden_cards || [],
                     cardOrder: data.card_order || [],
                     notificationPanelOpen: data.notification_panel_open || false,
-                    reminders: data.reminders || []
+                    reminders: data.reminders || [],
+                    favorites: data.favorites || []
                 };
                 console.log('[UserData] 已从数据库加载配置:', this.config);
             }
@@ -97,6 +100,7 @@ const userData = {
                         card_order: this.config.cardOrder,
                         notification_panel_open: this.config.notificationPanelOpen,
                         reminders: this.config.reminders,
+                        favorites: this.config.favorites,
                         updated_at: new Date()
                     })
                     .select();
@@ -186,6 +190,21 @@ const userData = {
         } else {
             this.loadFromLocalStorage();
             return this.config.notificationPanelOpen || false;
+        }
+    },
+
+    async saveFavorites(favorites) {
+        this.config.favorites = favorites;
+        return await this.saveConfig();
+    },
+
+    async loadFavorites() {
+        if (this.isLoggedIn) {
+            await this.loadConfig();
+            return this.config.favorites || [];
+        } else {
+            this.loadFromLocalStorage();
+            return this.config.favorites || [];
         }
     }
 };

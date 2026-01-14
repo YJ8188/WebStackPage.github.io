@@ -1,6 +1,7 @@
 const userData = {
     isLoggedIn: false,
     user: null,
+    initialized: false,
     config: {
         darkMode: false,
         hiddenCards: [],
@@ -11,6 +12,13 @@ const userData = {
     },
 
     async init() {
+        if (this.initialized) {
+            console.log('[UserData] 已经初始化，跳过重复初始化');
+            return;
+        }
+        
+        this.initialized = true;
+        
         const { data: { session } } = await supabaseClient.auth.getSession();
         
         if (session) {

@@ -6165,8 +6165,27 @@
         }
 
         function closeAddCardModal() {
-            document.getElementById('addCardOverlay').classList.remove('active');
-            document.getElementById('addCardModal').classList.remove('active');
+            console.log('[模态框] closeAddCardModal 被调用');
+            
+            const overlay = document.getElementById('addCardOverlay');
+            const modal = document.getElementById('addCardModal');
+            
+            console.log('[模态框] overlay:', overlay);
+            console.log('[模态框] modal:', modal);
+            console.log('[模态框] overlay.classList:', overlay?.classList);
+            console.log('[模态框] modal.classList:', modal?.classList);
+            
+            if (overlay) {
+                overlay.classList.remove('active');
+                console.log('[模态框] 已移除 overlay 的 active class');
+            }
+            
+            if (modal) {
+                modal.classList.remove('active');
+                console.log('[模态框] 已移除 modal 的 active class');
+            }
+            
+            console.log('[模态框] 关闭完成');
         }
 
         // 自动提取 favicon

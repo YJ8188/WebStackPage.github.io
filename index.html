@@ -5980,6 +5980,38 @@
             // 初始化管理面板
             updateHiddenPanel();
         });
+
+        // 监听用户数据加载完成事件 - 重新加载隐藏卡片和排序
+        window.addEventListener('userDataLoaded', async function(event) {
+            console.log('[卡片] 收到 userDataLoaded 事件');
+            
+            // 重新加载隐藏卡片
+            if (userData.isLoggedIn) {
+                console.log('[卡片] 从数据库加载隐藏卡片...');
+                const dbHiddenCards = await userData.loadHiddenCards();
+                dbHiddenCards.forEach(cardId => {
+                    const cardContainer = document.getElementById(cardId);
+                    if (cardContainer) {
+                        cardContainer.classList.add('card-hidden');
+                    }
+                });
+                console.log('[卡片] ✅ 隐藏卡片已应用');
+                
+                // 重新加载排序
+                console.log('[卡片] 从数据库加载排序...');
+                const dbCardOrder = await userData.loadCardOrder();
+                if (dbCardOrder && dbCardOrder.length > 0) {
+                    const allRows = document.querySelectorAll('.row');
+                    allRows.forEach(container => {
+                        applyOrder(container, dbCardOrder);
+                    });
+                    console.log('[卡片] ✅ 排序已应用');
+                }
+                
+                // 更新管理面板
+                updateHiddenPanel();
+            }
+        });
     </script>
     
 
@@ -6352,6 +6384,12 @@
 
             // 点击遮罩关闭
             document.getElementById('addCardOverlay').addEventListener('click', closeAddCardModal);
+        });
+
+        // 监听用户数据加载完成事件
+        window.addEventListener('userDataLoaded', async function(event) {
+            console.log('[收藏] 收到 userDataLoaded 事件');
+            await renderFavorites();
         });
 
         // 导出收藏数据

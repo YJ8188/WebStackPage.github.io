@@ -649,18 +649,19 @@ function showToast(message, type = 'info', duration = 3000) {
 // ==================== 保存提醒到 localStorage ====================
 function saveReminders() {
     try {
+        // 总是保存到 localStorage 作为备份
+        localStorage.setItem('reminders', JSON.stringify(reminders));
+        console.log('提醒已保存到 localStorage');
+        
+        // 如果已登录，也保存到数据库
         if (userData.isLoggedIn) {
             userData.saveReminders(reminders).then(success => {
                 if (success) {
-                    console.log('提醒已保存到数据库');
+                    console.log('提醒已同步到数据库');
                 } else {
-                    console.log('数据库保存失败，使用 localStorage');
-                    localStorage.setItem('reminders', JSON.stringify(reminders));
+                    console.log('数据库保存失败，仅使用 localStorage');
                 }
             });
-        } else {
-            localStorage.setItem('reminders', JSON.stringify(reminders));
-            console.log('提醒已保存到 localStorage');
         }
     } catch (error) {
         console.error('保存提醒失败:', error);
@@ -673,14 +674,20 @@ async function loadReminders() {
     try {
         if (userData.isLoggedIn) {
             const dbReminders = await userData.loadReminders();
-            if (dbReminders !== null) {
+            
+            // 如果数据库中有数据（非空数组），使用数据库数据
+            if (dbReminders && dbReminders.length > 0) {
                 reminders = dbReminders;
                 console.log(`已从数据库加载 ${reminders.length} 条提醒`);
             } else {
+                // 如果数据库为空，尝试从 localStorage 加载
                 const saved = localStorage.getItem('reminders');
                 if (saved) {
                     reminders = JSON.parse(saved);
-                    console.log(`已从 localStorage 加载 ${reminders.length} 条提醒`);
+                    console.log(`数据库为空，已从 localStorage 加载 ${reminders.length} 条提醒`);
+                    
+                    // 将 localStorage 的数据同步到数据库
+                    await userData.saveReminders(reminders);
                 } else {
                     reminders = [];
                     console.log('没有找到保存的提醒');

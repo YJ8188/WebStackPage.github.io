@@ -56,11 +56,11 @@ const userData = {
             const { data, error, count, status, statusText } = await supabaseClient
                 .from('user_config')
                 .select('*')
-                .eq('user_id', this.user.id)
-                .single();
+                .eq('user_id', this.user.id);
 
             console.log('[UserData] 查询结果:');
             console.log('[UserData] data:', data);
+            console.log('[UserData] data.length:', data?.length);
             console.log('[UserData] error:', error);
             console.log('[UserData] status:', status);
             console.log('[UserData] statusText:', statusText);
@@ -76,33 +76,36 @@ const userData = {
                     statusText: statusText
                 });
                 
-                if (error.code === 'PGRST116') {
-                    console.log('[UserData] 用户配置不存在，使用默认配置');
-                    this.config = {
-                        darkMode: false,
-                        hiddenCards: [],
-                        cardOrder: [],
-                        notificationPanelOpen: false,
-                        reminders: [],
-                        favorites: []
-                    };
-                } else if (status === 406) {
-                    console.error('[UserData] 406 错误 - 可能是 RLS 策略或权限问题');
-                    console.error('[UserData] 建议检查:');
-                    console.error('[UserData] 1. RLS 策略是否启用');
-                    console.error('[UserData] 2. API key 是否正确');
-                    console.error('[UserData] 3. 表权限是否正确配置');
-                }
-            } else {
+                console.log('[UserData] 使用默认配置');
                 this.config = {
-                    darkMode: data.dark_mode || false,
-                    hiddenCards: data.hidden_cards || [],
-                    cardOrder: data.card_order || [],
-                    notificationPanelOpen: data.notification_panel_open || false,
-                    reminders: data.reminders || [],
-                    favorites: data.favorites || []
+                    darkMode: false,
+                    hiddenCards: [],
+                    cardOrder: [],
+                    notificationPanelOpen: false,
+                    reminders: [],
+                    favorites: []
+                };
+            } else if (data && data.length > 0) {
+                const latestConfig = data[0];
+                this.config = {
+                    darkMode: latestConfig.dark_mode || false,
+                    hiddenCards: latestConfig.hidden_cards || [],
+                    cardOrder: latestConfig.card_order || [],
+                    notificationPanelOpen: latestConfig.notification_panel_open || false,
+                    reminders: latestConfig.reminders || [],
+                    favorites: latestConfig.favorites || []
                 };
                 console.log('[UserData] 已从数据库加载配置:', this.config);
+            } else {
+                console.log('[UserData] 用户配置不存在，使用默认配置');
+                this.config = {
+                    darkMode: false,
+                    hiddenCards: [],
+                    cardOrder: [],
+                    notificationPanelOpen: false,
+                    reminders: [],
+                    favorites: []
+                };
             }
         } catch (error) {
             console.error('[UserData] 加载配置异常:', error);

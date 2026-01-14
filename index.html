@@ -5537,6 +5537,16 @@
     </style>
 
     <script>
+        // ========== 全局函数：卡片排序 ==========
+        function applyOrder(container, order) {
+            order.forEach(id => {
+                const card = document.getElementById(id);
+                if (card && container.contains(card) && !card.classList.contains('card-hidden')) {
+                    container.appendChild(card);
+                }
+            });
+        }
+
         // 卡片管理功能：拖拽排序 + 隐藏/显示
         document.addEventListener('DOMContentLoaded', async function () {
             // ========== 1. 为所有卡片添加ID和draggable属性 ==========
@@ -5959,15 +5969,6 @@
                     }
                     return closest;
                 }, { offset: Number.NEGATIVE_INFINITY }).element;
-            }
-
-            function applyOrder(container, order) {
-                order.forEach(id => {
-                    const card = document.getElementById(id);
-                    if (card && container.contains(card) && !card.classList.contains('card-hidden')) {
-                        container.appendChild(card);
-                    }
-                });
             }
 
             // 全局拖动处理：支持跨容器拖动（类似iPhone APP）

@@ -782,6 +782,33 @@ textarea.form-control {
     resize: vertical;
 }
 
+/* ==================== 下拉框样式 ==================== */
+select.form-control {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666666' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+    cursor: pointer;
+}
+
+select.form-control option {
+    color: #333333;
+    background: #ffffff;
+    padding: 10px;
+}
+
+select.form-control option:hover {
+    background: #f5f7fa;
+}
+
+select.form-control option:checked {
+    background: #2D7BEF;
+    color: #ffffff;
+}
+
 /* ==================== 搜索框 ==================== */
 .search-box {
     display: flex;

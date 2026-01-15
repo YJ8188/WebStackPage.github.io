@@ -594,6 +594,14 @@ body {
     z-index: 2000;
 }
 
+.modal-overlay.active {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
 /* 强制显示模态框的测试类 */
 .modal-overlay.force-show {
     display: flex !important;

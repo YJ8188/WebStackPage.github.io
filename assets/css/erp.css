@@ -784,29 +784,32 @@ textarea.form-control {
 
 /* ==================== 下拉框样式 ==================== */
 select.form-control {
-    appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
+    appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666666' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 12px center;
     padding-right: 36px;
     cursor: pointer;
+    position: relative;
+    z-index: 1;
 }
 
+/* 确保下拉菜单正确显示 */
 select.form-control option {
     color: #333333;
     background: #ffffff;
-    padding: 10px;
+    padding: 8px 12px;
 }
 
-select.form-control option:hover {
-    background: #f5f7fa;
-}
+/* 移除可能导致问题的 option 样式 */
+/* select.form-control option:hover */
+/* select.form-control option:checked */
 
-select.form-control option:checked {
-    background: #2D7BEF;
-    color: #ffffff;
+/* 确保下拉菜单在模态框中正确显示 */
+.modal-body {
+    overflow: visible;
 }
 
 /* ==================== 搜索框 ==================== */

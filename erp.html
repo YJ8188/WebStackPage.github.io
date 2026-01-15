@@ -484,6 +484,32 @@
             document.getElementById('statProfit').textContent = '¥' + stats.finances.netProfit.toLocaleString();
         }
 
+        // ==================== 单位转换函数 ====================
+        function getUnitText(unit) {
+            const unitMap = {
+                'piece': '个',
+                'kg': '千克',
+                'g': '克',
+                'ton': '吨',
+                'box': '盒',
+                'set': '套',
+                'pair': '双',
+                'pack': '包',
+                'bottle': '瓶',
+                'bag': '袋',
+                'liter': '升',
+                'ml': '毫升',
+                'meter': '米',
+                'cm': '厘米',
+                'mm': '毫米',
+                'sheet': '张',
+                'roll': '卷',
+                'dozen': '打',
+                'unit': '单位'
+            };
+            return unitMap[unit] || unit;
+        }
+
         // ==================== 打开模块 ====================
         function openModule(moduleName) {
             console.log('[ERP Page] 打开模块:', moduleName);
@@ -922,31 +948,6 @@
                 'paid': '已支付'
             };
             return statusMap[status] || status;
-        }
-
-        function getUnitText(unit) {
-            const unitMap = {
-                'piece': '个',
-                'kg': '千克',
-                'g': '克',
-                'ton': '吨',
-                'box': '盒',
-                'set': '套',
-                'pair': '双',
-                'pack': '包',
-                'bottle': '瓶',
-                'bag': '袋',
-                'liter': '升',
-                'ml': '毫升',
-                'meter': '米',
-                'cm': '厘米',
-                'mm': '毫米',
-                'sheet': '张',
-                'roll': '卷',
-                'dozen': '打',
-                'unit': '单位'
-            };
-            return unitMap[unit] || unit;
         }
 
         function showOrderModal(order = null) {

@@ -764,6 +764,16 @@
         </div>
     </div>
 
+    <!-- 调试按钮 -->
+    <div style="position: fixed; top: 10px; right: 10px; z-index: 9998; background: #ff0000; color: white; padding: 10px; border-radius: 5px;">
+        <button onclick="forceShowModal('customerModal')" style="margin-right: 5px;">客户</button>
+        <button onclick="forceShowModal('productModal')" style="margin-right: 5px;">产品</button>
+        <button onclick="forceShowModal('orderModal')" style="margin-right: 5px;">订单</button>
+        <button onclick="forceShowModal('inventoryModal')" style="margin-right: 5px;">库存</button>
+        <button onclick="forceShowModal('financeModal')">财务</button>
+        <button onclick="debugModals()" style="margin-left: 10px;">调试</button>
+    </div>
+
     <!-- JavaScript -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <script src="../assets/js/supabase-config.js"></script>
@@ -814,6 +824,19 @@
                     console.log(`  - display:`, modal.style.display);
                 }
             });
+        }
+
+        function forceShowModal(modalId) {
+            console.log(`强制显示模态框: ${modalId}`);
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.add('active', 'force-show');
+                modal.style.display = 'flex';
+                modal.style.visibility = 'visible';
+                modal.style.opacity = '1';
+                modal.style.zIndex = '9999';
+                console.log(`模态框 ${modalId} 已强制显示`);
+            }
         }
 
         // ==================== 检查登录状态 ====================
@@ -1040,6 +1063,12 @@
             
             const title = document.getElementById('customerModalTitle');
             const form = document.getElementById('customerForm');
+
+            // 确保模态框显示
+            modal.classList.add('active');
+            modal.style.display = 'flex';
+            modal.style.visibility = 'visible';
+            modal.style.opacity = '1';
 
             if (customer) {
                 title.textContent = '编辑客户';

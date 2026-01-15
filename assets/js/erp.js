@@ -10,6 +10,23 @@ const ERP = {
     config: {
         currentModule: 'dashboard', // 当前模块：dashboard, customers, products, orders, inventory, finance
         itemsPerPage: 10, // 每页显示数量
+        requestTimeout: 30000, // 请求超时时间（毫秒）
+    },
+
+    // ==================== 工具函数 ====================
+    /**
+     * 为 Promise 添加超时处理
+     * @param {Promise} promise - 要执行的 Promise
+     * @param {number} timeout - 超时时间（毫秒）
+     * @returns {Promise} 带超时的 Promise
+     */
+    withTimeout(promise, timeout = this.config.requestTimeout) {
+        return Promise.race([
+            promise,
+            new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('请求超时，请检查网络连接')), timeout)
+            )
+        ]);
     },
 
     // ==================== 状态 ====================

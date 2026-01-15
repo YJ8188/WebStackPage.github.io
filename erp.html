@@ -507,7 +507,11 @@
                 'dozen': '打',
                 'unit': '单位'
             };
-            return unitMap[unit] || unit;
+            // 兜底：如果 unit 为空、null、undefined 或不存在于映射表中，返回友好的默认值
+            if (!unit || unit === '.' || unit === '-' || unit === '') {
+                return '-';
+            }
+            return unitMap[unit] || '-';
         }
 
         // ==================== 打开模块 ====================
@@ -797,8 +801,16 @@
                 document.getElementById('productCost').value = product.cost;
                 document.getElementById('productStockQuantity').value = product.stock_quantity;
                 document.getElementById('productMinStock').value = product.min_stock;
-                document.getElementById('productUnit').value = product.unit;
-                document.getElementById('productStatus').value = product.status;
+
+                // 单位兜底：验证 value 是否存在对应的 option
+                const unitSelect = document.getElementById('productUnit');
+                const validUnit = product.unit && unitSelect.querySelector(`option[value="${product.unit}"]`);
+                unitSelect.value = validUnit ? product.unit : 'piece';
+
+                // 状态兜底：验证 value 是否存在对应的 option
+                const statusSelect = document.getElementById('productStatus');
+                const validStatus = product.status && statusSelect.querySelector(`option[value="${product.status}"]`);
+                statusSelect.value = validStatus ? product.status : 'active';
             } else {
                 title.textContent = '添加产品';
                 form.reset();
@@ -1460,6 +1472,7 @@
                     <div class="form-group">
                         <label for="productUnit">单位</label>
                         <select id="productUnit" class="form-control">
+                            <option value="">请选择单位</option>
                             <option value="piece" selected>个</option>
                             <option value="kg">千克</option>
                             <option value="g">克</option>
@@ -1483,6 +1496,7 @@
                     <div class="form-group">
                         <label for="productStatus">状态</label>
                         <select id="productStatus" class="form-control">
+                            <option value="">请选择状态</option>
                             <option value="active" selected>活跃</option>
                             <option value="inactive">停用</option>
                         </select>

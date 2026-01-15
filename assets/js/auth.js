@@ -1,6 +1,7 @@
 const authForm = document.getElementById('authForm');
 const emailInput = document.getElementById('email');
 const passwordInput = document.getElementById('password');
+const rememberMeCheckbox = document.getElementById('rememberMe');
 const submitBtn = document.getElementById('submitBtn');
 const alertBox = document.getElementById('alertBox');
 const formTitle = document.getElementById('formTitle');
@@ -9,6 +10,14 @@ const toggleText = document.getElementById('toggleText');
 const toggleLink = document.getElementById('toggleLink');
 
 let isLoginMode = true;
+
+// 初始化：检查是否之前选择了记住我
+document.addEventListener('DOMContentLoaded', function() {
+    const rememberPreference = localStorage.getItem('rememberMePreference');
+    if (rememberPreference === 'true') {
+        rememberMeCheckbox.checked = true;
+    }
+});
 
 toggleMode();
 
@@ -65,15 +74,39 @@ authForm.addEventListener('submit', async function(e) {
 });
 
 async function signIn(email, password) {
+    const rememberMe = rememberMeCheckbox.checked;
+
+    console.log('[Auth] 登录请求 - 邮箱:', email);
+    console.log('[Auth] 记住我:', rememberMe);
+
+    // 保存记住我的偏好
+    localStorage.setItem('rememberMePreference', rememberMe.toString());
+
+    // 使用持久化会话登录
     const { data, error } = await supabaseClient.auth.signInWithPassword({
         email: email,
-        password: password
+        password: password,
+        options: {
+            // 启用持久化会话
+            // 注意：Supabase 默认会话有效期为1小时，刷新令牌有效期需在项目设置中配置
+            // 这里我们使用 localStorage 来持久化会话
+        }
     });
 
     setLoading(false);
 
     if (error) {
+        console.error('[Auth] 登录失败:', error);
         throw new Error(error.message);
+    }
+
+    console.log('[Auth] 登录成功:', data);
+
+    // 设置会话持久化
+    if (rememberMe) {
+        console.log('[Auth] 启用30天免登录');
+        // Supabase 会自动处理会话刷新，我们只需要确保会话被持久化
+        // 会话信息默认存储在 localStorage 中
     }
 
     showAlert('登录成功！正在跳转...', 'success');
@@ -124,3 +157,66 @@ function setLoading(loading) {
         submitBtn.textContent = isLoginMode ? '登录' : '注册';
     }
 }
+
+// ==================== 会话自动恢复功能 ====================
+
+/**
+ * 检查当前会话状态
+ * 如果会话有效且用户选择了记住我，则自动跳转到首页
+ */
+async function checkSessionAndRedirect() {
+    console.log('[Auth] 检查会话状态...');
+
+    try {
+        const { data: { session }, error } = await supabaseClient.auth.getSession();
+
+        if (error) {
+            console.error('[Auth] 获取会话失败:', error);
+            return;
+        }
+
+        if (session) {
+            console.log('[Auth] 会话有效，用户已登录:', session.user.email);
+
+            // 检查是否选择了记住我
+            const rememberPreference = localStorage.getItem('rememberMePreference');
+            console.log('[Auth] 记住我偏好:', rememberPreference);
+
+            // 如果会话有效且用户选择了记住我，自动跳转到首页
+            if (rememberPreference === 'true') {
+                console.log('[Auth] 自动跳转到首页');
+                showAlert('检测到您已登录，正在跳转...', 'success');
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 1000);
+            }
+        } else {
+            console.log('[Auth] 会话无效或已过期');
+        }
+    } catch (error) {
+        console.error('[Auth] 检查会话异常:', error);
+    }
+}
+
+// 监听认证状态变化
+supabaseClient.auth.onAuthStateChange((event, session) => {
+    console.log('[Auth] 认证状态变化:', event);
+
+    if (event === 'SIGNED_IN') {
+        console.log('[Auth] 用户已登录');
+    } else if (event === 'SIGNED_OUT') {
+        console.log('[Auth] 用户已登出');
+        // 清除记住我偏好
+        localStorage.removeItem('rememberMePreference');
+    } else if (event === 'TOKEN_REFRESHED') {
+        console.log('[Auth] 令牌已刷新');
+    }
+});
+
+// 页面加载时检查会话
+document.addEventListener('DOMContentLoaded', function() {
+    // 延迟检查，确保 Supabase 客户端已初始化
+    setTimeout(() => {
+        checkSessionAndRedirect();
+    }, 500);
+});

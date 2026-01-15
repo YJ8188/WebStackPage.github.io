@@ -803,6 +803,24 @@
                 updateStatistics(event.detail);
                 showERPContent();
                 
+                // 测试：检查模态框CSS
+                setTimeout(() => {
+                    console.log('=== 测试模态框CSS ===');
+                    const testModal = document.getElementById('customerModal');
+                    if (testModal) {
+                        testModal.classList.add('active');
+                        const computed = window.getComputedStyle(testModal);
+                        console.log('测试模态框className:', testModal.className);
+                        console.log('测试模态框display:', computed.display);
+                        console.log('测试模态框visibility:', computed.visibility);
+                        console.log('测试模态框opacity:', computed.opacity);
+                        console.log('测试模态框zIndex:', computed.zIndex);
+                        setTimeout(() => {
+                            testModal.classList.remove('active');
+                        }, 2000);
+                    }
+                }, 1000);
+                
                 // 财务数据加载完成后初始化筛选器
                 if (event.detail.finances) {
                     initFinanceFilters();
@@ -1028,6 +1046,16 @@ function showCustomerModal(customer = null) {
                 console.error('[ERP Page] 找不到 customerModal');
                 return;
             }
+            
+            console.log('[ERP Page] 找到模态框:', modal);
+            console.log('[ERP Page] 模态框初始className:', modal.className);
+            console.log('[ERP Page] 模态框初始display:', modal.style.display);
+            
+            // 直接添加active类
+            modal.classList.add('active');
+            
+            console.log('[ERP Page] 添加active后的className:', modal.className);
+            console.log('[ERP Page] 计算后的display:', window.getComputedStyle(modal).display);
             
             const title = document.getElementById('customerModalTitle');
             const form = document.getElementById('customerForm');

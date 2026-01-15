@@ -1219,12 +1219,26 @@ function showCustomerModal(customer = null) {
         }
 
         function showProductModal(product = null) {
-            console.log('[ERP Page] showProductModal 被调用，参数:', product);
+            console.log('[ERP Page] showProductModal 开始执行，参数:', product);
+            console.log('[ERP Page] showProductModal 第1步：查找模态框');
+            
             const modal = document.getElementById('productModal');
             if (!modal) {
                 console.error('[ERP Page] 找不到 productModal');
                 return;
             }
+            
+            console.log('[ERP Page] showProductModal 第2步：找到模态框，设置显示');
+            
+            // 确保模态框显示
+            modal.classList.add('active');
+            modal.style.display = 'flex';
+            modal.style.visibility = 'visible';
+            modal.style.opacity = '1';
+            modal.style.zIndex = '9999';
+            
+            console.log('[ERP Page] showProductModal 第3步：设置完成，当前className:', modal.className);
+            console.log('[ERP Page] showProductModal 第4步：当前display:', modal.style.display);
             
             const title = document.getElementById('productModalTitle');
             const form = document.getElementById('productForm');
@@ -2043,290 +2057,16 @@ function renderInventory(products = null) {
             document.getElementById('statRevenue').textContent = '¥' + stats.finances.totalIncome.toLocaleString();
             document.getElementById('statProfit').textContent = '¥' + stats.finances.netProfit.toLocaleString();
         }
-    </script>
-    </div>
-</div>
-</div>
+</script>
 
-    <!-- 客户模态框 -->
-    <div id="customerModal" class="modal-overlay">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 id="customerModalTitle">添加客户</h3>
-                <button class="btn-close" onclick="hideCustomerModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="customerForm">
-                    <input type="hidden" id="customerId">
-                    <div class="form-group">
-                        <label for="customerName">客户名称 *</label>
-                        <input type="text" id="customerName" class="form-control" placeholder="请输入客户名称" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="customerContactPerson">联系人</label>
-                        <input type="text" id="customerContactPerson" class="form-control" placeholder="请输入联系人姓名">
-                    </div>
-                    <div class="form-group">
-                        <label for="customerPhone">电话</label>
-                        <input type="text" id="customerPhone" class="form-control" placeholder="请输入联系电话">
-                    </div>
-                    <div class="form-group">
-                        <label for="customerEmail">邮箱</label>
-                        <input type="email" id="customerEmail" class="form-control" placeholder="请输入邮箱地址">
-                    </div>
-                    <div class="form-group">
-                        <label for="customerAddress">地址</label>
-                        <textarea id="customerAddress" class="form-control" placeholder="请输入地址"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="customerNotes">备注</label>
-                        <textarea id="customerNotes" class="form-control" placeholder="请输入备注信息"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="customerStatus">状态</label>
-                        <select id="customerStatus" class="form-control">
-                            <option value="">请选择状态</option>
-                            <option value="active" selected>活跃</option>
-                            <option value="inactive">停用</option>
-                        </select>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-secondary" onclick="hideCustomerModal()">取消</button>
-                <button class="btn-primary" onclick="saveCustomer()">保存</button>
-            </div>
-        </div>
+    <!-- 简单测试按钮 -->
+    <div style="position: fixed; top: 10px; right: 10px; z-index: 10000; background: #2c3e50; color: white; padding: 10px; border-radius: 5px;">
+        <div>🧪 测试按钮</div>
+        <button onclick="showCustomerModal()" style="margin: 2px; padding: 5px 10px; background: #3498db; border: none; color: white; border-radius: 3px; cursor: pointer;">客户</button>
+        <button onclick="showProductModal()" style="margin: 2px; padding: 5px 10px; background: #27ae60; border: none; color: white; border-radius: 3px; cursor: pointer;">产品</button>
+        <button onclick="showOrderModal()" style="margin: 2px; padding: 5px 10px; background: #f39c12; border: none; color: white; border-radius: 3px; cursor: pointer;">订单</button>
+        <button onclick="showFinanceModal()" style="margin: 2px; padding: 5px 10px; background: #e74c3c; border: none; color: white; border-radius: 3px; cursor: pointer;">财务</button>
     </div>
 
-    <!-- 产品模态框 -->
-    <div id="productModal" class="modal-overlay">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 id="productModalTitle">添加产品</h3>
-                <button class="btn-close" onclick="hideProductModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="productForm">
-                    <input type="hidden" id="productId">
-                    <div class="form-group">
-                        <label for="productName">产品名称 *</label>
-                        <input type="text" id="productName" class="form-control" placeholder="请输入产品名称" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="productSku">产品编码</label>
-                        <input type="text" id="productSku" class="form-control" placeholder="请输入产品编码">
-                    </div>
-                    <div class="form-group">
-                        <label for="productCategory">产品分类</label>
-                        <input type="text" id="productCategory" class="form-control" placeholder="请输入产品分类">
-                    </div>
-                    <div class="form-group">
-                        <label for="productDescription">产品描述</label>
-                        <textarea id="productDescription" class="form-control" placeholder="请输入产品描述"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="productPrice">销售价格 *</label>
-                        <input type="number" id="productPrice" class="form-control" placeholder="0.00" step="0.01" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="productCost">成本价格</label>
-                        <input type="number" id="productCost" class="form-control" placeholder="0.00" step="0.01">
-                    </div>
-                    <div class="form-group">
-                        <label for="productStockQuantity">库存数量</label>
-                        <input type="number" id="productStockQuantity" class="form-control" placeholder="0" step="1">
-                    </div>
-                    <div class="form-group">
-                        <label for="productMinStock">最小库存（预警）</label>
-                        <input type="number" id="productMinStock" class="form-control" placeholder="0" step="1">
-                    </div>
-                    <div class="form-group">
-                        <label for="productUnit">单位</label>
-                        <select id="productUnit" class="form-control">
-                            <option value="">请选择单位</option>
-                            <option value="piece" selected>个</option>
-                            <option value="kg">千克</option>
-                            <option value="g">克</option>
-                            <option value="ton">吨</option>
-                            <option value="box">盒</option>
-                            <option value="set">套</option>
-                            <option value="pair">双</option>
-                            <option value="pack">包</option>
-                            <option value="bottle">瓶</option>
-                            <option value="bag">袋</option>
-                            <option value="liter">升</option>
-                            <option value="ml">毫升</option>
-                            <option value="meter">米</option>
-                            <option value="cm">厘米</option>
-                            <option value="mm">毫米</option>
-                            <option value="sheet">张</option>
-                            <option value="roll">卷</option>
-                            <option value="dozen">打</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="productStatus">状态</label>
-                        <select id="productStatus" class="form-control">
-                            <option value="">请选择状态</option>
-                            <option value="active" selected>活跃</option>
-                            <option value="inactive">停用</option>
-                        </select>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-secondary" onclick="hideProductModal()">取消</button>
-                <button class="btn-primary" onclick="saveProduct()">保存</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 订单模态框 -->
-    <div id="orderModal" class="modal-overlay">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 id="orderModalTitle">创建订单</h3>
-                <button class="btn-close" onclick="hideOrderModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="orderForm">
-                    <input type="hidden" id="orderId">
-                    <div class="form-group">
-                        <label for="orderCustomer">客户 *</label>
-                        <select id="orderCustomer" class="form-control" required>
-                            <option value="">请选择客户</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="orderNotes">备注</label>
-                        <textarea id="orderNotes" class="form-control" placeholder="请输入订单备注"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label>订单明细</label>
-                        <div id="orderItems"></div>
-                        <button type="button" class="btn-primary" style="margin-top: 10px;" onclick="addOrderItem()">
-                            <i class="fa fa-plus"></i> 添加产品
-                        </button>
-                    </div>
-                    <div class="form-group">
-                        <label>订单总额</label>
-                        <input type="text" id="orderTotalAmount" class="form-control" readonly value="¥0.00">
-                    </div>
-                    <div class="form-group">
-                        <label for="orderStatus">订单状态</label>
-                        <select id="orderStatus" class="form-control">
-                            <option value="">请选择状态</option>
-                            <option value="pending" selected>待处理</option>
-                            <option value="processing">处理中</option>
-                            <option value="completed">已完成</option>
-                            <option value="cancelled">已取消</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="orderPaymentStatus">支付状态</label>
-                        <select id="orderPaymentStatus" class="form-control">
-                            <option value="">请选择状态</option>
-                            <option value="unpaid" selected>未支付</option>
-                            <option value="partial">部分支付</option>
-                            <option value="paid">已支付</option>
-                        </select>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-secondary" onclick="hideOrderModal()">取消</button>
-                <button class="btn-primary" onclick="saveOrder()">保存</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 财务模态框 -->
-    <div id="financeModal" class="modal-overlay">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 id="financeModalTitle">添加财务记录</h3>
-                <button class="btn-close" onclick="hideFinanceModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="financeForm">
-                    <input type="hidden" id="financeId">
-                    <div class="form-group">
-                        <label for="financeType">类型 *</label>
-                        <select id="financeType" class="form-control" required>
-                            <option value="">请选择类型</option>
-                            <option value="income" selected>收入</option>
-                            <option value="expense">支出</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="financeCategory">分类</label>
-                        <input type="text" id="financeCategory" class="form-control" placeholder="请输入分类">
-                    </div>
-                    <div class="form-group">
-                        <label for="financeAmount">金额 *</label>
-                        <input type="number" id="financeAmount" class="form-control" placeholder="0.00" step="0.01" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="financeDescription">描述</label>
-                        <textarea id="financeDescription" class="form-control" placeholder="请输入描述"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="financeTransactionDate">交易日期</label>
-                        <input type="date" id="financeTransactionDate" class="form-control">
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-secondary" onclick="hideFinanceModal()">取消</button>
-                <button class="btn-primary" onclick="saveFinance()">保存</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 库存调整模态框 -->
-    <div id="inventoryModal" class="modal-overlay">
-        <div class="modal">
-            <div class="modal-header">
-                <h3>调整库存</h3>
-                <button class="btn-close" onclick="hideInventoryModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="inventoryForm">
-                    <input type="hidden" id="inventoryProductId">
-                    <div class="form-group">
-                        <label>产品名称</label>
-                        <input type="text" id="inventoryProductName" class="form-control" readonly>
-                    </div>
-                    <div class="form-group">
-                        <label>当前库存</label>
-                        <input type="number" id="inventoryCurrentStock" class="form-control" readonly>
-                    </div>
-                    <div class="form-group">
-                        <label for="inventoryQuantityChange">调整数量 *</label>
-                        <input type="number" id="inventoryQuantityChange" class="form-control" placeholder="正数表示入库，负数表示出库" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="inventoryType">调整类型</label>
-                        <select id="inventoryType" class="form-control">
-                            <option value="">请选择类型</option>
-                            <option value="purchase" selected>采购入库</option>
-                            <option value="sale">销售出库</option>
-                            <option value="adjustment">手动调整</option>
-                            <option value="return">退货</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="inventoryNotes">备注</label>
-                        <textarea id="inventoryNotes" class="form-control" placeholder="请输入备注"></textarea>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-secondary" onclick="hideInventoryModal()">取消</button>
-                <button class="btn-primary" onclick="saveInventory()">保存</button>
-            </div>
-        </div>
-    </div>
 </body>
 </html>

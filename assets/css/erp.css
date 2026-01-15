@@ -794,6 +794,7 @@ select.form-control {
     cursor: pointer;
     position: relative;
     z-index: 1;
+    background-color: #ffffff;
 }
 
 /* 确保下拉菜单正确显示 */
@@ -801,6 +802,15 @@ select.form-control option {
     color: #333333;
     background: #ffffff;
     padding: 8px 12px;
+}
+
+/* 确保下拉框正确显示选中的值 */
+select.form-control:invalid {
+    color: #999999;
+}
+
+select.form-control:valid {
+    color: #333333;
 }
 
 /* 移除可能导致问题的 option 样式 */

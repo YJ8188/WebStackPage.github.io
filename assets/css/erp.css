@@ -793,9 +793,12 @@ select.form-control {
     appearance: none;
     background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
     background-repeat: no-repeat;
-    background-position: right 12px center;
+    background-position: right 8px center;
     background-size: 16px;
-    padding-right: 40px;
+    padding-right: 32px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
 }
 
 /* 确保选项文字正确显示 */
@@ -813,6 +816,39 @@ select.form-control::-ms-expand {
 /* 确保选中值正确显示 */
 select.form-control:valid {
     color: #333333;
+}
+
+/* 确保下拉框有足够宽度显示文字 */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #333333;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.form-control {
+    width: 100%;
+    padding: 12px;
+    background: #ffffff;
+    border: 1px solid #d9d9d9;
+    border-radius: 4px;
+    color: #333333;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    box-sizing: border-box; /* 确保padding不会影响总宽度 */
+}
+
+/* 下拉框特殊处理 */
+select.form-control {
+    padding-left: 12px;
+    padding-right: 32px;
+    min-height: 44px; /* 确保有足够高度 */
+    line-height: 20px; /* 设置行高 */
 }
 
 /* 确保下拉菜单在模态框中正确显示 */

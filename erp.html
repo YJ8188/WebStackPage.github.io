@@ -655,7 +655,11 @@
                 document.getElementById('customerEmail').value = customer.email || '';
                 document.getElementById('customerAddress').value = customer.address || '';
                 document.getElementById('customerNotes').value = customer.notes || '';
-                document.getElementById('customerStatus').value = customer.status;
+
+                // 状态兜底：验证 value 是否存在对应的 option
+                const statusSelect = document.getElementById('customerStatus');
+                const validStatus = customer.status && statusSelect.querySelector(`option[value="${customer.status}"]`);
+                statusSelect.value = validStatus ? customer.status : 'active';
             } else {
                 title.textContent = '添加客户';
                 form.reset();
@@ -979,8 +983,17 @@
                 document.getElementById('orderId').value = order.id;
                 customerSelect.value = order.customer_id;
                 document.getElementById('orderNotes').value = order.notes || '';
-                document.getElementById('orderStatus').value = order.status;
-                document.getElementById('orderPaymentStatus').value = order.payment_status;
+
+                // 订单状态兜底：验证 value 是否存在对应的 option
+                const statusSelect = document.getElementById('orderStatus');
+                const validStatus = order.status && statusSelect.querySelector(`option[value="${order.status}"]`);
+                statusSelect.value = validStatus ? order.status : 'pending';
+
+                // 支付状态兜底：验证 value 是否存在对应的 option
+                const paymentStatusSelect = document.getElementById('orderPaymentStatus');
+                const validPaymentStatus = order.payment_status && paymentStatusSelect.querySelector(`option[value="${order.payment_status}"]`);
+                paymentStatusSelect.value = validPaymentStatus ? order.payment_status : 'unpaid';
+
                 // TODO: 加载订单明细
             } else {
                 title.textContent = '创建订单';
@@ -1414,6 +1427,7 @@
                     <div class="form-group">
                         <label for="customerStatus">状态</label>
                         <select id="customerStatus" class="form-control">
+                            <option value="">请选择状态</option>
                             <option value="active" selected>活跃</option>
                             <option value="inactive">停用</option>
                         </select>
@@ -1544,6 +1558,7 @@
                     <div class="form-group">
                         <label for="orderStatus">订单状态</label>
                         <select id="orderStatus" class="form-control">
+                            <option value="">请选择状态</option>
                             <option value="pending" selected>待处理</option>
                             <option value="processing">处理中</option>
                             <option value="completed">已完成</option>
@@ -1553,6 +1568,7 @@
                     <div class="form-group">
                         <label for="orderPaymentStatus">支付状态</label>
                         <select id="orderPaymentStatus" class="form-control">
+                            <option value="">请选择状态</option>
                             <option value="unpaid" selected>未支付</option>
                             <option value="partial">部分支付</option>
                             <option value="paid">已支付</option>
@@ -1580,6 +1596,7 @@
                     <div class="form-group">
                         <label for="financeType">类型 *</label>
                         <select id="financeType" class="form-control" required>
+                            <option value="">请选择类型</option>
                             <option value="income" selected>收入</option>
                             <option value="expense">支出</option>
                         </select>
@@ -1634,6 +1651,7 @@
                     <div class="form-group">
                         <label for="inventoryType">调整类型</label>
                         <select id="inventoryType" class="form-control">
+                            <option value="">请选择类型</option>
                             <option value="purchase" selected>采购入库</option>
                             <option value="sale">销售出库</option>
                             <option value="adjustment">手动调整</option>

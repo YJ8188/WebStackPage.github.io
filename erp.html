@@ -692,17 +692,32 @@
                 return;
             }
 
-            let result;
-            if (customerId) {
-                result = await ERP.updateCustomer(parseInt(customerId), customerData);
-            } else {
-                result = await ERP.addCustomer(customerData);
-            }
+            // 禁用保存按钮，显示加载状态
+            const saveBtn = document.querySelector('#customerModal .btn-primary');
+            const originalText = saveBtn.textContent;
+            saveBtn.disabled = true;
+            saveBtn.textContent = '保存中...';
 
-            if (result) {
-                hideCustomerModal();
-                renderCustomers();
-                updateStatistics();
+            try {
+                let result;
+                if (customerId) {
+                    result = await ERP.updateCustomer(parseInt(customerId), customerData);
+                } else {
+                    result = await ERP.addCustomer(customerData);
+                }
+
+                if (result) {
+                    hideCustomerModal();
+                    renderCustomers();
+                    updateStatistics();
+                }
+            } catch (error) {
+                console.error('[ERP Page] 保存客户失败:', error);
+                alert('保存失败：' + (error.message || '网络错误，请检查连接'));
+            } finally {
+                // 恢复按钮状态
+                saveBtn.disabled = false;
+                saveBtn.textContent = originalText;
             }
         }
 
@@ -851,17 +866,32 @@
                 return;
             }
 
-            let result;
-            if (productId) {
-                result = await ERP.updateProduct(parseInt(productId), productData);
-            } else {
-                result = await ERP.addProduct(productData);
-            }
+            // 禁用保存按钮，显示加载状态
+            const saveBtn = document.querySelector('#productModal .btn-primary');
+            const originalText = saveBtn.textContent;
+            saveBtn.disabled = true;
+            saveBtn.textContent = '保存中...';
 
-            if (result) {
-                hideProductModal();
-                renderProducts();
-                updateStatistics();
+            try {
+                let result;
+                if (productId) {
+                    result = await ERP.updateProduct(parseInt(productId), productData);
+                } else {
+                    result = await ERP.addProduct(productData);
+                }
+
+                if (result) {
+                    hideProductModal();
+                    renderProducts();
+                    updateStatistics();
+                }
+            } catch (error) {
+                console.error('[ERP Page] 保存产品失败:', error);
+                alert('保存失败：' + (error.message || '网络错误，请检查连接'));
+            } finally {
+                // 恢复按钮状态
+                saveBtn.disabled = false;
+                saveBtn.textContent = originalText;
             }
         }
 
@@ -1121,17 +1151,32 @@
                 items: orderItems
             };
 
-            let result;
-            if (orderId) {
-                result = await ERP.updateOrder(parseInt(orderId), orderData);
-            } else {
-                result = await ERP.addOrder(orderData);
-            }
+            // 禁用保存按钮，显示加载状态
+            const saveBtn = document.querySelector('#orderModal .btn-primary');
+            const originalText = saveBtn.textContent;
+            saveBtn.disabled = true;
+            saveBtn.textContent = '保存中...';
 
-            if (result) {
-                hideOrderModal();
-                renderOrders();
-                updateStatistics();
+            try {
+                let result;
+                if (orderId) {
+                    result = await ERP.updateOrder(parseInt(orderId), orderData);
+                } else {
+                    result = await ERP.addOrder(orderData);
+                }
+
+                if (result) {
+                    hideOrderModal();
+                    renderOrders();
+                    updateStatistics();
+                }
+            } catch (error) {
+                console.error('[ERP Page] 保存订单失败:', error);
+                alert('保存失败：' + (error.message || '网络错误，请检查连接'));
+            } finally {
+                // 恢复按钮状态
+                saveBtn.disabled = false;
+                saveBtn.textContent = originalText;
             }
         }
 
@@ -1243,12 +1288,27 @@
                 return;
             }
 
-            const result = await ERP.adjustInventory(productId, quantityChange, type, notes);
-            if (result) {
-                hideInventoryModal();
-                renderInventory();
-                renderProducts();
-                updateStatistics();
+            // 禁用保存按钮，显示加载状态
+            const saveBtn = document.querySelector('#inventoryModal .btn-primary');
+            const originalText = saveBtn.textContent;
+            saveBtn.disabled = true;
+            saveBtn.textContent = '保存中...';
+
+            try {
+                const result = await ERP.adjustInventory(productId, quantityChange, type, notes);
+                if (result) {
+                    hideInventoryModal();
+                    renderInventory();
+                    renderProducts();
+                    updateStatistics();
+                }
+            } catch (error) {
+                console.error('[ERP Page] 保存库存调整失败:', error);
+                alert('保存失败：' + (error.message || '网络错误，请检查连接'));
+            } finally {
+                // 恢复按钮状态
+                saveBtn.disabled = false;
+                saveBtn.textContent = originalText;
             }
         }
 
@@ -1336,11 +1396,26 @@
                 return;
             }
 
-            const result = await ERP.addFinance(financeData);
-            if (result) {
-                hideFinanceModal();
-                renderFinances();
-                updateStatistics();
+            // 禁用保存按钮，显示加载状态
+            const saveBtn = document.querySelector('#financeModal .btn-primary');
+            const originalText = saveBtn.textContent;
+            saveBtn.disabled = true;
+            saveBtn.textContent = '保存中...';
+
+            try {
+                const result = await ERP.addFinance(financeData);
+                if (result) {
+                    hideFinanceModal();
+                    renderFinances();
+                    updateStatistics();
+                }
+            } catch (error) {
+                console.error('[ERP Page] 保存财务记录失败:', error);
+                alert('保存失败：' + (error.message || '网络错误，请检查连接'));
+            } finally {
+                // 恢复按钮状态
+                saveBtn.disabled = false;
+                saveBtn.textContent = originalText;
             }
         }
 

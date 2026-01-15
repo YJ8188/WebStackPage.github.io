@@ -765,10 +765,7 @@
     </div>
 
 
-        <div style="margin-bottom: 8px;">
-            <button onclick="forceShowModal('orderModal')" style="margin: 2px; padding: 5px 8px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">订单</button>
-            <button onclick="forceShowModal('inventoryModal')" style="margin: 2px; padding: 5px 8px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">库存</button>
-        </div>
+
         <div style="margin-bottom: 10px;">
             <button onclick="forceShowModal('financeModal')" style="margin: 2px; padding: 5px 8px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; width: 184px;">财务</button>
         </div>
@@ -805,9 +802,6 @@
                 console.log('[ERP Page] ERP数据加载完成:', event.detail);
                 updateStatistics(event.detail);
                 showERPContent();
-                
-                // 调试模态框
-                debugModals();
                 
                 // 财务数据加载完成后初始化筛选器
                 if (event.detail.finances) {

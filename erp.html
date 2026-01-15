@@ -792,12 +792,29 @@
                 updateStatistics(event.detail);
                 showERPContent();
                 
+                // 调试模态框
+                debugModals();
+                
                 // 财务数据加载完成后初始化筛选器
                 if (event.detail.finances) {
                     initFinanceFilters();
                 }
             });
         });
+
+        // ==================== 调试函数 ====================
+        function debugModals() {
+            console.log('=== 模态框调试信息 ===');
+            const modals = ['customerModal', 'productModal', 'orderModal', 'inventoryModal', 'financeModal'];
+            modals.forEach(modalId => {
+                const modal = document.getElementById(modalId);
+                console.log(`模态框 ${modalId}:`, modal ? '存在' : '不存在');
+                if (modal) {
+                    console.log(`  - className:`, modal.className);
+                    console.log(`  - display:`, modal.style.display);
+                }
+            });
+        }
 
         // ==================== 检查登录状态 ====================
         function checkLoginStatus() {
@@ -1016,6 +1033,11 @@
                 return;
             }
             console.log('[ERP Page] 找到模态框:', modal);
+            
+            // 确保模态框显示
+            modal.classList.add('active');
+            modal.style.display = 'flex';
+            
             const title = document.getElementById('customerModalTitle');
             const form = document.getElementById('customerForm');
 
@@ -1183,6 +1205,11 @@
                 return;
             }
             console.log('[ERP Page] 找到模态框:', modal);
+            
+            // 确保模态框显示
+            modal.classList.add('active');
+            modal.style.display = 'flex';
+            
             const title = document.getElementById('productModalTitle');
             const form = document.getElementById('productForm');
 
@@ -1374,11 +1401,17 @@
         }
 
         function showOrderModal(order = null) {
+            console.log('[ERP Page] showOrderModal 被调用，参数:', order);
             const modal = document.getElementById('orderModal');
             if (!modal) {
                 console.error('[ERP Page] 找不到 orderModal');
                 return;
             }
+            
+            // 确保模态框显示
+            modal.classList.add('active');
+            modal.style.display = 'flex';
+            
             const title = document.getElementById('orderModalTitle');
             const form = document.getElementById('orderForm');
             const customerSelect = document.getElementById('orderCustomer');
@@ -1639,6 +1672,7 @@ function renderInventory(products = null) {
         }
 
         function showInventoryAdjustModal(productId) {
+            console.log('[ERP Page] showInventoryAdjustModal 被调用，参数:', productId);
             const modal = document.getElementById('inventoryModal');
             if (!modal) {
                 console.error('[ERP Page] 找不到 inventoryModal');
@@ -1649,16 +1683,22 @@ function renderInventory(products = null) {
             const productSelect = document.getElementById('inventoryProduct');
             productSelect.value = productId;
             
+            // 确保模态框显示
             modal.classList.add('active');
+            modal.style.display = 'flex';
         }
 
         function showInventoryModal() {
+            console.log('[ERP Page] showInventoryModal 被调用');
             const modal = document.getElementById('inventoryModal');
             if (!modal) {
                 console.error('[ERP Page] 找不到 inventoryModal');
                 return;
             }
+            
+            // 确保模态框显示
             modal.classList.add('active');
+            modal.style.display = 'flex';
         }
 
         function showInventoryEditModal(productId) {
@@ -1880,11 +1920,17 @@ function renderInventory(products = null) {
         }
 
         function showFinanceModal() {
+            console.log('[ERP Page] showFinanceModal 被调用');
             const modal = document.getElementById('financeModal');
             if (!modal) {
                 console.error('[ERP Page] 找不到 financeModal');
                 return;
             }
+            
+            // 确保模态框显示
+            modal.classList.add('active');
+            modal.style.display = 'flex';
+            
             const form = document.getElementById('financeForm');
 
             form.reset();

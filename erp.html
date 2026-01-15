@@ -628,6 +628,8 @@
                 title.textContent = '添加客户';
                 form.reset();
                 document.getElementById('customerId').value = '';
+                // 显式设置下拉框的默认值
+                document.getElementById('customerStatus').value = 'active';
             }
 
             modal.classList.add('active');
@@ -772,6 +774,9 @@
                 title.textContent = '添加产品';
                 form.reset();
                 document.getElementById('productId').value = '';
+                // 显式设置下拉框的默认值
+                document.getElementById('productUnit').value = 'piece';
+                document.getElementById('productStatus').value = 'active';
             }
 
             modal.classList.add('active');
@@ -942,6 +947,9 @@
                 document.getElementById('orderId').value = '';
                 document.getElementById('orderItems').innerHTML = '';
                 document.getElementById('orderTotalAmount').value = '¥0.00';
+                // 显式设置下拉框的默认值
+                document.getElementById('orderStatus').value = 'pending';
+                document.getElementById('orderPaymentStatus').value = 'unpaid';
             }
 
             modal.classList.add('active');
@@ -1159,6 +1167,8 @@
             document.getElementById('inventoryCurrentStock').value = product.stock_quantity;
             document.getElementById('inventoryQuantityChange').value = '';
             document.getElementById('inventoryNotes').value = '';
+            // 显式设置下拉框的默认值
+            document.getElementById('inventoryType').value = 'purchase';
 
             modal.classList.add('active');
         }
@@ -1247,6 +1257,8 @@
             form.reset();
             document.getElementById('financeId').value = '';
             document.getElementById('financeTransactionDate').value = new Date().toISOString().split('T')[0];
+            // 显式设置下拉框的默认值
+            document.getElementById('financeType').value = 'income';
 
             modal.classList.add('active');
         }

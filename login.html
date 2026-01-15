@@ -4,26 +4,77 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>登录 - 何哥的网站导航系统</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="../assets/images/favicon.png">
+    <link rel="shortcut icon" href="../assets/images/favicon.png">
+    <link rel="apple-touch-icon" href="../assets/images/favicon.png">
+    
+    <!-- 字体资源 -->
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/harmonyos-sans@1.0.6/css/harmonyos-sans.min.css" as="style">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/harmonyos-sans@1.0.6/css/harmonyos-sans.min.css">
+    
+    <!-- CSS样式文件 -->
     <link rel="stylesheet" href="../assets/css/bootstrap.css">
     <link rel="stylesheet" href="../assets/css/xenon-core.css">
+    <link rel="stylesheet" href="../assets/css/xenon-components.css">
+    <link rel="stylesheet" href="../assets/css/xenon-skins.css">
+    <link rel="stylesheet" href="../assets/css/fonts/fontawesome/css/font-awesome.min.css">
+    
     <style>
+        /* ==================== 全局样式 ==================== */
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-family: "HarmonyOS Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-family:
+                "HarmonyOS Sans",
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                "PingFang SC",
+                "Microsoft YaHei",
+                sans-serif;
+            color: #e0e0e0;
+            position: relative;
+            overflow: hidden;
         }
 
+        /* 背景装饰效果 */
+        body::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 50%);
+            animation: rotate 30s linear infinite;
+            pointer-events: none;
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* ==================== 登录容器样式 ==================== */
         .login-container {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            padding: 40px;
+            background: rgba(26, 26, 42, 0.85);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            box-shadow: 
+                0 8px 32px rgba(0, 0, 0, 0.4),
+                0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+            padding: 48px 40px;
             width: 100%;
-            max-width: 400px;
-            animation: slideUp 0.5s ease-out;
+            max-width: 420px;
+            animation: slideUp 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            z-index: 1;
         }
 
         @keyframes slideUp {
@@ -37,63 +88,100 @@
             }
         }
 
+        /* ==================== 登录头部样式 ==================== */
         .login-header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 36px;
         }
 
         .login-header h2 {
-            color: #333;
+            color: #e0e0e0;
             font-weight: 600;
-            margin-bottom: 10px;
+            font-size: 28px;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
         }
 
         .login-header p {
-            color: #666;
+            color: #888;
             font-size: 14px;
+            font-weight: 400;
         }
 
+        /* ==================== 表单样式 ==================== */
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 24px;
         }
 
         .form-group label {
-            color: #555;
+            color: #b0b0b0;
             font-weight: 500;
+            font-size: 14px;
             margin-bottom: 8px;
             display: block;
+            letter-spacing: 0.3px;
         }
 
         .form-control {
-            border: 2px solid #e0e0e0;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
             border-radius: 10px;
-            padding: 12px 16px;
+            padding: 14px 16px;
             font-size: 14px;
-            transition: all 0.3s ease;
+            color: #e0e0e0;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .form-control::placeholder {
+            color: #666;
         }
 
         .form-control:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            border-color: #3b82f6;
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
             outline: none;
         }
 
+        .form-control:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* ==================== 按钮样式 ==================== */
         .btn-login {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
             border: none;
             border-radius: 10px;
             color: white;
             font-weight: 600;
-            padding: 12px 20px;
+            padding: 14px 20px;
             width: 100%;
             font-size: 16px;
-            transition: all 0.3s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             cursor: pointer;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-login::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
         }
 
         .btn-login:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-login:hover::before {
+            left: 100%;
         }
 
         .btn-login:active {
@@ -103,30 +191,36 @@
         .btn-login:disabled {
             opacity: 0.6;
             cursor: not-allowed;
+            transform: none;
         }
 
+        /* ==================== 页脚样式 ==================== */
         .login-footer {
             text-align: center;
-            margin-top: 20px;
-            color: #666;
+            margin-top: 24px;
+            color: #888;
             font-size: 14px;
         }
 
         .login-footer a {
-            color: #667eea;
+            color: #3b82f6;
             text-decoration: none;
             font-weight: 500;
+            transition: all 0.3s ease;
         }
 
         .login-footer a:hover {
+            color: #60a5fa;
             text-decoration: underline;
         }
 
+        /* ==================== 提示框样式 ==================== */
         .alert {
             border-radius: 10px;
-            padding: 12px 16px;
-            margin-bottom: 20px;
+            padding: 14px 16px;
+            margin-bottom: 24px;
             display: none;
+            font-size: 14px;
         }
 
         .alert.show {
@@ -135,22 +229,23 @@
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .alert-success {
-            background: #d4edda;
-            border: 1px solid #c3e6cb;
-            color: #155724;
+            background: rgba(34, 197, 94, 0.15);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            color: #4ade80;
         }
 
         .alert-error {
-            background: #f8d7da;
-            border: 1px solid #f5c6cb;
-            color: #721c24;
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #f87171;
         }
 
+        /* ==================== 加载动画 ==================== */
         .loading-spinner {
             display: inline-block;
             width: 16px;
@@ -166,21 +261,286 @@
             to { transform: rotate(360deg); }
         }
 
+        /* ==================== 返回首页按钮 ==================== */
         .back-to-home {
             position: absolute;
-            top: 20px;
-            left: 20px;
-            color: white;
+            top: 24px;
+            left: 24px;
+            color: rgba(255, 255, 255, 0.8);
             text-decoration: none;
             font-weight: 500;
             display: flex;
             align-items: center;
             gap: 8px;
             transition: all 0.3s ease;
+            z-index: 10;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .back-to-home:hover {
             transform: translateX(-5px);
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+        }
+
+        /* ==================== 记住我复选框样式 ==================== */
+        .remember-me-group {
+            margin-bottom: 28px;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+        }
+
+        .remember-me-checkbox {
+            position: absolute;
+            opacity: 0;
+            cursor: pointer;
+            height: 0;
+            width: 0;
+        }
+
+        .checkbox-custom {
+            position: relative;
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+
+        .checkbox-custom::after {
+            content: '';
+            position: absolute;
+            display: none;
+            left: 6px;
+            top: 2px;
+            width: 5px;
+            height: 10px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+
+        .remember-me-checkbox:checked ~ .checkbox-custom {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            border-color: #3b82f6;
+        }
+
+        .remember-me-checkbox:checked ~ .checkbox-custom::after {
+            display: block;
+        }
+
+        .checkbox-label:hover .checkbox-custom {
+            border-color: #3b82f6;
+            transform: scale(1.05);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .checkbox-text {
+            color: #b0b0b0;
+            font-size: 14px;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .checkbox-label:hover .checkbox-text {
+            color: #e0e0e0;
+        }
+
+        .remember-me-checkbox:focus ~ .checkbox-custom {
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+
+        /* 添加提示信息 */
+        .remember-me-hint {
+            display: block;
+            margin-top: 6px;
+            margin-left: 30px;
+            font-size: 12px;
+            color: #666;
+            line-height: 1.4;
+            transition: color 0.3s ease;
+        }
+
+        .checkbox-label:hover + .remember-me-hint {
+            color: #888;
+        }
+
+        /* 增强复选框的动画效果 */
+        .remember-me-checkbox:checked ~ .checkbox-custom {
+            animation: checkboxPop 0.3s ease;
+        }
+
+        @keyframes checkboxPop {
+            0% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.1);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        /* 添加复选框的悬停效果 */
+        .checkbox-label:active .checkbox-custom {
+            transform: scale(0.95);
+        }
+
+        /* ==================== 暗黑模式样式 ==================== */
+        body.light-mode {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        }
+
+        body.light-mode::before {
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.05) 0%, transparent 50%);
+        }
+
+        body.light-mode .login-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-color: rgba(0, 0, 0, 0.1);
+        }
+
+        body.light-mode .login-header h2 {
+            color: #333;
+        }
+
+        body.light-mode .login-header p {
+            color: #666;
+        }
+
+        body.light-mode .form-group label {
+            color: #555;
+        }
+
+        body.light-mode .form-control {
+            background: rgba(255, 255, 255, 0.9);
+            border-color: #e0e0e0;
+            color: #333;
+        }
+
+        body.light-mode .form-control::placeholder {
+            color: #999;
+        }
+
+        body.light-mode .form-control:focus {
+            border-color: #3b82f6;
+            background: white;
+        }
+
+        body.light-mode .form-control:hover {
+            border-color: #ccc;
+        }
+
+        body.light-mode .login-footer {
+            color: #666;
+        }
+
+        body.light-mode .checkbox-custom {
+            border-color: #e0e0e0;
+            background: white;
+        }
+
+        body.light-mode .checkbox-text {
+            color: #666;
+        }
+
+        body.light-mode .checkbox-label:hover .checkbox-text {
+            color: #333;
+        }
+
+        body.light-mode .checkbox-label:hover .checkbox-custom {
+            border-color: #3b82f6;
+            background: #f9fafb;
+        }
+
+        body.light-mode .remember-me-hint {
+            color: #999;
+        }
+
+        body.light-mode .back-to-home {
+            color: rgba(0, 0, 0, 0.7);
+            background: rgba(255, 255, 255, 0.8);
+            border-color: rgba(0, 0, 0, 0.1);
+        }
+
+        body.light-mode .back-to-home:hover {
+            background: rgba(255, 255, 255, 0.95);
+            color: #333;
+        }
+
+        /* 暗黑模式按钮样式 */
+        .dark-mode-toggle {
+            background: rgba(255, 255, 255, 0.1) !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            color: #e0e0e0 !important;
+        }
+
+        .dark-mode-toggle:hover {
+            background: rgba(255, 255, 255, 0.15) !important;
+        }
+
+        body.light-mode .dark-mode-toggle {
+            background: rgba(0, 0, 0, 0.05) !important;
+            border: 1px solid rgba(0, 0, 0, 0.1) !important;
+            color: #333 !important;
+        }
+
+        body.light-mode .dark-mode-toggle:hover {
+            background: rgba(0, 0, 0, 0.08) !important;
+        }
+
+        /* ==================== 响应式设计 ==================== */
+        @media (max-width: 768px) {
+            .login-container {
+                padding: 36px 24px;
+                max-width: 90%;
+                margin: 20px;
+            }
+
+            .login-header h2 {
+                font-size: 24px;
+            }
+
+            .back-to-home {
+                top: 16px;
+                left: 16px;
+                padding: 6px 12px;
+                font-size: 14px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .login-container {
+                padding: 32px 20px;
+            }
+
+            .login-header h2 {
+                font-size: 22px;
+            }
+
+            .form-control {
+                padding: 12px 14px;
+            }
+
+            .btn-login {
+                padding: 12px 16px;
+                font-size: 15px;
+            }
         }
     </style>
 </head>
@@ -191,6 +551,14 @@
 
     <div class="login-container">
         <div class="login-header">
+            <div style="position: absolute; top: 16px; right: 16px;">
+                <button type="button" onclick="toggleDarkMode()" class="dark-mode-toggle"
+                        style="padding: 8px 12px; border-radius: 8px; cursor: pointer; 
+                               transition: all 0.3s ease; font-size: 14px; display: flex; align-items: center; gap: 6px;">
+                    <i class="fa fa-moon-o" id="darkModeIcon" style="font-size: 16px;"></i>
+                    <span id="darkModeText">暗黑</span>
+                </button>
+            </div>
             <h2 id="formTitle">登录</h2>
             <p id="formSubtitle">欢迎回到何哥的网站导航系统</p>
         </div>
@@ -208,6 +576,15 @@
                 <input type="password" class="form-control" id="password" placeholder="请输入密码" required autocomplete="current-password">
             </div>
 
+            <div class="form-group remember-me-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="rememberMe" class="remember-me-checkbox">
+                    <span class="checkbox-custom"></span>
+                    <span class="checkbox-text">30天内自动登录</span>
+                </label>
+                <span class="remember-me-hint">勾选后，下次访问将自动登录，无需重复输入密码</span>
+            </div>
+
             <button type="submit" class="btn-login" id="submitBtn">
                 登录
             </button>
@@ -222,5 +599,55 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <script src="../assets/js/supabase-config.js"></script>
     <script src="../assets/js/auth.js"></script>
+    
+    <!-- ==================== 暗黑模式切换逻辑 ==================== -->
+    <script>
+        // 暗黑模式切换函数
+        function toggleDarkMode() {
+            const body = document.body;
+            body.classList.toggle('light-mode');
+            
+            const isDark = !body.classList.contains('light-mode');
+            
+            // 更新图标和文字
+            const icon = document.getElementById('darkModeIcon');
+            const text = document.getElementById('darkModeText');
+            
+            if (icon && text) {
+                if (isDark) {
+                    icon.className = 'fa fa-moon-o';
+                    text.textContent = '暗黑';
+                } else {
+                    icon.className = 'fa fa-sun-o';
+                    text.textContent = '日间';
+                }
+            }
+            
+            // 保存用户偏好
+            localStorage.setItem('login_theme_mode', isDark ? 'dark' : 'light');
+        }
+
+        // 页面加载时初始化主题
+        document.addEventListener('DOMContentLoaded', function() {
+            // 从 localStorage 读取主题偏好
+            const savedMode = localStorage.getItem('login_theme_mode');
+            
+            // 检查系统偏好
+            const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            
+            // 如果用户之前设置了主题，或者没有设置但系统偏好暗黑模式
+            if (savedMode === 'light' || (!savedMode && !sysDark)) {
+                document.body.classList.add('light-mode');
+                
+                // 更新图标和文字
+                const icon = document.getElementById('darkModeIcon');
+                const text = document.getElementById('darkModeText');
+                if (icon && text) {
+                    icon.className = 'fa fa-sun-o';
+                    text.textContent = '日间';
+                }
+            }
+        });
+    </script>
 </body>
 </html>

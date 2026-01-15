@@ -612,13 +612,13 @@ body {
 }
 
 /* 财务金额颜色 */
-.finance-amount-income {
-    color: #f5222d;
+.data-table .finance-amount-income {
+    color: #f5222d !important;
     font-weight: 600;
 }
 
-.finance-amount-expense {
-    color: #52c41a;
+.data-table .finance-amount-expense {
+    color: #52c41a !important;
     font-weight: 600;
 }
 

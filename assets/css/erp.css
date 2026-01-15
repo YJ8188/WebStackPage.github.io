@@ -596,6 +596,32 @@ body {
     border: 1px solid #ffa39e;
 }
 
+/* ==================== 财务类型标签 ==================== */
+.finance-type-income {
+    background: #fff1f0;
+    color: #f5222d;
+    border: 1px solid #ffa39e;
+    font-weight: 600;
+}
+
+.finance-type-expense {
+    background: #f6ffed;
+    color: #52c41a;
+    border: 1px solid #b7eb8f;
+    font-weight: 600;
+}
+
+/* 财务金额颜色 */
+.finance-amount-income {
+    color: #f5222d;
+    font-weight: 600;
+}
+
+.finance-amount-expense {
+    color: #52c41a;
+    font-weight: 600;
+}
+
 /* ==================== 操作按钮 ==================== */
 .action-buttons {
     display: flex;

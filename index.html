@@ -747,6 +747,13 @@
                         </a>
                     </li>
                     <li>
+                        <a href="erp.html" target="_blank">
+                            <i class="linecons-cubes"></i>
+                            <span class="title">ERP系统</span>
+                            <span class="label label-success pull-right hidden-collapsed">New</span>
+                        </a>
+                    </li>
+                    <li>
                         <a href="about.html">
                             <i class="linecons-heart"></i>
                             <span class="tooltip-blue">关于本站</span>
@@ -5933,17 +5940,16 @@
             }, { offset: Number.NEGATIVE_INFINITY }).element;
         }
         
-        // 页面加载完成后初始化
-        document.addEventListener('DOMContentLoaded', function() {
-            // 等待其他脚本加载完成
-            setTimeout(initCardManagement, 500);
-        });
-        
         // 监听用户数据加载完成事件
         window.addEventListener('userDataLoaded', async function(event) {
-            console.log('[卡片] 收到 userDataLoaded 事件，重新应用设置');
+            console.log('[卡片] 收到 userDataLoaded 事件，初始化卡片管理');
+            
+            // 初始化卡片管理功能（无论是否登录都需要初始化）
+            initCardManagement();
             
             if (typeof userData !== 'undefined' && userData.isLoggedIn) {
+                console.log('[卡片] 用户已登录，应用数据库设置');
+                
                 // 重新加载隐藏卡片
                 try {
                     const dbHiddenCards = await userData.loadHiddenCards();
@@ -5974,6 +5980,8 @@
                 
                 // 更新管理面板
                 updateHiddenPanel();
+            } else {
+                console.log('[卡片] 用户未登录，使用本地数据');
             }
         });
     </script>

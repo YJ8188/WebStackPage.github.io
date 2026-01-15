@@ -1489,7 +1489,9 @@
         }
 
         function showCustomerModal(customer = null) {
+            console.log('[ERP Page] showCustomerModal 被调用，参数:', customer);
             const modal = document.getElementById('customerModal');
+            console.log('[ERP Page] 找到模态框:', modal);
             const title = document.getElementById('customerModalTitle');
             const form = document.getElementById('customerForm');
 
@@ -1628,7 +1630,9 @@
         }
 
         function showProductModal(product = null) {
+            console.log('[ERP Page] showProductModal 被调用，参数:', product);
             const modal = document.getElementById('productModal');
+            console.log('[ERP Page] 找到模态框:', modal);
             const title = document.getElementById('productModalTitle');
             const form = document.getElementById('productForm');
 

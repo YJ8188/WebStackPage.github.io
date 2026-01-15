@@ -25,38 +25,105 @@
     
 </head>
 <body>
-    <!-- 返回首页按钮 -->
-    <a href="index.html" class="back-btn">
-        <i class="fa fa-arrow-left"></i>
-        返回首页
-    </a>
+    <!-- ERP 主布局容器 -->
+    <div class="erp-layout">
+        <!-- 左侧侧边栏 -->
+        <aside class="erp-sidebar">
+            <!-- 侧边栏头部 -->
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <i class="fa fa-tachometer"></i>
+                    <span>ERP系统</span>
+                </div>
+            </div>
 
-    <!-- ERP 主容器 -->
-    <div class="erp-container">
-        <!-- 头部 -->
-        <div class="erp-header">
-            <h1><i class="fa fa-tachometer" style="margin-right: 10px; color: #2D7BEF;"></i>ERP管理系统</h1>
-            <p>企业资源计划系统 - 客户、产品、订单、库存、财务管理</p>
-        </div>
+            <!-- 导航菜单 -->
+            <nav class="sidebar-nav">
+                <ul class="nav-menu">
+                    <li class="nav-item active">
+                        <a href="#" class="nav-link" onclick="backToDashboard(); return false;">
+                            <i class="fa fa-dashboard"></i>
+                            <span>仪表盘</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link" onclick="openModule('customers'); return false;">
+                            <i class="fa fa-users"></i>
+                            <span>客户管理</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link" onclick="openModule('products'); return false;">
+                            <i class="fa fa-box"></i>
+                            <span>产品管理</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link" onclick="openModule('orders'); return false;">
+                            <i class="fa fa-shopping-cart"></i>
+                            <span>订单管理</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link" onclick="openModule('inventory'); return false;">
+                            <i class="fa fa-warehouse"></i>
+                            <span>库存管理</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link" onclick="openModule('finance'); return false;">
+                            <i class="fa fa-line-chart"></i>
+                            <span>财务管理</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
 
-        <!-- 加载中 -->
-        <div id="loadingContainer" class="loading-container">
-            <div class="loading-spinner"></div>
-            <p class="loading-text">正在加载ERP系统...</p>
-        </div>
+            <!-- 侧边栏底部 -->
+            <div class="sidebar-footer">
+                <a href="index.html" class="nav-link back-link">
+                    <i class="fa fa-arrow-left"></i>
+                    <span>返回首页</span>
+                </a>
+            </div>
+        </aside>
 
-        <!-- 未登录 -->
-        <div id="notLoggedIn" class="not-logged-in" style="display: none;">
-            <i class="fa fa-lock"></i>
-            <h2>请先登录</h2>
-            <p>您需要登录后才能使用ERP系统</p>
-            <a href="login.html" class="login-btn">
-                <i class="fa fa-sign-in" style="margin-right: 8px;"></i>立即登录
-            </a>
-        </div>
+        <!-- 主内容区域 -->
+        <div class="erp-main-content">
+            <!-- 顶部标题栏 -->
+            <header class="erp-header-bar">
+                <div class="header-left">
+                    <h1 class="page-title">ERP管理系统</h1>
+                    <p class="page-subtitle">企业资源计划系统 - 客户、产品、订单、库存、财务管理</p>
+                </div>
+                <div class="header-right">
+                    <div class="user-info">
+                        <i class="fa fa-user-circle"></i>
+                        <span id="userEmail">用户</span>
+                    </div>
+                </div>
+            </header>
 
-        <!-- ERP 内容 -->
-        <div id="erpContent" style="display: none;">
+            <!-- 内容容器 -->
+            <div class="erp-container">
+                <!-- 加载中 -->
+                <div id="loadingContainer" class="loading-container">
+                    <div class="loading-spinner"></div>
+                    <p class="loading-text">正在加载ERP系统...</p>
+                </div>
+
+                <!-- 未登录 -->
+                <div id="notLoggedIn" class="not-logged-in" style="display: none;">
+                    <i class="fa fa-lock"></i>
+                    <h2>请先登录</h2>
+                    <p>您需要登录后才能使用ERP系统</p>
+                    <a href="login.html" class="login-btn">
+                        <i class="fa fa-sign-in" style="margin-right: 8px;"></i>立即登录
+                    </a>
+                </div>
+
+                <!-- ERP 内容 -->
+                <div id="erpContent" style="display: none;">
             <!-- 统计卡片 -->
             <div class="stats-grid">
                 <div class="stat-card blue">
@@ -1474,5 +1541,8 @@
             document.getElementById('statProfit').textContent = '¥' + stats.finances.netProfit.toLocaleString();
         }
     </script>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

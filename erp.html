@@ -765,13 +765,24 @@
     </div>
 
     <!-- 调试按钮 -->
-    <div style="position: fixed; top: 10px; right: 10px; z-index: 9998; background: #ff0000; color: white; padding: 10px; border-radius: 5px;">
-        <button onclick="forceShowModal('customerModal')" style="margin-right: 5px;">客户</button>
-        <button onclick="forceShowModal('productModal')" style="margin-right: 5px;">产品</button>
-        <button onclick="forceShowModal('orderModal')" style="margin-right: 5px;">订单</button>
-        <button onclick="forceShowModal('inventoryModal')" style="margin-right: 5px;">库存</button>
-        <button onclick="forceShowModal('financeModal')">财务</button>
-        <button onclick="debugModals()" style="margin-left: 10px;">调试</button>
+    <div style="position: fixed; top: 10px; right: 10px; z-index: 9998; background: #ff0000; color: white; padding: 10px; border-radius: 5px; font-size: 12px;">
+        <div style="margin-bottom: 5px;">模态框测试:</div>
+        <button onclick="forceShowModal('customerModal')" style="margin-right: 3px;">客户</button>
+        <button onclick="forceShowModal('productModal')" style="margin-right: 3px;">产品</button>
+        <button onclick="forceShowModal('orderModal')" style="margin-right: 3px;">订单</button>
+        <button onclick="forceShowModal('inventoryModal')" style="margin-right: 3px;">库存</button>
+        <button onclick="forceShowModal('financeModal')" style="margin-right: 10px;">财务</button>
+        <div style="margin-top: 10px; margin-bottom: 5px;">
+            <button onclick="testModalContent('customerModal')" style="margin-right: 3px;">测试客户</button>
+            <button onclick="testModalContent('productModal')" style="margin-right: 3px;">测试产品</button>
+            <button onclick="testModalContent('orderModal')" style="margin-right: 3px;">测试订单</button>
+            <button onclick="testModalContent('inventoryModal')" style="margin-right: 3px;">测试库存</button>
+            <button onclick="testModalContent('financeModal')" style="margin-right: 10px;">测试财务</button>
+        </div>
+        <div>
+            <button onclick="debugModals()" style="margin-right: 3px;">调试</button>
+            <button onclick="clearAllModals()">清除</button>
+        </div>
     </div>
 
     <!-- JavaScript -->
@@ -835,7 +846,80 @@
                 modal.style.visibility = 'visible';
                 modal.style.opacity = '1';
                 modal.style.zIndex = '9999';
+                modal.style.position = 'fixed';
+                modal.style.top = '0';
+                modal.style.left = '0';
+                modal.style.right = '0';
+                modal.style.bottom = '0';
+                modal.style.width = '100%';
+                modal.style.height = '100%';
+                modal.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+                
+                // 获取模态框内部的modal容器
+                const innerModal = modal.querySelector('.modal');
+                if (innerModal) {
+                    innerModal.style.position = 'relative';
+                    innerModal.style.zIndex = '10000';
+                    innerModal.style.margin = 'auto';
+                    innerModal.style.top = '50%';
+                    innerModal.style.transform = 'translateY(-50%)';
+                }
+                
                 console.log(`模态框 ${modalId} 已强制显示`);
+                
+                // 3秒后自动移除强制样式
+                setTimeout(() => {
+                    modal.classList.remove('force-show');
+                    modal.style.backgroundColor = 'transparent';
+                    if (innerModal) {
+                        innerModal.style.position = 'relative';
+                        innerModal.style.top = 'auto';
+                        innerModal.style.transform = 'none';
+                    }
+                }, 10000);
+            }
+        }
+
+        function clearAllModals() {
+            console.log('清除所有模态框');
+            const modals = ['customerModal', 'productModal', 'orderModal', 'inventoryModal', 'financeModal'];
+            modals.forEach(modalId => {
+                const modal = document.getElementById(modalId);
+                if (modal) {
+                    modal.classList.remove('active', 'force-show');
+                    modal.style.display = 'none';
+                    modal.style.visibility = 'hidden';
+                    modal.style.opacity = '0';
+                    modal.style.backgroundColor = 'transparent';
+                    
+                    const innerModal = modal.querySelector('.modal');
+                    if (innerModal) {
+                        innerModal.style.position = 'relative';
+                        innerModal.style.top = 'auto';
+                        innerModal.style.transform = 'none';
+                    }
+                }
+            });
+        }
+
+        function testModalContent(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                console.log(`=== ${modalId} 内容检查 ===`);
+                const innerModal = modal.querySelector('.modal');
+                if (innerModal) {
+                    console.log('  - innerModal存在');
+                    console.log('  - innerModal内容:', innerModal.innerHTML.substring(0, 200) + '...');
+                } else {
+                    console.log('  - innerModal不存在');
+                }
+                
+                const modalBody = modal.querySelector('.modal-body');
+                if (modalBody) {
+                    console.log('  - modalBody存在');
+                } else {
+                    console.log('  - modalBody不存在');
+                }
             }
         }
 

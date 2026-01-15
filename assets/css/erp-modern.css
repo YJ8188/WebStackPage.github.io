@@ -1,4 +1,4 @@
-/* ==================== 现代化ERP界面设计 =================== */
+/* ==================== 现代化ERP界面设计 ==================== */
 body {
     background: #f8f9fa;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -595,9 +595,17 @@ body {
 }
 
 .modal-overlay.active {
-    display: flex;
+    display: flex !important;
     align-items: center;
     justify-content: center;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    z-index: 9999 !important;
+    background: rgba(0, 0, 0, 0.5) !important;
+    backdrop-filter: blur(4px);
 }
 
 .modal {

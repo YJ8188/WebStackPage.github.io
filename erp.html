@@ -1661,41 +1661,19 @@ function renderInventory(products = null) {
             modal.classList.add('active');
         }
 
-            tbody.innerHTML = data.map(product => `
-                <tr>
-                    <td><strong>${product.name}</strong></td>
-                    <td>${product.sku || '-'}</td>
-                    <td>${product.category || '-'}</td>
-                    <td>
-                        <span style="color: ${product.stock_quantity <= product.min_stock ? '#ef4444' : '#10b981'}; font-weight: 600;">
-                            ${product.stock_quantity}
-                        </span>
-                    </td>
-                    <td>${getUnitText(product.unit)}</td>
-                    <td>${product.min_stock}</td>
-                    <td>
-                        <span class="status-badge ${product.stock_quantity <= product.min_stock ? 'status-inactive' : 'status-active'}">
-                            ${product.stock_quantity <= product.min_stock ? '库存不足' : '正常'}
-                        </span>
-                    </td>
-                    <td>
-                        <div class="action-buttons">
-                            <button class="btn-action btn-edit" onclick="showInventoryModal(${product.id})">
-                                <i class="fa fa-edit"></i> 调整
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            `).join('');
-
-        function showInventoryModal(productId) {
+        function showInventoryEditModal(productId) {
+            if (!productId) return;
+            
             const product = ERP.state.products.find(p => p.id === productId);
             if (!product) return;
 
             const modal = document.getElementById('inventoryModal');
-            document.getElementById('inventoryProductId').value = productId;
-            document.getElementById('inventoryProductName').value = product.name;
-            document.getElementById('inventoryCurrentStock').value = product.stock_quantity;
+            if (!modal) {
+                console.error('[ERP Page] 找不到 inventoryModal');
+                return;
+            }
+            
+            document.getElementById('inventoryProduct').value = productId;
             document.getElementById('inventoryQuantityChange').value = '';
             document.getElementById('inventoryNotes').value = '';
             // 显式设置下拉框的默认值
@@ -2001,9 +1979,9 @@ function renderInventory(products = null) {
             document.getElementById('statProfit').textContent = '¥' + stats.finances.netProfit.toLocaleString();
         }
     </script>
-            </div>
-        </div>
     </div>
+</div>
+</div>
 
     <!-- 客户模态框 -->
     <div id="customerModal" class="modal-overlay">

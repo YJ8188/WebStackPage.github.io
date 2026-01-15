@@ -280,6 +280,7 @@
                                 <th>分类</th>
                                 <th>价格</th>
                                 <th>库存</th>
+                                <th>单位</th>
                                 <th>状态</th>
                                 <th>操作</th>
                             </tr>
@@ -352,6 +353,7 @@
                                 <th>编码</th>
                                 <th>分类</th>
                                 <th>当前库存</th>
+                                <th>单位</th>
                                 <th>最小库存</th>
                                 <th>状态</th>
                                 <th>操作</th>
@@ -708,7 +710,7 @@
             if (data.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="7">
+                        <td colspan="8">
                             <div class="empty-state">
                                 <i class="fa fa-box"></i>
                                 <h3>暂无产品</h3>
@@ -731,6 +733,7 @@
                             ${product.stock_quantity}
                         </span>
                     </td>
+                    <td>${getUnitText(product.unit)}</td>
                     <td>
                         <span class="status-badge ${product.status === 'active' ? 'status-active' : 'status-inactive'}">
                             ${product.status === 'active' ? '活跃' : '停用'}
@@ -919,6 +922,31 @@
                 'paid': '已支付'
             };
             return statusMap[status] || status;
+        }
+
+        function getUnitText(unit) {
+            const unitMap = {
+                'piece': '个',
+                'kg': '千克',
+                'g': '克',
+                'ton': '吨',
+                'box': '盒',
+                'set': '套',
+                'pair': '双',
+                'pack': '包',
+                'bottle': '瓶',
+                'bag': '袋',
+                'liter': '升',
+                'ml': '毫升',
+                'meter': '米',
+                'cm': '厘米',
+                'mm': '毫米',
+                'sheet': '张',
+                'roll': '卷',
+                'dozen': '打',
+                'unit': '单位'
+            };
+            return unitMap[unit] || unit;
         }
 
         function showOrderModal(order = null) {
@@ -1118,7 +1146,7 @@
             if (data.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="7">
+                        <td colspan="8">
                             <div class="empty-state">
                                 <i class="fa fa-warehouse"></i>
                                 <h3>暂无库存数据</h3>
@@ -1140,6 +1168,7 @@
                             ${product.stock_quantity}
                         </span>
                     </td>
+                    <td>${getUnitText(product.unit)}</td>
                     <td>${product.min_stock}</td>
                     <td>
                         <span class="status-badge ${product.stock_quantity <= product.min_stock ? 'status-inactive' : 'status-active'}">

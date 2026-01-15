@@ -5563,8 +5563,42 @@
         }
         
         // 全局函数：更新隐藏卡片面板
-        function updateHiddenPanel() {
-            const hiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
+        async function updateHiddenPanel() {
+            console.log('[面板] 更新隐藏卡片面板');
+            
+            // 从 localStorage 加载数据
+            const localStorageHiddenCards = JSON.parse(localStorage.getItem('hiddenCards') || '[]');
+            let hiddenCards = [...localStorageHiddenCards];
+            
+            // 如果用户已登录，从数据库加载数据并合并
+            if (typeof userData !== 'undefined' && userData.isLoggedIn) {
+                try {
+                    const dbHiddenCards = await userData.loadHiddenCards();
+                    console.log('[面板] 数据库隐藏卡片:', dbHiddenCards);
+                    
+                    // 合并数据库中的卡片ID
+                    dbHiddenCards.forEach(cardId => {
+                        // 检查是否已经存在
+                        const exists = hiddenCards.some(card => card && card.id === cardId);
+                        if (!exists) {
+                            // 从数据库添加的卡片，需要获取标题
+                            const cardContainer = document.getElementById(cardId);
+                            const cardWidget = cardContainer?.querySelector('.xe-widget');
+                            const cardTitle = cardWidget?.querySelector('.xe-user-name strong')?.textContent || '未命名卡片';
+                            
+                            hiddenCards.push({
+                                id: cardId,
+                                title: cardTitle
+                            });
+                        }
+                    });
+                    
+                    console.log('[面板] 合并后的隐藏卡片:', hiddenCards);
+                } catch (error) {
+                    console.error('[面板] 从数据库加载隐藏卡片失败:', error);
+                }
+            }
+            
             const listContainer = document.getElementById('hiddenCardsList');
             
             if (!listContainer) return;

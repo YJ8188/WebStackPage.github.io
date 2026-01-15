@@ -552,6 +552,180 @@ const ERP = {
         }
     },
 
+    async addOrder(orderData) {
+        console.log('[ERP] 添加订单:', orderData);
+
+        try {
+            // 生成订单号
+            const { data: orderNumData, error: orderNumError } = await supabaseClient
+                .rpc('generate_order_number');
+
+            if (orderNumError) {
+                throw orderNumError;
+            }
+
+            const orderNumber = orderNumData;
+
+            // 计算订单总金额
+            const totalAmount = orderData.items.reduce((sum, item) => {
+                return sum + (item.quantity * item.unit_price);
+            }, 0);
+
+            // 创建订单
+            const { data: order, error: orderError } = await supabaseClient
+                .from('erp_orders')
+                .insert([{
+                    user_id: userData.user.id,
+                    customer_id: orderData.customer_id || null,
+                    order_number: orderNumber,
+                    order_date: new Date().toISOString(),
+                    total_amount: totalAmount,
+                    status: orderData.status || 'pending',
+                    payment_status: orderData.payment_status || 'unpaid',
+                    notes: orderData.notes || ''
+                }])
+                .select()
+                .single();
+
+            if (orderError) {
+                throw orderError;
+            }
+
+            console.log('[ERP] 订单创建成功:', order);
+
+            // 创建订单明细
+            const orderItems = orderData.items.map(item => ({
+                order_id: order.id,
+                product_id: item.product_id,
+                product_name: item.product_name,
+                quantity: item.quantity,
+                unit_price: item.unit_price
+            }));
+
+            const { data: itemsData, error: itemsError } = await supabaseClient
+                .from('erp_order_items')
+                .insert(orderItems)
+                .select();
+
+            if (itemsError) {
+                throw itemsError;
+            }
+
+            console.log('[ERP] 订单明细创建成功:', itemsData);
+
+            // 更新库存
+            for (const item of orderData.items) {
+                if (item.product_id) {
+                    await this.updateStock(item.product_id, -item.quantity, 'sale', order.id);
+                }
+            }
+
+            // 创建财务记录
+            await this.addFinanceRecord({
+                type: 'income',
+                category: '销售订单',
+                amount: totalAmount,
+                description: `订单 ${orderNumber}`,
+                reference_id: order.id
+            });
+
+            // 更新本地状态
+            order.items = itemsData;
+            this.state.orders.unshift(order);
+
+            if (typeof showToast === 'function') {
+                showToast('订单创建成功', 'success');
+            }
+
+            return order;
+
+        } catch (error) {
+            console.error('[ERP] 创建订单失败:', error);
+            if (typeof showToast === 'function') {
+                showToast('创建订单失败: ' + error.message, 'error');
+            }
+            return null;
+        }
+    },
+
+    async updateOrder(orderId, orderData) {
+        console.log('[ERP] 更新订单:', orderId, orderData);
+
+        try {
+            const { data, error } = await supabaseClient
+                .from('erp_orders')
+                .update({
+                    customer_id: orderData.customer_id || null,
+                    status: orderData.status || 'pending',
+                    payment_status: orderData.payment_status || 'unpaid',
+                    notes: orderData.notes || ''
+                })
+                .eq('id', orderId)
+                .eq('user_id', userData.user.id)
+                .select()
+                .single();
+
+            if (error) {
+                throw error;
+            }
+
+            console.log('[ERP] 订单更新成功:', data);
+
+            // 更新本地状态
+            const index = this.state.orders.findIndex(o => o.id === orderId);
+            if (index !== -1) {
+                this.state.orders[index] = { ...this.state.orders[index], ...data };
+            }
+
+            if (typeof showToast === 'function') {
+                showToast('订单更新成功', 'success');
+            }
+
+            return data;
+
+        } catch (error) {
+            console.error('[ERP] 更新订单失败:', error);
+            if (typeof showToast === 'function') {
+                showToast('更新订单失败: ' + error.message, 'error');
+            }
+            return null;
+        }
+    },
+
+    async deleteOrder(orderId) {
+        console.log('[ERP] 删除订单:', orderId);
+
+        try {
+            const { error } = await supabaseClient
+                .from('erp_orders')
+                .delete()
+                .eq('id', orderId)
+                .eq('user_id', userData.user.id);
+
+            if (error) {
+                throw error;
+            }
+
+            console.log('[ERP] 订单删除成功');
+
+            // 更新本地状态
+            this.state.orders = this.state.orders.filter(o => o.id !== orderId);
+
+            if (typeof showToast === 'function') {
+                showToast('订单删除成功', 'success');
+            }
+
+            return true;
+
+        } catch (error) {
+            console.error('[ERP] 删除订单失败:', error);
+            if (typeof showToast === 'function') {
+                showToast('删除订单失败: ' + error.message, 'error');
+            }
+            return false;
+        }
+    },
+
     // ==================== 库存管理 ====================
     async updateStock(productId, quantityChange, type, referenceId = null, notes = '') {
         console.log('[ERP] 更新库存:', productId, quantityChange, type);
@@ -619,6 +793,40 @@ const ERP = {
         }
     },
 
+    async adjustInventory(productId, quantityChange, type, notes) {
+        console.log('[ERP] 调整库存:', productId, quantityChange, type, notes);
+
+        try {
+            const result = await this.updateStock(productId, quantityChange, type, null, notes);
+
+            if (result) {
+                // 创建财务记录
+                if (type === 'purchase') {
+                    await this.addFinanceRecord({
+                        type: 'expense',
+                        category: '采购',
+                        amount: Math.abs(quantityChange) * 0, // 这里需要根据实际情况计算
+                        description: `库存调整 - ${type}`,
+                        reference_id: productId
+                    });
+                }
+
+                if (typeof showToast === 'function') {
+                    showToast('库存调整成功', 'success');
+                }
+            }
+
+            return result;
+
+        } catch (error) {
+            console.error('[ERP] 调整库存失败:', error);
+            if (typeof showToast === 'function') {
+                showToast('调整库存失败: ' + error.message, 'error');
+            }
+            return false;
+        }
+    },
+
     // ==================== 财务管理 ====================
     async loadFinances() {
         console.log('[ERP] 加载财务数据...');
@@ -673,6 +881,63 @@ const ERP = {
         } catch (error) {
             console.error('[ERP] 添加财务记录失败:', error);
             return null;
+        }
+    },
+
+    async addFinance(financeData) {
+        console.log('[ERP] 添加财务:', financeData);
+
+        try {
+            const result = await this.addFinanceRecord(financeData);
+
+            if (result) {
+                if (typeof showToast === 'function') {
+                    showToast('财务记录添加成功', 'success');
+                }
+            }
+
+            return result;
+
+        } catch (error) {
+            console.error('[ERP] 添加财务失败:', error);
+            if (typeof showToast === 'function') {
+                showToast('添加财务失败: ' + error.message, 'error');
+            }
+            return null;
+        }
+    },
+
+    async deleteFinance(financeId) {
+        console.log('[ERP] 删除财务记录:', financeId);
+
+        try {
+            const { error } = await supabaseClient
+                .from('erp_finances')
+                .delete()
+                .eq('id', financeId)
+                .eq('user_id', userData.user.id);
+
+            if (error) {
+                throw error;
+            }
+
+            console.log('[ERP] 财务记录删除成功');
+
+            // 更新本地状态
+            this.state.finances = this.state.finances.filter(f => f.id !== financeId);
+
+            if (typeof showToast === 'function') {
+                showToast('财务记录删除成功', 'success');
+            }
+
+            return true;
+
+        } catch (error) {
+            console.error('[ERP] 删除财务记录失败:', error);
+            if (typeof showToast === 'function') {
+                showToast('删除财务记录失败: ' + error.message, 'error');
+            }
+            return false;
         }
     },
 

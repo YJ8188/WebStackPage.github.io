@@ -379,8 +379,55 @@
                     </button>
                 </div>
 
-                <div class="search-box">
-                    <input type="text" id="financeSearch" placeholder="搜索描述、分类..." oninput="searchFinances()">
+                <div class="finance-filters">
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label for="financeMonth">筛选月份</label>
+                            <select id="financeMonth" class="form-control" onchange="filterFinancesByMonth()">
+                                <option value="">所有月份</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="financeYear">筛选年份</label>
+                            <select id="financeYear" class="form-control" onchange="filterFinancesByMonth()">
+                                <option value="">所有年份</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="search-box">
+                        <input type="text" id="financeSearch" placeholder="搜索描述、分类..." oninput="searchFinances()">
+                    </div>
+                </div>
+
+                <!-- 财务汇总统计 -->
+                <div class="finance-summary" id="financeSummary" style="display: none;">
+                    <div class="summary-card income-summary">
+                        <div class="summary-icon">
+                            <i class="fa fa-arrow-up"></i>
+                        </div>
+                        <div class="summary-info">
+                            <div class="summary-label">总收入</div>
+                            <div class="summary-value income-value" id="totalIncome">¥0.00</div>
+                        </div>
+                    </div>
+                    <div class="summary-card expense-summary">
+                        <div class="summary-icon">
+                            <i class="fa fa-arrow-down"></i>
+                        </div>
+                        <div class="summary-info">
+                            <div class="summary-label">总支出</div>
+                            <div class="summary-value expense-value" id="totalExpense">¥0.00</div>
+                        </div>
+                    </div>
+                    <div class="summary-card balance-summary">
+                        <div class="summary-icon">
+                            <i class="fa fa-balance-scale"></i>
+                        </div>
+                        <div class="summary-info">
+                            <div class="summary-label">净收入</div>
+                            <div class="summary-value balance-value" id="netIncome">¥0.00</div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="data-table-container">
@@ -391,7 +438,7 @@
                                 <th>分类</th>
                                 <th>金额</th>
                                 <th>描述</th>
-                                <th>交易日期</th>
+                                <th>交易时间</th>
                                 <th>操作</th>
                             </tr>
                         </thead>
@@ -414,6 +461,9 @@
         document.addEventListener('DOMContentLoaded', function() {
             console.log('[ERP Page] 页面加载完成');
 
+            // 初始化财务筛选器
+            initFinanceFilters();
+
             // 检查用户登录状态
             checkLoginStatus();
 
@@ -427,6 +477,11 @@
                 console.log('[ERP Page] ERP数据加载完成:', event.detail);
                 updateStatistics(event.detail);
                 showERPContent();
+                
+                // 财务数据加载完成后初始化筛选器
+                if (event.detail.finances) {
+                    initFinanceFilters();
+                }
             });
         });
 
@@ -1321,9 +1376,43 @@
         }
 
         // ==================== 财务管理 ====================
+        // ==================== 初始化财务筛选器 ====================
+        function initFinanceFilters() {
+            const monthSelect = document.getElementById('financeMonth');
+            const yearSelect = document.getElementById('financeYear');
+            const currentYear = new Date().getFullYear();
+            const currentMonth = new Date().getMonth() + 1;
+
+            // 生成年份选项
+            for (let year = currentYear; year >= currentYear - 5; year--) {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = year + '年';
+                if (year === currentYear) {
+                    option.selected = true;
+                }
+                yearSelect.appendChild(option);
+            }
+
+            // 生成月份选项
+            const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+            months.forEach((month, index) => {
+                const option = document.createElement('option');
+                option.value = index + 1;
+                option.textContent = month;
+                if (index + 1 === currentMonth) {
+                    option.selected = true;
+                }
+                monthSelect.appendChild(option);
+            });
+        }
+
         function renderFinances(finances = null) {
             const data = finances || ERP.state.finances;
             const tbody = document.getElementById('financesTableBody');
+
+            // 显示汇总统计
+            updateFinanceSummary(data);
 
             if (data.length === 0) {
                 tbody.innerHTML = `
@@ -1337,31 +1426,92 @@
                         </td>
                     </tr>
                 `;
+                document.getElementById('financeSummary').style.display = 'none';
                 return;
             }
 
-            tbody.innerHTML = data.map(finance => `
-                <tr>
-                    <td>
-                        <span class="status-badge ${finance.type === 'income' ? 'finance-type-income' : 'finance-type-expense'}">
-                            ${finance.type === 'income' ? '收入' : '支出'}
-                        </span>
-                    </td>
-                    <td>${finance.category || '-'}</td>
-                    <td class="finance-amount-${finance.type}">
-                        ${finance.type === 'income' ? '+' : '-'}¥${parseFloat(finance.amount).toFixed(2)}
-                    </td>
-                    <td>${finance.description || '-'}</td>
-                    <td>${new Date(finance.transaction_date).toLocaleDateString('zh-CN')}</td>
-                    <td>
-                        <div class="action-buttons">
-                            <button class="btn-action btn-delete" onclick="deleteFinance(${finance.id})">
-                                <i class="fa fa-trash"></i> 删除
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            `).join('');
+            document.getElementById('financeSummary').style.display = 'grid';
+
+            tbody.innerHTML = data.map(finance => {
+                const date = new Date(finance.transaction_date);
+                const formattedDate = date.toLocaleDateString('zh-CN');
+                const formattedTime = date.toLocaleTimeString('zh-CN', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+                const formattedDateTime = `${formattedDate} ${formattedTime}`;
+
+                return `
+                    <tr>
+                        <td>
+                            <span class="status-badge ${finance.type === 'income' ? 'finance-type-income' : 'finance-type-expense'}">
+                                ${finance.type === 'income' ? '收入' : '支出'}
+                            </span>
+                        </td>
+                        <td>${finance.category || '-'}</td>
+                        <td class="finance-amount-${finance.type}">
+                            ${finance.type === 'income' ? '+' : '-'}¥${parseFloat(finance.amount).toFixed(2)}
+                        </td>
+                        <td>${finance.description || '-'}</td>
+                        <td>${formattedDateTime}</td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="btn-action btn-delete" onclick="deleteFinance(${finance.id})">
+                                    <i class="fa fa-trash"></i> 删除
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function updateFinanceSummary(data) {
+            const totalIncome = data
+                .filter(f => f.type === 'income')
+                .reduce((sum, f) => sum + parseFloat(f.amount), 0);
+            
+            const totalExpense = data
+                .filter(f => f.type === 'expense')
+                .reduce((sum, f) => sum + parseFloat(f.amount), 0);
+            
+            const netIncome = totalIncome - totalExpense;
+
+            document.getElementById('totalIncome').textContent = `¥${totalIncome.toFixed(2)}`;
+            document.getElementById('totalExpense').textContent = `¥${totalExpense.toFixed(2)}`;
+            document.getElementById('netIncome').textContent = `¥${netIncome.toFixed(2)}`;
+
+            // 根据净收入设置颜色
+            const netIncomeElement = document.getElementById('netIncome');
+            if (netIncome > 0) {
+                netIncomeElement.style.color = '#e74c3c';
+            } else if (netIncome < 0) {
+                netIncomeElement.style.color = '#27ae60';
+            } else {
+                netIncomeElement.style.color = '#3498db';
+            }
+        }
+
+        function filterFinancesByMonth() {
+            const monthFilter = document.getElementById('financeMonth').value;
+            const yearFilter = document.getElementById('financeYear').value;
+            
+            let filtered = ERP.state.finances;
+            
+            if (yearFilter || monthFilter) {
+                filtered = filtered.filter(finance => {
+                    const date = new Date(finance.transaction_date);
+                    const financeYear = date.getFullYear().toString();
+                    const financeMonth = (date.getMonth() + 1).toString();
+                    
+                    const yearMatch = !yearFilter || financeYear === yearFilter;
+                    const monthMatch = !monthFilter || financeMonth === monthFilter;
+                    
+                    return yearMatch && monthMatch;
+                });
+            }
+            
+            renderFinances(filtered);
         }
 
         function showFinanceModal() {

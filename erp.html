@@ -486,9 +486,20 @@
         function openModule(moduleName) {
             console.log('[ERP Page] 打开模块:', moduleName);
 
-            // 隐藏仪表盘，显示对应模块
+            // 隐藏仪表盘
             document.getElementById('dashboardView').style.display = 'none';
+
+            // 隐藏所有模块视图
+            const allModuleViews = ['customersView', 'productsView', 'ordersView', 'inventoryView', 'financeView'];
+            allModuleViews.forEach(viewId => {
+                document.getElementById(viewId).classList.remove('active');
+            });
+
+            // 显示对应模块
             document.getElementById(moduleName + 'View').classList.add('active');
+
+            // 更新导航菜单激活状态
+            updateNavActiveState(moduleName);
 
             // 加载模块数据
             switch (moduleName) {
@@ -510,6 +521,28 @@
             }
         }
 
+        // ==================== 更新导航菜单激活状态 ====================
+        function updateNavActiveState(moduleName) {
+            // 移除所有导航项的激活状态
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+
+            // 根据模块名称添加激活状态
+            const moduleMap = {
+                'customers': 1,  // 客户管理是第2个nav-item（索引1）
+                'products': 2,   // 产品管理是第3个nav-item（索引2）
+                'orders': 3,    // 订单管理是第4个nav-item（索引3）
+                'inventory': 4, // 库存管理是第5个nav-item（索引4）
+                'finance': 5    // 财务管理是第6个nav-item（索引5）
+            };
+
+            const navItems = document.querySelectorAll('.nav-item');
+            if (moduleMap[moduleName] !== undefined) {
+                navItems[moduleMap[moduleName]].classList.add('active');
+            }
+        }
+
         // ==================== 返回仪表盘 ====================
         function backToDashboard() {
             console.log('[ERP Page] 返回仪表盘');
@@ -521,6 +554,12 @@
 
             // 显示仪表盘
             document.getElementById('dashboardView').style.display = 'grid';
+
+            // 更新导航菜单激活状态（仪表盘）
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            document.querySelectorAll('.nav-item')[0].classList.add('active'); // 仪表盘是第一个nav-item
         }
 
         // ==================== 客户管理 ====================

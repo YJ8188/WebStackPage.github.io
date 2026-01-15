@@ -1344,12 +1344,12 @@
             tbody.innerHTML = data.map(finance => `
                 <tr>
                     <td>
-                        <span class="status-badge ${finance.type === 'income' ? 'status-active' : 'status-inactive'}">
+                        <span class="status-badge ${finance.type === 'income' ? 'finance-type-income' : 'finance-type-expense'}">
                             ${finance.type === 'income' ? '收入' : '支出'}
                         </span>
                     </td>
                     <td>${finance.category || '-'}</td>
-                    <td style="color: ${finance.type === 'income' ? '#10b981' : '#ef4444'}; font-weight: 600;">
+                    <td class="finance-amount-${finance.type}">
                         ${finance.type === 'income' ? '+' : '-'}¥${parseFloat(finance.amount).toFixed(2)}
                     </td>
                     <td>${finance.description || '-'}</td>

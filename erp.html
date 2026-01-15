@@ -764,13 +764,7 @@
         </div>
     </div>
 
-    <!-- 模态框测试面板 -->
-    <div style="position: fixed; top: 10px; left: 10px; z-index: 9999; background: #2c3e50; color: white; padding: 15px; border-radius: 8px; font-size: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); width: 200px;">
-        <h4 style="margin: 0 0 10px 0; font-size: 14px;">🧪 模态框测试</h4>
-        <div style="margin-bottom: 8px;">
-            <button onclick="forceShowModal('customerModal')" style="margin: 2px; padding: 5px 8px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">客户</button>
-            <button onclick="forceShowModal('productModal')" style="margin: 2px; padding: 5px 8px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">产品</button>
-        </div>
+
         <div style="margin-bottom: 8px;">
             <button onclick="forceShowModal('orderModal')" style="margin: 2px; padding: 5px 8px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">订单</button>
             <button onclick="forceShowModal('inventoryModal')" style="margin: 2px; padding: 5px 8px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">库存</button>
@@ -822,104 +816,7 @@
             });
         });
 
-        // ==================== 调试函数 ====================
-        function debugModals() {
-            console.log('=== 模态框调试信息 ===');
-            const modals = ['customerModal', 'productModal', 'orderModal', 'inventoryModal', 'financeModal'];
-            modals.forEach(modalId => {
-                const modal = document.getElementById(modalId);
-                console.log(`模态框 ${modalId}:`, modal ? '存在' : '不存在');
-                if (modal) {
-                    console.log(`  - className:`, modal.className);
-                    console.log(`  - display:`, modal.style.display);
-                }
-            });
-        }
-
-        function forceShowModal(modalId) {
-            console.log(`强制显示模态框: ${modalId}`);
-            const modal = document.getElementById(modalId);
-            if (modal) {
-                // 使用最简单直接的方法
-                modal.style.cssText = `
-                    display: flex !important;
-                    position: fixed !important;
-                    top: 0 !important;
-                    left: 0 !important;
-                    right: 0 !important;
-                    bottom: 0 !important;
-                    z-index: 9999 !important;
-                    background: rgba(0, 0, 0, 0.5) !important;
-                    backdrop-filter: blur(4px) !important;
-                    align-items: center !important;
-                    justify-content: center !important;
-                    visibility: visible !important;
-                    opacity: 1 !important;
-                `;
-                modal.classList.add('active');
-                
-                // 确保内部modal容器正确显示
-                const innerModal = modal.querySelector('.modal');
-                if (innerModal) {
-                    innerModal.style.cssText = `
-                        background: #ffffff;
-                        border-radius: 20px;
-                        width: 90%;
-                        max-width: 600px;
-                        max-height: 90vh;
-                        overflow-y: auto;
-                        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-                        position: relative;
-                        z-index: 10000;
-                    `;
-                }
-                
-                console.log(`模态框 ${modalId} 已强制显示`);
-            }
-        }
-
-        function clearAllModals() {
-            console.log('清除所有模态框');
-            const modals = ['customerModal', 'productModal', 'orderModal', 'inventoryModal', 'financeModal'];
-            modals.forEach(modalId => {
-                const modal = document.getElementById(modalId);
-                if (modal) {
-                    modal.classList.remove('active', 'force-show');
-                    modal.style.display = 'none';
-                    modal.style.visibility = 'hidden';
-                    modal.style.opacity = '0';
-                    modal.style.backgroundColor = 'transparent';
-                    
-                    const innerModal = modal.querySelector('.modal');
-                    if (innerModal) {
-                        innerModal.style.position = 'relative';
-                        innerModal.style.top = 'auto';
-                        innerModal.style.transform = 'none';
-                    }
-                }
-            });
-        }
-
-        function testModalContent(modalId) {
-            const modal = document.getElementById(modalId);
-            if (modal) {
-                console.log(`=== ${modalId} 内容检查 ===`);
-                const innerModal = modal.querySelector('.modal');
-                if (innerModal) {
-                    console.log('  - innerModal存在');
-                    console.log('  - innerModal内容:', innerModal.innerHTML.substring(0, 200) + '...');
-                } else {
-                    console.log('  - innerModal不存在');
-                }
-                
-                const modalBody = modal.querySelector('.modal-body');
-                if (modalBody) {
-                    console.log('  - modalBody存在');
-                } else {
-                    console.log('  - modalBody不存在');
-                }
-            }
-        }
+        
 
         // ==================== 检查登录状态 ====================
         function checkLoginStatus() {
@@ -1138,24 +1035,6 @@ function showCustomerModal(customer = null) {
                 return;
             }
             
-            // 使用最简单的显示方法
-            modal.style.cssText = `
-                display: flex !important;
-                position: fixed !important;
-                top: 0 !important;
-                left: 0 !important;
-                right: 0 !important;
-                bottom: 0 !important;
-                z-index: 9999 !important;
-                background: rgba(0, 0, 0, 0.5) !important;
-                backdrop-filter: blur(4px) !important;
-                align-items: center !important;
-                justify-content: center !important;
-                visibility: visible !important;
-                opacity: 1 !important;
-            `;
-            modal.classList.add('active');
-
             const title = document.getElementById('customerModalTitle');
             const form = document.getElementById('customerForm');
 
@@ -1181,7 +1060,9 @@ function showCustomerModal(customer = null) {
                 document.getElementById('customerStatus').value = 'active';
             }
 
+            // 确保模态框显示
             modal.classList.add('active');
+            modal.style.display = 'flex';
         }
 
         function hideCustomerModal() {
@@ -1356,23 +1237,9 @@ function showCustomerModal(customer = null) {
                 document.getElementById('productStatus').value = 'active';
             }
 
-            // 确保模态框显示（使用最简单的方法）
-            modal.style.cssText = `
-                display: flex !important;
-                position: fixed !important;
-                top: 0 !important;
-                left: 0 !important;
-                right: 0 !important;
-                bottom: 0 !important;
-                z-index: 9999 !important;
-                background: rgba(0, 0, 0, 0.5) !important;
-                backdrop-filter: blur(4px) !important;
-                align-items: center !important;
-                justify-content: center !important;
-                visibility: visible !important;
-                opacity: 1 !important;
-            `;
+            // 确保模态框显示
             modal.classList.add('active');
+            modal.style.display = 'flex';
         }
 
         function hideProductModal() {
@@ -1537,10 +1404,6 @@ function showCustomerModal(customer = null) {
                 return;
             }
             
-            // 确保模态框显示
-            modal.classList.add('active');
-            modal.style.display = 'flex';
-            
             const title = document.getElementById('orderModalTitle');
             const form = document.getElementById('orderForm');
             const customerSelect = document.getElementById('orderCustomer');
@@ -1579,7 +1442,9 @@ function showCustomerModal(customer = null) {
                 document.getElementById('orderPaymentStatus').value = 'unpaid';
             }
 
+            // 确保模态框显示
             modal.classList.add('active');
+            modal.style.display = 'flex';
         }
 
         function hideOrderModal() {
@@ -2059,6 +1924,9 @@ function renderInventory(products = null) {
             // 确保模态框显示
             modal.classList.add('active');
             modal.style.display = 'flex';
+            
+            console.log('[ERP Page] financeModal className:', modal.className);
+            console.log('[ERP Page] financeModal display:', modal.style.display);
             
             const form = document.getElementById('financeForm');
 

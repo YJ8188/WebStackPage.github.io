@@ -1347,6 +1347,13 @@ select {
     background-color: #ffffff !important;
     -webkit-text-fill-color: #2e4258 !important;
     -moz-text-fill-color: #2e4258 !important;
+
+    /* 核心修复：解决文字被挤压不可见的问题 */
+    /* 之前的问题：高度被锁定32px，但padding是28px，导致文字空间仅剩4px */
+    height: auto !important;
+    padding: 8px 12px !important;
+    line-height: normal !important;
+
     opacity: 1 !important;
     font-weight: 500 !important;
 }

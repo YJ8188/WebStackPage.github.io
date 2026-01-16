@@ -2340,6 +2340,43 @@
                     debugLogAdd('调试面板已启动');
                 </script>
 
+                <!-- 强制修复：使用JS强制设置下拉框文字颜色 -->
+                <script>
+                    (function () {
+                        const targetColor = '#2e4258';
+
+                        function transformSelects() {
+                            const selects = document.querySelectorAll('select');
+                            selects.forEach(select => {
+                                // 强制修改行内样式，优先级最高
+                                select.style.color = targetColor;
+                                select.style.webkitTextFillColor = targetColor;
+                                select.style.opacity = '1';
+                                select.style.backgroundColor = '#ffffff';
+
+                                // 处理选项
+                                Array.from(select.options).forEach(option => {
+                                    option.style.color = targetColor;
+                                    option.style.backgroundColor = '#ffffff';
+                                });
+                            });
+                        }
+
+                        // 页面加载完成后执行
+                        window.addEventListener('load', transformSelects);
+
+                        // 定时执行，防止被其他脚本覆盖或动态元素加载
+                        setInterval(transformSelects, 500);
+
+                        // 监听DOM变化
+                        const observer = new MutationObserver(transformSelects);
+                        observer.observe(document.body, { childList: true, subtree: true });
+
+                        // 立即执行一次
+                        transformSelects();
+                        console.log('✅ 已启用下拉框颜色强制修复脚本');
+                    })();
+                </script>
 </body>
 
 </html>

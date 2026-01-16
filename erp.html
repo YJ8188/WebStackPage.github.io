@@ -764,17 +764,6 @@
         </div>
     </div>
 
-
-
-        <div style="margin-bottom: 10px;">
-            <button onclick="forceShowModal('financeModal')" style="margin: 2px; padding: 5px 8px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; width: 184px;">财务</button>
-        </div>
-        <div>
-            <button onclick="debugModals()" style="margin: 2px; padding: 4px 8px; background: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer;">调试</button>
-            <button onclick="clearAllModals()" style="margin: 2px; padding: 4px 8px; background: #95a5a6; color: white; border: none; border-radius: 4px; cursor: pointer;">清除</button>
-        </div>
-    </div>
-
     <!-- JavaScript -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <script src="../assets/js/supabase-config.js"></script>
@@ -802,24 +791,6 @@
                 console.log('[ERP Page] ERP数据加载完成:', event.detail);
                 updateStatistics(event.detail);
                 showERPContent();
-                
-                // 测试：检查模态框CSS
-                setTimeout(() => {
-                    console.log('=== 测试模态框CSS ===');
-                    const testModal = document.getElementById('customerModal');
-                    if (testModal) {
-                        testModal.classList.add('active');
-                        const computed = window.getComputedStyle(testModal);
-                        console.log('测试模态框className:', testModal.className);
-                        console.log('测试模态框display:', computed.display);
-                        console.log('测试模态框visibility:', computed.visibility);
-                        console.log('测试模态框opacity:', computed.opacity);
-                        console.log('测试模态框zIndex:', computed.zIndex);
-                        setTimeout(() => {
-                            testModal.classList.remove('active');
-                        }, 2000);
-                    }
-                }, 1000);
                 
                 // 财务数据加载完成后初始化筛选器
                 if (event.detail.finances) {
@@ -2058,15 +2029,6 @@ function renderInventory(products = null) {
             document.getElementById('statProfit').textContent = '¥' + stats.finances.netProfit.toLocaleString();
         }
 </script>
-
-    <!-- 简单测试按钮 -->
-    <div style="position: fixed; top: 10px; right: 10px; z-index: 10000; background: #2c3e50; color: white; padding: 10px; border-radius: 5px;">
-        <div>🧪 测试按钮</div>
-        <button onclick="showCustomerModal()" style="margin: 2px; padding: 5px 10px; background: #3498db; border: none; color: white; border-radius: 3px; cursor: pointer;">客户</button>
-        <button onclick="showProductModal()" style="margin: 2px; padding: 5px 10px; background: #27ae60; border: none; color: white; border-radius: 3px; cursor: pointer;">产品</button>
-        <button onclick="showOrderModal()" style="margin: 2px; padding: 5px 10px; background: #f39c12; border: none; color: white; border-radius: 3px; cursor: pointer;">订单</button>
-        <button onclick="showFinanceModal()" style="margin: 2px; padding: 5px 10px; background: #e74c3c; border: none; color: white; border-radius: 3px; cursor: pointer;">财务</button>
-    </div>
 
 </body>
 </html>

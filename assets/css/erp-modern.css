@@ -469,6 +469,64 @@ body {
     border: 1px solid rgba(231, 76, 60, 0.2);
 }
 
+/* 发货状态样式 */
+.status-not_shipped {
+    background: rgba(149, 165, 166, 0.1);
+    color: #95a5a6;
+    border: 1px solid rgba(149, 165, 166, 0.2);
+}
+
+.status-shipped {
+    background: rgba(52, 152, 219, 0.1);
+    color: #3498db;
+    border: 1px solid rgba(52, 152, 219, 0.2);
+}
+
+.status-in_transit {
+    background: rgba(155, 89, 182, 0.1);
+    color: #9b59b6;
+    border: 1px solid rgba(155, 89, 182, 0.2);
+}
+
+.status-delivered {
+    background: rgba(39, 174, 96, 0.1);
+    color: #27ae60;
+    border: 1px solid rgba(39, 174, 96, 0.2);
+}
+
+.status-rejected {
+    background: rgba(231, 76, 60, 0.1);
+    color: #e74c3c;
+    border: 1px solid rgba(231, 76, 60, 0.2);
+}
+
+.status-returned {
+    background: rgba(243, 156, 18, 0.1);
+    color: #f39c12;
+    border: 1px solid rgba(243, 156, 18, 0.2);
+}
+
+/* 文本颜色样式 */
+.text-success {
+    color: #27ae60 !important;
+    font-weight: 600;
+}
+
+.text-danger {
+    color: #e74c3c !important;
+    font-weight: 600;
+}
+
+.text-warning {
+    color: #f39c12 !important;
+    font-weight: 600;
+}
+
+.text-info {
+    color: #3498db !important;
+    font-weight: 600;
+}
+
 /* 财务类型样式 */
 .finance-type-income {
     background: rgba(231, 76, 60, 0.1);
@@ -835,6 +893,69 @@ select option {
 /* ==================== 财务筛选器 ==================== */
 .finance-filters {
     margin-bottom: 32px;
+    padding: 24px;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* 快捷筛选按钮 */
+.filter-quick-buttons {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+
+.btn-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border: 2px solid #e0e0e0;
+    background: #ffffff;
+    color: #2e4258;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-filter:hover {
+    border-color: #3c546e;
+    background: #f8f9fa;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.btn-filter-active {
+    border-color: #3c546e;
+    background: linear-gradient(135deg, #3c546e 0%, #2e4258 100%);
+    color: #ffffff;
+}
+
+.btn-filter-active:hover {
+    background: linear-gradient(135deg, #4a637f 0%, #3c546e 100%);
+}
+
+/* 日期范围选择 */
+.filter-date-range {
+    display: flex;
+    gap: 16px;
+    align-items: flex-end;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.filter-date-range .filter-group {
+    min-width: 180px;
+    flex: 1;
+}
+
+.filter-date-range .btn-secondary {
+    padding: 10px 20px;
+    white-space: nowrap;
 }
 
 .filter-row {

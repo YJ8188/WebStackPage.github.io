@@ -161,7 +161,7 @@
                                     </div>
                                     <div class="analysis-card-content" id="statOrders">0</div>
                                     <div class="analysis-card-footer">
-                                        待处理 <span id="statPendingOrders">0</span>
+                                        待处理: <span id="statPendingOrders">0</span>
                                     </div>
                                 </div>
                             </div>
@@ -347,7 +347,7 @@
                                                 <th>分类</th>
                                                 <th>当前库存</th>
                                                 <th>单位</th>
-                                                <th>预警值</th>
+                                                <th>预警线</th>
                                                 <th>状态</th>
                                                 <th>操作</th>
                                             </tr>
@@ -514,7 +514,7 @@
                             <input type="number" id="productPrice" class="ant-input" step="0.01">
                         </div>
                         <div style="flex: 1;">
-                            <label>成本</label>
+                            <label>成本价</label>
                             <input type="number" id="productCost" class="ant-input" step="0.01">
                         </div>
                     </div>
@@ -532,24 +532,26 @@
                         <label>单位</label>
                         <input type="text" id="productUnit" class="ant-input" list="unitList" placeholder="请输入或选择单位">
                         <datalist id="unitList">
-                            <option value="件">
-                            <option value="千克">
-                            <option value="箱">
-                            <option value="台">
                             <option value="个">
-                            <option value="套">
-                            <option value="米">
-                            <option value="升">
+                            <option value="盒">
+                            <option value="千克">
                             <option value="克">
                             <option value="吨">
-                            <option value="毫升">
-                            <option value="厘米">
-                            <option value="毫米">
+                            <option value="套">
                             <option value="双">
                             <option value="包">
                             <option value="瓶">
-                            <option value="盒">
                             <option value="袋">
+                            <option value="升">
+                            <option value="毫升">
+                            <option value="米">
+                            <option value="厘米">
+                            <option value="毫米">
+                            <option value="张">
+                            <option value="卷">
+                            <option value="打">
+                            <option value="台">
+                            <option value="件">
                         </datalist>
                     </div>
                     <div class="form-group">
@@ -683,7 +685,7 @@
                             <option value="in_transit">运输中</option>
                             <option value="delivered">已签收</option>
                             <option value="rejected">已拒收</option>
-                              <option value="returned">已退货</option>
+                            <option value="returned">已退回</option>
                         </select>
                     </div>
 
@@ -758,7 +760,7 @@
                     </div>
                     <div class="form-group">
                         <label>分类</label>
-                        <input type="text" id="financeCategory" class="ant-input" placeholder="例如: 销售回款 采购支出">
+                        <input type="text" id="financeCategory" class="ant-input" placeholder="例如: 销售回款, 采购支出">
                     </div>
                     <div class="form-group">
                         <label>日期</label>
@@ -788,7 +790,7 @@
     <script>
         // Ant Design specific logic (Tab Switching, Sidebar Active State)
         function switchTab(moduleName) {
-            
+            console.log('[switchTab] 切换到模块:', moduleName);
 
             // Update Menu
             document.querySelectorAll('.ant-menu-item').forEach(item => item.classList.remove('ant-menu-item-selected'));
@@ -817,16 +819,18 @@
             }
 
             // Show View
-            
+            console.log('[switchTab] 隐藏所有模块视图');
             document.querySelectorAll('.module-view').forEach(view => {
                 view.classList.remove('active');
-                
+                console.log('[switchTab] 移除 active 类:', view.id);
             });
 
             const targetView = document.getElementById(moduleName + 'View');
-
+            console.log('[switchTab] 目标视图:', targetView);
             if (targetView) {
                 targetView.classList.add('active');
+                console.log('[switchTab] 添加 active 类:', targetView.id);
+                console.log('[switchTab] 目标视图样式:', window.getComputedStyle(targetView).display);
             } else {
                 console.error('[switchTab] 找不到目标视图:', moduleName + 'View');
             }
@@ -906,7 +910,7 @@
                         notLoggedIn.style.display = 'block';
                         // Add helpful context about localhost vs file login
                         const h2 = notLoggedIn.querySelector('h2');
-                        if (h2) h2.innerHTML = '请先登录<br><small style="font-size:14px;color:#999;font-weight:normal;display:block;margin-top:10px;">提示：本地服务器 与文件夹打开的登录状态不互通，<br>请在此页面点击下方按钮重新登录</small>';
+                        if (h2) h2.innerHTML = '请先登录<br><small style="font-size:14px;color:#999;font-weight:normal;display:block;margin-top:10px;">提示：本地服务器 (localhost) 与文件夹打开的登录状态不互通。<br>请在此页面点击下方按钮重新登录。</small>';
                     }
                 }
             }, 3000); // 3 seconds timeout
@@ -918,18 +922,18 @@
 
         // --- Render Customers ---
         window.renderCustomers = function (customers = null) {
-            
-            
-            
-            
-            
+            console.log('[renderCustomers] 开始渲染客户数据');
+            console.log('[renderCustomers] 参数 customers:', customers);
+            console.log('[renderCustomers] window.ERP:', window.ERP);
+            console.log('[renderCustomers] ERP.state:', window.ERP && window.ERP.state);
+            console.log('[renderCustomers] ERP.state.customers:', window.ERP && window.ERP.state && window.ERP.state.customers);
 
             const data = customers || (window.ERP && ERP.state.customers) || [];
-            
-            
+            console.log('[renderCustomers] 数据:', data);
+            console.log('[renderCustomers] 数据长度:', data.length);
 
             const tbody = document.getElementById('customersTableBody');
-            
+            console.log('[renderCustomers] tbody 元素:', tbody);
 
             if (!tbody) {
                 console.error('[renderCustomers] 找不到 customersTableBody 元素');
@@ -938,7 +942,7 @@
 
             if (data.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#999;">暂无数据</td></tr>';
-                
+                console.log('[renderCustomers] 数据为空，显示"暂无数据"');
                 return;
             }
 
@@ -957,15 +961,15 @@
             `).join('');
 
             tbody.innerHTML = html;
-            
+            console.log('[renderCustomers] 渲染完成，tbody 内容:', tbody.innerHTML);
         }
 
         // --- Render Products ---
         window.renderProducts = function (products = null) {
-            
-            
+            console.log('[renderProducts] 开始渲染产品数据');
+            console.log('[renderProducts] 参数 products:', products);
             const data = products || (window.ERP && ERP.state.products) || [];
-            
+            console.log('[renderProducts] 数据:', data);
             const tbody = document.getElementById('productsTableBody');
             if (!tbody) return;
 
@@ -993,10 +997,10 @@
 
         // --- Render Orders ---
         window.renderOrders = function (orders = null) {
-            
-            
+            console.log('[renderOrders] 开始渲染订单数据');
+            console.log('[renderOrders] 参数 orders:', orders);
             const data = orders || (window.ERP && ERP.state.orders) || [];
-            
+            console.log('[renderOrders] 数据:', data);
             const tbody = document.getElementById('ordersTableBody');
             if (!tbody) return;
 
@@ -1035,11 +1039,11 @@
 
         // --- Render Inventory ---
         window.renderInventory = function (products = null) {
-            
-            
+            console.log('[renderInventory] 开始渲染库存数据');
+            console.log('[renderInventory] 参数 products:', products);
             // Reuse product data but show focused columns
             const data = products || (window.ERP && ERP.state.products) || [];
-            
+            console.log('[renderInventory] 数据:', data);
             const tbody = document.getElementById('inventoryTableBody');
             if (!tbody) return;
 
@@ -1066,10 +1070,10 @@
 
         // --- Render Finances ---
         window.renderFinances = function (finances = null) {
-            
-            
+            console.log('[renderFinances] 开始渲染财务数据');
+            console.log('[renderFinances] 参数 finances:', finances);
             const data = finances || (window.ERP && ERP.state.finances) || [];
-            
+            console.log('[renderFinances] 数据:', data);
             const tbody = document.getElementById('financesTableBody');
             if (!tbody) return;
 
@@ -1097,7 +1101,7 @@
 
         // Helper: Unit Text
         function getUnitText(unit) {
-            const map = { 'piece': '件', 'kg': '千克', 'box': '箱' };
+            const map = { 'piece': '个', 'kg': '千克', 'box': '盒' };
             return map[unit] || unit || '-';
         }
 
@@ -1130,9 +1134,8 @@
                 'in_transit': '运输中',
                 'delivered': '已签收',
                 'rejected': '已拒收',
-                'returned': '已退货'
+                'returned': '已退回'
             };
-
             return statusMap[status] || '未发货';
         }
 
@@ -1301,6 +1304,11 @@
                     if (statPendingOrders) statPendingOrders.innerText = stats.orders.pending;
                     if (statRevenue) statRevenue.innerText = '¥' + stats.finances.totalIncome.toLocaleString();
                     if (statProfit) statProfit.innerText = '¥' + stats.finances.netProfit.toLocaleString();
+
+                    // 自动切换到客户管理模块，显示表格数据
+                    if (typeof switchTab === 'function') {
+                        switchTab('customers');
+                    }
                 } else {
                     console.error('[ERP Ant HTML] ERP 或 ERP.getStatistics 未定义');
                 }

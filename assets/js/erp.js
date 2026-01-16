@@ -39,28 +39,58 @@ const ERP = {
         currentProductId: null,
         currentOrderId: null,
         cart: [], // 购物车（用于创建订单）
+        // 加载状态标记
+        loaded: {
+            customers: false,
+            products: false,
+            orders: false,
+            finances: false
+        }
     },
 
     // ==================== 初始化 ====================
     async init() {
-        console.log('[ERP] 初始化ERP系统...');
-
         // 检查用户登录状态
         if (!userData.isLoggedIn) {
-            console.log('[ERP] 用户未登录，跳过初始化');
             return;
         }
 
-        // 加载所有数据
-        await this.loadAllData();
+        // 初始化时只加载统计数据，不加载详细数据
+        await this.loadStatisticsOnly();
+    },
 
-        console.log('[ERP] ERP系统初始化完成');
+    // ==================== 只加载统计数据（快速初始化） ====================
+    async loadStatisticsOnly() {
+        try {
+            // 只加载统计数据，不加载详细记录
+            const [customers, products, orders, finances] = await Promise.all([
+                this.loadCustomers(true),
+                this.loadProducts(true),
+                this.loadOrders(true),
+                this.loadFinances(true)
+            ]);
+
+            this.state.customers = customers;
+            this.state.products = products;
+            this.state.orders = orders;
+            this.state.finances = finances;
+
+            // 触发数据加载完成事件
+            window.dispatchEvent(new CustomEvent('erpDataLoaded', {
+                detail: {
+                    customers,
+                    products,
+                    orders,
+                    finances
+                }
+            }));
+        } catch (error) {
+            console.error('[ERP] 加载统计数据失败:', error);
+        }
     },
 
     // ==================== 数据加载 ====================
     async loadAllData() {
-        console.log('[ERP] 开始加载所有数据...');
-
         try {
             // 并行加载所有数据
             const [customers, products, orders, finances] = await Promise.all([
@@ -74,13 +104,6 @@ const ERP = {
             this.state.products = products;
             this.state.orders = orders;
             this.state.finances = finances;
-
-            console.log('[ERP] 数据加载完成:', {
-                customers: customers.length,
-                products: products.length,
-                orders: orders.length,
-                finances: finances.length
-            });
 
             // 触发数据加载完成事件
             window.dispatchEvent(new CustomEvent('erpDataLoaded', {
@@ -100,10 +123,137 @@ const ERP = {
         }
     },
 
+    // ==================== 按需加载数据 ====================
+    async loadCustomers(lite = false) {
+        // 如果已加载且不是强制刷新，直接返回缓存
+        if (this.state.loaded.customers && !lite) {
+            return this.state.customers;
+        }
+
+        try {
+            const query = supabaseClient
+                .from('erp_customers')
+                .select('*')
+                .eq('user_id', userData.user.id);
+
+            // 轻量模式只加载ID和名称
+            const selectFields = lite ? 'id, name, status' : '*';
+
+            const { data, error } = await query
+                .select(selectFields)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                throw error;
+            }
+
+            this.state.customers = data || [];
+            this.state.loaded.customers = !lite;
+            return this.state.customers;
+
+        } catch (error) {
+            console.error('[ERP] 加载客户数据失败:', error);
+            return [];
+        }
+    },
+
+    async loadProducts(lite = false) {
+        // 如果已加载且不是强制刷新，直接返回缓存
+        if (this.state.loaded.products && !lite) {
+            return this.state.products;
+        }
+
+        try {
+            const query = supabaseClient
+                .from('erp_products')
+                .select('*')
+                .eq('user_id', userData.user.id);
+
+            // 轻量模式只加载必要字段
+            const selectFields = lite ? 'id, name, sku, price, cost, stock_quantity, status' : '*';
+
+            const { data, error } = await query
+                .select(selectFields)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                throw error;
+            }
+
+            this.state.products = data || [];
+            this.state.loaded.products = !lite;
+            return this.state.products;
+
+        } catch (error) {
+            console.error('[ERP] 加载产品数据失败:', error);
+            return [];
+        }
+    },
+
+    async loadOrders(lite = false) {
+        // 如果已加载且不是强制刷新，直接返回缓存
+        if (this.state.loaded.orders && !lite) {
+            return this.state.orders;
+        }
+
+        try {
+            const selectFields = lite
+                ? 'id, user_id, customer_id, order_number, order_date, total_amount, total_cost, net_profit, status, payment_status, shipping_status, shipping_company, tracking_number'
+                : '*, customer:erp_customers(id, name, contact_person), items:erp_order_items(*)';
+
+            const { data, error } = await supabaseClient
+                .from('erp_orders')
+                .select(selectFields)
+                .eq('user_id', userData.user.id)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                throw error;
+            }
+
+            this.state.orders = data || [];
+            this.state.loaded.orders = !lite;
+            return this.state.orders;
+
+        } catch (error) {
+            console.error('[ERP] 加载订单数据失败:', error);
+            return [];
+        }
+    },
+
+    async loadFinances(lite = false) {
+        // 如果已加载且不是强制刷新，直接返回缓存
+        if (this.state.loaded.finances && !lite) {
+            return this.state.finances;
+        }
+
+        try {
+            const selectFields = lite
+                ? 'id, user_id, type, category, amount, transaction_date'
+                : '*';
+
+            const { data, error } = await supabaseClient
+                .from('erp_finances')
+                .select(selectFields)
+                .eq('user_id', userData.user.id)
+                .order('transaction_date', { ascending: false });
+
+            if (error) {
+                throw error;
+            }
+
+            this.state.finances = data || [];
+            this.state.loaded.finances = !lite;
+            return this.state.finances;
+
+        } catch (error) {
+            console.error('[ERP] 加载财务数据失败:', error);
+            return [];
+        }
+    },
+
     // ==================== 客户管理 ====================
     async loadCustomers() {
-        console.log('[ERP] 加载客户数据...');
-
         try {
             const { data, error } = await supabaseClient
                 .from('erp_customers')
@@ -115,7 +265,6 @@ const ERP = {
                 throw error;
             }
 
-            console.log('[ERP] 客户数据加载成功:', data.length);
             return data || [];
 
         } catch (error) {
@@ -125,8 +274,6 @@ const ERP = {
     },
 
     async addCustomer(customerData) {
-        console.log('[ERP] 添加客户:', customerData);
-
         try {
             const { data, error } = await supabaseClient
                 .from('erp_customers')
@@ -147,7 +294,6 @@ const ERP = {
                 throw error;
             }
 
-            console.log('[ERP] 客户添加成功:', data);
             this.state.customers.unshift(data);
 
             if (typeof showToast === 'function') {
@@ -166,8 +312,6 @@ const ERP = {
     },
 
     async updateCustomer(customerId, customerData) {
-        console.log('[ERP] 更新客户:', customerId, customerData);
-
         try {
             const { data, error } = await supabaseClient
                 .from('erp_customers')
@@ -188,8 +332,6 @@ const ERP = {
             if (error) {
                 throw error;
             }
-
-            console.log('[ERP] 客户更新成功:', data);
 
             // 更新本地状态
             const index = this.state.customers.findIndex(c => c.id === customerId);
@@ -213,8 +355,6 @@ const ERP = {
     },
 
     async deleteCustomer(customerId) {
-        console.log('[ERP] 删除客户:', customerId);
-
         try {
             const { error } = await supabaseClient
                 .from('erp_customers')
@@ -225,8 +365,6 @@ const ERP = {
             if (error) {
                 throw error;
             }
-
-            console.log('[ERP] 客户删除成功');
 
             // 更新本地状态
             this.state.customers = this.state.customers.filter(c => c.id !== customerId);
@@ -248,8 +386,6 @@ const ERP = {
 
     // ==================== 产品管理 ====================
     async loadProducts() {
-        console.log('[ERP] 加载产品数据...');
-
         try {
             const { data, error } = await supabaseClient
                 .from('erp_products')
@@ -261,7 +397,6 @@ const ERP = {
                 throw error;
             }
 
-            console.log('[ERP] 产品数据加载成功:', data.length);
             return data || [];
 
         } catch (error) {
@@ -271,8 +406,6 @@ const ERP = {
     },
 
     async addProduct(productData) {
-        console.log('[ERP] 添加产品:', productData);
-
         try {
             const { data, error } = await supabaseClient
                 .from('erp_products')
@@ -296,7 +429,6 @@ const ERP = {
                 throw error;
             }
 
-            console.log('[ERP] 产品添加成功:', data);
             this.state.products.unshift(data);
 
             if (typeof showToast === 'function') {
@@ -315,8 +447,6 @@ const ERP = {
     },
 
     async updateProduct(productId, productData) {
-        console.log('[ERP] 更新产品:', productId, productData);
-
         try {
             const { data, error } = await supabaseClient
                 .from('erp_products')
@@ -340,8 +470,6 @@ const ERP = {
             if (error) {
                 throw error;
             }
-
-            console.log('[ERP] 产品更新成功:', data);
 
             // 更新本地状态
             const index = this.state.products.findIndex(p => p.id === productId);
@@ -365,8 +493,6 @@ const ERP = {
     },
 
     async deleteProduct(productId) {
-        console.log('[ERP] 删除产品:', productId);
-
         try {
             const { error } = await supabaseClient
                 .from('erp_products')
@@ -377,8 +503,6 @@ const ERP = {
             if (error) {
                 throw error;
             }
-
-            console.log('[ERP] 产品删除成功');
 
             // 更新本地状态
             this.state.products = this.state.products.filter(p => p.id !== productId);
@@ -400,8 +524,6 @@ const ERP = {
 
     // ==================== 订单管理 ====================
     async loadOrders() {
-        console.log('[ERP] 加载订单数据...');
-
         try {
             const { data, error } = await supabaseClient
                 .from('erp_orders')
@@ -417,7 +539,6 @@ const ERP = {
                 throw error;
             }
 
-            console.log('[ERP] 订单数据加载成功:', data.length);
             return data || [];
 
         } catch (error) {
@@ -427,8 +548,6 @@ const ERP = {
     },
 
     async createOrder(orderData, items) {
-        console.log('[ERP] 创建订单:', orderData, items);
-
         try {
             // 生成订单号
             const { data: orderNumData, error: orderNumError } = await supabaseClient
@@ -445,6 +564,18 @@ const ERP = {
                 return sum + (item.quantity * item.unit_price);
             }, 0);
 
+            // 计算订单总成本
+            let totalCost = 0;
+            for (const item of items) {
+                const product = this.state.products.find(p => p.id === item.product_id);
+                if (product) {
+                    totalCost += (product.cost || 0) * item.quantity;
+                }
+            }
+
+            // 计算净利润
+            const netProfit = totalAmount - totalCost;
+
             // 创建订单
             const { data: order, error: orderError } = await supabaseClient
                 .from('erp_orders')
@@ -454,9 +585,14 @@ const ERP = {
                     order_number: orderNumber,
                     order_date: new Date().toISOString(),
                     total_amount: totalAmount,
+                    total_cost: totalCost,
+                    net_profit: netProfit,
                     status: 'pending',
                     payment_status: 'unpaid',
-                    notes: orderData.notes || ''
+                    notes: orderData.notes || '',
+                    shipping_company: orderData.shipping_company || null,
+                    tracking_number: orderData.tracking_number || null,
+                    shipping_status: orderData.shipping_status || 'not_shipped'
                 }])
                 .select()
                 .single();
@@ -465,16 +601,25 @@ const ERP = {
                 throw orderError;
             }
 
-            console.log('[ERP] 订单创建成功:', order);
-
             // 创建订单明细
-            const orderItems = items.map(item => ({
-                order_id: order.id,
-                product_id: item.product_id,
-                product_name: item.product_name,
-                quantity: item.quantity,
-                unit_price: item.unit_price
-            }));
+            const orderItems = items.map(item => {
+                const product = this.state.products.find(p => p.id === item.product_id);
+                const unitCost = product ? (product.cost || 0) : 0;
+                const itemTotalCost = unitCost * item.quantity;
+                const itemTotalPrice = item.quantity * item.unit_price;
+                const itemNetProfit = itemTotalPrice - itemTotalCost;
+
+                return {
+                    order_id: order.id,
+                    product_id: item.product_id,
+                    product_name: item.product_name,
+                    quantity: item.quantity,
+                    unit_price: item.unit_price,
+                    unit_cost: unitCost,
+                    total_cost: itemTotalCost,
+                    net_profit: itemNetProfit
+                };
+            });
 
             const { data: itemsData, error: itemsError } = await supabaseClient
                 .from('erp_order_items')
@@ -485,8 +630,6 @@ const ERP = {
                 throw itemsError;
             }
 
-            console.log('[ERP] 订单明细创建成功:', itemsData);
-
             // 更新库存
             for (const item of items) {
                 if (item.product_id) {
@@ -494,14 +637,27 @@ const ERP = {
                 }
             }
 
-            // 创建财务记录
+            // 创建财务记录（收入）
             await this.addFinanceRecord({
                 type: 'income',
                 category: '销售订单',
                 amount: totalAmount,
-                description: `订单 ${orderNumber}`,
-                reference_id: order.id
+                description: `订单 ${orderNumber} | 成本：¥${totalCost.toFixed(2)} | 利润：¥${netProfit.toFixed(2)}`,
+                reference_id: order.id,
+                order_id: order.id
             });
+
+            // 创建财务记录（成本）
+            if (totalCost > 0) {
+                await this.addFinanceRecord({
+                    type: 'expense',
+                    category: '销售成本',
+                    amount: totalCost,
+                    description: `订单 ${orderNumber} - 原材料成本`,
+                    reference_id: order.id,
+                    order_id: order.id
+                });
+            }
 
             // 更新本地状态
             order.items = itemsData;
@@ -523,8 +679,6 @@ const ERP = {
     },
 
     async updateOrderStatus(orderId, status, paymentStatus = null) {
-        console.log('[ERP] 更新订单状态:', orderId, status, paymentStatus);
-
         try {
             const updateData = {
                 status: status
@@ -545,8 +699,6 @@ const ERP = {
             if (error) {
                 throw error;
             }
-
-            console.log('[ERP] 订单状态更新成功:', data);
 
             // 更新本地状态
             const index = this.state.orders.findIndex(o => o.id === orderId);
@@ -570,8 +722,6 @@ const ERP = {
     },
 
     async addOrder(orderData) {
-        console.log('[ERP] 添加订单:', orderData);
-
         try {
             // 生成订单号
             const { data: orderNumData, error: orderNumError } = await supabaseClient
@@ -588,6 +738,19 @@ const ERP = {
                 return sum + (item.quantity * item.unit_price);
             }, 0);
 
+            // 计算订单总成本
+            let totalCost = 0;
+            for (const item of orderData.items) {
+                const product = this.state.products.find(p => p.id === item.product_id);
+                if (product) {
+                    const itemCost = (product.cost || 0) * item.quantity;
+                    totalCost += itemCost;
+                }
+            }
+
+            // 计算净利润
+            const netProfit = totalAmount - totalCost;
+
             // 创建订单
             const { data: order, error: orderError } = await supabaseClient
                 .from('erp_orders')
@@ -597,9 +760,14 @@ const ERP = {
                     order_number: orderNumber,
                     order_date: new Date().toISOString(),
                     total_amount: totalAmount,
+                    total_cost: totalCost,
+                    net_profit: netProfit,
                     status: orderData.status || 'pending',
                     payment_status: orderData.payment_status || 'unpaid',
-                    notes: orderData.notes || ''
+                    notes: orderData.notes || '',
+                    shipping_company: orderData.shipping_company || null,
+                    tracking_number: orderData.tracking_number || null,
+                    shipping_status: orderData.shipping_status || 'not_shipped'
                 }])
                 .select()
                 .single();
@@ -608,16 +776,25 @@ const ERP = {
                 throw orderError;
             }
 
-            console.log('[ERP] 订单创建成功:', order);
-
             // 创建订单明细
-            const orderItems = orderData.items.map(item => ({
-                order_id: order.id,
-                product_id: item.product_id,
-                product_name: item.product_name,
-                quantity: item.quantity,
-                unit_price: item.unit_price
-            }));
+            const orderItems = orderData.items.map(item => {
+                const product = this.state.products.find(p => p.id === item.product_id);
+                const unitCost = product ? (product.cost || 0) : 0;
+                const itemTotalCost = unitCost * item.quantity;
+                const itemTotalPrice = item.quantity * item.unit_price;
+                const itemNetProfit = itemTotalPrice - itemTotalCost;
+
+                return {
+                    order_id: order.id,
+                    product_id: item.product_id,
+                    product_name: item.product_name,
+                    quantity: item.quantity,
+                    unit_price: item.unit_price,
+                    unit_cost: unitCost,
+                    total_cost: itemTotalCost,
+                    net_profit: itemNetProfit
+                };
+            });
 
             const { data: itemsData, error: itemsError } = await supabaseClient
                 .from('erp_order_items')
@@ -628,8 +805,6 @@ const ERP = {
                 throw itemsError;
             }
 
-            console.log('[ERP] 订单明细创建成功:', itemsData);
-
             // 更新库存
             for (const item of orderData.items) {
                 if (item.product_id) {
@@ -637,14 +812,27 @@ const ERP = {
                 }
             }
 
-            // 创建财务记录
+            // 创建财务记录（收入）
             await this.addFinanceRecord({
                 type: 'income',
                 category: '销售订单',
                 amount: totalAmount,
-                description: `订单 ${orderNumber}`,
-                reference_id: order.id
+                description: `订单 ${orderNumber} | 成本：¥${totalCost.toFixed(2)} | 利润：¥${netProfit.toFixed(2)}`,
+                reference_id: order.id,
+                order_id: order.id
             });
+
+            // 创建财务记录（成本）
+            if (totalCost > 0) {
+                await this.addFinanceRecord({
+                    type: 'expense',
+                    category: '销售成本',
+                    amount: totalCost,
+                    description: `订单 ${orderNumber} - 原材料成本`,
+                    reference_id: order.id,
+                    order_id: order.id
+                });
+            }
 
             // 更新本地状态
             order.items = itemsData;
@@ -666,8 +854,6 @@ const ERP = {
     },
 
     async updateOrder(orderId, orderData) {
-        console.log('[ERP] 更新订单:', orderId, orderData);
-
         try {
             const { data, error } = await supabaseClient
                 .from('erp_orders')
@@ -675,7 +861,10 @@ const ERP = {
                     customer_id: orderData.customer_id || null,
                     status: orderData.status || 'pending',
                     payment_status: orderData.payment_status || 'unpaid',
-                    notes: orderData.notes || ''
+                    notes: orderData.notes || '',
+                    shipping_company: orderData.shipping_company || null,
+                    tracking_number: orderData.tracking_number || null,
+                    shipping_status: orderData.shipping_status || 'not_shipped'
                 })
                 .eq('id', orderId)
                 .eq('user_id', userData.user.id)
@@ -685,8 +874,6 @@ const ERP = {
             if (error) {
                 throw error;
             }
-
-            console.log('[ERP] 订单更新成功:', data);
 
             // 更新本地状态
             const index = this.state.orders.findIndex(o => o.id === orderId);
@@ -710,8 +897,6 @@ const ERP = {
     },
 
     async deleteOrder(orderId) {
-        console.log('[ERP] 删除订单:', orderId);
-
         try {
             const { error } = await supabaseClient
                 .from('erp_orders')
@@ -722,8 +907,6 @@ const ERP = {
             if (error) {
                 throw error;
             }
-
-            console.log('[ERP] 订单删除成功');
 
             // 更新本地状态
             this.state.orders = this.state.orders.filter(o => o.id !== orderId);
@@ -745,8 +928,6 @@ const ERP = {
 
     // ==================== 库存管理 ====================
     async updateStock(productId, quantityChange, type, referenceId = null, notes = '') {
-        console.log('[ERP] 更新库存:', productId, quantityChange, type);
-
         try {
             // 获取当前库存
             const { data: product, error: productError } = await supabaseClient
@@ -791,8 +972,6 @@ const ERP = {
                 throw logError;
             }
 
-            console.log('[ERP] 库存更新成功');
-
             // 更新本地状态
             const productIndex = this.state.products.findIndex(p => p.id === productId);
             if (productIndex !== -1) {
@@ -811,8 +990,6 @@ const ERP = {
     },
 
     async adjustInventory(productId, quantityChange, type, notes) {
-        console.log('[ERP] 调整库存:', productId, quantityChange, type, notes);
-
         try {
             const result = await this.updateStock(productId, quantityChange, type, null, notes);
 
@@ -846,8 +1023,6 @@ const ERP = {
 
     // ==================== 财务管理 ====================
     async loadFinances() {
-        console.log('[ERP] 加载财务数据...');
-
         try {
             const { data, error } = await supabaseClient
                 .from('erp_finances')
@@ -859,7 +1034,6 @@ const ERP = {
                 throw error;
             }
 
-            console.log('[ERP] 财务数据加载成功:', data.length);
             return data || [];
 
         } catch (error) {
@@ -869,8 +1043,6 @@ const ERP = {
     },
 
     async addFinanceRecord(financeData) {
-        console.log('[ERP] 添加财务记录:', financeData);
-
         try {
             const { data, error } = await supabaseClient
                 .from('erp_finances')
@@ -890,7 +1062,6 @@ const ERP = {
                 throw error;
             }
 
-            console.log('[ERP] 财务记录添加成功:', data);
             this.state.finances.unshift(data);
 
             return data;
@@ -902,8 +1073,6 @@ const ERP = {
     },
 
     async addFinance(financeData) {
-        console.log('[ERP] 添加财务:', financeData);
-
         try {
             const result = await this.addFinanceRecord(financeData);
 
@@ -925,8 +1094,6 @@ const ERP = {
     },
 
     async deleteFinance(financeId) {
-        console.log('[ERP] 删除财务记录:', financeId);
-
         try {
             const { error } = await supabaseClient
                 .from('erp_finances')
@@ -937,8 +1104,6 @@ const ERP = {
             if (error) {
                 throw error;
             }
-
-            console.log('[ERP] 财务记录删除成功');
 
             // 更新本地状态
             this.state.finances = this.state.finances.filter(f => f.id !== financeId);
@@ -960,8 +1125,6 @@ const ERP = {
 
     // ==================== 统计数据 ====================
     getStatistics() {
-        console.log('[ERP] 获取统计数据...');
-
         const stats = {
             customers: {
                 total: this.state.customers.length,
@@ -996,7 +1159,6 @@ const ERP = {
 
         stats.finances.netProfit = stats.finances.totalIncome - stats.finances.totalExpense;
 
-        console.log('[ERP] 统计数据:', stats);
         return stats;
     },
 

@@ -591,13 +591,28 @@ body {
     bottom: 0;
     background: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(4px);
-    z-index: 2000;
+    z-index: 1000000;
 }
 
 .modal-overlay.active {
     display: flex !important;
     align-items: center;
     justify-content: center;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    z-index: 1000000 !important;
+    background: rgba(0, 0, 0, 0.5) !important;
+    backdrop-filter: blur(4px);
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* 确保模态框内容显示 */
+.modal-overlay.active .modal {
+    display: block !important;
     visibility: visible !important;
     opacity: 1 !important;
 }
@@ -612,23 +627,13 @@ body {
     left: 0 !important;
     right: 0 !important;
     bottom: 0 !important;
-    z-index: 9999 !important;
+    z-index: 1000000 !important;
     background: rgba(0, 0, 0, 0.5) !important;
     backdrop-filter: blur(4px) !important;
 }
 
-.modal-overlay.active {
-    display: flex !important;
-    align-items: center;
-    justify-content: center;
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    z-index: 9999 !important;
-    background: rgba(0, 0, 0, 0.5) !important;
-    backdrop-filter: blur(4px);
+.modal-overlay.force-show .modal {
+    display: block !important;
     visibility: visible !important;
     opacity: 1 !important;
 }
@@ -642,7 +647,7 @@ body {
     overflow-y: auto;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     position: relative;
-    z-index: 2001;
+    z-index: 1000001;
     border: none;
 }
 

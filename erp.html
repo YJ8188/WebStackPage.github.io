@@ -771,6 +771,21 @@
     <script src="../assets/js/erp.js"></script>
 
     <script>
+        // ==================== 全局错误处理 ====================
+        window.addEventListener('error', function(event) {
+            console.error('[ERP Page] ❌ 全局错误捕获:');
+            console.error('[ERP Page] 错误消息:', event.message);
+            console.error('[ERP Page] 错误文件:', event.filename);
+            console.error('[ERP Page] 错误行号:', event.lineno);
+            console.error('[ERP Page] 错误列号:', event.colno);
+            console.error('[ERP Page] 错误对象:', event.error);
+        });
+
+        window.addEventListener('unhandledrejection', function(event) {
+            console.error('[ERP Page] ❌ 未处理的Promise拒绝:');
+            console.error('[ERP Page] 拒绝原因:', event.reason);
+        });
+
         // ==================== 页面初始化 ====================
         document.addEventListener('DOMContentLoaded', function() {
             console.log('[ERP Page] 页面加载完成');
@@ -791,7 +806,7 @@
                 console.log('[ERP Page] ERP数据加载完成:', event.detail);
                 updateStatistics(event.detail);
                 showERPContent();
-                
+
                 // 财务数据加载完成后初始化筛选器
                 if (event.detail.finances) {
                     initFinanceFilters();
@@ -1011,23 +1026,73 @@
         }
 
 function showCustomerModal(customer = null) {
-            console.log('[ERP Page] showCustomerModal 被调用，参数:', customer);
+            console.log('[ERP Page] ========== showCustomerModal 开始 ==========');
+            console.log('[ERP Page] 参数:', customer);
+
             const modal = document.getElementById('customerModal');
             if (!modal) {
-                console.error('[ERP Page] 找不到 customerModal');
+                console.error('[ERP Page] ❌ 错误: 找不到 customerModal 元素');
                 return;
             }
-            
-            console.log('[ERP Page] 找到模态框:', modal);
-            console.log('[ERP Page] 模态框初始className:', modal.className);
-            console.log('[ERP Page] 模态框初始display:', modal.style.display);
-            
-            // 直接添加active类
+
+            console.log('[ERP Page] ✓ 找到模态框元素');
+            console.log('[ERP Page] 初始className:', modal.className);
+            console.log('[ERP Page] 初始display:', modal.style.display);
+
+            // 检查模态框内部内容
+            const modalContent = modal.querySelector('.modal');
+            if (!modalContent) {
+                console.error('[ERP Page] ❌ 错误: 找不到 .modal 内容元素');
+            } else {
+                console.log('[ERP Page] ✓ 找到 .modal 内容元素');
+                const contentStyle = window.getComputedStyle(modalContent);
+                console.log('[ERP Page] .modal display:', contentStyle.display);
+                console.log('[ERP Page] .modal visibility:', contentStyle.visibility);
+                console.log('[ERP Page] .modal opacity:', contentStyle.opacity);
+                console.log('[ERP Page] .modal z-index:', contentStyle.zIndex);
+                console.log('[ERP Page] .modal position:', contentStyle.position);
+                console.log('[ERP Page] .modal width:', contentStyle.width);
+                console.log('[ERP Page] .modal height:', contentStyle.height);
+                console.log('[ERP Page] .modal max-width:', contentStyle.maxWidth);
+                console.log('[ERP Page] .modal max-height:', contentStyle.maxHeight);
+            }
+
+            // 添加active类
             modal.classList.add('active');
-            
-            console.log('[ERP Page] 添加active后的className:', modal.className);
-            console.log('[ERP Page] 计算后的display:', window.getComputedStyle(modal).display);
-            
+            modal.style.display = 'flex';
+
+            console.log('[ERP Page] 添加active后className:', modal.className);
+            console.log('[ERP Page] 添加active后display:', modal.style.display);
+
+            // 检查计算后的样式
+            const computedStyle = window.getComputedStyle(modal);
+            console.log('[ERP Page] 计算后的display:', computedStyle.display);
+            console.log('[ERP Page] 计算后的visibility:', computedStyle.visibility);
+            console.log('[ERP Page] 计算后的opacity:', computedStyle.opacity);
+            console.log('[ERP Page] 计算后的z-index:', computedStyle.zIndex);
+            console.log('[ERP Page] 计算后的position:', computedStyle.position);
+            console.log('[ERP Page] 计算后的top:', computedStyle.top);
+            console.log('[ERP Page] 计算后的left:', computedStyle.left);
+            console.log('[ERP Page] 计算后的right:', computedStyle.right);
+            console.log('[ERP Page] 计算后的bottom:', computedStyle.bottom);
+            console.log('[ERP Page] 计算后的background:', computedStyle.background);
+
+            // 检查是否有其他元素覆盖
+            const allElements = document.querySelectorAll('*');
+            let maxZIndex = 0;
+            let maxZElement = null;
+            allElements.forEach(el => {
+                const zIndex = parseInt(window.getComputedStyle(el).zIndex);
+                if (zIndex > maxZIndex) {
+                    maxZIndex = zIndex;
+                    maxZElement = el;
+                }
+            });
+            console.log('[ERP Page] 页面中最高z-index:', maxZIndex);
+            if (maxZElement) {
+                console.log('[ERP Page] 最高z-index元素:', maxZElement);
+            }
+
             const title = document.getElementById('customerModalTitle');
             const form = document.getElementById('customerForm');
 
@@ -1056,6 +1121,8 @@ function showCustomerModal(customer = null) {
             // 确保模态框显示
             modal.classList.add('active');
             modal.style.display = 'flex';
+
+            console.log('[ERP Page] ========== showCustomerModal 完成 ==========');
         }
 
         function hideCustomerModal() {
@@ -1190,27 +1257,51 @@ function showCustomerModal(customer = null) {
         }
 
         function showProductModal(product = null) {
-            console.log('[ERP Page] showProductModal 开始执行，参数:', product);
-            console.log('[ERP Page] showProductModal 第1步：查找模态框');
-            
+            console.log('[ERP Page] ========== showProductModal 开始 ==========');
+            console.log('[ERP Page] 参数:', product);
+
             const modal = document.getElementById('productModal');
             if (!modal) {
-                console.error('[ERP Page] 找不到 productModal');
+                console.error('[ERP Page] ❌ 错误: 找不到 productModal 元素');
                 return;
             }
-            
-            console.log('[ERP Page] showProductModal 第2步：找到模态框，设置显示');
-            
+
+            console.log('[ERP Page] ✓ 找到模态框元素');
+            console.log('[ERP Page] 初始className:', modal.className);
+            console.log('[ERP Page] 初始display:', modal.style.display);
+
+            // 检查模态框内部内容
+            const modalContent = modal.querySelector('.modal');
+            if (!modalContent) {
+                console.error('[ERP Page] ❌ 错误: 找不到 .modal 内容元素');
+            } else {
+                console.log('[ERP Page] ✓ 找到 .modal 内容元素');
+                const contentStyle = window.getComputedStyle(modalContent);
+                console.log('[ERP Page] .modal display:', contentStyle.display);
+                console.log('[ERP Page] .modal visibility:', contentStyle.visibility);
+                console.log('[ERP Page] .modal opacity:', contentStyle.opacity);
+                console.log('[ERP Page] .modal z-index:', contentStyle.zIndex);
+                console.log('[ERP Page] .modal position:', contentStyle.position);
+            }
+
             // 确保模态框显示
             modal.classList.add('active');
             modal.style.display = 'flex';
             modal.style.visibility = 'visible';
             modal.style.opacity = '1';
             modal.style.zIndex = '9999';
-            
-            console.log('[ERP Page] showProductModal 第3步：设置完成，当前className:', modal.className);
-            console.log('[ERP Page] showProductModal 第4步：当前display:', modal.style.display);
-            
+
+            console.log('[ERP Page] 添加active后className:', modal.className);
+            console.log('[ERP Page] 添加active后display:', modal.style.display);
+
+            // 检查计算后的样式
+            const computedStyle = window.getComputedStyle(modal);
+            console.log('[ERP Page] 计算后的display:', computedStyle.display);
+            console.log('[ERP Page] 计算后的visibility:', computedStyle.visibility);
+            console.log('[ERP Page] 计算后的opacity:', computedStyle.opacity);
+            console.log('[ERP Page] 计算后的z-index:', computedStyle.zIndex);
+            console.log('[ERP Page] 计算后的background:', computedStyle.background);
+
             const title = document.getElementById('productModalTitle');
             const form = document.getElementById('productForm');
 
@@ -1247,6 +1338,8 @@ function showCustomerModal(customer = null) {
             // 确保模态框显示
             modal.classList.add('active');
             modal.style.display = 'flex';
+
+            console.log('[ERP Page] ========== showProductModal 完成 ==========');
         }
 
         function hideProductModal() {
@@ -1404,13 +1497,32 @@ function showCustomerModal(customer = null) {
         }
 
         function showOrderModal(order = null) {
-            console.log('[ERP Page] showOrderModal 被调用，参数:', order);
+            console.log('[ERP Page] ========== showOrderModal 开始 ==========');
+            console.log('[ERP Page] 参数:', order);
+
             const modal = document.getElementById('orderModal');
             if (!modal) {
-                console.error('[ERP Page] 找不到 orderModal');
+                console.error('[ERP Page] ❌ 错误: 找不到 orderModal 元素');
                 return;
             }
-            
+
+            console.log('[ERP Page] ✓ 找到模态框元素');
+            console.log('[ERP Page] 初始className:', modal.className);
+            console.log('[ERP Page] 初始display:', modal.style.display);
+
+            // 检查模态框内部内容
+            const modalContent = modal.querySelector('.modal');
+            if (!modalContent) {
+                console.error('[ERP Page] ❌ 错误: 找不到 .modal 内容元素');
+            } else {
+                console.log('[ERP Page] ✓ 找到 .modal 内容元素');
+                const contentStyle = window.getComputedStyle(modalContent);
+                console.log('[ERP Page] .modal display:', contentStyle.display);
+                console.log('[ERP Page] .modal visibility:', contentStyle.visibility);
+                console.log('[ERP Page] .modal opacity:', contentStyle.opacity);
+                console.log('[ERP Page] .modal z-index:', contentStyle.zIndex);
+            }
+
             const title = document.getElementById('orderModalTitle');
             const form = document.getElementById('orderForm');
             const customerSelect = document.getElementById('orderCustomer');
@@ -1435,7 +1547,7 @@ function showCustomerModal(customer = null) {
                 // 支付状态兜底：验证 value 是否存在对应的 option
                 const paymentStatusSelect = document.getElementById('orderPaymentStatus');
                 const validPaymentStatus = order.payment_status && paymentStatusSelect.querySelector(`option[value="${order.payment_status}"]`);
-                paymentStatusSelect.value = validPaymentStatus ? order.payment_status : 'unpaid';
+                paymentStatusSelect.value = validPaymentStatus ? order.paymentStatus : 'unpaid';
 
                 // TODO: 加载订单明细
             } else {
@@ -1452,6 +1564,19 @@ function showCustomerModal(customer = null) {
             // 确保模态框显示
             modal.classList.add('active');
             modal.style.display = 'flex';
+
+            console.log('[ERP Page] 添加active后className:', modal.className);
+            console.log('[ERP Page] 添加active后display:', modal.style.display);
+
+            // 检查计算后的样式
+            const computedStyle = window.getComputedStyle(modal);
+            console.log('[ERP Page] 计算后的display:', computedStyle.display);
+            console.log('[ERP Page] 计算后的visibility:', computedStyle.visibility);
+            console.log('[ERP Page] 计算后的opacity:', computedStyle.opacity);
+            console.log('[ERP Page] 计算后的z-index:', computedStyle.zIndex);
+            console.log('[ERP Page] 计算后的background:', computedStyle.background);
+
+            console.log('[ERP Page] ========== showOrderModal 完成 ==========');
         }
 
         function hideOrderModal() {
@@ -1921,20 +2046,46 @@ function renderInventory(products = null) {
         }
 
         function showFinanceModal() {
-            console.log('[ERP Page] showFinanceModal 被调用');
+            console.log('[ERP Page] ========== showFinanceModal 开始 ==========');
+
             const modal = document.getElementById('financeModal');
             if (!modal) {
-                console.error('[ERP Page] 找不到 financeModal');
+                console.error('[ERP Page] ❌ 错误: 找不到 financeModal 元素');
                 return;
             }
-            
+
+            console.log('[ERP Page] ✓ 找到模态框元素');
+            console.log('[ERP Page] 初始className:', modal.className);
+            console.log('[ERP Page] 初始display:', modal.style.display);
+
+            // 检查模态框内部内容
+            const modalContent = modal.querySelector('.modal');
+            if (!modalContent) {
+                console.error('[ERP Page] ❌ 错误: 找不到 .modal 内容元素');
+            } else {
+                console.log('[ERP Page] ✓ 找到 .modal 内容元素');
+                const contentStyle = window.getComputedStyle(modalContent);
+                console.log('[ERP Page] .modal display:', contentStyle.display);
+                console.log('[ERP Page] .modal visibility:', contentStyle.visibility);
+                console.log('[ERP Page] .modal opacity:', contentStyle.opacity);
+                console.log('[ERP Page] .modal z-index:', contentStyle.zIndex);
+            }
+
             // 确保模态框显示
             modal.classList.add('active');
             modal.style.display = 'flex';
-            
-            console.log('[ERP Page] financeModal className:', modal.className);
-            console.log('[ERP Page] financeModal display:', modal.style.display);
-            
+
+            console.log('[ERP Page] 添加active后className:', modal.className);
+            console.log('[ERP Page] 添加active后display:', modal.style.display);
+
+            // 检查计算后的样式
+            const computedStyle = window.getComputedStyle(modal);
+            console.log('[ERP Page] 计算后的display:', computedStyle.display);
+            console.log('[ERP Page] 计算后的visibility:', computedStyle.visibility);
+            console.log('[ERP Page] 计算后的opacity:', computedStyle.opacity);
+            console.log('[ERP Page] 计算后的z-index:', computedStyle.zIndex);
+            console.log('[ERP Page] 计算后的background:', computedStyle.background);
+
             const form = document.getElementById('financeForm');
 
             form.reset();
@@ -1944,6 +2095,8 @@ function renderInventory(products = null) {
             document.getElementById('financeType').value = 'income';
 
             modal.classList.add('active');
+
+            console.log('[ERP Page] ========== showFinanceModal 完成 ==========');
         }
 
         function hideFinanceModal() {
@@ -2029,6 +2182,94 @@ function renderInventory(products = null) {
             document.getElementById('statProfit').textContent = '¥' + stats.finances.netProfit.toLocaleString();
         }
 </script>
+
+    <!-- 调试面板 -->
+    <div id="debugPanel" style="position: fixed; bottom: 10px; right: 10px; width: 400px; max-height: 300px; background: #1a1a1a; color: #00ff00; font-family: monospace; font-size: 12px; padding: 10px; border-radius: 5px; z-index: 2147483647; overflow-y: auto; display: none; box-shadow: 0 0 10px rgba(0,0,0,0.5);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #333;">
+            <strong>🔍 ERP 调试面板</strong>
+            <button onclick="document.getElementById('debugPanel').style.display='none'" style="background: #333; color: #fff; border: none; padding: 2px 8px; border-radius: 3px; cursor: pointer;">关闭</button>
+        </div>
+        <div id="debugLog"></div>
+    </div>
+
+    <!-- 调试面板开关 -->
+    <button id="debugToggle" onclick="toggleDebugPanel()" style="position: fixed; bottom: 10px; right: 10px; background: #333; color: #00ff00; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; z-index: 2147483646; font-family: monospace;">🔍 调试</button>
+
+    <script>
+        // 调试面板功能
+        const debugLog = [];
+        const maxDebugLines = 50;
+
+        function debugLogAdd(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            debugLog.push(logEntry);
+
+            // 限制日志行数
+            if (debugLog.length > maxDebugLines) {
+                debugLog.shift();
+            }
+
+            // 更新调试面板
+            const debugPanel = document.getElementById('debugLog');
+            if (debugPanel) {
+                debugPanel.innerHTML = debugLog.map(line => `<div style="margin-bottom: 2px;">${line}</div>`).join('');
+                debugPanel.scrollTop = debugPanel.scrollHeight;
+            }
+
+            // 同时输出到控制台
+            console.log(line);
+        }
+
+        function toggleDebugPanel() {
+            const panel = document.getElementById('debugPanel');
+            const toggle = document.getElementById('debugToggle');
+            if (panel.style.display === 'none') {
+                panel.style.display = 'block';
+                toggle.style.display = 'none';
+            } else {
+                panel.style.display = 'none';
+                toggle.style.display = 'block';
+            }
+        }
+
+        // 重写 console.log 以捕获所有日志
+        const originalConsoleLog = console.log;
+        console.log = function(...args) {
+            originalConsoleLog.apply(console, args);
+            const message = args.map(arg => {
+                if (typeof arg === 'object') {
+                    try {
+                        return JSON.stringify(arg);
+                    } catch (e) {
+                        return String(arg);
+                    }
+                }
+                return String(arg);
+            }).join(' ');
+            debugLogAdd(message);
+        };
+
+        // 重写 console.error 以捕获所有错误
+        const originalConsoleError = console.error;
+        console.error = function(...args) {
+            originalConsoleError.apply(console, args);
+            const message = args.map(arg => {
+                if (typeof arg === 'object') {
+                    try {
+                        return JSON.stringify(arg);
+                    } catch (e) {
+                        return String(arg);
+                    }
+                }
+                return String(arg);
+            }).join(' ');
+            debugLogAdd('❌ ' + message);
+        };
+
+        // 初始化调试面板
+        debugLogAdd('调试面板已启动');
+    </script>
 
 </body>
 </html>

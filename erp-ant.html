@@ -790,6 +790,8 @@
     <script>
         // Ant Design specific logic (Tab Switching, Sidebar Active State)
         function switchTab(moduleName) {
+            console.log('[switchTab] 切换到模块:', moduleName);
+
             // Update Menu
             document.querySelectorAll('.ant-menu-item').forEach(item => item.classList.remove('ant-menu-item-selected'));
             const menuIndex = ['dashboard', 'customers', 'products', 'orders', 'inventory', 'finance'].indexOf(moduleName);
@@ -817,8 +819,21 @@
             }
 
             // Show View
-            document.querySelectorAll('.module-view').forEach(view => view.classList.remove('active'));
-            document.getElementById(moduleName + 'View').classList.add('active');
+            console.log('[switchTab] 隐藏所有模块视图');
+            document.querySelectorAll('.module-view').forEach(view => {
+                view.classList.remove('active');
+                console.log('[switchTab] 移除 active 类:', view.id);
+            });
+
+            const targetView = document.getElementById(moduleName + 'View');
+            console.log('[switchTab] 目标视图:', targetView);
+            if (targetView) {
+                targetView.classList.add('active');
+                console.log('[switchTab] 添加 active 类:', targetView.id);
+                console.log('[switchTab] 目标视图样式:', window.getComputedStyle(targetView).display);
+            } else {
+                console.error('[switchTab] 找不到目标视图:', moduleName + 'View');
+            }
 
             // Trigger Data Load
             if (window.openModule) {
@@ -907,16 +922,31 @@
 
         // --- Render Customers ---
         window.renderCustomers = function (customers = null) {
-            const data = customers || (window.ERP && ERP.state.customers) || [];
-            const tbody = document.getElementById('customersTableBody');
-            if (!tbody) return;
+            console.log('[renderCustomers] 开始渲染客户数据');
+            console.log('[renderCustomers] 参数 customers:', customers);
+            console.log('[renderCustomers] window.ERP:', window.ERP);
+            console.log('[renderCustomers] ERP.state:', window.ERP && window.ERP.state);
+            console.log('[renderCustomers] ERP.state.customers:', window.ERP && window.ERP.state && window.ERP.state.customers);
 
-            if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#999;">暂无数据</td></tr>';
+            const data = customers || (window.ERP && ERP.state.customers) || [];
+            console.log('[renderCustomers] 数据:', data);
+            console.log('[renderCustomers] 数据长度:', data.length);
+
+            const tbody = document.getElementById('customersTableBody');
+            console.log('[renderCustomers] tbody 元素:', tbody);
+
+            if (!tbody) {
+                console.error('[renderCustomers] 找不到 customersTableBody 元素');
                 return;
             }
 
-            tbody.innerHTML = data.map(customer => `
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#999;">暂无数据</td></tr>';
+                console.log('[renderCustomers] 数据为空，显示"暂无数据"');
+                return;
+            }
+
+            const html = data.map(customer => `
                 <tr>
                     <td><a href="javascript:;" style="font-weight:500;">${customer.name}</a></td>
                     <td>${customer.contact_person || '-'}</td>
@@ -929,11 +959,17 @@
                     </td>
                 </tr>
             `).join('');
+
+            tbody.innerHTML = html;
+            console.log('[renderCustomers] 渲染完成，tbody 内容:', tbody.innerHTML);
         }
 
         // --- Render Products ---
         window.renderProducts = function (products = null) {
+            console.log('[renderProducts] 开始渲染产品数据');
+            console.log('[renderProducts] 参数 products:', products);
             const data = products || (window.ERP && ERP.state.products) || [];
+            console.log('[renderProducts] 数据:', data);
             const tbody = document.getElementById('productsTableBody');
             if (!tbody) return;
 
@@ -961,7 +997,10 @@
 
         // --- Render Orders ---
         window.renderOrders = function (orders = null) {
+            console.log('[renderOrders] 开始渲染订单数据');
+            console.log('[renderOrders] 参数 orders:', orders);
             const data = orders || (window.ERP && ERP.state.orders) || [];
+            console.log('[renderOrders] 数据:', data);
             const tbody = document.getElementById('ordersTableBody');
             if (!tbody) return;
 
@@ -1000,8 +1039,11 @@
 
         // --- Render Inventory ---
         window.renderInventory = function (products = null) {
+            console.log('[renderInventory] 开始渲染库存数据');
+            console.log('[renderInventory] 参数 products:', products);
             // Reuse product data but show focused columns
             const data = products || (window.ERP && ERP.state.products) || [];
+            console.log('[renderInventory] 数据:', data);
             const tbody = document.getElementById('inventoryTableBody');
             if (!tbody) return;
 
@@ -1028,7 +1070,10 @@
 
         // --- Render Finances ---
         window.renderFinances = function (finances = null) {
+            console.log('[renderFinances] 开始渲染财务数据');
+            console.log('[renderFinances] 参数 finances:', finances);
             const data = finances || (window.ERP && ERP.state.finances) || [];
+            console.log('[renderFinances] 数据:', data);
             const tbody = document.getElementById('financesTableBody');
             if (!tbody) return;
 
@@ -1228,17 +1273,51 @@
 
             // Simulate data loading listener
             window.addEventListener('erpDataLoaded', function (event) {
-                document.getElementById('loadingContainer').style.display = 'none';
-                document.getElementById('erpContent').style.display = 'block';
+                const loadingContainer = document.getElementById('loadingContainer');
+                const erpContent = document.getElementById('erpContent');
+
+                if (loadingContainer) {
+                    loadingContainer.style.display = 'none';
+                }
+                if (erpContent) {
+                    erpContent.style.display = 'block';
+                }
 
                 // Update Stats
-                const stats = ERP.getStatistics();
-                document.getElementById('statCustomers').innerText = stats.customers.active; // Example mapping
-                // ... map other stats ...
+                if (typeof ERP !== 'undefined' && ERP.getStatistics) {
+                    const stats = ERP.getStatistics();
+
+                    const statCustomers = document.getElementById('statCustomers');
+                    const statActiveCustomers = document.getElementById('statActiveCustomers');
+                    const statProducts = document.getElementById('statProducts');
+                    const statLowStock = document.getElementById('statLowStock');
+                    const statOrders = document.getElementById('statOrders');
+                    const statPendingOrders = document.getElementById('statPendingOrders');
+                    const statRevenue = document.getElementById('statRevenue');
+                    const statProfit = document.getElementById('statProfit');
+
+                    if (statCustomers) statCustomers.innerText = stats.customers.total;
+                    if (statActiveCustomers) statActiveCustomers.innerText = stats.customers.active;
+                    if (statProducts) statProducts.innerText = stats.products.total;
+                    if (statLowStock) statLowStock.innerText = stats.products.lowStock;
+                    if (statOrders) statOrders.innerText = stats.orders.total;
+                    if (statPendingOrders) statPendingOrders.innerText = stats.orders.pending;
+                    if (statRevenue) statRevenue.innerText = '¥' + stats.finances.totalIncome.toLocaleString();
+                    if (statProfit) statProfit.innerText = '¥' + stats.finances.netProfit.toLocaleString();
+
+                    // 自动切换到客户管理模块，显示表格数据
+                    if (typeof switchTab === 'function') {
+                        switchTab('customers');
+                    }
+                } else {
+                    console.error('[ERP Ant HTML] ERP 或 ERP.getStatistics 未定义');
+                }
             });
 
             // Basic Init
-            if (window.checkLoginStatus) window.checkLoginStatus();
+            if (window.checkLoginStatus) {
+                window.checkLoginStatus();
+            }
         });
 
         // --- Re-implement missing modal functions for new IDs ---

@@ -640,7 +640,7 @@ body {
 
 .modal {
     background: #ffffff;
-    border-radius: 12px;
+    border-radius: 10px;
     width: 90%;
     max-width: 550px;
     max-height: 85vh;
@@ -666,7 +666,7 @@ body {
 .modal-header {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-    padding: 16px 20px;
+    padding: 14px 18px;
     border-radius: 12px 12px 0 0;
     border-bottom: none;
     display: flex;
@@ -725,17 +725,17 @@ body {
     display: block;
     margin-bottom: 8px;
     color: #2e4258;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
 }
 
 .form-control {
     width: 100%;
-    padding: 16px 20px;
+    padding: 14px 18px;
     background: #ffffff;
     border: 2px solid #f0f2f5;
     border-radius: 12px;
-    color: #3c546e;
+    color: #3c546e !important;
     font-size: 14px;
     transition: all 0.3s ease;
     box-sizing: border-box;
@@ -792,6 +792,17 @@ select.form-control[disabled] {
 select.form-control:focus option:checked {
     background-color: #e8f4fd !important;
     color: #3c546e !important;
+}
+
+/* 确保所有select元素都有正确的颜色 */
+select {
+    color: #3c546e !important;
+    background-color: #ffffff !important;
+}
+
+select option {
+    color: #3c546e !important;
+    background-color: #ffffff !important;
 }
 
 /* ==================== 财务筛选器 ==================== */

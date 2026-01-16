@@ -657,6 +657,7 @@ body {
         opacity: 0;
         transform: translateY(-20px) scale(0.95);
     }
+
     to {
         opacity: 1;
         transform: translateY(0) scale(1);
@@ -756,12 +757,12 @@ textarea.form-control {
     resize: vertical;
 }
 
-/* 下拉框样式 */
+/* 下拉框样式 - 修复文字颜色问题 */
 select.form-control {
     background-color: #ffffff !important;
-    color: #000000 !important;
+    color: #2e4258 !important;
     cursor: pointer;
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232e4258' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
     background-repeat: no-repeat;
     background-position: right 12px center;
     background-size: 16px;
@@ -769,45 +770,57 @@ select.form-control {
     appearance: none !important;
     -webkit-appearance: none !important;
     -moz-appearance: none !important;
-    -webkit-text-fill-color: #000000 !important;
-    text-shadow: none !important;
+    -webkit-text-fill-color: #2e4258 !important;
+    opacity: 1 !important;
 }
 
 select.form-control::-ms-expand {
     display: none !important;
 }
 
+/* 强制设置下拉选项的颜色 */
 select.form-control option {
-    color: #000000 !important;
+    color: #2e4258 !important;
     background-color: #ffffff !important;
-    padding: 8px !important;
+    padding: 10px !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+}
+
+/* 选中状态的选项 */
+select.form-control option:checked {
+    background-color: #3498db !important;
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%) !important;
+    color: #ffffff !important;
+}
+
+/* hover状态的选项 */
+select.form-control option:hover {
+    background-color: #e8f4fd !important;
+    color: #2e4258 !important;
 }
 
 /* 确保下拉框在任何情况下都可见 */
 select.form-control:disabled,
 select.form-control[disabled] {
     background-color: #f8f9fa !important;
-    color: #666666 !important;
+    color: #999999 !important;
     cursor: not-allowed;
-    -webkit-text-fill-color: #666666 !important;
-}
-
-select.form-control:focus option:checked {
-    background-color: #e8f4fd !important;
-    color: #000000 !important;
+    -webkit-text-fill-color: #999999 !important;
 }
 
 /* 确保所有select元素都有正确的颜色 */
 select {
-    color: #000000 !important;
+    color: #2e4258 !important;
     background-color: #ffffff !important;
-    -webkit-text-fill-color: #000000 !important;
-    text-shadow: none !important;
+    -webkit-text-fill-color: #2e4258 !important;
+    opacity: 1 !important;
 }
 
 select option {
-    color: #000000 !important;
+    color: #2e4258 !important;
     background-color: #ffffff !important;
+    font-weight: 500 !important;
 }
 
 /* ==================== 财务筛选器 ==================== */
@@ -992,7 +1005,9 @@ select option {
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .loading-text {
@@ -1059,8 +1074,15 @@ select option {
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .module-header {
@@ -1084,15 +1106,15 @@ select option {
     .erp-sidebar {
         width: 240px;
     }
-    
+
     .erp-main-content {
         margin-left: 240px;
     }
-    
+
     .stats-grid {
         grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     }
-    
+
     .modules-grid {
         grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     }
@@ -1104,53 +1126,53 @@ select option {
         transform: translateX(-100%);
         transition: transform 0.3s ease;
     }
-    
+
     .erp-sidebar.open {
         transform: translateX(0);
     }
-    
+
     .erp-main-content {
         margin-left: 0;
     }
-    
+
     .erp-container {
         padding: 20px 16px;
     }
-    
+
     .erp-header-bar {
         padding: 16px 20px;
         flex-direction: column;
         gap: 16px;
         align-items: flex-start;
     }
-    
+
     .page-title {
         font-size: 24px;
     }
-    
+
     .stats-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .modules-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .module-header {
         flex-direction: column;
         gap: 16px;
         align-items: flex-start;
     }
-    
+
     .data-table {
         font-size: 12px;
     }
-    
+
     .data-table th,
     .data-table td {
         padding: 12px 16px;
     }
-    
+
     .modal {
         width: 95%;
         margin: 20px;
@@ -1190,7 +1212,7 @@ select option {
         grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
         gap: 12px;
     }
-    
+
     .modules-grid {
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
         gap: 16px;
@@ -1202,23 +1224,23 @@ select option {
         grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
         gap: 12px;
     }
-    
+
     .modules-grid {
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: 16px;
     }
-    
+
     .stat-card {
         padding: 16px;
     }
-    
+
     .stat-icon {
         width: 40px;
         height: 40px;
         font-size: 18px;
         margin-bottom: 10px;
     }
-    
+
     .stat-value {
         font-size: 20px;
     }
@@ -1228,16 +1250,16 @@ select option {
     .erp-sidebar {
         width: 220px;
     }
-    
+
     .erp-main-content {
         margin-left: 220px;
     }
-    
+
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);
         gap: 16px;
     }
-    
+
     .modules-grid {
         grid-template-columns: repeat(2, 1fr);
         gap: 16px;
@@ -1248,48 +1270,48 @@ select option {
     .erp-layout {
         flex-direction: column;
     }
-    
+
     .erp-sidebar {
         width: 100%;
         position: relative;
         height: auto;
     }
-    
+
     .erp-main-content {
         margin-left: 0;
     }
-    
+
     .erp-header-bar {
         flex-direction: column;
         align-items: flex-start;
         gap: 16px;
         padding: 16px;
     }
-    
+
     .header-right {
         width: 100%;
         justify-content: flex-start;
     }
-    
+
     .erp-container {
         padding: 20px;
     }
-    
+
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);
         gap: 12px;
     }
-    
+
     .modules-grid {
         grid-template-columns: 1fr;
         gap: 16px;
     }
-    
+
     .module-card {
         flex-direction: column;
         text-align: center;
     }
-    
+
     .module-icon {
         width: 60px;
         height: 60px;

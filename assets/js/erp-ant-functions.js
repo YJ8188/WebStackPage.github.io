@@ -7,6 +7,10 @@
 function checkLoginStatus() {
     if (typeof userData !== 'undefined' && userData.isLoggedIn) {
         showERPContent();
+        // 初始化 ERP 数据加载
+        if (typeof ERP !== 'undefined' && ERP.init) {
+            ERP.init();
+        }
     } else {
         showNotLoggedIn();
     }
@@ -863,36 +867,37 @@ function getPaymentStatusText(status) {
 }
 
 // ==================== 初始化 ====================
+
+// 立即设置事件监听器（在 DOMContentLoaded 之前）
+if (typeof window !== 'undefined') {
+    window.addEventListener('userDataLoaded', function () {
+        checkLoginStatus();
+    });
+
+    window.addEventListener('erpDataLoaded', function (event) {
+        updateStatistics(event.detail);
+        showERPContent();
+
+        // 自动渲染所有模块的数据，传递数据参数
+        if (typeof renderCustomers === 'function') {
+            renderCustomers(event.detail.customers);
+        }
+        if (typeof renderProducts === 'function') {
+            renderProducts(event.detail.products);
+        }
+        if (typeof renderOrders === 'function') {
+            renderOrders(event.detail.orders);
+        }
+        if (typeof renderInventory === 'function') {
+            renderInventory(event.detail.products);
+            populateInventoryProducts();
+        }
+        if (typeof renderFinances === 'function') {
+            renderFinances(event.detail.finances);
+        }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     initFinanceFilters();
-    
-    // 监听用户数据加载完成
-    if (typeof window !== 'undefined') {
-        window.addEventListener('userDataLoaded', function () {
-            checkLoginStatus();
-        });
-
-        window.addEventListener('erpDataLoaded', function (event) {
-            updateStatistics(event.detail);
-            showERPContent();
-            
-            // 自动渲染所有模块的数据
-            if (typeof renderCustomers === 'function') {
-                renderCustomers();
-            }
-            if (typeof renderProducts === 'function') {
-                renderProducts();
-            }
-            if (typeof renderOrders === 'function') {
-                renderOrders();
-            }
-            if (typeof renderInventory === 'function') {
-                renderInventory();
-                populateInventoryProducts();
-            }
-            if (typeof renderFinances === 'function') {
-                renderFinances();
-            }
-        });
-    }
 });

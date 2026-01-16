@@ -201,9 +201,9 @@ body {
 /* ==================== 统计卡片 ==================== */
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 24px;
-    margin-bottom: 40px;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
 }
 
 .stat-card {
@@ -305,9 +305,9 @@ body {
 /* ==================== 功能模块 ==================== */
 .modules-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 24px;
-    margin-bottom: 40px;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 20px;
+    margin-bottom: 32px;
 }
 
 .module-card {
@@ -1143,4 +1143,117 @@ select.form-control::-ms-expand {
 
 ::-webkit-scrollbar-thumb:hover {
     background: #d1d5db;
+}
+
+/* ==================== 响应式设计 ==================== */
+@media (max-width: 1400px) {
+    .stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+    }
+    
+    .modules-grid {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
+    }
+}
+
+@media (max-width: 1200px) {
+    .stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 12px;
+    }
+    
+    .modules-grid {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+    }
+    
+    .stat-card {
+        padding: 16px;
+    }
+    
+    .stat-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
+        margin-bottom: 10px;
+    }
+    
+    .stat-value {
+        font-size: 20px;
+    }
+}
+
+@media (max-width: 992px) {
+    .erp-sidebar {
+        width: 220px;
+    }
+    
+    .erp-main-content {
+        margin-left: 220px;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+    }
+    
+    .modules-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+    }
+}
+
+@media (max-width: 768px) {
+    .erp-layout {
+        flex-direction: column;
+    }
+    
+    .erp-sidebar {
+        width: 100%;
+        position: relative;
+        height: auto;
+    }
+    
+    .erp-main-content {
+        margin-left: 0;
+    }
+    
+    .erp-header-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+        padding: 16px;
+    }
+    
+    .header-right {
+        width: 100%;
+        justify-content: flex-start;
+    }
+    
+    .erp-container {
+        padding: 20px;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+    
+    .modules-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    
+    .module-card {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .module-icon {
+        width: 60px;
+        height: 60px;
+        font-size: 28px;
+    }
 }

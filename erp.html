@@ -2196,6 +2196,10 @@ function renderInventory(products = null) {
     <button id="debugToggle" onclick="toggleDebugPanel()" style="position: fixed; bottom: 10px; right: 10px; background: #333; color: #00ff00; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; z-index: 2147483646; font-family: monospace;">🔍 调试</button>
 
     <script>
+        // 保存原始的 console 函数
+        const originalConsoleLog = console.log;
+        const originalConsoleError = console.error;
+
         // 调试面板功能
         const debugLog = [];
         const maxDebugLines = 50;
@@ -2213,12 +2217,12 @@ function renderInventory(products = null) {
             // 更新调试面板
             const debugPanel = document.getElementById('debugLog');
             if (debugPanel) {
-                debugPanel.innerHTML = debugLog.map(line => `<div style="margin-bottom: 2px;">${line}</div>`).join('');
+                debugPanel.innerHTML = debugLog.map(logEntry => `<div style="margin-bottom: 2px;">${logEntry}</div>`).join('');
                 debugPanel.scrollTop = debugPanel.scrollHeight;
             }
 
-            // 同时输出到控制台
-            console.log(line);
+            // 同时输出到控制台（使用原始函数避免无限递归）
+            originalConsoleLog(logEntry);
         }
 
         function toggleDebugPanel() {
@@ -2234,7 +2238,6 @@ function renderInventory(products = null) {
         }
 
         // 重写 console.log 以捕获所有日志
-        const originalConsoleLog = console.log;
         console.log = function(...args) {
             originalConsoleLog.apply(console, args);
             const message = args.map(arg => {
@@ -2251,7 +2254,6 @@ function renderInventory(products = null) {
         };
 
         // 重写 console.error 以捕获所有错误
-        const originalConsoleError = console.error;
         console.error = function(...args) {
             originalConsoleError.apply(console, args);
             const message = args.map(arg => {

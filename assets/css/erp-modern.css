@@ -770,8 +770,14 @@ select.form-control {
     appearance: none !important;
     -webkit-appearance: none !important;
     -moz-appearance: none !important;
+    /* 强制文字可见 */
     -webkit-text-fill-color: #2e4258 !important;
+    -moz-text-fill-color: #2e4258 !important;
     opacity: 1 !important;
+    font-weight: 500 !important;
+    /* 防止文字被隐藏 */
+    text-indent: 0 !important;
+    line-height: normal !important;
 }
 
 select.form-control::-ms-expand {
@@ -1317,4 +1323,46 @@ select option {
         height: 60px;
         font-size: 28px;
     }
+}
+
+/* ==================== 最终修复：强制所有下拉框文字可见 ==================== */
+/* 这个样式放在最后，确保优先级最高 */
+#financeMonth,
+#financeYear,
+#orderCustomer,
+#inventoryProduct,
+#customerStatus,
+#productStatus,
+#productUnit,
+#orderStatus,
+#orderPaymentStatus,
+#inventoryType,
+#financeType,
+select.form-control,
+select {
+    color: #2e4258 !important;
+    background-color: #ffffff !important;
+    -webkit-text-fill-color: #2e4258 !important;
+    -moz-text-fill-color: #2e4258 !important;
+    opacity: 1 !important;
+    font-weight: 500 !important;
+}
+
+#financeMonth option,
+#financeYear option,
+#orderCustomer option,
+#inventoryProduct option,
+#customerStatus option,
+#productStatus option,
+#productUnit option,
+#orderStatus option,
+#orderPaymentStatus option,
+#inventoryType option,
+#financeType option,
+select.form-control option,
+select option {
+    color: #2e4258 !important;
+    background-color: #ffffff !important;
+    font-weight: 500 !important;
+    padding: 10px !important;
 }

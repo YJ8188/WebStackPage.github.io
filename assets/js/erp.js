@@ -1198,16 +1198,23 @@ const ERP = {
 };
 
 // ==================== 页面加载时初始化 ====================
-document.addEventListener('DOMContentLoaded', function() {
-    // 等待用户数据加载完成
-    window.addEventListener('userDataLoaded', function() {
-        if (userData.isLoggedIn) {
-            ERP.init();
-        }
-    });
 
-    // 如果用户数据已经加载
+// 立即设置事件监听器（在 DOMContentLoaded 之前）
+window.addEventListener('userDataLoaded', function() {
+    console.log('[ERP] userDataLoaded 事件触发');
     if (userData.isLoggedIn) {
+        console.log('[ERP] 用户已登录，开始初始化 ERP');
+        ERP.init();
+    }
+});
+
+// 页面加载完成后，检查用户是否已经登录
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('[ERP] DOMContentLoaded 触发');
+    console.log('[ERP] userData.isLoggedIn:', userData.isLoggedIn);
+    // 如果用户数据已经加载（userDataLoaded 事件可能在 DOMContentLoaded 之前触发）
+    if (userData.isLoggedIn) {
+        console.log('[ERP] 用户已登录，开始初始化 ERP（DOMContentLoaded）');
         ERP.init();
     }
 });

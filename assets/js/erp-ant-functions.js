@@ -1,1390 +1,1111 @@
-<!DOCTYPE html>
-<html lang="zh">
+/**
+ * ERP Ant Design 界面 - 业务逻辑函数
+ * 从 erp.html 提取并适配用于 erp-ant.html
+ */
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>何哥ERP - 进销存管理系统</title>
-
-    <!-- Favicon -->
-    <!-- Favicon -->
-    <link rel="icon" type="image/png" href="../assets/images/favicon.png">
-
-    <!-- Fonts -->
-    <link rel="stylesheet" href="../assets/css/fonts/fontawesome/css/font-awesome.min.css">
-
-    <!-- Ant Design Style Clone -->
-    <link rel="stylesheet" href="../assets/css/erp-ant.css">
-
-    <!-- Inline Overrides for specific needs -->
-    <style>
-        /* Logo Adjustment */
-        .sider-logo {
-            background: #002140;
-            padding-left: 20px;
+// ==================== 登录状态检查 ====================
+function checkLoginStatus() {
+    if (typeof userData !== 'undefined' && userData.isLoggedIn) {
+        showERPContent();
+        // 初始化 ERP 数据加载
+        if (typeof ERP !== 'undefined' && ERP.init) {
+            ERP.init();
         }
+    } else {
+        showNotLoggedIn();
+    }
+}
 
-        /* Ensure inputs in tables match size */
-        .ant-table .ant-btn {
-            height: 24px;
-            padding: 0 8px;
-            font-size: 12px;
-            line-height: 22px;
-        }
-    </style>
-</head>
+function showLoading() {
+    document.getElementById('loadingContainer').style.display = 'block';
+    document.getElementById('notLoggedIn').style.display = 'none';
+    document.getElementById('erpContent').style.display = 'none';
+}
 
-<body>
-    <div class="ant-layout">
-        <!-- Sidebar -->
-        <aside class="ant-layout-sider">
-            <div class="sider-logo">
-                <i class="fa fa-cubes" style="color: #1890ff; margin-right: 8px;"></i>
-                <span style="color: #fff; font-size: 16px;">何哥ERP</span>
-            </div>
-            <ul class="ant-menu">
-                <li class="ant-menu-item ant-menu-item-selected" onclick="switchTab('dashboard')">
-                    <i class="fa fa-dashboard"></i>
-                    <span>首页</span>
-                </li>
-                <li class="ant-menu-item" onclick="switchTab('customers')">
-                    <i class="fa fa-users"></i>
-                    <span>客户管理</span>
-                </li>
-                <li class="ant-menu-item" onclick="switchTab('products')">
-                    <i class="fa fa-cube"></i>
-                    <span>产品管理</span>
-                </li>
-                <li class="ant-menu-item" onclick="switchTab('orders')">
-                    <i class="fa fa-shopping-cart"></i>
-                    <span>订单管理</span>
-                </li>
-                <li class="ant-menu-item" onclick="switchTab('inventory')">
-                    <i class="fa fa-archive"></i>
-                    <span>库存管理</span>
-                </li>
-                <li class="ant-menu-item" onclick="switchTab('finance')">
-                    <i class="fa fa-line-chart"></i>
-                    <span>财务管理</span>
-                </li>
-            </ul>
-        </aside>
+function showNotLoggedIn() {
+    document.getElementById('loadingContainer').style.display = 'none';
+    document.getElementById('notLoggedIn').style.display = 'block';
+    document.getElementById('erpContent').style.display = 'none';
+}
 
-        <div class="ant-layout-main">
-            <!-- Header -->
-            <header class="ant-layout-header">
-                <div class="header-trigger">
-                    <i class="fa fa-outdent"></i>
-                </div>
-                <div class="header-right">
-                    <div class="header-action">
-                        <i class="fa fa-search"></i>
-                    </div>
-                    <div class="header-action">
-                        <i class="fa fa-bell-o"></i>
-                    </div>
-                    <div class="header-action user-info">
-                        <i class="fa fa-user-circle" style="margin-right: 8px; color: #1890ff;"></i>
-                        <span id="userEmail">管理员</span>
-                    </div>
-                </div>
-            </header>
+function showERPContent() {
+    document.getElementById('loadingContainer').style.display = 'none';
+    document.getElementById('notLoggedIn').style.display = 'none';
+    document.getElementById('erpContent').style.display = 'block';
+}
 
-            <!-- Tags View (Simulated) -->
-            <div class="ant-tabs-view">
-                <div class="tags-scroll-wrapper">
-                    <span class="ant-tag active" id="tab-dashboard" onclick="switchTab('dashboard')">首页</span>
-                    <span class="ant-tag" id="tab-customers" onclick="switchTab('customers')"
-                        style="display:none;">客户管理</span>
-                    <span class="ant-tag" id="tab-products" onclick="switchTab('products')"
-                        style="display:none;">产品管理</span>
-                    <span class="ant-tag" id="tab-orders" onclick="switchTab('orders')"
-                        style="display:none;">订单管理</span>
-                    <span class="ant-tag" id="tab-inventory" onclick="switchTab('inventory')"
-                        style="display:none;">库存管理</span>
-                    <span class="ant-tag" id="tab-finance" onclick="switchTab('finance')"
-                        style="display:none;">财务管理</span>
-                </div>
-            </div>
+// ==================== 统计数据更新 ====================
+function updateStatistics(data) {
+    if (typeof ERP === 'undefined' || !ERP.getStatistics) return;
+    
+    const stats = ERP.getStatistics();
 
-            <!-- Content Area -->
-            <main class="ant-layout-content">
+    // 更新客户统计
+    const statCustomers = document.getElementById('statCustomers');
+    if (statCustomers) statCustomers.textContent = stats.customers.total;
+    
+    const statActiveCustomers = document.getElementById('statActiveCustomers');
+    if (statActiveCustomers) statActiveCustomers.textContent = stats.customers.active;
 
-                <!-- Loading State -->
-                <div id="loadingContainer" style="text-align: center; padding: 50px;">
-                    <i class="fa fa-spinner fa-spin fa-2x" style="color: #1890ff;"></i>
-                    <p style="margin-top: 10px; color: #999;">系统加载中...</p>
-                </div>
+    // 更新产品统计
+    const statProducts = document.getElementById('statProducts');
+    if (statProducts) statProducts.textContent = stats.products.total;
+    
+    const statLowStock = document.getElementById('statLowStock');
+    if (statLowStock) statLowStock.textContent = stats.products.lowStock;
 
-                <!-- Not Logged In -->
-                <div id="notLoggedIn" style="display: none; text-align: center; padding: 50px;">
-                    <h2>请先登录</h2>
-                    <a href="login.html" class="ant-btn ant-btn-primary">去登录</a>
-                </div>
+    // 更新订单统计
+    const statOrders = document.getElementById('statOrders');
+    if (statOrders) statOrders.textContent = stats.orders.total;
+    
+    const statPendingOrders = document.getElementById('statPendingOrders');
+    if (statPendingOrders) statPendingOrders.textContent = stats.orders.pending;
 
-                <!-- ERP Main Content -->
-                <div id="erpContent" style="display: none;">
+    // 更新财务统计
+    const statRevenue = document.getElementById('statRevenue');
+    if (statRevenue) statRevenue.textContent = '¥' + stats.finances.totalIncome.toLocaleString();
+    
+    const statProfit = document.getElementById('statProfit');
+    if (statProfit) statProfit.textContent = '¥' + stats.finances.netProfit.toLocaleString();
+}
 
-                    <!-- Dashboard View -->
-                    <div id="dashboardView" class="module-view active">
-                        <!-- Stats Grid -->
-                        <div class="ant-row">
-                            <div class="ant-col">
-                                <div class="analysis-card">
-                                    <div class="analysis-card-top">
-                                        <span>客户总数</span>
-                                        <i class="fa fa-users" style="color: #1890ff;"></i>
-                                    </div>
-                                    <div class="analysis-card-content" id="statCustomers">0</div>
-                                    <div class="analysis-card-footer">
-                                        活跃客户: <span id="statActiveCustomers">0</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="ant-col">
-                                <div class="analysis-card">
-                                    <div class="analysis-card-top">
-                                        <span>产品总数</span>
-                                        <i class="fa fa-box" style="color: #52c41a;"></i>
-                                    </div>
-                                    <div class="analysis-card-content" id="statProducts">0</div>
-                                    <div class="analysis-card-footer">
-                                        库存预警: <span id="statLowStock">0</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="ant-col">
-                                <div class="analysis-card">
-                                    <div class="analysis-card-top">
-                                        <span>订单总数</span>
-                                        <i class="fa fa-shopping-cart" style="color: #faad14;"></i>
-                                    </div>
-                                    <div class="analysis-card-content" id="statOrders">0</div>
-                                    <div class="analysis-card-footer">
-                                        待处理 <span id="statPendingOrders">0</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="ant-col">
-                                <div class="analysis-card">
-                                    <div class="analysis-card-top">
-                                        <span>总收入</span>
-                                        <i class="fa fa-cny" style="color: #ff4d4f;"></i>
-                                    </div>
-                                    <div class="analysis-card-content" id="statRevenue">¥0.00</div>
-                                    <div class="analysis-card-footer">
-                                        净利润: <span id="statProfit">¥0.00</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+// ==================== 单位转换 ====================
+function getUnitText(unit) {
+    const unitMap = {
+        'piece': '个',
+        'kg': '千克',
+        'g': '克',
+        'ton': '吨',
+        'box': '盒',
+        'set': '套',
+        'pair': '双',
+        'pack': '包',
+        'bottle': '瓶',
+        'bag': '袋',
+        'liter': '升',
+        'ml': '毫升',
+        'meter': '米',
+        'cm': '厘米',
+        'mm': '毫米',
+        'sheet': '张',
+        'roll': '卷',
+        'dozen': '打',
+        'unit': '单位'
+    };
+    if (!unit || unit === '.' || unit === '-' || unit === '') {
+        return '-';
+    }
+    return unitMap[unit] || '-';
+}
 
-                        <!-- Shortcut Modules -->
-                        <div class="ant-row" style="margin-top: 24px;">
-                            <div class="ant-col">
-                                <div class="content-card"
-                                    style="text-align: center; cursor: pointer; height: 160px; display: flex; flex-direction: column; justify-content: center; align-items: center;"
-                                    onclick="switchTab('orders')">
-                                    <i class="fa fa-plus-circle"
-                                        style="font-size: 48px; color: #1890ff; margin-bottom: 16px;"></i>
-                                    <span style="font-size: 16px; font-weight: 500;">快速开单</span>
-                                </div>
-                            </div>
-                            <!-- More shortcuts can be added here -->
-                        </div>
-                    </div>
+// ==================== 客户管理 ====================
+function showCustomerModal(customer = null) {
+    const modal = document.getElementById('customerModal');
+    if (!modal) {
+        console.error('[ERP Ant] 找不到 customerModal 元素');
+        return;
+    }
 
-                    <!-- Customers View -->
-                    <div id="customersView" class="module-view">
-                        <div class="content-card">
-                            <div class="table-page-search-wrapper">
-                                <div class="search-form">
-                                    <div class="search-item">
-                                        <label class="search-label">客户搜索:</label>
-                                        <input type="text" id="customerSearch" class="ant-input"
-                                            placeholder="输入名称/电话/邮箱" oninput="searchCustomers()">
-                                    </div>
-                                    <div class="search-item">
-                                        <button class="ant-btn ant-btn-primary" onclick="searchCustomers()">查询</button>
-                                        <button class="ant-btn"
-                                            onclick="document.getElementById('customerSearch').value='';searchCustomers();"
-                                            style="margin-left: 8px;">重置</button>
-                                    </div>
-                                </div>
-                            </div>
+    modal.classList.add('active');
+    modal.style.display = 'flex';
 
-                            <div class="table-operator">
-                                <button class="ant-btn ant-btn-primary" onclick="showCustomerModal()">
-                                    <i class="fa fa-plus"></i> 新建客户
-                                </button>
-                            </div>
+    const title = document.getElementById('customerModalTitle');
+    const form = document.getElementById('customerForm');
 
-                            <div class="ant-table-wrapper">
-                                <div class="ant-table">
-                                    <table id="customersTable">
-                                        <thead class="ant-table-thead">
-                                            <tr>
-                                                <th>客户名称</th>
-                                                <th>联系人</th>
-                                                <th>电话</th>
-                                                <th>邮箱</th>
-                                                <th>状态</th>
-                                                <th>操作</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="ant-table-tbody" id="customersTableBody">
-                                            <!-- JS Rendered -->
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+    if (customer) {
+        title.textContent = '编辑客户';
+        document.getElementById('customerId').value = customer.id;
+        document.getElementById('customerName').value = customer.name;
+        document.getElementById('customerContactPerson').value = customer.contact_person || '';
+        document.getElementById('customerPhone').value = customer.phone || '';
+        document.getElementById('customerEmail').value = customer.email || '';
+        document.getElementById('customerAddress').value = customer.address || '';
+        document.getElementById('customerNotes').value = customer.notes || '';
 
-                    <!-- Products View -->
-                    <div id="productsView" class="module-view">
-                        <div class="content-card">
-                            <div class="table-page-search-wrapper">
-                                <div class="search-form">
-                                    <div class="search-item">
-                                        <label class="search-label">产品搜索:</label>
-                                        <input type="text" id="productSearch" class="ant-input" placeholder="输入名称/编码"
-                                            oninput="searchProducts()">
-                                    </div>
-                                </div>
-                            </div>
+        const statusSelect = document.getElementById('customerStatus');
+        const validStatus = customer.status && statusSelect.querySelector(`option[value="${customer.status}"]`);
+        statusSelect.value = validStatus ? customer.status : 'active';
+    } else {
+        title.textContent = '添加客户';
+        form.reset();
+        document.getElementById('customerId').value = '';
+        document.getElementById('customerStatus').value = 'active';
+    }
 
-                            <div class="table-operator">
-                                <button class="ant-btn ant-btn-primary" onclick="showProductModal()">
-                                    <i class="fa fa-plus"></i> 新建产品
-                                </button>
-                            </div>
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+}
 
-                            <div class="ant-table-wrapper">
-                                <div class="ant-table">
-                                    <table id="productsTable">
-                                        <thead class="ant-table-thead">
-                                            <tr>
-                                                <th>产品名称</th>
-                                                <th>编码</th>
-                                                <th>分类</th>
-                                                <th>价格</th>
-                                                <th>库存</th>
-                                                <th>单位</th>
-                                                <th>状态</th>
-                                                <th>操作</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="ant-table-tbody" id="productsTableBody"></tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+function hideCustomerModal() {
+    const modal = document.getElementById('customerModal');
+    modal.classList.remove('active');
+    modal.style.display = '';
+}
 
-                    <!-- Orders View -->
-                    <div id="ordersView" class="module-view">
-                        <div class="content-card">
-                            <div class="table-page-search-wrapper">
-                                <div class="search-form">
-                                    <div class="search-item">
-                                        <label class="search-label">订单搜索:</label>
-                                        <input type="text" id="orderSearch" class="ant-input" placeholder="订单号/客户名"
-                                            oninput="searchOrders()">
-                                    </div>
-                                </div>
-                            </div>
+async function saveCustomer() {
+    const customerId = document.getElementById('customerId').value;
+    const customerData = {
+        name: document.getElementById('customerName').value,
+        contact_person: document.getElementById('customerContactPerson').value,
+        phone: document.getElementById('customerPhone').value,
+        email: document.getElementById('customerEmail').value,
+        address: document.getElementById('customerAddress').value,
+        notes: document.getElementById('customerNotes').value,
+        status: document.getElementById('customerStatus').value
+    };
 
-                            <div class="table-operator">
-                                <button class="ant-btn ant-btn-primary" onclick="showOrderModal()">
-                                    <i class="fa fa-plus"></i> 创建订单
-                                </button>
-                            </div>
+    if (!customerData.name) {
+        alert('请输入客户名称');
+        return;
+    }
 
-                            <div class="ant-table-wrapper">
-                                <div class="ant-table">
-                                    <table>
-                                        <thead class="ant-table-thead">
-                                            <tr>
-                                                <th>订单号</th>
-                                                <th>客户</th>
-                                                <th>订单日期</th>
-                                                <th>金额</th>
-                                                <th>状态</th>
-                                                <th>支付</th>
-                                                <th>发货状态</th>
-                                                <th>物流信息</th>
-                                                <th>操作</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="ant-table-tbody" id="ordersTableBody"></tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+    const saveBtn = document.querySelector('#customerModal .ant-btn-primary');
+    const originalText = saveBtn.textContent;
+    saveBtn.disabled = true;
+    saveBtn.textContent = '保存中...';
 
-                    <!-- Inventory View -->
-                    <div id="inventoryView" class="module-view">
-                        <div class="content-card">
-                            <div class="table-page-search-wrapper">
-                                <div class="search-form">
-                                    <div class="search-item">
-                                        <label class="search-label">库存搜索:</label>
-                                        <input type="text" id="inventorySearch" class="ant-input" placeholder="产品名称/编码"
-                                            oninput="searchInventory()">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="ant-table-wrapper">
-                                <div class="ant-table">
-                                    <table>
-                                        <thead class="ant-table-thead">
-                                            <tr>
-                                                <th>产品名称</th>
-                                                <th>编码</th>
-                                                <th>分类</th>
-                                                <th>当前库存</th>
-                                                <th>单位</th>
-                                                <th>预警值</th>
-                                                <th>状态</th>
-                                                <th>操作</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="ant-table-tbody" id="inventoryTableBody"></tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Finance View -->
-                    <div id="financeView" class="module-view">
-                        <div class="content-card">
-                            <div class="table-page-search-wrapper">
-                                <div class="search-form">
-                                    <div class="search-item">
-                                        <label class="search-label">月份:</label>
-                                        <select id="financeMonth" class="ant-select" onchange="filterFinancesByMonth()">
-                                            <option value="">所有月份</option>
-                                        </select>
-                                    </div>
-                                    <div class="search-item">
-                                        <label class="search-label">年份:</label>
-                                        <select id="financeYear" class="ant-select" onchange="filterFinancesByMonth()">
-                                            <option value="">所有年份</option>
-                                        </select>
-                                    </div>
-                                    <div class="search-item">
-                                        <label class="search-label">搜索:</label>
-                                        <input type="text" id="financeSearch" class="ant-input" placeholder="描述/分类"
-                                            oninput="searchFinances()">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="table-operator">
-                                <button class="ant-btn ant-btn-primary" onclick="showFinanceModal()">
-                                    <i class="fa fa-plus"></i> 记一笔
-                                </button>
-                            </div>
-
-                            <!-- Finance Stats Summary inside Card -->
-                            <div id="financeSummary" class="ant-row"
-                                style="margin-bottom: 20px; background: #f9f9f9; padding: 10px; border-radius: 4px;">
-                                <div class="ant-col"
-                                    style="flex: 1; text-align: center; border-right: 1px solid #e8e8e8;">
-                                    <div style="color: #666; font-size: 12px;">总收入</div>
-                                    <div id="totalIncome" style="color: #cf1322; font-size: 18px; font-weight: 500;">
-                                        ¥0.00</div>
-                                </div>
-                                <div class="ant-col"
-                                    style="flex: 1; text-align: center; border-right: 1px solid #e8e8e8;">
-                                    <div style="color: #666; font-size: 12px;">总支出</div>
-                                    <div id="totalExpense" style="color: #3f8600; font-size: 18px; font-weight: 500;">
-                                        ¥0.00</div>
-                                </div>
-                                <div class="ant-col" style="flex: 1; text-align: center;">
-                                    <div style="color: #666; font-size: 12px;">净收入</div>
-                                    <div id="netIncome" style="color: #1890ff; font-size: 18px; font-weight: 500;">¥0.00
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="ant-table-wrapper">
-                                <div class="ant-table">
-                                    <table>
-                                        <thead class="ant-table-thead">
-                                            <tr>
-                                                <th>类型</th>
-                                                <th>分类</th>
-                                                <th>金额</th>
-                                                <th>描述</th>
-                                                <th>交易时间</th>
-                                                <th>操作</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="ant-table-tbody" id="financesTableBody"></tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </main>
-        </div>
-    </div>
-
-    <!-- Modals (Re-using IDs for JS compatibility but updated styles) -->
-
-    <!-- Customer Modal -->
-    <div id="customerModal" class="modal-overlay">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 id="customerModalTitle">添加客户</h3>
-                <button class="btn-close" onclick="hideCustomerModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="customerForm">
-                    <input type="hidden" id="customerId">
-                    <div class="form-group">
-                        <label>客户名称 *</label>
-                        <input type="text" id="customerName" class="ant-input">
-                    </div>
-                    <div class="form-group">
-                        <label>联系人</label>
-                        <input type="text" id="customerContactPerson" class="ant-input">
-                    </div>
-                    <div class="form-group">
-                        <label>电话</label>
-                        <input type="tel" id="customerPhone" class="ant-input">
-                    </div>
-                    <div class="form-group">
-                        <label>邮箱</label>
-                        <input type="email" id="customerEmail" class="ant-input">
-                    </div>
-                    <div class="form-group">
-                        <label>状态</label>
-                        <select id="customerStatus" class="ant-select" style="width: 100%;">
-                            <option value="active">活跃</option>
-                            <option value="inactive">停用</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>备注</label>
-                        <textarea id="customerNotes" class="ant-input" style="height: auto;" rows="3"></textarea>
-                    </div>
-                    <!-- Hidden Address field if simpler form preferred, or add it -->
-                    <input type="hidden" id="customerAddress">
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-secondary" onclick="hideCustomerModal()">取消</button>
-                <button class="ant-btn ant-btn-primary" onclick="saveCustomer()">保存</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Product Modal -->
-    <div id="productModal" class="modal-overlay">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 id="productModalTitle">添加产品</h3>
-                <button class="btn-close" onclick="hideProductModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="productForm">
-                    <input type="hidden" id="productId">
-                    <div class="form-group">
-                        <label>产品名称 *</label>
-                        <input type="text" id="productName" class="ant-input">
-                    </div>
-                    <div class="form-group">
-                        <label>编码 (SKU)</label>
-                        <input type="text" id="productSku" class="ant-input">
-                    </div>
-                    <div class="form-group">
-                        <label>分类</label>
-                        <input type="text" id="productCategory" class="ant-input">
-                    </div>
-                    <div class="form-group" style="display: flex; gap: 10px;">
-                        <div style="flex: 1;">
-                            <label>售价 *</label>
-                            <input type="number" id="productPrice" class="ant-input" step="0.01">
-                        </div>
-                        <div style="flex: 1;">
-                            <label>成本</label>
-                            <input type="number" id="productCost" class="ant-input" step="0.01">
-                        </div>
-                    </div>
-                    <div class="form-group" style="display: flex; gap: 10px;">
-                        <div style="flex: 1;">
-                            <label>库存</label>
-                            <input type="number" id="productStockQuantity" class="ant-input">
-                        </div>
-                        <div style="flex: 1;">
-                            <label>预警值</label>
-                            <input type="number" id="productMinStock" class="ant-input">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>单位</label>
-                        <input type="text" id="productUnit" class="ant-input" list="unitList" placeholder="请输入或选择单位">
-                        <datalist id="unitList">
-                            <option value="件">
-                            <option value="千克">
-                            <option value="箱">
-                            <option value="台">
-                            <option value="个">
-                            <option value="套">
-                            <option value="米">
-                            <option value="升">
-                            <option value="克">
-                            <option value="吨">
-                            <option value="毫升">
-                            <option value="厘米">
-                            <option value="毫米">
-                            <option value="双">
-                            <option value="包">
-                            <option value="瓶">
-                            <option value="盒">
-                            <option value="袋">
-                        </datalist>
-                    </div>
-                    <div class="form-group">
-                        <label>状态</label>
-                        <select id="productStatus" class="ant-select" style="width: 100%;">
-                            <option value="active">活跃</option>
-                            <option value="inactive">停用</option>
-                        </select>
-                    </div>
-                    <input type="hidden" id="productDescription">
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-secondary" onclick="hideProductModal()">取消</button>
-                <button class="ant-btn ant-btn-primary" onclick="saveProduct()">保存</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Order Modal -->
-    <div id="orderModal" class="modal-overlay">
-        <div class="modal" style="width: 600px;">
-            <div class="modal-header">
-                <h3 id="orderModalTitle">创建订单</h3>
-                <button class="btn-close" onclick="hideOrderModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="orderForm">
-                    <input type="hidden" id="orderId">
-                    <div class="form-group">
-                        <label>客户 *</label>
-                        <select id="orderCustomer" class="ant-select" style="width: 100%;">
-                            <option value="">请选择客户</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>订单明细</label>
-                        <div id="orderItems" style="background: #f5f5f5; padding: 10px; border-radius: 4px;">
-                            <!-- Items injected via JS -->
-                        </div>
-                        <button type="button" class="ant-btn" onclick="addOrderItem()"
-                            style="margin-top: 10px; width: 100%; border-style: dashed;">
-                            <i class="fa fa-plus"></i> 添加产品
-                        </button>
-                    </div>
-
-                    <div class="form-group">
-                        <label>总金额 <small style="color: #999;">（可手动修改，系统会根据产品自动计算建议价）</small></label>
-                        <div style="display: flex; gap: 10px;">
-                            <input type="number" id="orderTotalAmount" class="ant-input" placeholder="请输入订单总金额"
-                                style="font-weight: bold; color: #f5222d; flex: 1;" step="0.01" min="0">
-                            <button type="button" onclick="calculateOrderTotal()" class="ant-btn" 
-                                style="background: #1890ff; color: white; border-color: #1890ff;">
-                                计算建议价
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="form-group" style="display: flex; gap: 10px;">
-                        <div style="flex: 1;">
-                            <label>状态</label>
-                            <select id="orderStatus" class="ant-select" style="width: 100%;">
-                                <option value="pending">待处理</option>
-                                <option value="processing">处理中</option>
-                                <option value="completed">已完成</option>
-                                <option value="cancelled">已取消</option>
-                            </select>
-                        </div>
-                        <div style="flex: 1;">
-                            <label>支付状态</label>
-                            <select id="orderPaymentStatus" class="ant-select" style="width: 100%;">
-                                <option value="unpaid">未支付</option>
-                                <option value="paid">已支付</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>快递公司</label>
-                        <select id="orderShippingCompany" class="ant-select" style="width: 100%;" onchange="toggleOtherShippingCompany()">
-                            <option value="">请选择快递公司</option>
-                            <option value="顺丰速运">顺丰速运</option>
-                            <option value="申通快递">申通快递</option>
-                            <option value="圆通速递">圆通速递</option>
-                            <option value="中通快递">中通快递</option>
-                            <option value="韵达速递">韵达速递</option>
-                            <option value="邮政EMS">邮政EMS</option>
-                            <option value="京东物流">京东物流</option>
-                            <option value="德邦快递">德邦快递</option>
-                            <option value="极兔速递">极兔速递</option>
-                            <option value="跨越速运">跨越速运</option>
-                            <option value="百世快递">百世快递</option>
-                            <option value="宅急送">宅急送</option>
-                            <option value="安能快递">安能快递</option>
-                            <option value="优速快递">优速快递</option>
-                            <option value="如风达">如风达</option>
-                            <option value="国通快递">国通快递</option>
-                            <option value="加运美">加运美</option>
-                            <option value="速尔快递">速尔快递</option>
-                            <option value="远成物流">远成物流</option>
-                            <option value="品骏快递">品骏快递</option>
-                            <option value="苏宁物流">苏宁物流</option>
-                            <option value="佳吉快运">佳吉快运</option>
-                            <option value="中铁快运">中铁快运</option>
-                            <option value="天地华宇">天地华宇</option>
-                            <option value="壹米滴答">壹米滴答</option>
-                            <option value="顺心捷达">顺心捷达</option>
-                            <option value="丰网速运">丰网速运</option>
-                            <option value="众邮快递">众邮快递</option>
-                            <option value="哪吒速运">哪吒速运</option>
-                            <option value="快弟来了">快弟来了</option>
-                            <option value="菜鸟驿站">菜鸟驿站</option>
-                            <option value="其他">其他（手动输入）</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group" id="otherShippingCompanyGroup" style="display: none;">
-                        <label>其他快递公司</label>
-                        <input type="text" id="orderOtherShippingCompany" class="ant-input" placeholder="请输入快递公司名称">
-                    </div>
-
-                    <div class="form-group">
-                        <label>快递单号</label>
-                        <input type="text" id="orderTrackingNumber" class="ant-input" placeholder="请输入快递单号">
-                    </div>
-
-                    <div class="form-group">
-                        <label>物流信息</label>
-                        <textarea id="orderShippingInfo" class="ant-input" placeholder="请输入物流信息" rows="2"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label>发货状态</label>
-                        <select id="orderShippingStatus" class="ant-select" style="width: 100%;">
-                            <option value="not_shipped">未发货</option>
-                            <option value="shipped">已发货</option>
-                            <option value="in_transit">运输中</option>
-                            <option value="delivered">已签收</option>
-                            <option value="rejected">已拒收</option>
-                              <option value="returned">已退货</option>
-                        </select>
-                    </div>
-
-                    <textarea id="orderNotes" class="ant-input" placeholder="订单备注" rows="2"></textarea>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-secondary" onclick="hideOrderModal()">取消</button>
-                <button class="ant-btn ant-btn-primary" onclick="saveOrder()">保存</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Inventory Modal -->
-    <div id="inventoryModal" class="modal-overlay">
-        <div class="modal">
-            <div class="modal-header">
-                <h3>库存调整</h3>
-                <button class="btn-close" onclick="hideInventoryModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="inventoryForm">
-                    <div class="form-group">
-                        <label>产品 *</label>
-                        <select id="inventoryProduct" class="ant-select" style="width: 100%;"></select>
-                    </div>
-                    <div class="form-group">
-                        <label>调整数量 (+/-)</label>
-                        <input type="number" id="inventoryQuantityChange" class="ant-input" placeholder="例如: 10 或 -5">
-                    </div>
-                    <div class="form-group">
-                        <label>类型</label>
-                        <select id="inventoryType" class="ant-select" style="width: 100%;">
-                            <option value="purchase">采购入库</option>
-                            <option value="sale">销售出库</option>
-                            <option value="manual">手动调整</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>备注</label>
-                        <textarea id="inventoryNotes" class="ant-input" rows="2"></textarea>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-secondary" onclick="hideInventoryModal()">取消</button>
-                <button class="ant-btn ant-btn-primary" onclick="saveInventory()">保存</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Finance Modal -->
-    <div id="financeModal" class="modal-overlay">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 id="financeModalTitle">记一笔</h3>
-                <button class="btn-close" onclick="hideFinanceModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="financeForm">
-                    <input type="hidden" id="financeId">
-                    <div class="form-group">
-                        <label>类型</label>
-                        <select id="financeType" class="ant-select" style="width: 100%;">
-                            <option value="income">收入</option>
-                            <option value="expense">支出</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>金额 *</label>
-                        <input type="number" id="financeAmount" class="ant-input" step="0.01">
-                    </div>
-                    <div class="form-group">
-                        <label>分类</label>
-                        <input type="text" id="financeCategory" class="ant-input" placeholder="例如: 销售回款 采购支出">
-                    </div>
-                    <div class="form-group">
-                        <label>日期</label>
-                        <input type="datetime-local" id="financeTransactionDate" class="ant-input">
-                    </div>
-                    <div class="form-group">
-                        <label>描述</label>
-                        <input type="text" id="financeDescription" class="ant-input">
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-secondary" onclick="hideFinanceModal()">取消</button>
-                <button class="ant-btn ant-btn-primary" onclick="saveFinance()">保存</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-    <script src="../assets/js/supabase-config.js"></script>
-    <script src="../assets/js/user-data.js"></script>
-    <script src="../assets/js/erp.js"></script>
-    <script src="../assets/js/erp-ant-functions.js"></script>
-
-    <!-- UI Logic Script (Adapted for Ant Design) -->
-    <script>
-        // Ant Design specific logic (Tab Switching, Sidebar Active State)
-        function switchTab(moduleName) {
+    try {
+        let result;
+        if (customerId) {
+            result = await ERP.updateCustomer(parseInt(customerId), customerData);
+        } else {
+            // 先关闭模态框，然后异步保存
+            hideCustomerModal();
             
-
-            // Update Menu
-            document.querySelectorAll('.ant-menu-item').forEach(item => item.classList.remove('ant-menu-item-selected'));
-            const menuIndex = ['dashboard', 'customers', 'products', 'orders', 'inventory', 'finance'].indexOf(moduleName);
-            if (menuIndex >= 0) {
-                document.querySelectorAll('.ant-menu-item')[menuIndex].classList.add('ant-menu-item-selected');
-            }
-
-            // Update Tabs
-            document.querySelectorAll('.ant-tag').forEach(tag => {
-                tag.classList.remove('active');
-                tag.style.display = 'none'; // Hide all first
-            });
-            // Always show dashboard tab + current tab
-            document.getElementById('tab-dashboard').style.display = 'inline-block';
-            if (moduleName !== 'dashboard') {
-                const activeTab = document.getElementById('tab-' + moduleName);
-                if (activeTab) {
-                    activeTab.style.display = 'inline-block';
-                    activeTab.classList.add('active');
-                } else {
-                    document.getElementById('tab-dashboard').classList.add('active');
-                }
-            } else {
-                document.getElementById('tab-dashboard').classList.add('active');
-            }
-
-            // Show View
+            // 保存到数据库
+            result = await ERP.addCustomer(customerData);
+            console.info('[ERP Ant] 客户已保存: ', result);
             
-            document.querySelectorAll('.module-view').forEach(view => {
-                view.classList.remove('active');
+            if (result) {
+                // 重新加载数据并更新显示
+                const customers = await ERP.loadCustomers(true);
+                console.info('[ERP Ant] 重新加载客户数据条数: ', customers.length);
+                renderCustomers(customers);
+                updateStatistics();
                 
-            });
-
-            const targetView = document.getElementById(moduleName + 'View');
-
-            if (targetView) {
-                targetView.classList.add('active');
-            } else {
-                console.error('[switchTab] 找不到目标视图:', moduleName + 'View');
-            }
-
-            // Trigger Data Load
-            if (window.openModule) {
-                // We override openModule below, but if raw logic needed:
-                // openModule sets display:none on styles we don't control, so we must be careful.
-                // Actually, we should redefine openModule to match this new UI.
+                if (typeof showToast === 'function') {
+                    showToast('客户保存成功', 'success');
+                }
             }
         }
 
-        // --- Overriding/Updating Logic for New UI ---
-
-        // Redefine openModule to use new UI logic
-        window.openModule = async function (moduleName) {
-            switchTab(moduleName);
+        if (result && customerId) {
+            // 客户更新成功
+            hideCustomerModal();
             
-            // 按需加载模块数据
-            try {
-                switch (moduleName) {
-                    case 'customers':
-                        // 按需加载完整客户数据
-                        if (window.ERP && !ERP.state.loaded.customers) {
-                            await ERP.loadCustomers(false);
-                        }
-                        if (window.renderCustomers) renderCustomers();
-                        break;
-                    case 'products':
-                        // 按需加载完整产品数据
-                        if (window.ERP && !ERP.state.loaded.products) {
-                            await ERP.loadProducts(false);
-                        }
-                        if (window.renderProducts) renderProducts();
-                        break;
-                    case 'orders':
-                        // 按需加载完整订单数据
-                        if (window.ERP && !ERP.state.loaded.orders) {
-                            await ERP.loadOrders(false);
-                        }
-                        if (window.renderOrders) renderOrders();
-                        break;
-                    case 'inventory':
-                        // 按需加载完整产品数据
-                        if (window.ERP && !ERP.state.loaded.products) {
-                            await ERP.loadProducts(false);
-                        }
-                        if (window.renderInventory) { renderInventory(); populateInventoryProducts(); }
-                        break;
-                    case 'finance':
-                        // 按需加载完整财务数据
-                        if (window.ERP && !ERP.state.loaded.finances) {
-                            await ERP.loadFinances(false);
-                        }
-                        if (window.renderFinances) renderFinances();
-                        break;
-                }
-            } catch (error) {
-                console.error('[ERP Ant] 加载模块数据失败:', error);
-                alert('加载数据失败，请重试');
+            // 重新加载数据并更新显示
+            const customers = await ERP.loadCustomers(true);
+            console.info('[ERP Ant] 重新加载客户数据条数: ', customers.length);
+            renderCustomers(customers);
+            updateStatistics();
+            
+            if (typeof showToast === 'function') {
+                showToast('客户更新成功', 'success');
             }
         }
+    } catch (error) {
+        console.error('[ERP Ant] 保存客户失败:', error);
+        alert('保存失败：' + (error.message || '网络错误，请检查连接'));
+        // 如果是创建客户失败，需要重新加载数据
+        if (!customerId) {
+            await ERP.loadCustomers();
+            renderCustomers();
+            updateStatistics();
+        }
+    } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = originalText;
+    }
+}
 
-        // Initialize Checks
-        document.addEventListener('DOMContentLoaded', () => {
-            // Wait a moment for userData.init() to attempt session recovery
-            setTimeout(() => {
-                const loading = document.getElementById('loadingContainer');
-                const notLoggedIn = document.getElementById('notLoggedIn');
-                const erpContent = document.getElementById('erpContent');
+async function editCustomer(customerId) {
+    const customer = ERP.state.customers.find(c => c.id === customerId);
+    if (customer) {
+        showCustomerModal(customer);
+    }
+}
 
-                // If still loading and not logged in (erp.js won't trigger if not logged in)
-                if (loading && loading.style.display !== 'none' && (!userData || !userData.isLoggedIn)) {
-                    // UI: Detected not logged in state, showing login prompt.
-                    loading.style.display = 'none';
-                    if (notLoggedIn) {
-                        notLoggedIn.style.display = 'block';
-                        // Add helpful context about localhost vs file login
-                        const h2 = notLoggedIn.querySelector('h2');
-                        if (h2) h2.innerHTML = '请先登录<br><small style="font-size:14px;color:#999;font-weight:normal;display:block;margin-top:10px;">提示：本地服务器 与文件夹打开的登录状态不互通，<br>请在此页面点击下方按钮重新登录</small>';
-                    }
-                }
-            }, 3000); // 3 seconds timeout
-        });
+async function deleteCustomer(customerId) {
+    console.info('[ERP Ant] 删除客户请求: customerId=', customerId);
+    if (!confirm('确定要删除这个客户吗？')) {
+        return;
+    }
 
-        // Redefine render functions to produce Ant Design styled HTML
-        // Note: The original generic rendering needs to be updated or we accept simple tables.
-        // We will inject the updated render functions here.
+    try {
+        console.info('[ERP Ant] 删除客户已提交到后端: ', customerId);
+        await ERP.deleteCustomer(customerId);
+        console.info('[ERP Ant] 重新加载客户数据...');
+        const customers = await ERP.loadCustomers(true);
+        console.info('[ERP Ant] 重新加载客户数据条数: ', customers.length);
+        
+        if (typeof renderCustomers === 'function') {
+            console.info('[ERP Ant] renderCustomers 函数存在，正在调用...');
+            renderCustomers(customers);
+            console.info('[ERP Ant] renderCustomers 调用完成');
+        } else {
+            console.error('[ERP Ant] renderCustomers 函数不存在！');
+        }
+        
+        updateStatistics();
+        
+        if (typeof showToast === 'function') {
+            showToast('客户删除成功', 'success');
+        }
+    } catch (error) {
+        console.error('[ERP Ant] 删除客户失败:', error);
+        if (typeof showToast === 'function') {
+            showToast('删除失败：' + (error.message || '网络错误，请检查连接'), 'error');
+        }
+        
+        // 重新加载数据
+        const customers = await ERP.loadCustomers(true);
+        if (typeof renderCustomers === 'function') {
+            renderCustomers(customers);
+        }
+        updateStatistics();
+    }
+}
 
-        // --- Render Customers ---
-        window.renderCustomers = function (customers = null) {
-            
-            
-            
-            
-            
+function searchCustomers() {
+    const keyword = document.getElementById('customerSearch').value.toLowerCase();
+    const filtered = ERP.state.customers.filter(customer =>
+        customer.name.toLowerCase().includes(keyword) ||
+        (customer.contact_person && customer.contact_person.toLowerCase().includes(keyword)) ||
+        (customer.phone && customer.phone.includes(keyword)) ||
+        (customer.email && customer.email.toLowerCase().includes(keyword))
+    );
+    renderCustomers(filtered);
+}
 
-            const data = customers || (window.ERP && ERP.state.customers) || [];
-            
-            
+// ==================== 产品管理 ====================
+function showProductModal(product = null) {
+    const modal = document.getElementById('productModal');
+    if (!modal) {
+        console.error('[ERP Ant] 找不到 productModal 元素');
+        return;
+    }
 
-            const tbody = document.getElementById('customersTableBody');
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+
+    const title = document.getElementById('productModalTitle');
+    const form = document.getElementById('productForm');
+
+    if (product) {
+        title.textContent = '编辑产品';
+        document.getElementById('productId').value = product.id;
+        document.getElementById('productName').value = product.name;
+        document.getElementById('productSku').value = product.sku || '';
+        document.getElementById('productCategory').value = product.category || '';
+        document.getElementById('productDescription').value = product.description || '';
+        document.getElementById('productPrice').value = product.price;
+        document.getElementById('productCost').value = product.cost || '';
+        document.getElementById('productStockQuantity').value = product.stock_quantity || '';
+        document.getElementById('productMinStock').value = product.min_stock || '';
+
+        // 设置单位值
+        document.getElementById('productUnit').value = product.unit || '';
+
+        const statusSelect = document.getElementById('productStatus');
+        const validStatus = product.status && statusSelect.querySelector(`option[value="${product.status}"]`);
+        statusSelect.value = validStatus ? product.status : 'active';
+    } else {
+        title.textContent = '添加产品';
+        form.reset();
+        document.getElementById('productId').value = '';
+        document.getElementById('productUnit').value = '个';
+        document.getElementById('productStatus').value = 'active';
+    }
+
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+}
+
+function hideProductModal() {
+    const modal = document.getElementById('productModal');
+    modal.classList.remove('active');
+    modal.style.display = '';
+}
+
+async function saveProduct() {
+    const productId = document.getElementById('productId').value;
+    const productData = {
+        name: document.getElementById('productName').value,
+        sku: document.getElementById('productSku').value,
+        category: document.getElementById('productCategory').value,
+        description: document.getElementById('productDescription').value,
+        price: document.getElementById('productPrice').value,
+        cost: document.getElementById('productCost').value,
+        stock_quantity: document.getElementById('productStockQuantity').value,
+        min_stock: document.getElementById('productMinStock').value,
+        unit: document.getElementById('productUnit').value,
+        status: document.getElementById('productStatus').value
+    };
+
+    if (!productData.name || !productData.price) {
+        alert('请输入产品名称和售价');
+        return;
+    }
+
+    const saveBtn = document.querySelector('#productModal .ant-btn-primary');
+    const originalText = saveBtn.textContent;
+    saveBtn.disabled = true;
+    saveBtn.textContent = '保存中...';
+
+    try {
+        let result;
+        if (productId) {
+            result = await ERP.updateProduct(parseInt(productId), productData);
+        } else {
+            // 先关闭模态框，然后异步保存
+            hideProductModal();
             
-
-            if (!tbody) {
-                console.error('[renderCustomers] 找不到 customersTableBody 元素');
-                return;
-            }
-
-            if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#999;">暂无数据</td></tr>';
+            // 保存到数据库
+            result = await ERP.addProduct(productData);
+            console.info('[ERP Ant] 产品已保存: ', result);
+            
+            if (result) {
+                // 重新加载数据并更新显示
+                const products = await ERP.loadProducts(true);
+                console.info('[ERP Ant] 重新加载产品数据条数: ', products.length);
+                renderProducts(products);
+                updateStatistics();
                 
-                return;
-            }
-
-            const html = data.map(customer => `
-                <tr>
-                    <td><a href="javascript:;" style="font-weight:500;">${customer.name}</a></td>
-                    <td>${customer.contact_person || '-'}</td>
-                    <td>${customer.phone || '-'}</td>
-                    <td>${customer.email || '-'}</td>
-                    <td>${customer.status === 'active' ? '活跃' : '停用'}</td>
-                    <td>
-                        <button class="ant-btn" onclick="editCustomer(${customer.id})">编辑</button>
-                        <button class="ant-btn" onclick="deleteCustomer(${customer.id})" style="color:#ff4d4f; border-color:#ff4d4f; margin-left:8px;">删除</button>
-                    </td>
-                </tr>
-            `).join('');
-
-            tbody.innerHTML = html;
-            
-        }
-
-        // --- Render Products ---
-        window.renderProducts = function (products = null) {
-            
-            
-            const data = products || (window.ERP && ERP.state.products) || [];
-            
-            const tbody = document.getElementById('productsTableBody');
-            if (!tbody) return;
-
-            if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px; color:#999;">暂无数据</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = data.map(product => `
-                <tr>
-                    <td><strong>${product.name}</strong></td>
-                    <td>${product.sku || '-'}</td>
-                    <td>${product.category || '-'}</td>
-                    <td>¥${parseFloat(product.price).toFixed(2)}</td>
-                    <td><span style="color: ${product.stock_quantity <= product.min_stock ? '#ff4d4f' : 'inherit'}">${product.stock_quantity}</span></td>
-                    <td>${getUnitText(product.unit)}</td>
-                     <td>${product.status === 'active' ? '上架' : '下架'}</td>
-                    <td>
-                        <button class="ant-btn" onclick="editProduct(${product.id})">编辑</button>
-                        <button class="ant-btn" onclick="deleteProduct(${product.id})" style="color:#ff4d4f; border-color:#ff4d4f; margin-left:8px;">删除</button>
-                    </td>
-                </tr>
-            `).join('');
-        }
-
-        // --- Render Orders ---
-        window.renderOrders = function (orders = null) {
-            
-            
-            const data = orders || (window.ERP && ERP.state.orders) || [];
-            
-            const tbody = document.getElementById('ordersTableBody');
-            if (!tbody) return;
-
-            if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px; color:#999;">暂无数据</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = data.map(order => {
-                const customer = ERP.state.customers.find(c => c.id === order.customer_id);
-                const shippingInfo = [];
-                if (order.shipping_company) {
-                    shippingInfo.push(order.shipping_company);
+                if (typeof showToast === 'function') {
+                    showToast('产品保存成功', 'success');
                 }
-                if (order.tracking_number) {
-                    shippingInfo.push(order.tracking_number);
-                }
-
-                return `
-                <tr>
-                    <td>${order.order_number}</td>
-                    <td>${customer ? customer.name : '-'}</td>
-                    <td>${new Date(order.order_date).toLocaleDateString()}</td>
-                    <td style="font-weight:500;">¥${parseFloat(order.total_amount).toFixed(2)}</td>
-                    <td>${getOrderStatusText(order.status)}</td>
-                    <td>${getPaymentStatusText(order.payment_status)}</td>
-                    <td>${getShippingStatusText(order.shipping_status)}</td>
-                    <td>${shippingInfo.length > 0 ? shippingInfo.join('<br>') : '-'}</td>
-                    <td>
-                        <button class="ant-btn" onclick="editOrder(${order.id})">详情</button>
-                        <button class="ant-btn" onclick="deleteOrder(${order.id})" style="color:#ff4d4f; border-color:#ff4d4f; margin-left:8px;">删除</button>
-                    </td>
-                </tr>
-            `}).join('');
-        }
-
-        // --- Render Inventory ---
-        window.renderInventory = function (products = null) {
-            
-            
-            // Reuse product data but show focused columns
-            const data = products || (window.ERP && ERP.state.products) || [];
-            
-            const tbody = document.getElementById('inventoryTableBody');
-            if (!tbody) return;
-
-            if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px; color:#999;">暂无数据</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = data.map(product => `
-                <tr>
-                    <td>${product.name}</td>
-                    <td>${product.sku || '-'}</td>
-                    <td>${product.category || '-'}</td>
-                    <td style="font-weight:bold; color: ${product.stock_quantity <= product.min_stock ? '#cf1322' : '#3f8600'}">${product.stock_quantity}</td>
-                    <td>${getUnitText(product.unit)}</td>
-                    <td>${product.min_stock}</td>
-                     <td>${product.status === 'active' ? '正常' : '停用'}</td>
-                    <td>
-                         <button class="ant-btn ant-btn-primary" onclick="showInventoryAdjustModal(${product.id})" style="background:#faad14; border-color:#faad14;">调整</button>
-                    </td>
-                </tr>
-            `).join('');
-        }
-
-        // --- Render Finances ---
-        window.renderFinances = function (finances = null) {
-            
-            
-            const data = finances || (window.ERP && ERP.state.finances) || [];
-            
-            const tbody = document.getElementById('financesTableBody');
-            if (!tbody) return;
-
-            // Update Summary
-            updateFinanceSummary(data);
-
-            if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#999;">暂无数据</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = data.map(f => `
-                <tr>
-                    <td>${f.type === 'income' ? '收入' : '支出'}</td>
-                    <td>${f.category || '-'}</td>
-                    <td style="font-weight:bold; color: ${f.type === 'income' ? '#cf1322' : '#3f8600'}">${f.type === 'income' ? '+' : '-'}¥${parseFloat(f.amount).toFixed(2)}</td>
-                    <td>${f.description || '-'}</td>
-                    <td>${(() => {
-                        const date = new Date(f.transaction_date);
-                        // 如果数据库存储的是本地时间格式，直接使用
-                        if (typeof f.transaction_date === 'string' && f.transaction_date.includes(' ')) {
-                            return f.transaction_date;
-                        }
-                        // 否则格式化显示
-                        return date.toLocaleString('zh-CN', { 
-                            year: 'numeric', 
-                            month: '2-digit', 
-                            day: '2-digit', 
-                            hour: '2-digit', 
-                            minute: '2-digit', 
-                            second: '2-digit',
-                            timeZone: 'Asia/Shanghai'
-                        });
-                    })()}</td>
-                    <td>
-                        <button class="ant-btn" onclick="deleteFinance(${f.id})" style="color:#ff4d4f; border-color:#ff4d4f;">删除</button>
-                    </td>
-                </tr>
-            `).join('');
-        }
-
-        // Helper: Unit Text
-        function getUnitText(unit) {
-            const map = { 'piece': '件', 'kg': '千克', 'box': '箱' };
-            return map[unit] || unit || '-';
-        }
-
-        // Helper: Order Status Text
-        function getOrderStatusText(status) {
-            const statusMap = {
-                'pending': '待处理',
-                'processing': '处理中',
-                'completed': '已完成',
-                'cancelled': '已取消'
-            };
-            return statusMap[status] || '待处理';
-        }
-
-        // Helper: Payment Status Text
-        function getPaymentStatusText(status) {
-            const statusMap = {
-                'unpaid': '未支付',
-                'partial': '部分支付',
-                'paid': '已支付'
-            };
-            return statusMap[status] || '未支付';
-        }
-
-        // Helper: Shipping Status Text
-        function getShippingStatusText(status) {
-            const statusMap = {
-                'not_shipped': '未发货',
-                'shipped': '已发货',
-                'in_transit': '运输中',
-                'delivered': '已签收',
-                'rejected': '已拒收',
-                'returned': '已退货'
-            };
-
-            return statusMap[status] || '未发货';
-        }
-
-        // Helper: Shipping Status Color
-        function getShippingStatusColor(status) {
-            const colorMap = {
-                'not_shipped': '#999',
-                'shipped': '#1890ff',
-                'in_transit': '#faad14',
-                'delivered': '#52c41a',
-                'rejected': '#ff4d4f',
-                'returned': '#ff4d4f'
-            };
-            return colorMap[status] || '#999';
-        }
-
-        // Helper: Shipping Status Background
-        function getShippingStatusBg(status) {
-            const bgMap = {
-                'not_shipped': '#f5f5f5',
-                'shipped': '#e6f7ff',
-                'in_transit': '#fffbe6',
-                'delivered': '#f6ffed',
-                'rejected': '#fff1f0',
-                'returned': '#fff1f0'
-            };
-            return bgMap[status] || '#f5f5f5';
-        }
-
-        // Helper: Shipping Status Border
-        function getShippingStatusBorder(status) {
-            const borderMap = {
-                'not_shipped': '#d9d9d9',
-                'shipped': '#91d5ff',
-                'in_transit': '#ffe58f',
-                'delivered': '#b7eb8f',
-                'rejected': '#ffa39e',
-                'returned': '#ffa39e'
-            };
-            return borderMap[status] || '#d9d9d9';
-        }
-
-        // Helper: Order Status Color
-        function getOrderStatusColor(status) {
-            const colorMap = {
-                'pending': '#faad14',
-                'processing': '#1890ff',
-                'completed': '#52c41a',
-                'cancelled': '#999'
-            };
-            return colorMap[status] || '#999';
-        }
-
-        // Helper: Order Status Background
-        function getOrderStatusBg(status) {
-            const bgMap = {
-                'pending': '#fffbe6',
-                'processing': '#e6f7ff',
-                'completed': '#f6ffed',
-                'cancelled': '#f5f5f5'
-            };
-            return bgMap[status] || '#f5f5f5';
-        }
-
-        // Helper: Order Status Border
-        function getOrderStatusBorder(status) {
-            const borderMap = {
-                'pending': '#ffe58f',
-                'processing': '#91d5ff',
-                'completed': '#b7eb8f',
-                'cancelled': '#d9d9d9'
-            };
-            return borderMap[status] || '#d9d9d9';
-        }
-
-        // Helper: Payment Status Color
-        function getPaymentStatusColor(status) {
-            const colorMap = {
-                'unpaid': '#ff4d4f',
-                'partial': '#faad14',
-                'paid': '#52c41a'
-            };
-            return colorMap[status] || '#999';
-        }
-
-        // Helper: Payment Status Background
-        function getPaymentStatusBg(status) {
-            const bgMap = {
-                'unpaid': '#fff1f0',
-                'partial': '#fffbe6',
-                'paid': '#f6ffed'
-            };
-            return bgMap[status] || '#f5f5f5';
-        }
-
-        // Helper: Payment Status Border
-        function getPaymentStatusBorder(status) {
-            const borderMap = {
-                'unpaid': '#ffa39e',
-                'partial': '#ffe58f',
-                'paid': '#b7eb8f'
-            };
-            return borderMap[status] || '#d9d9d9';
-        }
-
-        // Helper: Toggle Other Shipping Company Input
-        function toggleOtherShippingCompany() {
-            const select = document.getElementById('orderShippingCompany');
-            const otherGroup = document.getElementById('otherShippingCompanyGroup');
-            const otherInput = document.getElementById('orderOtherShippingCompany');
-
-            if (select.value === '其他') {
-                otherGroup.style.display = 'block';
-                otherInput.required = true;
-            } else {
-                otherGroup.style.display = 'none';
-                otherInput.required = false;
-                otherInput.value = '';
             }
         }
 
-        // Helper: Update Finance Summary
-        function updateFinanceSummary(data) {
-            const income = data.filter(d => d.type === 'income').reduce((s, d) => s + parseFloat(d.amount), 0);
-            const expense = data.filter(d => d.type === 'expense').reduce((s, d) => s + parseFloat(d.amount), 0);
-            document.getElementById('totalIncome').innerText = '¥' + income.toFixed(2);
-            document.getElementById('totalExpense').innerText = '¥' + expense.toFixed(2);
-            document.getElementById('netIncome').innerText = '¥' + (income - expense).toFixed(2);
+        if (result && productId) {
+            // 产品更新成功
+            hideProductModal();
+            
+            // 重新加载数据并更新显示
+            const products = await ERP.loadProducts(true);
+            console.info('[ERP Ant] 重新加载产品数据条数: ', products.length);
+            renderProducts(products);
+            updateStatistics();
+            
+            if (typeof showToast === 'function') {
+                showToast('产品更新成功', 'success');
+            }
+        }
+    } catch (error) {
+        console.error('[ERP Ant] 保存产品失败:', error);
+        alert('保存失败：' + (error.message || '网络错误，请检查连接'));
+        // 如果是创建产品失败，需要重新加载数据
+        if (!productId) {
+            const products = await ERP.loadProducts(true);
+            renderProducts(products);
+            updateStatistics();
+        }
+    } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = originalText;
+    }
+}
+
+async function editProduct(productId) {
+    const product = ERP.state.products.find(p => p.id === productId);
+    if (product) {
+        showProductModal(product);
+    }
+}
+
+async function deleteProduct(productId) {
+    if (!confirm('确定要删除这个产品吗？')) {
+        return;
+    }
+
+    try {
+        console.info('[ERP Ant] 删除产品已提交到后端: ', productId);
+        await ERP.deleteProduct(productId);
+        console.info('[ERP Ant] 重新加载产品数据...');
+        const products = await ERP.loadProducts(true);
+        console.info('[ERP Ant] 重新加载产品数据条数: ', products.length);
+        
+        if (typeof renderProducts === 'function') {
+            console.info('[ERP Ant] renderProducts 函数存在，正在调用...');
+            renderProducts(products);
+            console.info('[ERP Ant] renderProducts 调用完成');
+        } else {
+            console.error('[ERP Ant] renderProducts 函数不存在！');
+        }
+        
+        updateStatistics();
+        
+        if (typeof showToast === 'function') {
+            showToast('产品删除成功', 'success');
+        }
+    } catch (error) {
+        console.error('[ERP Ant] 删除产品失败:', error);
+        if (typeof showToast === 'function') {
+            showToast('删除失败：' + (error.message || '网络错误，请检查连接'), 'error');
+        }
+        
+        // 重新加载数据
+        const products = await ERP.loadProducts(true);
+        if (typeof renderProducts === 'function') {
+            renderProducts(products);
+        }
+        updateStatistics();
+    }
+}
+
+function searchProducts() {
+    const keyword = document.getElementById('productSearch').value.toLowerCase();
+    const filtered = ERP.state.products.filter(product =>
+        product.name.toLowerCase().includes(keyword) ||
+        (product.sku && product.sku.toLowerCase().includes(keyword)) ||
+        (product.category && product.category.toLowerCase().includes(keyword))
+    );
+    renderProducts(filtered);
+}
+
+// ==================== 订单管理 ====================
+function showOrderModal(order = null) {
+    const modal = document.getElementById('orderModal');
+    if (!modal) {
+        console.error('[ERP Ant] 找不到 orderModal 元素');
+        return;
+    }
+
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+
+    const title = document.getElementById('orderModalTitle');
+    const form = document.getElementById('orderForm');
+    const customerSelect = document.getElementById('orderCustomer');
+
+    // 加载客户列表
+    customerSelect.innerHTML = '<option value="">请选择客户</option>' +
+        ERP.state.customers.map(customer =>
+            `<option value="${customer.id}">${customer.name}</option>`
+        ).join('');
+
+    if (order) {
+        title.textContent = '编辑订单';
+        document.getElementById('orderId').value = order.id;
+        customerSelect.value = order.customer_id;
+        document.getElementById('orderNotes').value = order.notes || '';
+
+        const statusSelect = document.getElementById('orderStatus');
+        const validStatus = order.status && statusSelect.querySelector(`option[value="${order.status}"]`);
+        statusSelect.value = validStatus ? order.status : 'pending';
+
+        const paymentStatusSelect = document.getElementById('orderPaymentStatus');
+        const validPaymentStatus = order.payment_status && paymentStatusSelect.querySelector(`option[value="${order.payment_status}"]`);
+        paymentStatusSelect.value = validPaymentStatus ? order.paymentStatus : 'unpaid';
+
+        // 物流信息
+        const shippingCompany = order.shipping_company || '';
+        document.getElementById('orderShippingCompany').value = shippingCompany;
+        document.getElementById('orderTrackingNumber').value = order.tracking_number || '';
+
+        // 发货状态
+        const shippingStatusSelect = document.getElementById('orderShippingStatus');
+        const validShippingStatus = order.shipping_status && shippingStatusSelect.querySelector(`option[value="${order.shipping_status}"]`);
+        shippingStatusSelect.value = validShippingStatus ? order.shipping_status : 'not_shipped';
+
+        // 如果是其他快递公司，显示手动输入框
+        if (shippingCompany && !document.getElementById('orderShippingCompany').querySelector(`option[value="${shippingCompany}"]`)) {
+            document.getElementById('orderShippingCompany').value = '其他';
+            document.getElementById('otherShippingCompanyGroup').style.display = 'block';
+            document.getElementById('orderOtherShippingCompany').value = shippingCompany;
+        } else {
+            document.getElementById('otherShippingCompanyGroup').style.display = 'none';
+            document.getElementById('orderOtherShippingCompany').value = '';
         }
 
-        // --- Init ---
-        document.addEventListener('DOMContentLoaded', function () {
-            // Check Login & Load Data
-            // We reuse the logic from erp.html mostly, but tailored:
+        // 设置订单总金额（编辑时显示实际金额）
+        const totalAmount = order.total_amount || order.totalAmount || 0;
+        document.getElementById('orderTotalAmount').value = totalAmount.toString();
+    } else {
+        title.textContent = '创建订单';
+        form.reset();
+        document.getElementById('orderId').value = '';
+        document.getElementById('orderItems').innerHTML = '';
+        document.getElementById('orderTotalAmount').value = '';
+        document.getElementById('orderStatus').value = 'pending';
+        document.getElementById('orderPaymentStatus').value = 'unpaid';
+        document.getElementById('orderShippingCompany').value = '';
+        document.getElementById('orderTrackingNumber').value = '';
+        document.getElementById('orderShippingStatus').value = 'not_shipped';
+        document.getElementById('otherShippingCompanyGroup').style.display = 'none';
+        document.getElementById('orderOtherShippingCompany').value = '';
+    }
 
-            // Simulate data loading listener
-            window.addEventListener('erpDataLoaded', function (event) {
-                const loadingContainer = document.getElementById('loadingContainer');
-                const erpContent = document.getElementById('erpContent');
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+}
 
-                if (loadingContainer) {
-                    loadingContainer.style.display = 'none';
-                }
-                if (erpContent) {
-                    erpContent.style.display = 'block';
-                }
+function hideOrderModal() {
+    const modal = document.getElementById('orderModal');
+    modal.classList.remove('active');
+    modal.style.display = '';
+}
 
-                // Update Stats
-                if (typeof ERP !== 'undefined' && ERP.getStatistics) {
-                    const stats = ERP.getStatistics();
+async function saveOrder() {
+    const orderId = document.getElementById('orderId').value;
+    const customerId = document.getElementById('orderCustomer').value;
 
-                    const statCustomers = document.getElementById('statCustomers');
-                    const statActiveCustomers = document.getElementById('statActiveCustomers');
-                    const statProducts = document.getElementById('statProducts');
-                    const statLowStock = document.getElementById('statLowStock');
-                    const statOrders = document.getElementById('statOrders');
-                    const statPendingOrders = document.getElementById('statPendingOrders');
-                    const statRevenue = document.getElementById('statRevenue');
-                    const statProfit = document.getElementById('statProfit');
+    if (!customerId) {
+        alert('请选择客户');
+        return;
+    }
 
-                    if (statCustomers) statCustomers.innerText = stats.customers.total;
-                    if (statActiveCustomers) statActiveCustomers.innerText = stats.customers.active;
-                    if (statProducts) statProducts.innerText = stats.products.total;
-                    if (statLowStock) statLowStock.innerText = stats.products.lowStock;
-                    if (statOrders) statOrders.innerText = stats.orders.total;
-                    if (statPendingOrders) statPendingOrders.innerText = stats.orders.pending;
-                    if (statRevenue) statRevenue.innerText = '¥' + stats.finances.totalIncome.toLocaleString();
-                    if (statProfit) statProfit.innerText = '¥' + stats.finances.netProfit.toLocaleString();
-                } else {
-                    console.error('[ERP Ant HTML] ERP 或 ERP.getStatistics 未定义');
-                }
+    const itemsContainer = document.getElementById('orderItems');
+    const items = itemsContainer.querySelectorAll('.order-item');
+    const orderItems = [];
+
+    items.forEach(item => {
+        const select = item.querySelector('.product-select');
+        const quantityInput = item.querySelector('.item-quantity');
+        const productId = parseInt(select.value);
+        const quantity = parseInt(quantityInput.value) || 0;
+
+        if (productId && quantity > 0) {
+            const selectedOption = select.options[select.selectedIndex];
+            const productName = selectedOption?.dataset.name || '';
+            const price = parseFloat(selectedOption?.dataset.price) || 0;
+
+            orderItems.push({
+                product_id: productId,
+                product_name: productName,
+                quantity: quantity,
+                unit_price: price
             });
+        }
+    });
 
-            // Basic Init
-            if (window.checkLoginStatus) {
-                window.checkLoginStatus();
-            }
+    if (orderItems.length === 0) {
+        alert('请至少添加一个产品');
+        return;
+    }
+
+    // 获取手动输入的总金额，如果没有输入则根据产品计算
+    let totalAmount = parseFloat(document.getElementById('orderTotalAmount').value) || 0;
+    if (totalAmount === 0) {
+        // 如果用户没有输入金额，则根据产品售价自动计算
+        orderItems.forEach(item => {
+            totalAmount += (item.unit_price || 0) * (item.quantity || 0);
         });
+    }
 
-        // --- Re-implement missing modal functions for new IDs ---
-        function showInventoryAdjustModal(productId) {
+    const orderData = {
+        customer_id: parseInt(customerId),
+        notes: document.getElementById('orderNotes').value,
+        status: document.getElementById('orderStatus').value,
+        payment_status: document.getElementById('orderPaymentStatus').value,
+        shipping_company: document.getElementById('orderShippingCompany').value === '其他'
+            ? document.getElementById('orderOtherShippingCompany').value
+            : document.getElementById('orderShippingCompany').value,
+        tracking_number: document.getElementById('orderTrackingNumber').value,
+        shipping_status: document.getElementById('orderShippingStatus').value,
+        total_amount: totalAmount, // 使用手动输入或自动计算的金额
+        items: orderItems
+    };
+
+    const saveBtn = document.querySelector('#orderModal .ant-btn-primary');
+    const originalText = saveBtn.textContent;
+    saveBtn.disabled = true;
+    saveBtn.textContent = '保存中...';
+
+    try {
+        let result;
+        if (orderId) {
+            result = await ERP.updateOrder(parseInt(orderId), orderData);
+        } else {
+            // 先关闭模态框，然后异步保存
+            hideOrderModal();
+            
+            // 保存到数据库
+            result = await ERP.addOrder(orderData);
+            console.info('[ERP Ant] 订单已保存: ', result);
+            
+            if (result) {
+                // 重新加载数据并更新显示
+                const orders = await ERP.loadOrders(true);
+                console.info('[ERP Ant] 重新加载订单数据条数: ', orders.length);
+                renderOrders(orders);
+                updateStatistics();
+                
+                if (typeof showToast === 'function') {
+                    showToast('订单保存成功', 'success');
+                }
+            }
+        }
+
+        if (result && orderId) {
+            // 订单更新成功
+            hideOrderModal();
+            
+            // 重新加载数据并更新显示
+            const orders = await ERP.loadOrders(true);
+            console.info('[ERP Ant] 重新加载订单数据条数: ', orders.length);
+            renderOrders(orders);
+            updateStatistics();
+            
+            if (typeof showToast === 'function') {
+                showToast('订单更新成功', 'success');
+            }
+        }
+    } catch (error) {
+        console.error('[ERP Ant] 保存订单失败:', error);
+        alert('保存失败：' + (error.message || '网络错误，请检查连接'));
+        // 如果是创建订单失败，需要重新加载数据
+        if (!orderId) {
+            await ERP.loadOrders();
+            renderOrders();
+            updateStatistics();
+        }
+    } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = originalText;
+    }
+}
+
+// 获取当前订单中的产品项
+function getOrderItems() {
+    const itemsContainer = document.getElementById('orderItems');
+    const items = itemsContainer.querySelectorAll('.order-item');
+    const orderItems = [];
+
+    items.forEach(item => {
+        const select = item.querySelector('.product-select');
+        const quantityInput = item.querySelector('.item-quantity');
+        const productId = parseInt(select.value);
+        const quantity = parseInt(quantityInput.value) || 0;
+
+        if (productId && quantity > 0) {
+            const selectedOption = select.options[select.selectedIndex];
+            const productName = selectedOption?.dataset.name || '';
+            const price = parseFloat(selectedOption?.dataset.price) || 0;
+
+            orderItems.push({
+                productId: productId,
+                productName: productName,
+                quantity: quantity,
+                unitPrice: price
+            });
+        }
+    });
+
+    return orderItems;
+}
+
+// 计算订单建议总价（基于产品售价）
+function calculateOrderTotal() {
+    const orderItems = getOrderItems();
+    let suggestedTotal = 0;
+    
+    orderItems.forEach(item => {
+        const product = ERP.state.products.find(p => p.id === item.productId);
+        if (product) {
+            suggestedTotal += (product.price || 0) * (item.quantity || 0);
+        }
+    });
+    
+    const totalInput = document.getElementById('orderTotalAmount');
+    if (totalInput) {
+        totalInput.value = suggestedTotal.toFixed(2);
+        
+        if (typeof showToast === 'function') {
+            showToast(`已计算建议价：¥${suggestedTotal.toFixed(2)}，您可以根据实际情况调整`, 'info');
+        }
+    }
+}
+
+async function editOrder(orderId) {
+    const order = ERP.state.orders.find(o => o.id === orderId);
+    if (order) {
+        showOrderModal(order);
+    }
+}
+
+async function deleteOrder(orderId) {
+    if (!confirm('确定要删除这个订单吗？')) {
+        return;
+    }
+
+    try {
+        console.info('[ERP Ant] 删除订单已提交到后端: ', orderId);
+        await ERP.deleteOrder(orderId);
+        console.info('[ERP Ant] 重新加载订单数据...');
+        const orders = await ERP.loadOrders(true);
+        console.info('[ERP Ant] 重新加载订单数据条数: ', orders.length);
+        
+        if (typeof renderOrders === 'function') {
+            console.info('[ERP Ant] renderOrders 函数存在，正在调用...');
+            renderOrders(orders);
+            console.info('[ERP Ant] renderOrders 调用完成');
+        } else {
+            console.error('[ERP Ant] renderOrders 函数不存在！');
+        }
+        
+        updateStatistics();
+        
+        if (typeof showToast === 'function') {
+            showToast('订单删除成功', 'success');
+        }
+    } catch (error) {
+        console.error('[ERP Ant] 删除订单失败:', error);
+        if (typeof showToast === 'function') {
+            showToast('删除失败：' + (error.message || '网络错误，请检查连接'), 'error');
+        }
+        
+        // 重新加载数据
+        const orders = await ERP.loadOrders(true);
+        if (typeof renderOrders === 'function') {
+            renderOrders(orders);
+        }
+        updateStatistics();
+    }
+}
+
+function searchOrders() {
+    const keyword = document.getElementById('orderSearch').value.toLowerCase();
+    const filtered = ERP.state.orders.filter(order => {
+        const customer = ERP.state.customers.find(c => c.id === order.customer_id);
+        return order.order_number.toLowerCase().includes(keyword) ||
+            (customer && customer.name.toLowerCase().includes(keyword));
+    });
+    renderOrders(filtered);
+}
+
+// ==================== 库存管理 ====================
+function showInventoryModal() {
+    const modal = document.getElementById('inventoryModal');
+    if (!modal) {
+        console.error('[ERP Ant] 找不到 inventoryModal 元素');
+        return;
+    }
+
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+}
+
+function hideInventoryModal() {
+    const modal = document.getElementById('inventoryModal');
+    modal.classList.remove('active');
+    modal.style.display = '';
+}
+
+function populateInventoryProducts() {
+    const productSelect = document.getElementById('inventoryProduct');
+    productSelect.innerHTML = '<option value="">请选择产品</option>' +
+        ERP.state.products.map(product =>
+            `<option value="${product.id}">${product.name} - ${product.sku || ''}</option>`
+        ).join('');
+}
+
+async function saveInventory() {
+    const productId = document.getElementById('inventoryProduct').value;
+    const quantityChange = parseInt(document.getElementById('inventoryQuantityChange').value);
+    const type = document.getElementById('inventoryType').value;
+    const notes = document.getElementById('inventoryNotes').value;
+
+    if (!productId || !quantityChange) {
+        alert('请选择产品并输入调整数量');
+        return;
+    }
+
+    try {
+        // 先关闭模态框，然后异步保存
+        hideInventoryModal();
+        
+        // 保存到数据库
+        const result = await ERP.adjustInventory(productId, quantityChange, type, notes);
+        console.info('[ERP Ant] 库存调整已保存: ', result);
+        
+        if (result) {
+            // 重新加载数据并更新显示
+            const products = await ERP.loadProducts(true);
+            console.info('[ERP Ant] 重新加载产品数据条数: ', products.length);
+            renderInventory(products);
+            
+            if (typeof showToast === 'function') {
+                showToast('库存调整成功', 'success');
+            }
+        }
+    } catch (error) {
+        console.error('[ERP Ant] 库存调整失败:', error);
+        if (typeof showToast === 'function') {
+            showToast('调整失败：' + (error.message || '网络错误，请检查连接'), 'error');
+        }
+        
+        // 重新加载数据
+        const products = await ERP.loadProducts(true);
+        renderInventory(products);
+    }
+}
+
+function searchInventory() {
+    const keyword = document.getElementById('inventorySearch').value.toLowerCase();
+    const filtered = ERP.state.products.filter(product =>
+        product.name.toLowerCase().includes(keyword) ||
+        (product.sku && product.sku.toLowerCase().includes(keyword)) ||
+        (product.category && product.category.toLowerCase().includes(keyword))
+    );
+    renderInventory(filtered);
+}
+
+// ==================== 财务管理 ====================
+function showFinanceModal() {
+    const modal = document.getElementById('financeModal');
+    if (!modal) {
+        console.error('[ERP Ant] 找不到 financeModal 元素');
+        return;
+    }
+
+    const form = document.getElementById('financeForm');
+
+    form.reset();
+    document.getElementById('financeId').value = '';
+    // 设置当前日期时间，格式：YYYY-MM-DDTHH:MM (datetime-local格式)
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    document.getElementById('financeTransactionDate').value = `${year}-${month}-${day}T${hours}:${minutes}`;
+    document.getElementById('financeType').value = 'income';
+
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+}
+
+function hideFinanceModal() {
+    const modal = document.getElementById('financeModal');
+    modal.classList.remove('active');
+    modal.style.display = '';
+}
+
+async function saveFinance() {
+    // 处理日期时间格式，确保使用本地时间
+    let transactionDate = document.getElementById('financeTransactionDate').value;
+    // 如果是 datetime-local 格式 (YYYY-MM-DDTHH:MM)，转换为数据库格式 (YYYY-MM-DD HH:MM:SS)
+    if (transactionDate.includes('T')) {
+        // 使用本地时间，避免时区转换问题
+        const date = new Date(transactionDate);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+        transactionDate = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+        console.info('[ERP Ant] 保存的本地时间:', transactionDate);
+    }
+
+    const financeData = {
+        type: document.getElementById('financeType').value,
+        category: document.getElementById('financeCategory').value,
+        amount: parseFloat(document.getElementById('financeAmount').value),
+        description: document.getElementById('financeDescription').value,
+        transaction_date: transactionDate
+    };
+
+    if (!financeData.amount) {
+        alert('请输入金额');
+        return;
+    }
+
+    const saveBtn = document.querySelector('#financeModal .ant-btn-primary');
+    const originalText = saveBtn.textContent;
+    saveBtn.disabled = true;
+    saveBtn.textContent = '保存中...';
+
+    try {
+        // 先关闭模态框，然后异步保存
+        hideFinanceModal();
+        
+        // 保存到数据库
+        const result = await ERP.addFinance(financeData);
+        console.info('[ERP Ant] 财务记录已保存: ', result);
+        
+        if (result) {
+            // 重新加载数据并更新显示
+            const finances = await ERP.loadFinances(true);
+            console.info('[ERP Ant] 重新加载财务数据条数: ', finances.length);
+            renderFinances(finances);
+            updateStatistics();
+            
+            if (typeof showToast === 'function') {
+                showToast('财务记录保存成功', 'success');
+            }
+        }
+    } catch (error) {
+        console.error('[ERP Ant] 保存财务记录失败:', error);
+        if (typeof showToast === 'function') {
+            showToast('保存失败：' + (error.message || '网络错误，请检查连接'), 'error');
+        }
+        // 重新加载数据
+        const finances = await ERP.loadFinances(true);
+        renderFinances(finances);
+        updateStatistics();
+    } finally {
+        window.deletingFinance = false;
+    }
+}
+
+async function deleteFinance(financeId) {
+        console.info('[ERP Ant] 删除财务记录请求: financeId=', financeId);
+        if (!confirm('确定要删除这条财务记录吗？')) {
+            return;
+        }
+        
+        // 防止重复调用
+        if (window.deletingFinance) {
+            console.info('[ERP Ant] 删除操作正在进行中，忽略重复调用');
+            return;
+        }
+        window.deletingFinance = true;
+        try {
+            await ERP.deleteFinance(financeId);
+            console.info('[ERP Ant] 删除财务记录已提交到后端: ', financeId);
+            const finances = await ERP.loadFinances(true);
+            console.info('[ERP Ant] 重新加载财务数据条数: ', finances.length);
+            console.info('[ERP Ant] 调用 renderFinances 函数，数据: ', finances);
+            
+            // 检查 renderFinances 函数是否存在
+            if (typeof renderFinances === 'function') {
+                console.info('[ERP Ant] renderFinances 函数存在，正在调用...');
+                renderFinances(finances);
+                console.info('[ERP Ant] renderFinances 调用完成');
+            } else {
+                console.error('[ERP Ant] renderFinances 函数不存在！');
+            }
+            
+            updateStatistics();
+        } catch (error) {
+            console.error('[ERP Ant] 删除财务记录失败（数据库调用异常）:', {
+                financeId,
+                name: error?.name,
+                message: error?.message,
+                stack: error?.stack
+            });
+            if (typeof showToast === 'function') {
+                showToast('删除财务记录失败: ' + (error?.message ?? '未知错误'), 'error');
+            }
+        }
+}
+
+function searchFinances() {
+    const keyword = document.getElementById('financeSearch').value.toLowerCase();
+    const filtered = ERP.state.finances.filter(finance =>
+        finance.description.toLowerCase().includes(keyword) ||
+        (finance.category && finance.category.toLowerCase().includes(keyword))
+    );
+    renderFinances(filtered);
+}
+
+function filterFinancesByMonth() {
+    const monthFilter = document.getElementById('financeMonth').value;
+    const yearFilter = document.getElementById('financeYear').value;
+
+    let filtered = ERP.state.finances;
+
+    if (yearFilter || monthFilter) {
+        filtered = filtered.filter(finance => {
+            const date = new Date(finance.transaction_date);
+            const financeYear = date.getFullYear().toString();
+            const financeMonth = (date.getMonth() + 1).toString();
+
+            const yearMatch = !yearFilter || financeYear === yearFilter;
+            const monthMatch = !monthFilter || financeMonth === monthFilter;
+
+            return yearMatch && monthMatch;
+        });
+    }
+
+    renderFinances(filtered);
+}
+
+function initFinanceFilters() {
+    const monthSelect = document.getElementById('financeMonth');
+    const yearSelect = document.getElementById('financeYear');
+    if (!monthSelect || !yearSelect) return;
+
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth() + 1;
+
+    for (let year = currentYear; year >= currentYear - 5; year--) {
+        const option = document.createElement('option');
+        option.value = year;
+        option.textContent = year + '年';
+        if (year === currentYear) {
+            option.selected = true;
+        }
+        yearSelect.appendChild(option);
+    }
+
+    const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+    months.forEach((month, index) => {
+        const option = document.createElement('option');
+        option.value = index + 1;
+        option.textContent = month;
+        if (index + 1 === currentMonth) {
+            option.selected = true;
+        }
+        monthSelect.appendChild(option);
+    });
+}
+
+// ==================== 状态文本转换 ====================
+function getOrderStatusText(status) {
+    const statusMap = {
+        'pending': '待处理',
+        'processing': '处理中',
+        'completed': '已完成',
+        'cancelled': '已取消'
+    };
+    return statusMap[status] || status;
+}
+
+function getPaymentStatusText(status) {
+    const statusMap = {
+        'unpaid': '未支付',
+        'partial': '部分支付',
+        'paid': '已支付'
+    };
+    return statusMap[status] || status;
+}
+
+// ==================== 初始化 ====================
+
+// 立即设置事件监听器（在 DOMContentLoaded 之前）
+if (typeof window !== 'undefined') {
+    window.addEventListener('userDataLoaded', function () {
+        checkLoginStatus();
+    });
+
+    window.addEventListener('erpDataLoaded', function (event) {
+        updateStatistics(event.detail);
+        showERPContent();
+
+        // 自动渲染所有模块的数据，传递数据参数
+        if (typeof renderCustomers === 'function') {
+            renderCustomers(event.detail.customers);
+        }
+        if (typeof renderProducts === 'function') {
+            renderProducts(event.detail.products);
+        }
+        if (typeof renderOrders === 'function') {
+            renderOrders(event.detail.orders);
+        }
+        if (typeof renderInventory === 'function') {
+            renderInventory(event.detail.products);
             populateInventoryProducts();
-            document.getElementById('inventoryProduct').value = productId;
-            document.getElementById('inventoryModal').classList.add('active');
-            document.getElementById('inventoryModal').style.display = 'flex';
         }
-
-        // Add missing addOrderItem function strictly for new UI
-        window.addOrderItem = function () {
-            const container = document.getElementById('orderItems');
-            const div = document.createElement('div');
-            div.className = 'order-item';
-            div.style.cssText = 'border: 1px dashed #d9d9d9; padding: 10px; margin-bottom: 8px; background: #fff;';
-            div.innerHTML = `
-                <div style="margin-bottom:8px;">
-                     <select class="ant-select product-select" style="width:100%;" onchange="updateOrderItemTotal(this)">
-                        <option value="">选择产品</option>
-                        ${ERP.state.products.map(p => `<option value="${p.id}" data-price="${p.price}">${p.name} - ¥${p.price}</option>`).join('')}
-                     </select>
-                </div>
-                <div style="display:flex; gap:8px;">
-                    <input type="number" class="ant-input item-quantity" value="1" min="1" onchange="updateOrderItemTotal(this)" style="width:80px;">
-                    <input type="text" class="ant-input item-total" readonly value="¥0.00" style="flex:1; background:#fafafa;">
-                    <button type="button" class="ant-btn" onclick="this.closest('.order-item').remove();" style="color:red;">删除</button>
-                </div>
-            `;
-            container.appendChild(div);
+        if (typeof renderFinances === 'function') {
+            renderFinances(event.detail.finances);
         }
+    });
+}
 
-        window.updateOrderItemTotal = function (el) {
-            const row = el.closest('.order-item');
-            const select = row.querySelector('.product-select');
-            const qty = row.querySelector('.item-quantity').value;
-            const price = select.options[select.selectedIndex].getAttribute('data-price') || 0;
-            row.querySelector('.item-total').value = '¥' + (price * qty).toFixed(2);
-
-            // Update Grand Total (计算建议价，但用户可以手动修改)
-            let suggestedTotal = 0;
-            document.querySelectorAll('.item-total').forEach(input => {
-                suggestedTotal += parseFloat(input.value.replace('¥', '')) || 0;
-            });
-            
-            // 只有当用户没有手动修改过时才更新总金额
-            const totalInput = document.getElementById('orderTotalAmount');
-            if (totalInput && (totalInput.value === '' || totalInput.value === '0' || totalInput.value === '0.00')) {
-                totalInput.value = suggestedTotal.toFixed(2);
-            }
-        }
-
-    </script>
-</body>
-
-</html>
+document.addEventListener('DOMContentLoaded', function () {
+    initFinanceFilters();
+});

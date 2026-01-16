@@ -1126,7 +1126,9 @@ function showCustomerModal(customer = null) {
         }
 
         function hideCustomerModal() {
-            document.getElementById('customerModal').classList.remove('active');
+            const modal = document.getElementById('customerModal');
+            modal.classList.remove('active');
+            modal.style.display = '';
         }
 
         async function saveCustomer() {
@@ -1343,7 +1345,9 @@ function showCustomerModal(customer = null) {
         }
 
         function hideProductModal() {
-            document.getElementById('productModal').classList.remove('active');
+            const modal = document.getElementById('productModal');
+            modal.classList.remove('active');
+            modal.style.display = '';
         }
 
         async function saveProduct() {
@@ -1580,7 +1584,9 @@ function showCustomerModal(customer = null) {
         }
 
         function hideOrderModal() {
-            document.getElementById('orderModal').classList.remove('active');
+            const modal = document.getElementById('orderModal');
+            modal.classList.remove('active');
+            modal.style.display = '';
         }
 
         function addOrderItem() {
@@ -1849,7 +1855,9 @@ function renderInventory(products = null) {
         }
 
         function hideInventoryModal() {
-            document.getElementById('inventoryModal').classList.remove('active');
+            const modal = document.getElementById('inventoryModal');
+            modal.classList.remove('active');
+            modal.style.display = '';
         }
 
         function populateInventoryProducts() {
@@ -2100,7 +2108,9 @@ function renderInventory(products = null) {
         }
 
         function hideFinanceModal() {
-            document.getElementById('financeModal').classList.remove('active');
+            const modal = document.getElementById('financeModal');
+            modal.classList.remove('active');
+            modal.style.display = '';
         }
 
         async function saveFinance() {

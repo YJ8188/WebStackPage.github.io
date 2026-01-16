@@ -169,24 +169,39 @@ async function saveCustomer() {
         if (customerId) {
             result = await ERP.updateCustomer(parseInt(customerId), customerData);
         } else {
-            // 乐观更新：先关闭模态框，显示保存成功，然后异步保存
+            // 先关闭模态框，然后异步保存
             hideCustomerModal();
-            renderCustomers();
-            updateStatistics();
             
-            // 异步保存到数据库
+            // 保存到数据库
             result = await ERP.addCustomer(customerData);
+            console.info('[ERP Ant] 客户已保存: ', result);
             
             if (result) {
-                // 客户保存成功
+                // 重新加载数据并更新显示
+                const customers = await ERP.loadCustomers(true);
+                console.info('[ERP Ant] 重新加载客户数据条数: ', customers.length);
+                renderCustomers(customers);
+                updateStatistics();
+                
+                if (typeof showToast === 'function') {
+                    showToast('客户保存成功', 'success');
+                }
             }
         }
 
         if (result && customerId) {
             // 客户更新成功
             hideCustomerModal();
-            renderCustomers();
+            
+            // 重新加载数据并更新显示
+            const customers = await ERP.loadCustomers(true);
+            console.info('[ERP Ant] 重新加载客户数据条数: ', customers.length);
+            renderCustomers(customers);
             updateStatistics();
+            
+            if (typeof showToast === 'function') {
+                showToast('客户更新成功', 'success');
+            }
         }
     } catch (error) {
         console.error('[ERP Ant] 保存客户失败:', error);
@@ -211,29 +226,43 @@ async function editCustomer(customerId) {
 }
 
 async function deleteCustomer(customerId) {
+    console.info('[ERP Ant] 删除客户请求: customerId=', customerId);
     if (!confirm('确定要删除这个客户吗？')) {
         return;
     }
 
-    // 乐观更新：先从本地状态中移除，然后异步删除
-    const customerIndex = ERP.state.customers.findIndex(c => c.id === customerId);
-    if (customerIndex !== -1) {
-        const deletedCustomer = ERP.state.customers.splice(customerIndex, 1)[0];
-        renderCustomers();
+    try {
+        console.info('[ERP Ant] 删除客户已提交到后端: ', customerId);
+        await ERP.deleteCustomer(customerId);
+        console.info('[ERP Ant] 重新加载客户数据...');
+        const customers = await ERP.loadCustomers(true);
+        console.info('[ERP Ant] 重新加载客户数据条数: ', customers.length);
+        
+        if (typeof renderCustomers === 'function') {
+            console.info('[ERP Ant] renderCustomers 函数存在，正在调用...');
+            renderCustomers(customers);
+            console.info('[ERP Ant] renderCustomers 调用完成');
+        } else {
+            console.error('[ERP Ant] renderCustomers 函数不存在！');
+        }
+        
         updateStatistics();
         
-        // 异步删除数据库
-        try {
-            await ERP.deleteCustomer(customerId);
-            // 客户删除成功
-        } catch (error) {
-            console.error('[ERP Ant] 删除客户失败:', error);
-            alert('删除失败：' + (error.message || '网络错误，请检查连接'));
-            // 恢复本地状态
-            ERP.state.customers.splice(customerIndex, 0, deletedCustomer);
-            renderCustomers();
-            updateStatistics();
+        if (typeof showToast === 'function') {
+            showToast('客户删除成功', 'success');
         }
+    } catch (error) {
+        console.error('[ERP Ant] 删除客户失败:', error);
+        if (typeof showToast === 'function') {
+            showToast('删除失败：' + (error.message || '网络错误，请检查连接'), 'error');
+        }
+        
+        // 重新加载数据
+        const customers = await ERP.loadCustomers(true);
+        if (typeof renderCustomers === 'function') {
+            renderCustomers(customers);
+        }
+        updateStatistics();
     }
 }
 
@@ -328,32 +357,47 @@ async function saveProduct() {
         if (productId) {
             result = await ERP.updateProduct(parseInt(productId), productData);
         } else {
-            // 乐观更新：先关闭模态框，显示保存成功，然后异步保存
+            // 先关闭模态框，然后异步保存
             hideProductModal();
-            renderProducts();
-            updateStatistics();
             
-            // 异步保存到数据库
+            // 保存到数据库
             result = await ERP.addProduct(productData);
+            console.info('[ERP Ant] 产品已保存: ', result);
             
             if (result) {
-                // 产品保存成功
+                // 重新加载数据并更新显示
+                const products = await ERP.loadProducts(true);
+                console.info('[ERP Ant] 重新加载产品数据条数: ', products.length);
+                renderProducts(products);
+                updateStatistics();
+                
+                if (typeof showToast === 'function') {
+                    showToast('产品保存成功', 'success');
+                }
             }
         }
 
         if (result && productId) {
             // 产品更新成功
             hideProductModal();
-            renderProducts();
+            
+            // 重新加载数据并更新显示
+            const products = await ERP.loadProducts(true);
+            console.info('[ERP Ant] 重新加载产品数据条数: ', products.length);
+            renderProducts(products);
             updateStatistics();
+            
+            if (typeof showToast === 'function') {
+                showToast('产品更新成功', 'success');
+            }
         }
     } catch (error) {
         console.error('[ERP Ant] 保存产品失败:', error);
         alert('保存失败：' + (error.message || '网络错误，请检查连接'));
         // 如果是创建产品失败，需要重新加载数据
         if (!productId) {
-            await ERP.loadProducts();
-            renderProducts();
+            const products = await ERP.loadProducts(true);
+            renderProducts(products);
             updateStatistics();
         }
     } finally {
@@ -374,25 +418,38 @@ async function deleteProduct(productId) {
         return;
     }
 
-    // 乐观更新：先从本地状态中移除，然后异步删除
-    const productIndex = ERP.state.products.findIndex(p => p.id === productId);
-    if (productIndex !== -1) {
-        const deletedProduct = ERP.state.products.splice(productIndex, 1)[0];
-        renderProducts();
+    try {
+        console.info('[ERP Ant] 删除产品已提交到后端: ', productId);
+        await ERP.deleteProduct(productId);
+        console.info('[ERP Ant] 重新加载产品数据...');
+        const products = await ERP.loadProducts(true);
+        console.info('[ERP Ant] 重新加载产品数据条数: ', products.length);
+        
+        if (typeof renderProducts === 'function') {
+            console.info('[ERP Ant] renderProducts 函数存在，正在调用...');
+            renderProducts(products);
+            console.info('[ERP Ant] renderProducts 调用完成');
+        } else {
+            console.error('[ERP Ant] renderProducts 函数不存在！');
+        }
+        
         updateStatistics();
         
-        // 异步删除数据库
-        try {
-            await ERP.deleteProduct(productId);
-            // 产品删除成功
-        } catch (error) {
-            console.error('[ERP Ant] 删除产品失败:', error);
-            alert('删除失败：' + (error.message || '网络错误，请检查连接'));
-            // 恢复本地状态
-            ERP.state.products.splice(productIndex, 0, deletedProduct);
-            renderProducts();
-            updateStatistics();
+        if (typeof showToast === 'function') {
+            showToast('产品删除成功', 'success');
         }
+    } catch (error) {
+        console.error('[ERP Ant] 删除产品失败:', error);
+        if (typeof showToast === 'function') {
+            showToast('删除失败：' + (error.message || '网络错误，请检查连接'), 'error');
+        }
+        
+        // 重新加载数据
+        const products = await ERP.loadProducts(true);
+        if (typeof renderProducts === 'function') {
+            renderProducts(products);
+        }
+        updateStatistics();
     }
 }
 
@@ -460,12 +517,16 @@ function showOrderModal(order = null) {
             document.getElementById('otherShippingCompanyGroup').style.display = 'none';
             document.getElementById('orderOtherShippingCompany').value = '';
         }
+
+        // 设置订单总金额（编辑时显示实际金额）
+        const totalAmount = order.total_amount || order.totalAmount || 0;
+        document.getElementById('orderTotalAmount').value = totalAmount.toString();
     } else {
         title.textContent = '创建订单';
         form.reset();
         document.getElementById('orderId').value = '';
         document.getElementById('orderItems').innerHTML = '';
-        document.getElementById('orderTotalAmount').value = '¥0.00';
+        document.getElementById('orderTotalAmount').value = '';
         document.getElementById('orderStatus').value = 'pending';
         document.getElementById('orderPaymentStatus').value = 'unpaid';
         document.getElementById('orderShippingCompany').value = '';
@@ -523,6 +584,15 @@ async function saveOrder() {
         return;
     }
 
+    // 获取手动输入的总金额，如果没有输入则根据产品计算
+    let totalAmount = parseFloat(document.getElementById('orderTotalAmount').value) || 0;
+    if (totalAmount === 0) {
+        // 如果用户没有输入金额，则根据产品售价自动计算
+        orderItems.forEach(item => {
+            totalAmount += (item.unit_price || 0) * (item.quantity || 0);
+        });
+    }
+
     const orderData = {
         customer_id: parseInt(customerId),
         notes: document.getElementById('orderNotes').value,
@@ -533,6 +603,7 @@ async function saveOrder() {
             : document.getElementById('orderShippingCompany').value,
         tracking_number: document.getElementById('orderTrackingNumber').value,
         shipping_status: document.getElementById('orderShippingStatus').value,
+        total_amount: totalAmount, // 使用手动输入或自动计算的金额
         items: orderItems
     };
 
@@ -546,24 +617,39 @@ async function saveOrder() {
         if (orderId) {
             result = await ERP.updateOrder(parseInt(orderId), orderData);
         } else {
-            // 乐观更新：先关闭模态框，显示保存成功，然后异步保存
+            // 先关闭模态框，然后异步保存
             hideOrderModal();
-            renderOrders();
-            updateStatistics();
             
-            // 异步保存到数据库
+            // 保存到数据库
             result = await ERP.addOrder(orderData);
+            console.info('[ERP Ant] 订单已保存: ', result);
             
             if (result) {
-                // 订单保存成功
+                // 重新加载数据并更新显示
+                const orders = await ERP.loadOrders(true);
+                console.info('[ERP Ant] 重新加载订单数据条数: ', orders.length);
+                renderOrders(orders);
+                updateStatistics();
+                
+                if (typeof showToast === 'function') {
+                    showToast('订单保存成功', 'success');
+                }
             }
         }
 
         if (result && orderId) {
             // 订单更新成功
             hideOrderModal();
-            renderOrders();
+            
+            // 重新加载数据并更新显示
+            const orders = await ERP.loadOrders(true);
+            console.info('[ERP Ant] 重新加载订单数据条数: ', orders.length);
+            renderOrders(orders);
             updateStatistics();
+            
+            if (typeof showToast === 'function') {
+                showToast('订单更新成功', 'success');
+            }
         }
     } catch (error) {
         console.error('[ERP Ant] 保存订单失败:', error);
@@ -580,6 +666,57 @@ async function saveOrder() {
     }
 }
 
+// 获取当前订单中的产品项
+function getOrderItems() {
+    const itemsContainer = document.getElementById('orderItems');
+    const items = itemsContainer.querySelectorAll('.order-item');
+    const orderItems = [];
+
+    items.forEach(item => {
+        const select = item.querySelector('.product-select');
+        const quantityInput = item.querySelector('.item-quantity');
+        const productId = parseInt(select.value);
+        const quantity = parseInt(quantityInput.value) || 0;
+
+        if (productId && quantity > 0) {
+            const selectedOption = select.options[select.selectedIndex];
+            const productName = selectedOption?.dataset.name || '';
+            const price = parseFloat(selectedOption?.dataset.price) || 0;
+
+            orderItems.push({
+                productId: productId,
+                productName: productName,
+                quantity: quantity,
+                unitPrice: price
+            });
+        }
+    });
+
+    return orderItems;
+}
+
+// 计算订单建议总价（基于产品售价）
+function calculateOrderTotal() {
+    const orderItems = getOrderItems();
+    let suggestedTotal = 0;
+    
+    orderItems.forEach(item => {
+        const product = ERP.state.products.find(p => p.id === item.productId);
+        if (product) {
+            suggestedTotal += (product.price || 0) * (item.quantity || 0);
+        }
+    });
+    
+    const totalInput = document.getElementById('orderTotalAmount');
+    if (totalInput) {
+        totalInput.value = suggestedTotal.toFixed(2);
+        
+        if (typeof showToast === 'function') {
+            showToast(`已计算建议价：¥${suggestedTotal.toFixed(2)}，您可以根据实际情况调整`, 'info');
+        }
+    }
+}
+
 async function editOrder(orderId) {
     const order = ERP.state.orders.find(o => o.id === orderId);
     if (order) {
@@ -592,25 +729,38 @@ async function deleteOrder(orderId) {
         return;
     }
 
-    // 乐观更新：先从本地状态中移除，然后异步删除
-    const orderIndex = ERP.state.orders.findIndex(o => o.id === orderId);
-    if (orderIndex !== -1) {
-        const deletedOrder = ERP.state.orders.splice(orderIndex, 1)[0];
-        renderOrders();
+    try {
+        console.info('[ERP Ant] 删除订单已提交到后端: ', orderId);
+        await ERP.deleteOrder(orderId);
+        console.info('[ERP Ant] 重新加载订单数据...');
+        const orders = await ERP.loadOrders(true);
+        console.info('[ERP Ant] 重新加载订单数据条数: ', orders.length);
+        
+        if (typeof renderOrders === 'function') {
+            console.info('[ERP Ant] renderOrders 函数存在，正在调用...');
+            renderOrders(orders);
+            console.info('[ERP Ant] renderOrders 调用完成');
+        } else {
+            console.error('[ERP Ant] renderOrders 函数不存在！');
+        }
+        
         updateStatistics();
         
-        // 异步删除数据库
-        try {
-            await ERP.deleteOrder(orderId);
-            // 订单删除成功
-        } catch (error) {
-            console.error('[ERP Ant] 删除订单失败:', error);
-            alert('删除失败：' + (error.message || '网络错误，请检查连接'));
-            // 恢复本地状态
-            ERP.state.orders.splice(orderIndex, 0, deletedOrder);
-            renderOrders();
-            updateStatistics();
+        if (typeof showToast === 'function') {
+            showToast('订单删除成功', 'success');
         }
+    } catch (error) {
+        console.error('[ERP Ant] 删除订单失败:', error);
+        if (typeof showToast === 'function') {
+            showToast('删除失败：' + (error.message || '网络错误，请检查连接'), 'error');
+        }
+        
+        // 重新加载数据
+        const orders = await ERP.loadOrders(true);
+        if (typeof renderOrders === 'function') {
+            renderOrders(orders);
+        }
+        updateStatistics();
     }
 }
 
@@ -661,23 +811,35 @@ async function saveInventory() {
         return;
     }
 
-    // 乐观更新：先关闭模态框，显示保存成功，然后异步保存
-    hideInventoryModal();
-    renderInventory();
-    
-    // 异步保存到数据库
-            try {
-                const result = await ERP.adjustInventory(productId, quantityChange, type, notes);
-                if (result) {
-                    // 库存调整成功
-                }
-            } catch (error) {
-                console.error('[ERP Ant] 库存调整失败:', error);
-                alert('保存失败：' + (error.message || '网络错误，请检查连接'));
-                // 重新加载数据
-                await ERP.loadProducts();
-                renderInventory();
-            }}
+    try {
+        // 先关闭模态框，然后异步保存
+        hideInventoryModal();
+        
+        // 保存到数据库
+        const result = await ERP.adjustInventory(productId, quantityChange, type, notes);
+        console.info('[ERP Ant] 库存调整已保存: ', result);
+        
+        if (result) {
+            // 重新加载数据并更新显示
+            const products = await ERP.loadProducts(true);
+            console.info('[ERP Ant] 重新加载产品数据条数: ', products.length);
+            renderInventory(products);
+            
+            if (typeof showToast === 'function') {
+                showToast('库存调整成功', 'success');
+            }
+        }
+    } catch (error) {
+        console.error('[ERP Ant] 库存调整失败:', error);
+        if (typeof showToast === 'function') {
+            showToast('调整失败：' + (error.message || '网络错误，请检查连接'), 'error');
+        }
+        
+        // 重新加载数据
+        const products = await ERP.loadProducts(true);
+        renderInventory(products);
+    }
+}
 
 function searchInventory() {
     const keyword = document.getElementById('inventorySearch').value.toLowerCase();
@@ -701,7 +863,14 @@ function showFinanceModal() {
 
     form.reset();
     document.getElementById('financeId').value = '';
-    document.getElementById('financeTransactionDate').value = new Date().toISOString().split('T')[0];
+    // 设置当前日期时间，格式：YYYY-MM-DDTHH:MM (datetime-local格式)
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    document.getElementById('financeTransactionDate').value = `${year}-${month}-${day}T${hours}:${minutes}`;
     document.getElementById('financeType').value = 'income';
 
     modal.classList.add('active');
@@ -715,12 +884,28 @@ function hideFinanceModal() {
 }
 
 async function saveFinance() {
+    // 处理日期时间格式，确保使用本地时间
+    let transactionDate = document.getElementById('financeTransactionDate').value;
+    // 如果是 datetime-local 格式 (YYYY-MM-DDTHH:MM)，转换为数据库格式 (YYYY-MM-DD HH:MM:SS)
+    if (transactionDate.includes('T')) {
+        // 使用本地时间，避免时区转换问题
+        const date = new Date(transactionDate);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+        transactionDate = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+        console.info('[ERP Ant] 保存的本地时间:', transactionDate);
+    }
+
     const financeData = {
         type: document.getElementById('financeType').value,
         category: document.getElementById('financeCategory').value,
         amount: parseFloat(document.getElementById('financeAmount').value),
         description: document.getElementById('financeDescription').value,
-        transaction_date: document.getElementById('financeTransactionDate').value
+        transaction_date: transactionDate
     };
 
     if (!financeData.amount) {
@@ -734,55 +919,78 @@ async function saveFinance() {
     saveBtn.textContent = '保存中...';
 
     try {
-        // 乐观更新：先关闭模态框，显示保存成功，然后异步保存
+        // 先关闭模态框，然后异步保存
         hideFinanceModal();
-        renderFinances();
-        updateStatistics();
         
-        // 异步保存到数据库
+        // 保存到数据库
         const result = await ERP.addFinance(financeData);
+        console.info('[ERP Ant] 财务记录已保存: ', result);
         
         if (result) {
-            // 财务记录保存成功
+            // 重新加载数据并更新显示
+            const finances = await ERP.loadFinances(true);
+            console.info('[ERP Ant] 重新加载财务数据条数: ', finances.length);
+            renderFinances(finances);
+            updateStatistics();
+            
+            if (typeof showToast === 'function') {
+                showToast('财务记录保存成功', 'success');
+            }
         }
     } catch (error) {
         console.error('[ERP Ant] 保存财务记录失败:', error);
-        alert('保存失败：' + (error.message || '网络错误，请检查连接'));
+        if (typeof showToast === 'function') {
+            showToast('保存失败：' + (error.message || '网络错误，请检查连接'), 'error');
+        }
         // 重新加载数据
-        await ERP.loadFinances();
-        renderFinances();
+        const finances = await ERP.loadFinances(true);
+        renderFinances(finances);
         updateStatistics();
     } finally {
-        saveBtn.disabled = false;
-        saveBtn.textContent = originalText;
+        window.deletingFinance = false;
     }
 }
 
 async function deleteFinance(financeId) {
-    if (!confirm('确定要删除这条财务记录吗？')) {
-        return;
-    }
-
-    // 乐观更新：先从本地状态中移除，然后异步删除
-    const financeIndex = ERP.state.finances.findIndex(f => f.id === financeId);
-    if (financeIndex !== -1) {
-        const deletedFinance = ERP.state.finances.splice(financeIndex, 1)[0];
-        renderFinances();
-        updateStatistics();
+        console.info('[ERP Ant] 删除财务记录请求: financeId=', financeId);
+        if (!confirm('确定要删除这条财务记录吗？')) {
+            return;
+        }
         
-        // 异步删除数据库
+        // 防止重复调用
+        if (window.deletingFinance) {
+            console.info('[ERP Ant] 删除操作正在进行中，忽略重复调用');
+            return;
+        }
+        window.deletingFinance = true;
         try {
             await ERP.deleteFinance(financeId);
-            // 财务记录删除成功
-        } catch (error) {
-            console.error('[ERP Ant] 删除财务记录失败:', error);
-            alert('删除失败：' + (error.message || '网络错误，请检查连接'));
-            // 恢复本地状态
-            ERP.state.finances.splice(financeIndex, 0, deletedFinance);
-            renderFinances();
+            console.info('[ERP Ant] 删除财务记录已提交到后端: ', financeId);
+            const finances = await ERP.loadFinances(true);
+            console.info('[ERP Ant] 重新加载财务数据条数: ', finances.length);
+            console.info('[ERP Ant] 调用 renderFinances 函数，数据: ', finances);
+            
+            // 检查 renderFinances 函数是否存在
+            if (typeof renderFinances === 'function') {
+                console.info('[ERP Ant] renderFinances 函数存在，正在调用...');
+                renderFinances(finances);
+                console.info('[ERP Ant] renderFinances 调用完成');
+            } else {
+                console.error('[ERP Ant] renderFinances 函数不存在！');
+            }
+            
             updateStatistics();
+        } catch (error) {
+            console.error('[ERP Ant] 删除财务记录失败（数据库调用异常）:', {
+                financeId,
+                name: error?.name,
+                message: error?.message,
+                stack: error?.stack
+            });
+            if (typeof showToast === 'function') {
+                showToast('删除财务记录失败: ' + (error?.message ?? '未知错误'), 'error');
+            }
         }
-    }
 }
 
 function searchFinances() {

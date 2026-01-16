@@ -353,8 +353,10 @@
                                         <th>客户</th>
                                         <th>订单日期</th>
                                         <th>金额</th>
-                                        <th>状态</th>
+                                        <th>订单状态</th>
                                         <th>支付状态</th>
+                                        <th>发货状态</th>
+                                        <th>物流信息</th>
                                         <th>操作</th>
                                     </tr>
                                 </thead>
@@ -417,20 +419,22 @@
                         </div>
 
                         <div class="finance-filters">
-                            <div class="filter-row">
+                            <!-- 日期范围选择 -->
+                            <div class="filter-date-range">
                                 <div class="filter-group">
-                                    <label for="financeMonth">筛选月份</label>
-                                    <select id="financeMonth" class="form-control" onchange="filterFinancesByMonth()">
-                                        <option value="">所有月份</option>
-                                    </select>
+                                    <label for="financeStartDate">开始日期</label>
+                                    <input type="date" id="financeStartDate" class="form-control" onchange="filterFinancesByDateRange()">
                                 </div>
                                 <div class="filter-group">
-                                    <label for="financeYear">筛选年份</label>
-                                    <select id="financeYear" class="form-control" onchange="filterFinancesByMonth()">
-                                        <option value="">所有年份</option>
-                                    </select>
+                                    <label for="financeEndDate">结束日期</label>
+                                    <input type="date" id="financeEndDate" class="form-control" onchange="filterFinancesByDateRange()">
                                 </div>
+                                <button class="btn-secondary" onclick="clearDateFilter()">
+                                    <i class="fa fa-times"></i> 清除
+                                </button>
                             </div>
+
+                            <!-- 搜索框 -->
                             <div class="search-box">
                                 <input type="text" id="financeSearch" placeholder="搜索描述、分类..."
                                     oninput="searchFinances()">
@@ -712,6 +716,67 @@
                                     <label for="orderNotes">备注</label>
                                     <textarea id="orderNotes" class="form-control" placeholder="请输入订单备注"></textarea>
                                 </div>
+
+                                <div class="form-group">
+                                    <label for="orderShippingCompany">快递公司</label>
+                                    <select id="orderShippingCompany" class="form-control" onchange="toggleOtherShippingCompany()">
+                                        <option value="">请选择快递公司</option>
+                                        <option value="顺丰速运">顺丰速运</option>
+                                        <option value="申通快递">申通快递</option>
+                                        <option value="圆通速递">圆通速递</option>
+                                        <option value="中通快递">中通快递</option>
+                                        <option value="韵达速递">韵达速递</option>
+                                        <option value="邮政EMS">邮政EMS</option>
+                                        <option value="京东物流">京东物流</option>
+                                        <option value="德邦快递">德邦快递</option>
+                                        <option value="极兔速递">极兔速递</option>
+                                        <option value="跨越速运">跨越速运</option>
+                                        <option value="百世快递">百世快递</option>
+                                        <option value="宅急送">宅急送</option>
+                                        <option value="安能快递">安能快递</option>
+                                        <option value="优速快递">优速快递</option>
+                                        <option value="如风达">如风达</option>
+                                        <option value="国通快递">国通快递</option>
+                                        <option value="加运美">加运美</option>
+                                        <option value="速尔快递">速尔快递</option>
+                                        <option value="远成物流">远成物流</option>
+                                        <option value="品骏快递">品骏快递</option>
+                                        <option value="苏宁物流">苏宁物流</option>
+                                        <option value="佳吉快运">佳吉快运</option>
+                                        <option value="中铁快运">中铁快运</option>
+                                        <option value="天地华宇">天地华宇</option>
+                                        <option value="壹米滴答">壹米滴答</option>
+                                        <option value="顺心捷达">顺心捷达</option>
+                                        <option value="丰网速运">丰网速运</option>
+                                        <option value="众邮快递">众邮快递</option>
+                                        <option value="哪吒速运">哪吒速运</option>
+                                        <option value="快弟来了">快弟来了</option>
+                                        <option value="菜鸟驿站">菜鸟驿站</option>
+                                        <option value="其他">其他（手动输入）</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group" id="otherShippingCompanyGroup" style="display: none;">
+                                    <label for="orderOtherShippingCompany">其他快递公司</label>
+                                    <input type="text" id="orderOtherShippingCompany" class="form-control" placeholder="请输入快递公司名称">
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="orderTrackingNumber">快递单号</label>
+                                    <input type="text" id="orderTrackingNumber" class="form-control" placeholder="请输入快递单号">
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="orderShippingStatus">发货状态</label>
+                                    <select id="orderShippingStatus" class="form-control">
+                                        <option value="not_shipped">未发货</option>
+                                        <option value="shipped">已发货</option>
+                                        <option value="in_transit">运输中</option>
+                                        <option value="delivered">已签收</option>
+                                        <option value="rejected">已拒收</option>
+                                        <option value="returned">已退回</option>
+                                    </select>
+                                </div>
                             </form>
                         </div>
                         <div class="modal-footer">
@@ -825,23 +890,15 @@
                 <script>
                     // ==================== 全局错误处理 ====================
                     window.addEventListener('error', function (event) {
-                        console.error('[ERP Page] ❌ 全局错误捕获:');
-                        console.error('[ERP Page] 错误消息:', event.message);
-                        console.error('[ERP Page] 错误文件:', event.filename);
-                        console.error('[ERP Page] 错误行号:', event.lineno);
-                        console.error('[ERP Page] 错误列号:', event.colno);
-                        console.error('[ERP Page] 错误对象:', event.error);
+                        console.error('[ERP Page] 全局错误捕获:', event.message);
                     });
 
                     window.addEventListener('unhandledrejection', function (event) {
-                        console.error('[ERP Page] ❌ 未处理的Promise拒绝:');
-                        console.error('[ERP Page] 拒绝原因:', event.reason);
+                        console.error('[ERP Page] 未处理的Promise拒绝:', event.reason);
                     });
 
                     // ==================== 页面初始化 ====================
                     document.addEventListener('DOMContentLoaded', function () {
-                        console.log('[ERP Page] 页面加载完成');
-
                         // 初始化财务筛选器
                         initFinanceFilters();
 
@@ -855,7 +912,6 @@
 
                         // 监听ERP数据加载完成
                         window.addEventListener('erpDataLoaded', function (event) {
-                            console.log('[ERP Page] ERP数据加载完成:', event.detail);
                             updateStatistics(event.detail);
                             showERPContent();
 
@@ -871,10 +927,8 @@
                     // ==================== 检查登录状态 ====================
                     function checkLoginStatus() {
                         if (userData.isLoggedIn) {
-                            console.log('[ERP Page] 用户已登录，显示ERP系统');
                             // 等待ERP数据加载
                         } else {
-                            console.log('[ERP Page] 用户未登录，显示登录提示');
                             showNotLoggedIn();
                         }
                     }
@@ -900,8 +954,6 @@
 
                     // ==================== 更新统计数据 ====================
                     function updateStatistics(data) {
-                        console.log('[ERP Page] 更新统计数据');
-
                         const stats = ERP.getStatistics();
 
                         // 更新客户统计
@@ -952,9 +1004,7 @@
                     }
 
                     // ==================== 打开模块 ====================
-                    function openModule(moduleName) {
-                        console.log('[ERP Page] 打开模块:', moduleName);
-
+                    async function openModule(moduleName) {
                         // 隐藏仪表盘
                         document.getElementById('dashboardView').style.display = 'none';
 
@@ -970,24 +1020,51 @@
                         // 更新导航菜单激活状态
                         updateNavActiveState(moduleName);
 
-                        // 加载模块数据
-                        switch (moduleName) {
-                            case 'customers':
-                                renderCustomers();
-                                break;
-                            case 'products':
-                                renderProducts();
-                                break;
-                            case 'orders':
-                                renderOrders();
-                                break;
-                            case 'inventory':
-                                renderInventory();
-                                populateInventoryProducts();
-                                break;
-                            case 'finance':
-                                renderFinances();
-                                break;
+                        // 按需加载模块数据
+                        try {
+                            switch (moduleName) {
+                                case 'customers':
+                                    // 按需加载完整客户数据
+                                    if (!ERP.state.loaded.customers) {
+                                        await ERP.loadCustomers(false);
+                                    }
+                                    renderCustomers();
+                                    break;
+                                case 'products':
+                                    // 按需加载完整产品数据
+                                    if (!ERP.state.loaded.products) {
+                                        await ERP.loadProducts(false);
+                                    }
+                                    renderProducts();
+                                    break;
+                                case 'orders':
+                                    // 按需加载完整订单数据
+                                    if (!ERP.state.loaded.orders) {
+                                        await ERP.loadOrders(false);
+                                    }
+                                    renderOrders();
+                                    break;
+                                case 'inventory':
+                                    // 按需加载完整产品数据
+                                    if (!ERP.state.loaded.products) {
+                                        await ERP.loadProducts(false);
+                                    }
+                                    renderInventory();
+                                    populateInventoryProducts();
+                                    break;
+                                case 'finance':
+                                    // 按需加载完整财务数据
+                                    if (!ERP.state.loaded.finances) {
+                                        await ERP.loadFinances(false);
+                                    }
+                                    renderFinances();
+                                    break;
+                            }
+                        } catch (error) {
+                            console.error('[ERP Page] 加载模块数据失败:', error);
+                            if (typeof showToast === 'function') {
+                                showToast('加载数据失败，请重试', 'error');
+                            }
                         }
                     }
 
@@ -1015,8 +1092,6 @@
 
                     // ==================== 返回仪表盘 ====================
                     function backToDashboard() {
-                        console.log('[ERP Page] 返回仪表盘');
-
                         // 隐藏所有模块视图
                         document.querySelectorAll('.module-view').forEach(view => {
                             view.classList.remove('active');
@@ -1078,72 +1153,15 @@
                     }
 
                     function showCustomerModal(customer = null) {
-                        console.log('[ERP Page] ========== showCustomerModal 开始 ==========');
-                        console.log('[ERP Page] 参数:', customer);
-
                         const modal = document.getElementById('customerModal');
                         if (!modal) {
-                            console.error('[ERP Page] ❌ 错误: 找不到 customerModal 元素');
+                            console.error('[ERP Page] 找不到 customerModal 元素');
                             return;
-                        }
-
-                        console.log('[ERP Page] ✓ 找到模态框元素');
-                        console.log('[ERP Page] 初始className:', modal.className);
-                        console.log('[ERP Page] 初始display:', modal.style.display);
-
-                        // 检查模态框内部内容
-                        const modalContent = modal.querySelector('.modal');
-                        if (!modalContent) {
-                            console.error('[ERP Page] ❌ 错误: 找不到 .modal 内容元素');
-                        } else {
-                            console.log('[ERP Page] ✓ 找到 .modal 内容元素');
-                            const contentStyle = window.getComputedStyle(modalContent);
-                            console.log('[ERP Page] .modal display:', contentStyle.display);
-                            console.log('[ERP Page] .modal visibility:', contentStyle.visibility);
-                            console.log('[ERP Page] .modal opacity:', contentStyle.opacity);
-                            console.log('[ERP Page] .modal z-index:', contentStyle.zIndex);
-                            console.log('[ERP Page] .modal position:', contentStyle.position);
-                            console.log('[ERP Page] .modal width:', contentStyle.width);
-                            console.log('[ERP Page] .modal height:', contentStyle.height);
-                            console.log('[ERP Page] .modal max-width:', contentStyle.maxWidth);
-                            console.log('[ERP Page] .modal max-height:', contentStyle.maxHeight);
                         }
 
                         // 添加active类
                         modal.classList.add('active');
                         modal.style.display = 'flex';
-
-                        console.log('[ERP Page] 添加active后className:', modal.className);
-                        console.log('[ERP Page] 添加active后display:', modal.style.display);
-
-                        // 检查计算后的样式
-                        const computedStyle = window.getComputedStyle(modal);
-                        console.log('[ERP Page] 计算后的display:', computedStyle.display);
-                        console.log('[ERP Page] 计算后的visibility:', computedStyle.visibility);
-                        console.log('[ERP Page] 计算后的opacity:', computedStyle.opacity);
-                        console.log('[ERP Page] 计算后的z-index:', computedStyle.zIndex);
-                        console.log('[ERP Page] 计算后的position:', computedStyle.position);
-                        console.log('[ERP Page] 计算后的top:', computedStyle.top);
-                        console.log('[ERP Page] 计算后的left:', computedStyle.left);
-                        console.log('[ERP Page] 计算后的right:', computedStyle.right);
-                        console.log('[ERP Page] 计算后的bottom:', computedStyle.bottom);
-                        console.log('[ERP Page] 计算后的background:', computedStyle.background);
-
-                        // 检查是否有其他元素覆盖
-                        const allElements = document.querySelectorAll('*');
-                        let maxZIndex = 0;
-                        let maxZElement = null;
-                        allElements.forEach(el => {
-                            const zIndex = parseInt(window.getComputedStyle(el).zIndex);
-                            if (zIndex > maxZIndex) {
-                                maxZIndex = zIndex;
-                                maxZElement = el;
-                            }
-                        });
-                        console.log('[ERP Page] 页面中最高z-index:', maxZIndex);
-                        if (maxZElement) {
-                            console.log('[ERP Page] 最高z-index元素:', maxZElement);
-                        }
 
                         const title = document.getElementById('customerModalTitle');
                         const form = document.getElementById('customerForm');
@@ -1173,8 +1191,6 @@
                         // 确保模态框显示
                         modal.classList.add('active');
                         modal.style.display = 'flex';
-
-                        console.log('[ERP Page] ========== showCustomerModal 完成 ==========');
                     }
 
                     function hideCustomerModal() {
@@ -1311,50 +1327,15 @@
                     }
 
                     function showProductModal(product = null) {
-                        console.log('[ERP Page] ========== showProductModal 开始 ==========');
-                        console.log('[ERP Page] 参数:', product);
-
                         const modal = document.getElementById('productModal');
                         if (!modal) {
-                            console.error('[ERP Page] ❌ 错误: 找不到 productModal 元素');
+                            console.error('[ERP Page] 找不到 productModal 元素');
                             return;
-                        }
-
-                        console.log('[ERP Page] ✓ 找到模态框元素');
-                        console.log('[ERP Page] 初始className:', modal.className);
-                        console.log('[ERP Page] 初始display:', modal.style.display);
-
-                        // 检查模态框内部内容
-                        const modalContent = modal.querySelector('.modal');
-                        if (!modalContent) {
-                            console.error('[ERP Page] ❌ 错误: 找不到 .modal 内容元素');
-                        } else {
-                            console.log('[ERP Page] ✓ 找到 .modal 内容元素');
-                            const contentStyle = window.getComputedStyle(modalContent);
-                            console.log('[ERP Page] .modal display:', contentStyle.display);
-                            console.log('[ERP Page] .modal visibility:', contentStyle.visibility);
-                            console.log('[ERP Page] .modal opacity:', contentStyle.opacity);
-                            console.log('[ERP Page] .modal z-index:', contentStyle.zIndex);
-                            console.log('[ERP Page] .modal position:', contentStyle.position);
                         }
 
                         // 确保模态框显示
                         modal.classList.add('active');
                         modal.style.display = 'flex';
-                        modal.style.visibility = 'visible';
-                        modal.style.opacity = '1';
-                        modal.style.zIndex = '9999';
-
-                        console.log('[ERP Page] 添加active后className:', modal.className);
-                        console.log('[ERP Page] 添加active后display:', modal.style.display);
-
-                        // 检查计算后的样式
-                        const computedStyle = window.getComputedStyle(modal);
-                        console.log('[ERP Page] 计算后的display:', computedStyle.display);
-                        console.log('[ERP Page] 计算后的visibility:', computedStyle.visibility);
-                        console.log('[ERP Page] 计算后的opacity:', computedStyle.opacity);
-                        console.log('[ERP Page] 计算后的z-index:', computedStyle.zIndex);
-                        console.log('[ERP Page] 计算后的background:', computedStyle.background);
 
                         const title = document.getElementById('productModalTitle');
                         const form = document.getElementById('productForm');
@@ -1392,8 +1373,6 @@
                         // 确保模态框显示
                         modal.classList.add('active');
                         modal.style.display = 'flex';
-
-                        console.log('[ERP Page] ========== showProductModal 完成 ==========');
                     }
 
                     function hideProductModal() {
@@ -1488,7 +1467,7 @@
                         if (data.length === 0) {
                             tbody.innerHTML = `
                     <tr>
-                        <td colspan="7">
+                        <td colspan="9">
                             <div class="empty-state">
                                 <i class="fa fa-shopping-cart"></i>
                                 <h3>暂无订单</h3>
@@ -1502,6 +1481,14 @@
 
                         tbody.innerHTML = data.map(order => {
                             const customer = ERP.state.customers.find(c => c.id === order.customer_id);
+                            const shippingInfo = [];
+                            if (order.shipping_company) {
+                                shippingInfo.push(order.shipping_company);
+                            }
+                            if (order.tracking_number) {
+                                shippingInfo.push(order.tracking_number);
+                            }
+
                             return `
                     <tr>
                         <td><strong>${order.order_number}</strong></td>
@@ -1519,6 +1506,14 @@
                             </span>
                         </td>
                         <td>
+                            <span class="status-badge status-${order.shipping_status || 'not_shipped'}">
+                                ${getShippingStatusText(order.shipping_status)}
+                            </span>
+                        </td>
+                        <td>
+                            ${shippingInfo.length > 0 ? shippingInfo.join('<br>') : '-'}
+                        </td>
+                        <td>
                             <div class="action-buttons">
                                 <button class="btn-action btn-edit" onclick="editOrder(${order.id})">
                                     <i class="fa fa-edit"></i> 编辑
@@ -1531,6 +1526,33 @@
                     </tr>
                 `;
                         }).join('');
+                    }
+
+                    function getShippingStatusText(status) {
+                        const statusMap = {
+                            'not_shipped': '未发货',
+                            'shipped': '已发货',
+                            'in_transit': '运输中',
+                            'delivered': '已签收',
+                            'rejected': '已拒收',
+                            'returned': '已退回'
+                        };
+                        return statusMap[status] || '未发货';
+                    }
+
+                    function toggleOtherShippingCompany() {
+                        const select = document.getElementById('orderShippingCompany');
+                        const otherGroup = document.getElementById('otherShippingCompanyGroup');
+                        const otherInput = document.getElementById('orderOtherShippingCompany');
+
+                        if (select.value === '其他') {
+                            otherGroup.style.display = 'block';
+                            otherInput.required = true;
+                        } else {
+                            otherGroup.style.display = 'none';
+                            otherInput.required = false;
+                            otherInput.value = '';
+                        }
                     }
 
                     function getOrderStatusText(status) {
@@ -1553,30 +1575,10 @@
                     }
 
                     function showOrderModal(order = null) {
-                        console.log('[ERP Page] ========== showOrderModal 开始 ==========');
-                        console.log('[ERP Page] 参数:', order);
-
                         const modal = document.getElementById('orderModal');
                         if (!modal) {
-                            console.error('[ERP Page] ❌ 错误: 找不到 orderModal 元素');
+                            console.error('[ERP Page] 找不到 orderModal 元素');
                             return;
-                        }
-
-                        console.log('[ERP Page] ✓ 找到模态框元素');
-                        console.log('[ERP Page] 初始className:', modal.className);
-                        console.log('[ERP Page] 初始display:', modal.style.display);
-
-                        // 检查模态框内部内容
-                        const modalContent = modal.querySelector('.modal');
-                        if (!modalContent) {
-                            console.error('[ERP Page] ❌ 错误: 找不到 .modal 内容元素');
-                        } else {
-                            console.log('[ERP Page] ✓ 找到 .modal 内容元素');
-                            const contentStyle = window.getComputedStyle(modalContent);
-                            console.log('[ERP Page] .modal display:', contentStyle.display);
-                            console.log('[ERP Page] .modal visibility:', contentStyle.visibility);
-                            console.log('[ERP Page] .modal opacity:', contentStyle.opacity);
-                            console.log('[ERP Page] .modal z-index:', contentStyle.zIndex);
                         }
 
                         const title = document.getElementById('orderModalTitle');
@@ -1605,6 +1607,26 @@
                             const validPaymentStatus = order.payment_status && paymentStatusSelect.querySelector(`option[value="${order.payment_status}"]`);
                             paymentStatusSelect.value = validPaymentStatus ? order.paymentStatus : 'unpaid';
 
+                            // 物流信息
+                            const shippingCompany = order.shipping_company || '';
+                            document.getElementById('orderShippingCompany').value = shippingCompany;
+                            document.getElementById('orderTrackingNumber').value = order.tracking_number || '';
+
+                            // 发货状态
+                            const shippingStatusSelect = document.getElementById('orderShippingStatus');
+                            const validShippingStatus = order.shipping_status && shippingStatusSelect.querySelector(`option[value="${order.shipping_status}"]`);
+                            shippingStatusSelect.value = validShippingStatus ? order.shipping_status : 'not_shipped';
+
+                            // 如果是其他快递公司，显示手动输入框
+                            if (shippingCompany && !document.getElementById('orderShippingCompany').querySelector(`option[value="${shippingCompany}"]`)) {
+                                document.getElementById('orderShippingCompany').value = '其他';
+                                document.getElementById('otherShippingCompanyGroup').style.display = 'block';
+                                document.getElementById('orderOtherShippingCompany').value = shippingCompany;
+                            } else {
+                                document.getElementById('otherShippingCompanyGroup').style.display = 'none';
+                                document.getElementById('orderOtherShippingCompany').value = '';
+                            }
+
                             // TODO: 加载订单明细
                         } else {
                             title.textContent = '创建订单';
@@ -1615,24 +1637,16 @@
                             // 显式设置下拉框的默认值
                             document.getElementById('orderStatus').value = 'pending';
                             document.getElementById('orderPaymentStatus').value = 'unpaid';
+                            document.getElementById('orderShippingCompany').value = '';
+                            document.getElementById('orderTrackingNumber').value = '';
+                            document.getElementById('orderShippingStatus').value = 'not_shipped';
+                            document.getElementById('otherShippingCompanyGroup').style.display = 'none';
+                            document.getElementById('orderOtherShippingCompany').value = '';
                         }
 
                         // 确保模态框显示
                         modal.classList.add('active');
                         modal.style.display = 'flex';
-
-                        console.log('[ERP Page] 添加active后className:', modal.className);
-                        console.log('[ERP Page] 添加active后display:', modal.style.display);
-
-                        // 检查计算后的样式
-                        const computedStyle = window.getComputedStyle(modal);
-                        console.log('[ERP Page] 计算后的display:', computedStyle.display);
-                        console.log('[ERP Page] 计算后的visibility:', computedStyle.visibility);
-                        console.log('[ERP Page] 计算后的opacity:', computedStyle.opacity);
-                        console.log('[ERP Page] 计算后的z-index:', computedStyle.zIndex);
-                        console.log('[ERP Page] 计算后的background:', computedStyle.background);
-
-                        console.log('[ERP Page] ========== showOrderModal 完成 ==========');
                     }
 
                     function hideOrderModal() {
@@ -1746,6 +1760,11 @@
                             notes: document.getElementById('orderNotes').value,
                             status: document.getElementById('orderStatus').value,
                             payment_status: document.getElementById('orderPaymentStatus').value,
+                            shipping_company: document.getElementById('orderShippingCompany').value === '其他'
+                                ? document.getElementById('orderOtherShippingCompany').value
+                                : document.getElementById('orderShippingCompany').value,
+                            tracking_number: document.getElementById('orderTrackingNumber').value,
+                            shipping_status: document.getElementById('orderShippingStatus').value,
                             items: orderItems
                         };
 
@@ -1856,7 +1875,6 @@
                     }
 
                     function showInventoryAdjustModal(productId) {
-                        console.log('[ERP Page] showInventoryAdjustModal 被调用，参数:', productId);
                         const modal = document.getElementById('inventoryModal');
                         if (!modal) {
                             console.error('[ERP Page] 找不到 inventoryModal');
@@ -1873,7 +1891,6 @@
                     }
 
                     function showInventoryModal() {
-                        console.log('[ERP Page] showInventoryModal 被调用');
                         const modal = document.getElementById('inventoryModal');
                         if (!modal) {
                             console.error('[ERP Page] 找不到 inventoryModal');
@@ -1969,33 +1986,10 @@
                     // ==================== 财务管理 ====================
                     // ==================== 初始化财务筛选器 ====================
                     function initFinanceFilters() {
-                        const monthSelect = document.getElementById('financeMonth');
-                        const yearSelect = document.getElementById('financeYear');
-                        const currentYear = new Date().getFullYear();
-                        const currentMonth = new Date().getMonth() + 1;
-
-                        // 生成年份选项
-                        for (let year = currentYear; year >= currentYear - 5; year--) {
-                            const option = document.createElement('option');
-                            option.value = year;
-                            option.textContent = year + '年';
-                            if (year === currentYear) {
-                                option.selected = true;
-                            }
-                            yearSelect.appendChild(option);
-                        }
-
-                        // 生成月份选项
-                        const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
-                        months.forEach((month, index) => {
-                            const option = document.createElement('option');
-                            option.value = index + 1;
-                            option.textContent = month;
-                            if (index + 1 === currentMonth) {
-                                option.selected = true;
-                            }
-                            monthSelect.appendChild(option);
-                        });
+                        // 注意：原来的月份/年份筛选器已被快捷筛选按钮和日期范围选择器替代
+                        // 保留此函数以避免错误，但不再执行任何操作
+                        // 如果需要初始化其他筛选器，可以在这里添加代码
+                        console.log('[ERP Page] 财务筛选器初始化完成');
                     }
 
                     function renderFinances(finances = null) {
@@ -2058,14 +2052,30 @@
                     }
 
                     function updateFinanceSummary(data) {
+                        // 计算总收入（所有收入类型）
                         const totalIncome = data
                             .filter(f => f.type === 'income')
                             .reduce((sum, f) => sum + parseFloat(f.amount), 0);
 
+                        // 计算销售订单收入
+                        const salesIncome = data
+                            .filter(f => f.type === 'income' && f.category === '销售订单')
+                            .reduce((sum, f) => sum + parseFloat(f.amount), 0);
+
+                        // 计算销售成本
+                        const salesCost = data
+                            .filter(f => f.type === 'expense' && f.category === '销售成本')
+                            .reduce((sum, f) => sum + parseFloat(f.amount), 0);
+
+                        // 计算总支出（所有支出类型）
                         const totalExpense = data
                             .filter(f => f.type === 'expense')
                             .reduce((sum, f) => sum + parseFloat(f.amount), 0);
 
+                        // 计算净利润（销售订单收入 - 销售成本）
+                        const salesProfit = salesIncome - salesCost;
+
+                        // 计算净收入（总收入 - 总支出）
                         const netIncome = totalIncome - totalExpense;
 
                         document.getElementById('totalIncome').textContent = `¥${totalIncome.toFixed(2)}`;
@@ -2075,12 +2085,154 @@
                         // 根据净收入设置颜色
                         const netIncomeElement = document.getElementById('netIncome');
                         if (netIncome > 0) {
-                            netIncomeElement.style.color = '#e74c3c';
-                        } else if (netIncome < 0) {
                             netIncomeElement.style.color = '#27ae60';
+                        } else if (netIncome < 0) {
+                            netIncomeElement.style.color = '#e74c3c';
                         } else {
                             netIncomeElement.style.color = '#3498db';
                         }
+                    }
+
+                    // ==================== 财务筛选函数 ====================
+                    function filterFinancesByQuick(filterType) {
+                        console.log('[ERP Page] 快捷筛选:', filterType);
+
+                        // 更新按钮激活状态
+                        document.querySelectorAll('.btn-filter').forEach(btn => {
+                            btn.classList.remove('btn-filter-active');
+                        });
+                        const activeBtn = document.querySelector(`.btn-filter[data-filter="${filterType}"]`);
+                        if (activeBtn) {
+                            activeBtn.classList.add('btn-filter-active');
+                        }
+
+                        // 清除日期范围
+                        document.getElementById('financeStartDate').value = '';
+                        document.getElementById('financeEndDate').value = '';
+
+                        // 根据筛选类型过滤数据
+                        let filtered = ERP.state.finances;
+                        const now = new Date();
+                        // 获取UTC时间，避免时区问题
+                        const todayUTC = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+                        
+                        console.log('[ERP Page] 当前日期(UTC):', todayUTC.toISOString());
+
+                        switch (filterType) {
+                            case 'today':
+                                // 本日：今天UTC时间0点到23点59分
+                                const endOfDayUTC = new Date(todayUTC);
+                                endOfDayUTC.setUTCHours(23, 59, 59, 999);
+                                
+                                console.log('[ERP Page] 本日筛选范围(UTC):', todayUTC.toISOString(), '到', endOfDayUTC.toISOString());
+                                
+                                filtered = filtered.filter(finance => {
+                                    const date = new Date(finance.transaction_date);
+                                    console.log('[ERP Page] 检查记录:', finance.description, '日期:', date.toISOString(), '是否匹配:', date >= todayUTC && date <= endOfDayUTC);
+                                    return date >= todayUTC && date <= endOfDayUTC;
+                                });
+                                break;
+
+                            case 'week':
+                                // 七日：过去7天(UTC)
+                                const weekAgoUTC = new Date(todayUTC);
+                                weekAgoUTC.setDate(weekAgoUTC.getDate() - 7);
+                                
+                                console.log('[ERP Page] 七日筛选范围(UTC):', weekAgoUTC.toISOString(), '到', todayUTC.toISOString());
+                                
+                                filtered = filtered.filter(finance => {
+                                    const date = new Date(finance.transaction_date);
+                                    console.log('[ERP Page] 检查记录:', finance.description, '日期:', date.toISOString(), '是否匹配:', date >= weekAgoUTC && date <= todayUTC);
+                                    return date >= weekAgoUTC && date <= todayUTC;
+                                });
+                                break;
+
+                            case 'month':
+                                // 本月：本月1号到今天(UTC)
+                                const firstDayOfMonthUTC = new Date(Date.UTC(todayUTC.getFullYear(), todayUTC.getMonth(), 1));
+                                
+                                console.log('[ERP Page] 本月筛选范围(UTC):', firstDayOfMonthUTC.toISOString(), '到', todayUTC.toISOString());
+                                
+                                filtered = filtered.filter(finance => {
+                                    const date = new Date(finance.transaction_date);
+                                    console.log('[ERP Page] 检查记录:', finance.description, '日期:', date.toISOString(), '是否匹配:', date >= firstDayOfMonthUTC && date <= todayUTC);
+                                    return date >= firstDayOfMonthUTC && date <= todayUTC;
+                                });
+                                break;
+
+                            case 'year':
+                                // 本年：本年1月1号到今天(UTC)
+                                const firstDayOfYearUTC = new Date(Date.UTC(todayUTC.getFullYear(), 0, 1));
+                                
+                                console.log('[ERP Page] 本年筛选范围(UTC):', firstDayOfYearUTC.toISOString(), '到', todayUTC.toISOString());
+                                
+                                filtered = filtered.filter(finance => {
+                                    const date = new Date(finance.transaction_date);
+                                    console.log('[ERP Page] 检查记录:', finance.description, '日期:', date.toISOString(), '是否匹配:', date >= firstDayOfYearUTC && date <= todayUTC);
+                                    return date >= firstDayOfYearUTC && date <= todayUTC;
+                                });
+                                break;
+
+                            case 'all':
+                            default:
+                                // 全部：不过滤
+                                console.log('[ERP Page] 显示全部记录，共', filtered.length, '条');
+                                break;
+                        }
+
+                        console.log('[ERP Page] 筛选后记录数:', filtered.length);
+                        renderFinances(filtered);
+                    }
+
+                    function filterFinancesByDateRange() {
+                        const startDate = document.getElementById('financeStartDate').value;
+                        const endDate = document.getElementById('financeEndDate').value;
+
+                        console.log('[ERP Page] 日期范围筛选:', startDate, '到', endDate);
+
+                        // 清除快捷筛选按钮的激活状态
+                        document.querySelectorAll('.btn-filter').forEach(btn => {
+                            btn.classList.remove('btn-filter-active');
+                        });
+
+                        if (!startDate && !endDate) {
+                            renderFinances(ERP.state.finances);
+                            return;
+                        }
+
+                        let filtered = ERP.state.finances;
+
+                        filtered = filtered.filter(finance => {
+                            const date = new Date(finance.transaction_date);
+                            let match = true;
+
+                            if (startDate) {
+                                const start = new Date(startDate);
+                                start.setHours(0, 0, 0, 0);
+                                match = match && date >= start;
+                            }
+
+                            if (endDate) {
+                                const end = new Date(endDate);
+                                end.setHours(23, 59, 59, 999);
+                                match = match && date <= end;
+                            }
+
+                            console.log('[ERP Page] 检查记录:', finance.description, '日期:', date.toISOString(), '是否匹配:', match);
+                            return match;
+                        });
+
+                        console.log('[ERP Page] 日期范围筛选后记录数:', filtered.length);
+                        renderFinances(filtered);
+                    }
+
+                    function clearDateFilter() {
+                        // 清除日期范围
+                        document.getElementById('financeStartDate').value = '';
+                        document.getElementById('financeEndDate').value = '';
+
+                        // 显示所有财务记录
+                        renderFinances(ERP.state.finances);
                     }
 
                     function filterFinancesByMonth() {
@@ -2106,45 +2258,11 @@
                     }
 
                     function showFinanceModal() {
-                        console.log('[ERP Page] ========== showFinanceModal 开始 ==========');
-
                         const modal = document.getElementById('financeModal');
                         if (!modal) {
-                            console.error('[ERP Page] ❌ 错误: 找不到 financeModal 元素');
+                            console.error('[ERP Page] 找不到 financeModal 元素');
                             return;
                         }
-
-                        console.log('[ERP Page] ✓ 找到模态框元素');
-                        console.log('[ERP Page] 初始className:', modal.className);
-                        console.log('[ERP Page] 初始display:', modal.style.display);
-
-                        // 检查模态框内部内容
-                        const modalContent = modal.querySelector('.modal');
-                        if (!modalContent) {
-                            console.error('[ERP Page] ❌ 错误: 找不到 .modal 内容元素');
-                        } else {
-                            console.log('[ERP Page] ✓ 找到 .modal 内容元素');
-                            const contentStyle = window.getComputedStyle(modalContent);
-                            console.log('[ERP Page] .modal display:', contentStyle.display);
-                            console.log('[ERP Page] .modal visibility:', contentStyle.visibility);
-                            console.log('[ERP Page] .modal opacity:', contentStyle.opacity);
-                            console.log('[ERP Page] .modal z-index:', contentStyle.zIndex);
-                        }
-
-                        // 确保模态框显示
-                        modal.classList.add('active');
-                        modal.style.display = 'flex';
-
-                        console.log('[ERP Page] 添加active后className:', modal.className);
-                        console.log('[ERP Page] 添加active后display:', modal.style.display);
-
-                        // 检查计算后的样式
-                        const computedStyle = window.getComputedStyle(modal);
-                        console.log('[ERP Page] 计算后的display:', computedStyle.display);
-                        console.log('[ERP Page] 计算后的visibility:', computedStyle.visibility);
-                        console.log('[ERP Page] 计算后的opacity:', computedStyle.opacity);
-                        console.log('[ERP Page] 计算后的z-index:', computedStyle.zIndex);
-                        console.log('[ERP Page] 计算后的background:', computedStyle.background);
 
                         const form = document.getElementById('financeForm');
 
@@ -2155,8 +2273,7 @@
                         document.getElementById('financeType').value = 'income';
 
                         modal.classList.add('active');
-
-                        console.log('[ERP Page] ========== showFinanceModal 完成 ==========');
+                        modal.style.display = 'flex';
                     }
 
                     function hideFinanceModal() {
@@ -2245,102 +2362,7 @@
                     }
                 </script>
 
-                <!-- 调试面板 -->
-                <div id="debugPanel"
-                    style="position: fixed; bottom: 10px; right: 10px; width: 400px; max-height: 300px; background: #1a1a1a; color: #00ff00; font-family: monospace; font-size: 12px; padding: 10px; border-radius: 5px; z-index: 2147483647; overflow-y: auto; display: none; box-shadow: 0 0 10px rgba(0,0,0,0.5);">
-                    <div
-                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #333;">
-                        <strong>🔍 ERP 调试面板</strong>
-                        <button onclick="document.getElementById('debugPanel').style.display='none'"
-                            style="background: #333; color: #fff; border: none; padding: 2px 8px; border-radius: 3px; cursor: pointer;">关闭</button>
-                    </div>
-                    <div id="debugLog"></div>
-                </div>
-
-                <!-- 调试面板开关 -->
-                <button id="debugToggle" onclick="toggleDebugPanel()"
-                    style="position: fixed; bottom: 10px; right: 10px; background: #333; color: #00ff00; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; z-index: 2147483646; font-family: monospace;">🔍
-                    调试</button>
-
-                <script>
-                    // 保存原始的 console 函数
-                    const originalConsoleLog = console.log;
-                    const originalConsoleError = console.error;
-
-                    // 调试面板功能
-                    const debugLog = [];
-                    const maxDebugLines = 50;
-
-                    function debugLogAdd(message) {
-                        const timestamp = new Date().toLocaleTimeString();
-                        const logEntry = `[${timestamp}] ${message}`;
-                        debugLog.push(logEntry);
-
-                        // 限制日志行数
-                        if (debugLog.length > maxDebugLines) {
-                            debugLog.shift();
-                        }
-
-                        // 更新调试面板
-                        const debugPanel = document.getElementById('debugLog');
-                        if (debugPanel) {
-                            debugPanel.innerHTML = debugLog.map(logEntry => `<div style="margin-bottom: 2px;">${logEntry}</div>`).join('');
-                            debugPanel.scrollTop = debugPanel.scrollHeight;
-                        }
-
-                        // 同时输出到控制台（使用原始函数避免无限递归）
-                        originalConsoleLog(logEntry);
-                    }
-
-                    function toggleDebugPanel() {
-                        const panel = document.getElementById('debugPanel');
-                        const toggle = document.getElementById('debugToggle');
-                        if (panel.style.display === 'none') {
-                            panel.style.display = 'block';
-                            toggle.style.display = 'none';
-                        } else {
-                            panel.style.display = 'none';
-                            toggle.style.display = 'block';
-                        }
-                    }
-
-                    // 重写 console.log 以捕获所有日志
-                    console.log = function (...args) {
-                        originalConsoleLog.apply(console, args);
-                        const message = args.map(arg => {
-                            if (typeof arg === 'object') {
-                                try {
-                                    return JSON.stringify(arg);
-                                } catch (e) {
-                                    return String(arg);
-                                }
-                            }
-                            return String(arg);
-                        }).join(' ');
-                        debugLogAdd(message);
-                    };
-
-                    // 重写 console.error 以捕获所有错误
-                    console.error = function (...args) {
-                        originalConsoleError.apply(console, args);
-                        const message = args.map(arg => {
-                            if (typeof arg === 'object') {
-                                try {
-                                    return JSON.stringify(arg);
-                                } catch (e) {
-                                    return String(arg);
-                                }
-                            }
-                            return String(arg);
-                        }).join(' ');
-                        debugLogAdd('❌ ' + message);
-                    };
-
-                    // 初始化调试面板
-                    debugLogAdd('调试面板已启动');
-                </script>
-
-                <!-- 强制修复：使用JS强制设置下拉框文字颜色 -->
+<!-- 强制修复：使用JS强制设置下拉框文字颜色 -->
                 <script>
                     (function () {
                         const targetColor = '#2e4258';
@@ -2374,7 +2396,7 @@
 
                         // 立即执行一次
                         transformSelects();
-                        console.log('✅ 已启用下拉框颜色强制修复脚本');
+                        
                     })();
                 </script>
 </body>

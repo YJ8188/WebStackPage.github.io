@@ -758,27 +758,40 @@ textarea.form-control {
 
 /* 下拉框样式 */
 select.form-control {
-    background-color: #ffffff;
+    background-color: #ffffff !important;
+    color: #3c546e !important;
     cursor: pointer;
-    color: #3c546e;
     background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233c546e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
     background-repeat: no-repeat;
     background-position: right 12px center;
     background-size: 16px;
     padding-right: 36px;
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
 }
 
 select.form-control::-ms-expand {
-    display: none;
+    display: none !important;
 }
 
 select.form-control option {
-    color: #3c546e;
-    background-color: #ffffff;
-    padding: 8px;
+    color: #3c546e !important;
+    background-color: #ffffff !important;
+    padding: 8px !important;
+}
+
+/* 确保下拉框在任何情况下都可见 */
+select.form-control:disabled,
+select.form-control[disabled] {
+    background-color: #f8f9fa !important;
+    color: #8f9790 !important;
+    cursor: not-allowed;
+}
+
+select.form-control:focus option:checked {
+    background-color: #e8f4fd !important;
+    color: #3c546e !important;
 }
 
 /* ==================== 财务筛选器 ==================== */

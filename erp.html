@@ -1227,9 +1227,9 @@
                     <td>${product.name}</td>
                     <td>${product.sku || '-'}</td>
                     <td>${product.category || '-'}</td>
-                    <td style="font-weight:bold; color: ${product.stock_quantity <= product.min_stock ? '#cf1322' : '#3f8600'}">${product.stock_quantity}</td>
+                    <td style="font-weight:bold; color: ${(product.stock_quantity || 0) <= (product.min_stock || 0) ? '#cf1322' : '#3f8600'}">${product.stock_quantity ?? 0}</td>
                     <td>${getUnitText(product.unit)}</td>
-                    <td>${product.min_stock}</td>
+                    <td>${product.min_stock ?? '-'}</td>
                      <td>${product.status === 'active' ? '正常' : '停用'}</td>
                     <td>
                          <button class="ant-btn ant-btn-primary" onclick="showInventoryAdjustModal(${product.id})" style="background:#faad14; border-color:#faad14;">调整</button>

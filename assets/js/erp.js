@@ -170,7 +170,7 @@ const ERP = {
                 .eq('user_id', userData.user.id);
 
             // 轻量模式只加载必要字段
-            const selectFields = lite ? 'id, name, sku, price, cost, stock_quantity, status' : '*';
+            const selectFields = lite ? 'id, name, sku, category, unit, price, cost, stock_quantity, min_stock, status' : '*';
 
             const { data, error } = await query
                 .select(selectFields)
@@ -1167,7 +1167,7 @@ const ERP = {
             products: {
                 total: this.state.products.length,
                 active: this.state.products.filter(p => p.status === 'active').length,
-                lowStock: this.state.products.filter(p => p.stock_quantity <= p.min_stock).length,
+                lowStock: this.state.products.filter(p => (p.stock_quantity || 0) <= (p.min_stock || 0)).length,
                 totalValue: this.state.products.reduce((sum, p) => sum + (p.price * p.stock_quantity), 0)
             },
             orders: {

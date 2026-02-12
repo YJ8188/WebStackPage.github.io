@@ -27,6 +27,22 @@
 4. **ERP 脚本稳定性修复**
    - 修复 `assets/js/erp.js` 中重复方法覆盖问题，降低模块加载异常概率
 
+5. **顶栏交互功能可用化（ERP）**
+   - 搜索、通知、用户菜单补齐交互逻辑
+   - 通知中心支持点击空白处/按 ESC 关闭
+
+6. **登录态与跳转修复**
+   - 修复“已登录却仍提示去登录”的状态不同步问题
+   - 登录后支持按 `returnTo` 返回目标页面（如 ERP）
+
+7. **退出登录可靠性增强**
+   - 首页右上角账号按钮支持稳定退出（含超时兜底）
+   - ERP 账户菜单“退出登录”支持状态清理并回到登录页
+
+8. **登录自检面板**
+   - `login.html` 增加“登录自检”浮动按钮
+   - 可一键查看配置/会话/连通性并复制诊断报告
+
 ---
 
 ## 技术栈
@@ -112,12 +128,19 @@ git commit -m "feat: UI and ERP usability improvements"
 
 ### 3）绑定远程并推送
 
-把下面的 `你的用户名` 和 `你的仓库名` 替换后执行：
+把下面的 `你的用户名` 和 `你的仓库名` 替换后执行（按你现在要求固定推到 `master`）：
 
 ```bash
-git branch -M main
+git branch -M master
 git remote add origin https://github.com/你的用户名/你的仓库名.git
-git push -u origin main
+git push -u origin master
+```
+
+如果远程已存在 `origin`，先更新地址再推送：
+
+```bash
+git remote set-url origin https://github.com/你的用户名/你的仓库名.git
+git push -u origin master
 ```
 
 ---

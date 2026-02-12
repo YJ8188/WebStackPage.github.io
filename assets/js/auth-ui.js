@@ -4,6 +4,7 @@ const loginText = document.getElementById('loginText');
 async function updateLoginButton() {
     if (userData.isLoggedIn) {
         loginText.textContent = userData.user.email;
+        loginBtn.href = 'javascript:void(0)';
         loginBtn.onclick = async function(e) {
             e.preventDefault();
             await handleLogout();
@@ -18,20 +19,60 @@ async function updateLoginButton() {
 }
 
 async function handleLogout() {
-    const confirmed = await showConfirmModal('确定要登出吗？');
+    const confirmed = typeof showConfirm === 'function'
+        ? await showConfirm('退出登录确认', '确定要登出吗？')
+        : await showConfirmModal('确定要登出吗？');
     
-    if (confirmed) {
-        const { error } = await supabaseClient.auth.signOut();
-        
-        if (error) {
-            showToast('登出失败：' + error.message, 'error');
-        } else {
-            showToast('已成功登出', 'success');
-            setTimeout(() => {
-                window.location.href = 'index.html';
-            }, 1000);
-        }
+    if (!confirmed) {
+        return;
     }
+
+    const previousText = loginText.textContent;
+    loginText.textContent = '退出中...';
+    loginBtn.style.pointerEvents = 'none';
+
+    let signOutError = null;
+
+    try {
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('登出请求超时，请稍后重试')), 8000);
+        });
+
+        const result = await Promise.race([
+            supabaseClient.auth.signOut({ scope: 'local' }),
+            timeoutPromise
+        ]);
+
+        if (result?.error) {
+            signOutError = result.error;
+        }
+    } catch (error) {
+        signOutError = error;
+    } finally {
+        localStorage.removeItem('rememberMePreference');
+
+        if (window.userData) {
+            userData.isLoggedIn = false;
+            userData.user = null;
+            if (typeof userData.loadFromLocalStorage === 'function') {
+                userData.loadFromLocalStorage();
+            }
+        }
+
+        loginBtn.style.pointerEvents = '';
+        loginText.textContent = previousText;
+        updateLoginButton();
+    }
+
+    if (signOutError) {
+        showToast('已执行本地退出，远程会话状态稍后同步', 'info');
+    } else {
+        showToast('已成功登出', 'success');
+    }
+
+    setTimeout(() => {
+        window.location.href = 'login.html?returnTo=index.html';
+    }, 500);
 }
 
 function showConfirmModal(message) {

@@ -919,7 +919,7 @@
             </div>
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="hideHeaderUserModal()">关闭</button>
-                <button class="ant-btn ant-btn-primary" onclick="handleHeaderLogout()">退出登录</button>
+                <button class="ant-btn ant-btn-primary" id="headerLogoutBtn" onclick="handleHeaderLogout()">退出登录</button>
             </div>
         </div>
     </div>
@@ -1881,15 +1881,66 @@
         }
 
         async function handleHeaderLogout() {
+            const shouldLogout = window.confirm('确定要退出当前账号吗？');
+            if (!shouldLogout) {
+                return;
+            }
+
+            const logoutBtn = document.getElementById('headerLogoutBtn');
+            const originalText = logoutBtn ? logoutBtn.textContent : '';
+
+            if (logoutBtn) {
+                logoutBtn.disabled = true;
+                logoutBtn.textContent = '退出中...';
+            }
+
+            let signOutError = null;
+
             try {
                 if (window.supabaseClient && supabaseClient.auth) {
-                    await supabaseClient.auth.signOut();
+                    const timeoutPromise = new Promise((_, reject) => {
+                        setTimeout(() => reject(new Error('signout_timeout')), 8000);
+                    });
+
+                    const result = await Promise.race([
+                        supabaseClient.auth.signOut({ scope: 'local' }),
+                        timeoutPromise
+                    ]);
+
+                    if (result && result.error) {
+                        signOutError = result.error;
+                    }
                 }
-                localStorage.removeItem('rememberMePreference');
-                window.location.href = 'login.html';
             } catch (error) {
-                showToast('退出登录失败，请稍后重试', 'error');
+                signOutError = error;
+            } finally {
+                localStorage.removeItem('rememberMePreference');
+
+                if (window.userData) {
+                    userData.isLoggedIn = false;
+                    userData.user = null;
+                    if (typeof userData.loadFromLocalStorage === 'function') {
+                        userData.loadFromLocalStorage();
+                    }
+                }
+
+                hideHeaderUserModal();
+
+                if (logoutBtn) {
+                    logoutBtn.disabled = false;
+                    logoutBtn.textContent = originalText || '退出登录';
+                }
             }
+
+            if (signOutError) {
+                showToast('已执行本地退出，远程会话稍后同步', 'info');
+            } else {
+                showToast('退出成功，正在返回登录页', 'success');
+            }
+
+            setTimeout(() => {
+                window.location.href = 'login.html?returnTo=erp.html';
+            }, 500);
         }
 
     </script>

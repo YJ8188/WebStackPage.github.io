@@ -135,12 +135,19 @@
                     <a href="index.html" class="header-action header-link" title="返回导航首页">
                         <i class="fa fa-home"></i>
                     </a>
-                    <div class="header-action" title="当前登录用户">
-                        <span class="header-user">
+                    <button type="button" class="header-action header-action-btn" id="headerGlobalSearchBtn" title="全局搜索">
+                        <i class="fa fa-search"></i>
+                    </button>
+                    <button type="button" class="header-action header-action-btn" id="headerNoticeBtn" title="通知提醒">
+                        <i class="fa fa-bell-o"></i>
+                        <span id="headerNoticeBadge" class="header-badge hidden">0</span>
+                    </button>
+                    <button type="button" class="header-action header-action-btn" id="headerUserBtn" title="用户菜单">
+                        <span class="erp-user-panel">
                             <i class="fa fa-user-circle" style="color: #2563eb;"></i>
                             <span id="userEmail">管理员</span>
                         </span>
-                    </div>
+                    </button>
                 </div>
             </header>
 
@@ -855,6 +862,68 @@
         </div>
     </div>
 
+    <div id="headerSearchModal" class="modal-overlay">
+        <div class="modal" style="max-width: 700px; width: 95%;">
+            <div class="modal-header">
+                <h3>全局搜索</h3>
+                <button class="btn-close" onclick="hideHeaderSearchModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input id="headerSearchInput" class="erp-search-input" type="text" placeholder="输入客户名称、产品名、订单号、财务分类...">
+                <div id="headerSearchResult"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="hideHeaderSearchModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="headerNoticeModal" class="modal-overlay">
+        <div class="modal" style="max-width: 560px; width: 95%;">
+            <div class="modal-header">
+                <h3>通知提醒</h3>
+                <button class="btn-close" onclick="hideHeaderNoticeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <ul id="headerNoticeList" class="erp-header-panel-list"></ul>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="markAllHeaderNoticesRead()">全部已读</button>
+                <button class="ant-btn ant-btn-primary" onclick="hideHeaderNoticeModal()">我知道了</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="headerUserModal" class="modal-overlay">
+        <div class="modal" style="max-width: 500px; width: 95%;">
+            <div class="modal-header">
+                <h3>账户菜单</h3>
+                <button class="btn-close" onclick="hideHeaderUserModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <ul class="erp-header-panel-list">
+                    <li class="erp-header-panel-item">
+                        <div>
+                            <p class="erp-header-panel-title">当前账号</p>
+                            <p class="erp-header-panel-subtitle" id="headerUserEmailText">管理员</p>
+                        </div>
+                    </li>
+                    <li class="erp-header-panel-item">
+                        <div>
+                            <p class="erp-header-panel-title">回到导航首页</p>
+                            <p class="erp-header-panel-subtitle">继续访问导航与收藏功能</p>
+                        </div>
+                        <a class="ant-btn" href="index.html">返回首页</a>
+                    </li>
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="hideHeaderUserModal()">关闭</button>
+                <button class="ant-btn ant-btn-primary" onclick="handleHeaderLogout()">退出登录</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <script src="assets/js/supabase-config.js"></script>
@@ -1359,6 +1428,51 @@
 
         // --- Init ---
         document.addEventListener('DOMContentLoaded', function () {
+            const searchBtn = document.getElementById('headerGlobalSearchBtn');
+            const noticeBtn = document.getElementById('headerNoticeBtn');
+            const userBtn = document.getElementById('headerUserBtn');
+            const searchInput = document.getElementById('headerSearchInput');
+
+            if (searchBtn) {
+                searchBtn.addEventListener('click', showHeaderSearchModal);
+            }
+            if (noticeBtn) {
+                noticeBtn.addEventListener('click', showHeaderNoticeModal);
+            }
+            if (userBtn) {
+                userBtn.addEventListener('click', showHeaderUserModal);
+            }
+            if (searchInput) {
+                searchInput.addEventListener('input', function (event) {
+                    doGlobalSearch(event.target.value);
+                });
+            }
+
+            ['headerSearchModal', 'headerNoticeModal', 'headerUserModal'].forEach(id => {
+                const modal = document.getElementById(id);
+                if (!modal) return;
+                modal.addEventListener('click', function (event) {
+                    if (event.target === modal) {
+                        modal.classList.remove('active');
+                        modal.style.display = 'none';
+                    }
+                });
+            });
+
+            const userEmailEl = document.getElementById('userEmail');
+            if (userEmailEl && window.userData && userData.user && userData.user.email) {
+                userEmailEl.textContent = userData.user.email;
+            }
+
+            window.addEventListener('userDataLoaded', function () {
+                const email = (window.userData && userData.user && userData.user.email) ? userData.user.email : '管理员';
+                const userHeader = document.getElementById('userEmail');
+                const userPanel = document.getElementById('headerUserEmailText');
+                if (userHeader) userHeader.textContent = email;
+                if (userPanel) userPanel.textContent = email;
+                renderHeaderNotices();
+            });
+
             // Check Login & Load Data
             // We reuse the logic from erp.html mostly, but tailored:
 
@@ -1398,12 +1512,18 @@
                 } else {
                     console.error('[ERP Ant HTML] ERP 或 ERP.getStatistics 未定义');
                 }
+
+                renderHeaderNotices();
             });
 
             // Basic Init
             if (window.checkLoginStatus) {
                 window.checkLoginStatus();
             }
+
+            setTimeout(() => {
+                renderHeaderNotices();
+            }, 600);
         });
 
         // --- Re-implement missing modal functions for new IDs ---
@@ -1453,6 +1573,261 @@
             const totalInput = document.getElementById('orderTotalAmount');
             if (totalInput && (totalInput.value === '' || totalInput.value === '0' || totalInput.value === '0.00')) {
                 totalInput.value = suggestedTotal.toFixed(2);
+            }
+        }
+
+        function showToast(message, type = 'info') {
+            const colors = {
+                success: '#16a34a',
+                error: '#dc2626',
+                info: '#2563eb'
+            };
+            const toast = document.createElement('div');
+            toast.textContent = message;
+            toast.style.cssText = `position:fixed;top:18px;right:18px;z-index:3000;background:#fff;color:#0f172a;padding:10px 14px;border-radius:10px;border-left:4px solid ${colors[type] || colors.info};box-shadow:0 10px 20px rgba(15,23,42,.16);font-size:13px;max-width:340px;`;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.transition = 'all .25s ease';
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-8px)';
+                setTimeout(() => toast.remove(), 260);
+            }, 2200);
+        }
+
+        function formatHeaderDate(dateValue) {
+            const date = new Date(dateValue);
+            if (Number.isNaN(date.getTime())) {
+                return '-';
+            }
+            return date.toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function safeText(text) {
+            return String(text ?? '').replace(/[&<>"']/g, (char) => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[char]));
+        }
+
+        function headerSearchInModule(moduleName, data, keyword, mapToTitle, mapToSubtitle) {
+            if (!Array.isArray(data) || data.length === 0) {
+                return [];
+            }
+            const lowerKeyword = keyword.toLowerCase();
+            return data
+                .filter(item => JSON.stringify(item).toLowerCase().includes(lowerKeyword))
+                .slice(0, 20)
+                .map(item => ({
+                    module: moduleName,
+                    title: mapToTitle(item),
+                    subtitle: mapToSubtitle(item)
+                }));
+        }
+
+        async function ensureHeaderSearchData() {
+            if (!window.ERP) {
+                return;
+            }
+            if (!ERP.state.loaded.customers) {
+                await ERP.loadCustomers(false);
+            }
+            if (!ERP.state.loaded.products) {
+                await ERP.loadProducts(false);
+            }
+            if (!ERP.state.loaded.orders) {
+                await ERP.loadOrders(false);
+            }
+            if (!ERP.state.loaded.finances) {
+                await ERP.loadFinances(false);
+            }
+        }
+
+        async function doGlobalSearch(keyword) {
+            const resultEl = document.getElementById('headerSearchResult');
+            if (!resultEl) return;
+
+            const trimmed = (keyword || '').trim();
+            if (!trimmed) {
+                resultEl.innerHTML = '<p style="color:#64748b;margin:0;">输入关键词后显示结果</p>';
+                return;
+            }
+
+            resultEl.innerHTML = '<p style="color:#64748b;margin:0;">搜索中...</p>';
+            await ensureHeaderSearchData();
+
+            const result = [
+                ...headerSearchInModule('customers', ERP.state.customers, trimmed, c => c.name || '未命名客户', c => `${c.phone || '-'} / ${c.email || '-'}`),
+                ...headerSearchInModule('products', ERP.state.products, trimmed, p => p.name || '未命名产品', p => `编码:${p.sku || '-'}  库存:${p.stock_quantity || 0}`),
+                ...headerSearchInModule('orders', ERP.state.orders, trimmed, o => o.order_number || `订单#${o.id}`, o => `金额:¥${parseFloat(o.total_amount || 0).toFixed(2)}  状态:${getOrderStatusText(o.status)}`),
+                ...headerSearchInModule('finance', ERP.state.finances, trimmed, f => `${f.type === 'income' ? '收入' : '支出'} ¥${parseFloat(f.amount || 0).toFixed(2)}`, f => `${f.category || '-'}  ${formatHeaderDate(f.transaction_date)}`)
+            ].slice(0, 40);
+
+            if (result.length === 0) {
+                resultEl.innerHTML = '<p style="color:#64748b;margin:0;">未找到相关数据</p>';
+                return;
+            }
+
+            resultEl.innerHTML = `<ul class="erp-header-panel-list">${result.map(item => `
+                <li class="erp-header-panel-item">
+                    <div>
+                        <p class="erp-header-panel-title">[${item.module}] ${safeText(item.title)}</p>
+                        <p class="erp-header-panel-subtitle">${safeText(item.subtitle)}</p>
+                    </div>
+                    <button class="ant-btn" type="button" onclick="openModule('${item.module === 'finance' ? 'finance' : item.module}')">定位</button>
+                </li>
+            `).join('')}</ul>`;
+        }
+
+        function getHeaderNotices() {
+            const notices = [];
+            if (!window.ERP) {
+                return notices;
+            }
+            const now = new Date();
+
+            const lowStockProducts = (ERP.state.products || []).filter(p => (p.stock_quantity || 0) <= (p.min_stock || 0));
+            lowStockProducts.slice(0, 8).forEach(product => {
+                notices.push({
+                    key: `low_stock_${product.id}`,
+                    title: `库存预警：${product.name}`,
+                    subtitle: `当前库存 ${product.stock_quantity || 0}，安全库存 ${(product.min_stock ?? 0)}`,
+                    level: 'warning'
+                });
+            });
+
+            const unpaidOrders = (ERP.state.orders || []).filter(o => o.payment_status === 'unpaid');
+            unpaidOrders.slice(0, 8).forEach(order => {
+                notices.push({
+                    key: `unpaid_${order.id}`,
+                    title: `待回款订单：${order.order_number || `订单#${order.id}`}`,
+                    subtitle: `金额 ¥${parseFloat(order.total_amount || 0).toFixed(2)}，状态 ${getOrderStatusText(order.status)}`,
+                    level: 'info'
+                });
+            });
+
+            if (notices.length === 0) {
+                notices.push({
+                    key: 'all_good',
+                    title: '当前无待处理提醒',
+                    subtitle: `系统检查时间：${formatHeaderDate(now)}`,
+                    level: 'success'
+                });
+            }
+
+            return notices;
+        }
+
+        function renderHeaderNotices() {
+            const listEl = document.getElementById('headerNoticeList');
+            const badgeEl = document.getElementById('headerNoticeBadge');
+            if (!listEl || !badgeEl) {
+                return;
+            }
+
+            const readMap = JSON.parse(localStorage.getItem('erpHeaderNoticeReadMap') || '{}');
+            const notices = getHeaderNotices();
+
+            const unreadCount = notices.filter(n => !readMap[n.key]).length;
+            badgeEl.textContent = unreadCount;
+            badgeEl.classList.toggle('hidden', unreadCount === 0);
+
+            listEl.innerHTML = notices.map(notice => `
+                <li class="erp-header-panel-item">
+                    <div>
+                        <p class="erp-header-panel-title">${safeText(notice.title)}</p>
+                        <p class="erp-header-panel-subtitle">${safeText(notice.subtitle)}</p>
+                    </div>
+                    <button class="ant-btn" type="button" onclick="markHeaderNoticeRead('${notice.key}')">已读</button>
+                </li>
+            `).join('');
+        }
+
+        function markHeaderNoticeRead(key) {
+            const readMap = JSON.parse(localStorage.getItem('erpHeaderNoticeReadMap') || '{}');
+            readMap[key] = true;
+            localStorage.setItem('erpHeaderNoticeReadMap', JSON.stringify(readMap));
+            renderHeaderNotices();
+        }
+
+        function markAllHeaderNoticesRead() {
+            const notices = getHeaderNotices();
+            const readMap = JSON.parse(localStorage.getItem('erpHeaderNoticeReadMap') || '{}');
+            notices.forEach(n => {
+                readMap[n.key] = true;
+            });
+            localStorage.setItem('erpHeaderNoticeReadMap', JSON.stringify(readMap));
+            renderHeaderNotices();
+            showToast('通知已全部标记为已读', 'success');
+        }
+
+        function showHeaderSearchModal() {
+            const modal = document.getElementById('headerSearchModal');
+            const input = document.getElementById('headerSearchInput');
+            if (!modal || !input) return;
+            modal.classList.add('active');
+            modal.style.display = 'flex';
+            doGlobalSearch(input.value);
+            setTimeout(() => input.focus(), 20);
+        }
+
+        function hideHeaderSearchModal() {
+            const modal = document.getElementById('headerSearchModal');
+            if (!modal) return;
+            modal.classList.remove('active');
+            modal.style.display = 'none';
+        }
+
+        function showHeaderNoticeModal() {
+            const modal = document.getElementById('headerNoticeModal');
+            if (!modal) return;
+            renderHeaderNotices();
+            modal.classList.add('active');
+            modal.style.display = 'flex';
+        }
+
+        function hideHeaderNoticeModal() {
+            const modal = document.getElementById('headerNoticeModal');
+            if (!modal) return;
+            modal.classList.remove('active');
+            modal.style.display = 'none';
+        }
+
+        function showHeaderUserModal() {
+            const modal = document.getElementById('headerUserModal');
+            const userText = document.getElementById('headerUserEmailText');
+            if (!modal) return;
+            if (userText) {
+                userText.textContent = (window.userData && userData.user && userData.user.email) ? userData.user.email : '管理员';
+            }
+            modal.classList.add('active');
+            modal.style.display = 'flex';
+        }
+
+        function hideHeaderUserModal() {
+            const modal = document.getElementById('headerUserModal');
+            if (!modal) return;
+            modal.classList.remove('active');
+            modal.style.display = 'none';
+        }
+
+        async function handleHeaderLogout() {
+            try {
+                if (window.supabaseClient && supabaseClient.auth) {
+                    await supabaseClient.auth.signOut();
+                }
+                localStorage.removeItem('rememberMePreference');
+                window.location.href = 'login.html';
+            } catch (error) {
+                showToast('退出登录失败，请稍后重试', 'error');
             }
         }
 

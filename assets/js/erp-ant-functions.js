@@ -307,6 +307,34 @@ function printERPDiagnostics() {
     }
 }
 
+async function refreshLowStockFromLatestData(reason = 'manual') {
+    if (!window.ERP || typeof ERP.loadProducts !== 'function') {
+        return;
+    }
+
+    try {
+        const latestProducts = await ERP.loadProducts(true);
+        if (Array.isArray(latestProducts)) {
+            ERP.state.products = latestProducts;
+        }
+
+        const diagnostics = getERPInventoryDiagnostics();
+        const statLowStock = document.getElementById('statLowStock');
+        if (statLowStock) {
+            statLowStock.textContent = diagnostics.lowStockCount;
+        }
+
+        console.info('[ERP Debug] low stock refreshed', {
+            reason,
+            lowStockCount: diagnostics.lowStockCount,
+            productsCount: diagnostics.rows.length
+        });
+        console.table(diagnostics.rows);
+    } catch (error) {
+        console.warn('[ERP Debug] refreshLowStockFromLatestData failed', error?.message || error);
+    }
+}
+
 async function syncERPRealtimeData() {
     if (erpRealtimeSyncInProgress || typeof ERP === 'undefined' || !userData?.isLoggedIn) {
         return;
@@ -321,6 +349,7 @@ async function syncERPRealtimeData() {
         ]);
 
         updateStatistics();
+        await refreshLowStockFromLatestData('realtime-sync');
         if (typeof renderHeaderNotices === 'function') {
             renderHeaderNotices();
         }
@@ -1406,6 +1435,7 @@ if (typeof window !== 'undefined') {
 
     window.addEventListener('erpDataLoaded', function (event) {
         updateStatistics(event.detail);
+        refreshLowStockFromLatestData('erpDataLoaded');
         showERPContent();
         startERPRealtimeSync();
 
@@ -1451,6 +1481,7 @@ if (typeof window !== 'undefined') {
             populateInventoryProducts();
         }
         updateStatistics();
+        await refreshLowStockFromLatestData('inventory-changed');
     });
 
     window.addEventListener('erpOrderPostProcessed', async function () {
@@ -1471,6 +1502,7 @@ if (typeof window !== 'undefined') {
 
 document.addEventListener('DOMContentLoaded', function () {
     initFinanceFilters();
+    setTimeout(() => refreshLowStockFromLatestData('dom-ready'), 1200);
 
     document.addEventListener('click', function (event) {
         const target = event.target instanceof Element ? event.target : null;

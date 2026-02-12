@@ -29,6 +29,12 @@ const ERP = {
         ]);
     },
 
+    emitEvent(name, detail = {}) {
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent(name, { detail }));
+        }
+    },
+
     // ==================== 状态 ====================
     state: {
         customers: [],
@@ -829,6 +835,9 @@ const ERP = {
             // 更新本地状态
             order.items = itemsData;
             this.state.orders.unshift(order);
+            this.state.loaded.finances = false;
+
+            this.emitEvent('erpOrderChanged', { orderId: order.id, action: 'created' });
 
             if (typeof showToast === 'function') {
                 showToast('订单创建成功', 'success');
@@ -848,13 +857,17 @@ const ERP = {
     async postProcessOrder(order, items, summary) {
         const { orderNumber, totalAmount, totalCost, netProfit } = summary;
 
+        let stockChanged = false;
+        let financeChanged = false;
+
         // 更新库存（并行执行）
-        await Promise.all((items || []).map(item => {
+        const stockResults = await Promise.all((items || []).map(item => {
             if (!item.product_id) {
                 return Promise.resolve();
             }
             return this.updateStock(item.product_id, -item.quantity, 'sale', order.id);
         }));
+        stockChanged = stockResults.some(Boolean);
 
         // 创建财务记录（并行）
         const financeTasks = [
@@ -882,11 +895,29 @@ const ERP = {
 
         const financeResults = await Promise.all(financeTasks);
         const hasFailed = financeResults.some(result => !result);
+        financeChanged = financeResults.some(Boolean);
 
         if (hasFailed) {
             console.warn('[ERP] 订单财务记录部分写入失败，触发自动补录');
             await this.ensureOrderFinanceRecords(order, orderNumber, totalAmount, totalCost, netProfit);
+            financeChanged = true;
         }
+
+        if (stockChanged) {
+            this.emitEvent('erpInventoryChanged', { orderId: order.id });
+        }
+
+        if (financeChanged) {
+            this.state.loaded.finances = false;
+            this.emitEvent('erpFinanceChanged', { orderId: order.id });
+        }
+
+        this.emitEvent('erpOrderPostProcessed', {
+            orderId: order.id,
+            orderNumber,
+            financeChanged,
+            stockChanged
+        });
     },
 
     async updateOrder(orderId, orderData) {
@@ -1031,6 +1062,14 @@ const ERP = {
                 this.state.products[productIndex].stock_quantity = newQuantity;
             }
 
+            this.emitEvent('erpInventoryChanged', {
+                productId,
+                quantityChange,
+                currentQuantity: newQuantity,
+                type,
+                referenceId
+            });
+
             return true;
 
         } catch (error) {
@@ -1116,6 +1155,7 @@ const ERP = {
             }
 
             this.state.finances.unshift(data);
+            this.emitEvent('erpFinanceChanged', { record: data, action: 'created' });
 
             return data;
 

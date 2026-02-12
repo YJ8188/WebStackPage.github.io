@@ -71,6 +71,37 @@ function showERPContent() {
     document.getElementById('erpContent').style.display = 'block';
 }
 
+function showCustomerProfile(customerId) {
+    if (!window.ERP || !Array.isArray(ERP.state.customers)) {
+        return;
+    }
+
+    const customer = ERP.state.customers.find(item => Number(item.id) === Number(customerId));
+    if (!customer) {
+        if (typeof showToast === 'function') {
+            showToast('未找到客户信息', 'warning');
+        }
+        return;
+    }
+
+    const relatedOrders = (ERP.state.orders || []).filter(order => Number(order.customer_id) === Number(customer.id));
+    const totalAmount = relatedOrders.reduce((sum, order) => sum + parseFloat(order.total_amount || 0), 0);
+
+    const profileText = [
+        `客户名称：${customer.name || '-'}`,
+        `联系人：${customer.contact_person || '-'}`,
+        `电话：${customer.phone || '-'}`,
+        `邮箱：${customer.email || '-'}`,
+        `状态：${customer.status === 'active' ? '活跃' : '停用'}`,
+        `历史订单：${relatedOrders.length} 笔`,
+        `累计金额：¥${totalAmount.toFixed(2)}`,
+        `地址：${customer.address || '-'}`,
+        `备注：${customer.notes || '-'}`
+    ].join('\n');
+
+    alert(profileText);
+}
+
 // ==================== 统计数据更新 ====================
 function updateStatistics(data) {
     if (typeof ERP === 'undefined' || !ERP.getStatistics) return;
@@ -89,7 +120,16 @@ function updateStatistics(data) {
     if (statProducts) statProducts.textContent = stats.products.total;
     
     const statLowStock = document.getElementById('statLowStock');
-    if (statLowStock) statLowStock.textContent = stats.products.lowStock;
+    if (statLowStock) {
+        const inventoryRisk = (ERP.state.products || []).filter(product => {
+            const stock = parseFloat(product.stock_quantity || 0);
+            const minStockRaw = product.min_stock;
+            const minStock = Number.isFinite(parseFloat(minStockRaw)) ? parseFloat(minStockRaw) : 0;
+            const hasAlertLine = minStock > 0;
+            return hasAlertLine ? stock <= minStock : stock <= 3;
+        }).length;
+        statLowStock.textContent = inventoryRisk;
+    }
 
     // 更新订单统计
     const statOrders = document.getElementById('statOrders');
@@ -1184,6 +1224,44 @@ if (typeof window !== 'undefined') {
         if (typeof renderFinances === 'function') {
             renderFinances(event.detail.finances);
         }
+    });
+
+    window.addEventListener('erpFinanceChanged', async function () {
+        if (typeof ERP === 'undefined') {
+            return;
+        }
+
+        const finances = await ERP.loadFinances(true);
+        if (typeof renderFinances === 'function') {
+            renderFinances(finances);
+        }
+        updateStatistics();
+    });
+
+    window.addEventListener('erpInventoryChanged', async function () {
+        if (typeof ERP === 'undefined') {
+            return;
+        }
+
+        const products = await ERP.loadProducts(true);
+        if (typeof renderInventory === 'function') {
+            renderInventory(products);
+            populateInventoryProducts();
+        }
+        updateStatistics();
+    });
+
+    window.addEventListener('erpOrderPostProcessed', async function () {
+        if (typeof ERP === 'undefined') {
+            return;
+        }
+
+        ERP.state.loaded.orders = false;
+        const orders = await ERP.loadOrders(true);
+        if (typeof renderOrders === 'function') {
+            renderOrders(orders);
+        }
+        updateStatistics();
     });
 }
 

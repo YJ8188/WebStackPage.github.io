@@ -1085,7 +1085,7 @@
 
             const html = data.map(customer => `
                 <tr>
-                    <td><a href="javascript:;" style="font-weight:500;">${customer.name}</a></td>
+                    <td><a href="javascript:;" style="font-weight:500;" onclick="showCustomerProfile(${customer.id})">${customer.name}</a></td>
                     <td>${customer.contact_person || '-'}</td>
                     <td>${customer.phone || '-'}</td>
                     <td>${customer.email || '-'}</td>

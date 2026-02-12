@@ -104,6 +104,31 @@ function initNotificationCenterEvents() {
             event.stopPropagation();
         });
     }
+
+    const toggle = document.getElementById('notificationCenterToggle');
+
+    document.addEventListener('click', function(event) {
+        const panel = document.getElementById('notificationPanel');
+        if (!panel || panel.style.display !== 'flex') {
+            return;
+        }
+
+        const clickedToggle = !!(toggle && toggle.contains(event.target));
+        const clickedInsidePanel = panel.contains(event.target);
+
+        if (!clickedToggle && !clickedInsidePanel) {
+            closeNotificationCenter();
+        }
+    });
+
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            const panel = document.getElementById('notificationPanel');
+            if (panel && panel.style.display === 'flex') {
+                closeNotificationCenter();
+            }
+        }
+    });
 }
 
 // 在页面加载时初始化事件监听

@@ -947,7 +947,8 @@ async function saveFinance() {
         renderFinances(finances);
         updateStatistics();
     } finally {
-        window.deletingFinance = false;
+        saveBtn.disabled = false;
+        saveBtn.textContent = originalText;
     }
 }
 
@@ -990,6 +991,8 @@ async function deleteFinance(financeId) {
             if (typeof showToast === 'function') {
                 showToast('删除财务记录失败: ' + (error?.message ?? '未知错误'), 'error');
             }
+        } finally {
+            window.deletingFinance = false;
         }
 }
 

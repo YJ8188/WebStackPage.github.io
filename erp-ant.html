@@ -702,6 +702,7 @@
                             <label>支付状态</label>
                             <select id="orderPaymentStatus" class="ant-select" style="width: 100%;">
                                 <option value="unpaid">未支付</option>
+                                <option value="partial">部分支付</option>
                                 <option value="paid">已支付</option>
                             </select>
                         </div>
@@ -1565,24 +1566,39 @@
                 <div style="margin-bottom:8px;">
                      <select class="ant-select product-select" style="width:100%;" onchange="updateOrderItemTotal(this)">
                         <option value="">选择产品</option>
-                        ${ERP.state.products.map(p => `<option value="${p.id}" data-price="${p.price}">${p.name} - ¥${p.price}</option>`).join('')}
+                        ${ERP.state.products.map(p => `<option value="${p.id}" data-name="${p.name}" data-price="${p.price}">${p.name} - ¥${p.price}</option>`).join('')}
                      </select>
                 </div>
                 <div style="display:flex; gap:8px;">
                     <input type="number" class="ant-input item-quantity" value="1" min="1" onchange="updateOrderItemTotal(this)" style="width:80px;">
+                    <input type="number" class="ant-input item-unit-price" value="0" min="0" step="0.01" onchange="updateOrderItemTotal(this)" style="width:120px;" placeholder="单价">
                     <input type="text" class="ant-input item-total" readonly value="¥0.00" style="flex:1; background:#fafafa;">
-                    <button type="button" class="ant-btn" onclick="this.closest('.order-item').remove();" style="color:red;">删除</button>
+                    <button type="button" class="ant-btn" onclick="removeOrderItem(this)" style="color:red;">删除</button>
                 </div>
             `;
             container.appendChild(div);
         }
 
+        window.removeOrderItem = function (button) {
+            const row = button.closest('.order-item');
+            if (row) {
+                row.remove();
+            }
+        }
+
         window.updateOrderItemTotal = function (el) {
             const row = el.closest('.order-item');
             const select = row.querySelector('.product-select');
-            const qty = row.querySelector('.item-quantity').value;
-            const price = select.options[select.selectedIndex].getAttribute('data-price') || 0;
-            row.querySelector('.item-total').value = '¥' + (price * qty).toFixed(2);
+            const qty = parseFloat(row.querySelector('.item-quantity').value) || 0;
+            const unitPriceInput = row.querySelector('.item-unit-price');
+            const selectedPrice = parseFloat(select.options[select.selectedIndex]?.getAttribute('data-price') || 0);
+
+            if (el.classList.contains('product-select') && unitPriceInput) {
+                unitPriceInput.value = selectedPrice.toFixed(2);
+            }
+
+            const unitPrice = parseFloat(unitPriceInput?.value) || 0;
+            row.querySelector('.item-total').value = '¥' + (unitPrice * qty).toFixed(2);
 
             // Update Grand Total (计算建议价，但用户可以手动修改)
             let suggestedTotal = 0;

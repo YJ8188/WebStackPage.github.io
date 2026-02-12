@@ -558,6 +558,38 @@ function showOrderModal(order = null) {
         // 设置订单总金额（编辑时显示实际金额）
         const totalAmount = order.total_amount || order.totalAmount || 0;
         document.getElementById('orderTotalAmount').value = totalAmount.toString();
+
+        // 回显订单明细（若有）
+        const itemsContainer = document.getElementById('orderItems');
+        if (itemsContainer) {
+            itemsContainer.innerHTML = '';
+            const detailItems = Array.isArray(order.items) ? order.items : [];
+            detailItems.forEach(detail => {
+                const row = document.createElement('div');
+                row.className = 'order-item';
+                row.style.cssText = 'border: 1px dashed #d9d9d9; padding: 10px; margin-bottom: 8px; background: #fff;';
+                row.innerHTML = `
+                    <div style="margin-bottom:8px;">
+                        <select class="ant-select product-select" style="width:100%;" onchange="updateOrderItemTotal(this)">
+                            <option value="">选择产品</option>
+                            ${ERP.state.products.map(p => `<option value="${p.id}" data-name="${p.name}" data-price="${p.price}">${p.name} - ¥${p.price}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <input type="number" class="ant-input item-quantity" value="${detail.quantity || 1}" min="1" onchange="updateOrderItemTotal(this)" style="width:80px;">
+                        <input type="number" class="ant-input item-unit-price" value="${parseFloat(detail.unit_price || 0).toFixed(2)}" min="0" step="0.01" onchange="updateOrderItemTotal(this)" style="width:120px;" placeholder="单价">
+                        <input type="text" class="ant-input item-total" readonly value="¥0.00" style="flex:1; background:#fafafa;">
+                        <button type="button" class="ant-btn" onclick="removeOrderItem(this)" style="color:red;">删除</button>
+                    </div>
+                `;
+                itemsContainer.appendChild(row);
+                const select = row.querySelector('.product-select');
+                if (select) {
+                    select.value = String(detail.product_id || '');
+                }
+                updateOrderItemTotal(row.querySelector('.item-unit-price'));
+            });
+        }
     } else {
         title.textContent = '创建订单';
         form.reset();
@@ -599,19 +631,22 @@ async function saveOrder() {
     items.forEach(item => {
         const select = item.querySelector('.product-select');
         const quantityInput = item.querySelector('.item-quantity');
+        const unitPriceInput = item.querySelector('.item-unit-price');
         const productId = parseInt(select.value);
         const quantity = parseInt(quantityInput.value) || 0;
 
         if (productId && quantity > 0) {
             const selectedOption = select.options[select.selectedIndex];
             const productName = selectedOption?.dataset.name || '';
-            const price = parseFloat(selectedOption?.dataset.price) || 0;
+            const selectedPrice = parseFloat(selectedOption?.dataset.price) || 0;
+            const price = parseFloat(unitPriceInput?.value);
+            const finalPrice = Number.isFinite(price) && price > 0 ? price : selectedPrice;
 
             orderItems.push({
                 product_id: productId,
                 product_name: productName,
                 quantity: quantity,
-                unit_price: price
+                unit_price: finalPrice
             });
         }
     });
@@ -718,19 +753,22 @@ function getOrderItems() {
     items.forEach(item => {
         const select = item.querySelector('.product-select');
         const quantityInput = item.querySelector('.item-quantity');
+        const unitPriceInput = item.querySelector('.item-unit-price');
         const productId = parseInt(select.value);
         const quantity = parseInt(quantityInput.value) || 0;
 
         if (productId && quantity > 0) {
             const selectedOption = select.options[select.selectedIndex];
             const productName = selectedOption?.dataset.name || '';
-            const price = parseFloat(selectedOption?.dataset.price) || 0;
+            const selectedPrice = parseFloat(selectedOption?.dataset.price) || 0;
+            const price = parseFloat(unitPriceInput?.value);
+            const finalPrice = Number.isFinite(price) && price > 0 ? price : selectedPrice;
 
             orderItems.push({
                 productId: productId,
                 productName: productName,
                 quantity: quantity,
-                unitPrice: price
+                unitPrice: finalPrice
             });
         }
     });
@@ -744,10 +782,7 @@ function calculateOrderTotal() {
     let suggestedTotal = 0;
     
     orderItems.forEach(item => {
-        const product = ERP.state.products.find(p => p.id === item.productId);
-        if (product) {
-            suggestedTotal += (product.price || 0) * (item.quantity || 0);
-        }
+        suggestedTotal += (item.unitPrice || 0) * (item.quantity || 0);
     });
     
     const totalInput = document.getElementById('orderTotalAmount');

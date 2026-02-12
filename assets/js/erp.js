@@ -665,6 +665,7 @@ const ERP = {
             // 更新本地状态
             order.items = itemsData;
             this.state.orders.unshift(order);
+            this.state.loaded.finances = false;
 
             if (typeof showToast === 'function') {
                 showToast('订单创建成功', 'success');
@@ -805,53 +806,25 @@ const ERP = {
                 };
             });
 
-            const { data: itemsData, error: itemsError } = await supabaseClient
+            const { data: itemsDataRaw, error: itemsError } = await supabaseClient
                 .from('erp_order_items')
                 .insert(orderItems)
                 .select();
 
             if (itemsError) {
-                throw itemsError;
+                console.error('[ERP] 订单明细写入失败，继续执行后处理:', itemsError);
             }
 
-            // 更新库存（并行执行提升速度）
-            await Promise.all(orderData.items.map(item => {
-                if (!item.product_id) {
-                    return Promise.resolve();
-                }
-                return this.updateStock(item.product_id, -item.quantity, 'sale', order.id);
-            }));
+            const itemsData = itemsDataRaw || [];
 
-            // 创建财务记录（收入）
-            const incomeFinance = await this.addFinanceRecord({
-                type: 'income',
-                category: '销售订单',
-                amount: totalAmount,
-                description: `订单 ${orderNumber} | 成本：¥${totalCost.toFixed(2)} | 利润：¥${netProfit.toFixed(2)}`,
-                reference_id: order.id,
-                order_id: order.id
+            this.postProcessOrder(order, orderData.items, {
+                orderNumber,
+                totalAmount,
+                totalCost,
+                netProfit
+            }).catch(error => {
+                console.error('[ERP] 订单后处理失败:', error);
             });
-
-            // 创建财务记录（成本）
-            let costFinance = true;
-            if (totalCost > 0) {
-                costFinance = await this.addFinanceRecord({
-                    type: 'expense',
-                    category: '销售成本',
-                    amount: totalCost,
-                    description: `订单 ${orderNumber} - 原材料成本`,
-                    reference_id: order.id,
-                    order_id: order.id
-                });
-            }
-
-            // 创建财务记录（系统利润）
-            const profitFinance = await this.addOrderProfitFinance(order.id, orderNumber, netProfit);
-
-            if (!incomeFinance || !profitFinance || (totalCost > 0 && !costFinance)) {
-                console.warn('[ERP] 订单财务记录部分写入失败，触发自动补录');
-                await this.ensureOrderFinanceRecords(order, orderNumber, totalAmount, totalCost, netProfit);
-            }
 
             // 更新本地状态
             order.items = itemsData;
@@ -872,12 +845,61 @@ const ERP = {
         }
     },
 
+    async postProcessOrder(order, items, summary) {
+        const { orderNumber, totalAmount, totalCost, netProfit } = summary;
+
+        // 更新库存（并行执行）
+        await Promise.all((items || []).map(item => {
+            if (!item.product_id) {
+                return Promise.resolve();
+            }
+            return this.updateStock(item.product_id, -item.quantity, 'sale', order.id);
+        }));
+
+        // 创建财务记录（并行）
+        const financeTasks = [
+            this.addFinanceRecord({
+                type: 'income',
+                category: '销售订单',
+                amount: totalAmount,
+                description: `订单 ${orderNumber} | 成本：¥${totalCost.toFixed(2)} | 利润：¥${netProfit.toFixed(2)}`,
+                reference_id: order.id,
+                order_id: order.id
+            }),
+            this.addOrderProfitFinance(order.id, orderNumber, netProfit)
+        ];
+
+        if (totalCost > 0) {
+            financeTasks.push(this.addFinanceRecord({
+                type: 'expense',
+                category: '销售成本',
+                amount: totalCost,
+                description: `订单 ${orderNumber} - 原材料成本`,
+                reference_id: order.id,
+                order_id: order.id
+            }));
+        }
+
+        const financeResults = await Promise.all(financeTasks);
+        const hasFailed = financeResults.some(result => !result);
+
+        if (hasFailed) {
+            console.warn('[ERP] 订单财务记录部分写入失败，触发自动补录');
+            await this.ensureOrderFinanceRecords(order, orderNumber, totalAmount, totalCost, netProfit);
+        }
+    },
+
     async updateOrder(orderId, orderData) {
         try {
+            const localOrder = this.state.orders.find(o => o.id === orderId) || {};
+            const orderNumber = localOrder.order_number || `订单#${orderId}`;
+            const totalCost = parseFloat(localOrder.total_cost || 0);
             const manualTotalAmount = parseFloat(orderData.total_amount);
+            const currentAmount = parseFloat(localOrder.total_amount || 0);
             const totalAmount = Number.isFinite(manualTotalAmount) && manualTotalAmount > 0
                 ? manualTotalAmount
-                : null;
+                : currentAmount;
+            const netProfit = totalAmount - totalCost;
 
             const { data, error } = await supabaseClient
                 .from('erp_orders')
@@ -885,7 +907,9 @@ const ERP = {
                     customer_id: orderData.customer_id || null,
                     status: orderData.status || 'pending',
                     payment_status: orderData.payment_status || 'unpaid',
-                    ...(totalAmount !== null ? { total_amount: totalAmount } : {}),
+                    total_amount: totalAmount,
+                    total_cost: totalCost,
+                    net_profit: netProfit,
                     notes: orderData.notes || '',
                     shipping_company: orderData.shipping_company || null,
                     tracking_number: orderData.tracking_number || null,
@@ -906,9 +930,13 @@ const ERP = {
                 this.state.orders[index] = { ...this.state.orders[index], ...data };
             }
 
+            await this.syncOrderFinanceRecords(orderId, orderNumber, totalAmount, totalCost, netProfit);
+
             if (typeof showToast === 'function') {
                 showToast('订单更新成功', 'success');
             }
+
+            this.state.loaded.finances = false;
 
             return data;
 
@@ -1166,6 +1194,58 @@ const ERP = {
         if (!hasProfit) {
             await this.addOrderProfitFinance(order.id, orderNumber, netProfit);
         }
+    },
+
+    async syncOrderFinanceRecords(orderId, orderNumber, totalAmount, totalCost, netProfit) {
+        const { data: rows, error } = await supabaseClient
+            .from('erp_finances')
+            .select('id, type, category')
+            .eq('user_id', userData.user.id)
+            .eq('reference_id', orderId);
+
+        if (error) {
+            console.error('[ERP] 同步订单财务记录失败:', error);
+            return;
+        }
+
+        const records = rows || [];
+        const incomeRow = records.find(row => row.type === 'income' && row.category === '销售订单');
+        const costRow = records.find(row => row.type === 'expense' && row.category === '销售成本');
+        const profitRow = records.find(row => row.type === 'system' || row.category === '利润' || row.category === '利润(系统)');
+
+        const incomeDescription = `订单 ${orderNumber} | 成本：¥${totalCost.toFixed(2)} | 利润：¥${netProfit.toFixed(2)}`;
+
+        if (incomeRow) {
+            await supabaseClient
+                .from('erp_finances')
+                .update({ amount: totalAmount, description: incomeDescription })
+                .eq('id', incomeRow.id)
+                .eq('user_id', userData.user.id);
+        }
+
+        if (costRow) {
+            await supabaseClient
+                .from('erp_finances')
+                .update({ amount: totalCost, description: `订单 ${orderNumber} - 原材料成本` })
+                .eq('id', costRow.id)
+                .eq('user_id', userData.user.id);
+        }
+
+        if (profitRow) {
+            await supabaseClient
+                .from('erp_finances')
+                .update({ amount: profitRow.type === 'system' ? netProfit : Math.abs(netProfit) })
+                .eq('id', profitRow.id)
+                .eq('user_id', userData.user.id);
+        }
+
+        await this.ensureOrderFinanceRecords(
+            { id: orderId },
+            orderNumber,
+            totalAmount,
+            totalCost,
+            netProfit
+        );
     },
 
     async addFinance(financeData) {

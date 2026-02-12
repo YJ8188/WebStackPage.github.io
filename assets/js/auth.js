@@ -45,6 +45,33 @@ function normalizeAuthError(error) {
     return rawMessage;
 }
 
+async function getSessionWithRetry(client, maxAttempts = 3) {
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            const { data: { session }, error } = await client.auth.getSession();
+            if (!error) {
+                return { session, error: null };
+            }
+
+            lastError = error;
+            if (!isAbortLikeError(error.message) || attempt === maxAttempts) {
+                break;
+            }
+        } catch (error) {
+            lastError = error;
+            if (!isAbortLikeError(error.message) || attempt === maxAttempts) {
+                break;
+            }
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 200 * attempt));
+    }
+
+    return { session: null, error: lastError };
+}
+
 function getRedirectTarget() {
     const params = new URLSearchParams(window.location.search);
     const raw = params.get('returnTo');
@@ -173,9 +200,9 @@ async function signIn(email, password) {
         throw new Error(normalizeAuthError(error));
     }
 
-    const { data: { session }, error: sessionError } = await client.auth.getSession();
+    const { session, error: sessionError } = await getSessionWithRetry(client);
     if (sessionError || !session) {
-        throw new Error('登录会话未建立，请稍后重试');
+        throw new Error(normalizeAuthError(sessionError) || '登录会话未建立，请稍后重试');
     }
 
     console.log('[Auth] 登录成功:', data);
@@ -212,7 +239,7 @@ async function signUp(email, password) {
     } else {
         showAlert('注册成功！正在跳转...', 'success');
 
-        const { data: { session }, error: sessionError } = await client.auth.getSession();
+        const { session, error: sessionError } = await getSessionWithRetry(client);
         if (sessionError || !session) {
             setLoading(false);
             showAlert('注册成功，但会话未建立，请手动登录', 'error');
@@ -260,7 +287,7 @@ async function checkSessionAndRedirect() {
             return;
         }
 
-        const { data: { session }, error } = await client.auth.getSession();
+        const { session, error } = await getSessionWithRetry(client);
 
         if (error) {
             console.error('[Auth] 获取会话失败:', error);

@@ -2,6 +2,7 @@ const userData = {
     isLoggedIn: false,
     user: null,
     initialized: false,
+    initializing: false,
     authListenerRegistered: false,
     isOnline: navigator.onLine,
     config: {
@@ -13,13 +14,67 @@ const userData = {
         favorites: []
     },
 
+    getAuthClient() {
+        if (window.supabaseClient && window.supabaseClient.auth) {
+            return window.supabaseClient;
+        }
+        if (typeof supabaseClient !== 'undefined' && supabaseClient?.auth) {
+            return supabaseClient;
+        }
+        return null;
+    },
+
+    isAbortLikeError(error) {
+        const message = String(error?.message || error || '').toLowerCase();
+        return message.includes('aborted') || message.includes('aborterror') || message.includes('signal is aborted');
+    },
+
+    async getSessionWithRetry(maxAttempts = 3) {
+        const client = this.getAuthClient();
+        if (!client) {
+            return { session: null, error: new Error('supabaseClient not ready') };
+        }
+
+        let lastError = null;
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                const { data: { session }, error } = await client.auth.getSession();
+                if (!error) {
+                    return { session, error: null };
+                }
+
+                lastError = error;
+                if (!this.isAbortLikeError(error) || attempt === maxAttempts) {
+                    break;
+                }
+            } catch (error) {
+                lastError = error;
+                if (!this.isAbortLikeError(error) || attempt === maxAttempts) {
+                    break;
+                }
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 200 * attempt));
+        }
+
+        return { session: null, error: lastError };
+    },
+
     async init() {
         if (this.initialized) {
             console.log('[UserData] 已经初始化，跳过重复初始化');
             return;
         }
+
+        if (this.initializing) {
+            console.log('[UserData] 正在初始化中，跳过重复请求');
+            return;
+        }
         
-        this.initialized = true;
+        this.initializing = true;
+
+        try {
         
         // 监听网络状态变化
         window.addEventListener('online', () => {
@@ -44,8 +99,10 @@ const userData = {
         });
         
         if (!this.authListenerRegistered) {
-            this.authListenerRegistered = true;
-            supabaseClient.auth.onAuthStateChange(async (event, session) => {
+            const client = this.getAuthClient();
+            if (client) {
+                this.authListenerRegistered = true;
+                client.auth.onAuthStateChange(async (event, session) => {
                 if (event === 'SIGNED_OUT') {
                     this.isLoggedIn = false;
                     this.user = null;
@@ -65,9 +122,13 @@ const userData = {
                     console.log('[UserData] Token 已刷新');
                 }
             });
+            }
         }
 
-        const { data: { session } } = await supabaseClient.auth.getSession();
+        const { session, error } = await this.getSessionWithRetry();
+        if (error) {
+            console.warn('[UserData] 获取会话失败（已重试）:', error?.message || error);
+        }
         
         if (session) {
             this.isLoggedIn = true;
@@ -79,6 +140,18 @@ const userData = {
             console.log('[UserData] 用户未登录，使用 localStorage');
             this.loadFromLocalStorage();
             window.dispatchEvent(new CustomEvent('userDataLoaded', { detail: this.config }));
+        }
+
+        this.initialized = true;
+        } catch (error) {
+            console.error('[UserData] 初始化失败:', error);
+            this.isLoggedIn = false;
+            this.user = null;
+            this.loadFromLocalStorage();
+            window.dispatchEvent(new CustomEvent('userDataLoaded', { detail: this.config }));
+            this.initialized = false;
+        } finally {
+            this.initializing = false;
         }
     },
 

@@ -1046,10 +1046,30 @@
                 try {
                     const authReady = !!(window.supabaseClient && supabaseClient.auth);
                     if (!authReady) {
+                        if (typeof window.checkLoginStatus === 'function') {
+                            window.checkLoginStatus();
+                        }
                         return;
                     }
 
-                    const { data: { session } } = await supabaseClient.auth.getSession();
+                    let session = null;
+                    for (let attempt = 1; attempt <= 3; attempt++) {
+                        try {
+                            const { data, error } = await supabaseClient.auth.getSession();
+                            session = data?.session || null;
+
+                            if (!error || !String(error.message || '').toLowerCase().includes('aborted') || attempt === 3) {
+                                break;
+                            }
+                        } catch (error) {
+                            if (!String(error?.message || '').toLowerCase().includes('aborted') || attempt === 3) {
+                                break;
+                            }
+                        }
+
+                        await new Promise(resolve => setTimeout(resolve, 200 * attempt));
+                    }
+
                     const loggedIn = !!(session && session.user);
 
                     if (loggedIn) {
@@ -1939,7 +1959,7 @@
             }
 
             setTimeout(() => {
-                window.location.href = 'login.html?returnTo=erp.html';
+                window.location.href = 'login.html?returnTo=erp-ant.html';
             }, 500);
         }
 

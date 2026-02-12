@@ -4,16 +4,53 @@
  */
 
 // ==================== 登录状态检查 ====================
-function checkLoginStatus() {
+async function checkLoginStatus() {
     if (typeof userData !== 'undefined' && userData.isLoggedIn) {
         showERPContent();
-        // 初始化 ERP 数据加载
         if (typeof ERP !== 'undefined' && ERP.init) {
             ERP.init();
         }
-    } else {
-        showNotLoggedIn();
+        return;
     }
+
+    try {
+        if (window.supabaseClient && window.supabaseClient.auth) {
+            let session = null;
+
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    const { data, error } = await window.supabaseClient.auth.getSession();
+                    session = data?.session || null;
+
+                    if (!error || !String(error.message || '').toLowerCase().includes('aborted') || attempt === 3) {
+                        break;
+                    }
+                } catch (error) {
+                    if (!String(error?.message || '').toLowerCase().includes('aborted') || attempt === 3) {
+                        break;
+                    }
+                }
+
+                await new Promise(resolve => setTimeout(resolve, 200 * attempt));
+            }
+
+            if (session && session.user) {
+                if (typeof userData !== 'undefined') {
+                    userData.isLoggedIn = true;
+                    userData.user = session.user;
+                }
+                showERPContent();
+                if (typeof ERP !== 'undefined' && ERP.init) {
+                    ERP.init();
+                }
+                return;
+            }
+        }
+    } catch (error) {
+        console.warn('[ERP Ant] checkLoginStatus 获取会话失败:', error?.message || error);
+    }
+
+    showNotLoggedIn();
 }
 
 function showLoading() {

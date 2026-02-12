@@ -30,6 +30,26 @@ const userData = {
         return message.includes('aborted') || message.includes('aborterror') || message.includes('signal is aborted');
     },
 
+    getDefaultConfig() {
+        return {
+            darkMode: false,
+            hiddenCards: [],
+            cardOrder: [],
+            notificationPanelOpen: false,
+            reminders: [],
+            favorites: []
+        };
+    },
+
+    withTimeout(promise, timeout = 6000, message = '请求超时') {
+        return Promise.race([
+            promise,
+            new Promise((_, reject) => {
+                setTimeout(() => reject(new Error(message)), timeout);
+            })
+        ]);
+    },
+
     async getSessionWithRetry(maxAttempts = 3) {
         const client = this.getAuthClient();
         if (!client) {
@@ -115,7 +135,10 @@ const userData = {
                                 this.isLoggedIn = true;
                                 this.user = session.user;
                                 console.log('[UserData] 用户已登录:', this.user.email);
-                                await this.loadConfig();
+                                window.dispatchEvent(new CustomEvent('userDataLoaded', { detail: this.config }));
+                                this.loadConfig().catch(error => {
+                                    console.warn('[UserData] SIGNED_IN 后加载配置失败:', error?.message || error);
+                                });
                             } else if (event === 'TOKEN_REFRESHED') {
                                 if (session?.user) {
                                     this.isLoggedIn = true;
@@ -136,8 +159,10 @@ const userData = {
                     this.isLoggedIn = true;
                     this.user = session.user;
                     console.log('[UserData] 用户已登录:', this.user.email);
-
-                    await this.loadConfig();
+                    window.dispatchEvent(new CustomEvent('userDataLoaded', { detail: this.config }));
+                    this.loadConfig().catch(error => {
+                        console.warn('[UserData] 初始化后加载配置失败:', error?.message || error);
+                    });
                 } else {
                     console.log('[UserData] 用户未登录，使用 localStorage');
                     this.loadFromLocalStorage();
@@ -178,14 +203,28 @@ const userData = {
     async loadConfig(triggerEvent = true) {
         console.log('[UserData] loadConfig 被调用');
         console.log('[UserData] user.id:', this.user?.id);
+
+        const client = this.getAuthClient();
+        if (!client || !this.user?.id) {
+            console.warn('[UserData] loadConfig 跳过：客户端或 user.id 不可用');
+            this.loadFromLocalStorage();
+            if (triggerEvent) {
+                window.dispatchEvent(new CustomEvent('userDataLoaded', { detail: this.config }));
+            }
+            return;
+        }
         
         try {
             console.log('[UserData] 开始查询数据库...');
             
-            const { data, error, count, status, statusText } = await supabaseClient
-                .from('user_config')
-                .select('*')
-                .eq('user_id', this.user.id);
+            const { data, error, count, status, statusText } = await this.withTimeout(
+                client
+                    .from('user_config')
+                    .select('*')
+                    .eq('user_id', this.user.id),
+                6000,
+                '加载用户配置超时'
+            );
 
             console.log('[UserData] 查询结果:');
             console.log('[UserData] data:', data);
@@ -206,14 +245,7 @@ const userData = {
                 });
                 
                 console.log('[UserData] 使用默认配置');
-                this.config = {
-                    darkMode: false,
-                    hiddenCards: [],
-                    cardOrder: [],
-                    notificationPanelOpen: false,
-                    reminders: [],
-                    favorites: []
-                };
+                this.config = this.getDefaultConfig();
             } else if (data && data.length > 0) {
                 const latestConfig = data[0];
                 this.config = {
@@ -227,14 +259,7 @@ const userData = {
                 console.log('[UserData] 已从数据库加载配置:', this.config);
             } else {
                 console.log('[UserData] 用户配置不存在，使用默认配置');
-                this.config = {
-                    darkMode: false,
-                    hiddenCards: [],
-                    cardOrder: [],
-                    notificationPanelOpen: false,
-                    reminders: [],
-                    favorites: []
-                };
+                this.config = this.getDefaultConfig();
             }
             
             if (triggerEvent) {
@@ -243,6 +268,10 @@ const userData = {
             }
         } catch (error) {
             console.error('[UserData] 加载配置异常:', error);
+            this.loadFromLocalStorage();
+            if (triggerEvent) {
+                window.dispatchEvent(new CustomEvent('userDataLoaded', { detail: this.config }));
+            }
         }
     },
 

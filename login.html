@@ -254,6 +254,107 @@
 
         .auth-footer a:hover { text-decoration: underline; }
 
+        .self-check-toggle {
+            position: fixed;
+            right: 16px;
+            bottom: 16px;
+            z-index: 3000;
+            border: none;
+            border-radius: 999px;
+            background: #0f172a;
+            color: #fff;
+            padding: 10px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.25);
+        }
+
+        .self-check-panel {
+            position: fixed;
+            right: 16px;
+            bottom: 64px;
+            z-index: 3000;
+            width: min(420px, calc(100vw - 24px));
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+            display: none;
+            overflow: hidden;
+        }
+
+        .self-check-panel.active { display: block; }
+
+        .self-check-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 14px;
+            border-bottom: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+
+        .self-check-title {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .self-check-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .self-check-btn {
+            border: 1px solid #dbe1ea;
+            background: #fff;
+            color: #334155;
+            border-radius: 8px;
+            padding: 5px 8px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .self-check-body {
+            max-height: 52vh;
+            overflow: auto;
+            padding: 12px 14px;
+        }
+
+        .self-check-list {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .self-check-item {
+            display: flex;
+            gap: 10px;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px dashed #e2e8f0;
+            font-size: 12px;
+        }
+
+        .self-check-item:last-child { border-bottom: none; }
+
+        .self-check-key {
+            color: #64748b;
+            min-width: 118px;
+        }
+
+        .self-check-value {
+            color: #0f172a;
+            text-align: right;
+            word-break: break-all;
+        }
+
+        .self-check-status-ok { color: #16a34a; font-weight: 600; }
+        .self-check-status-warn { color: #d97706; font-weight: 600; }
+        .self-check-status-bad { color: #dc2626; font-weight: 600; }
+
         @media (max-width: 900px) {
             .auth-shell { grid-template-columns: 1fr; }
             .auth-left {
@@ -321,5 +422,140 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <script src="assets/js/supabase-config.js"></script>
     <script src="assets/js/auth.js"></script>
+
+    <button type="button" id="selfCheckToggle" class="self-check-toggle">登录自检</button>
+    <section id="selfCheckPanel" class="self-check-panel" aria-live="polite">
+        <div class="self-check-head">
+            <h3 class="self-check-title">登录自检面板</h3>
+            <div class="self-check-actions">
+                <button type="button" class="self-check-btn" id="selfCheckRefresh">刷新</button>
+                <button type="button" class="self-check-btn" id="selfCheckCopy">复制</button>
+                <button type="button" class="self-check-btn" id="selfCheckClose">关闭</button>
+            </div>
+        </div>
+        <div class="self-check-body">
+            <ul id="selfCheckList" class="self-check-list"></ul>
+        </div>
+    </section>
+
+    <script>
+        (function initLoginSelfCheck() {
+            const toggleButton = document.getElementById('selfCheckToggle');
+            const panel = document.getElementById('selfCheckPanel');
+            const closeButton = document.getElementById('selfCheckClose');
+            const refreshButton = document.getElementById('selfCheckRefresh');
+            const copyButton = document.getElementById('selfCheckCopy');
+            const list = document.getElementById('selfCheckList');
+
+            if (!toggleButton || !panel || !list) {
+                return;
+            }
+
+            function parseReturnTarget() {
+                const params = new URLSearchParams(window.location.search);
+                const returnTo = params.get('returnTo') || '';
+                return returnTo;
+            }
+
+            function sanitizeReturnTarget(raw) {
+                const fallback = 'index.html';
+                if (!raw) return fallback;
+                try {
+                    const value = decodeURIComponent(raw).trim();
+                    if (!value || /^(https?:|\/\/|javascript:)/i.test(value) || value.includes('..')) {
+                        return fallback;
+                    }
+                    return value;
+                } catch (error) {
+                    return fallback;
+                }
+            }
+
+            function makeStatus(value, okText = '正常', badText = '异常') {
+                return value
+                    ? `<span class="self-check-status-ok">${okText}</span>`
+                    : `<span class="self-check-status-bad">${badText}</span>`;
+            }
+
+            async function collectSelfCheckRows() {
+                const rawReturnTo = parseReturnTarget();
+                const safeReturnTo = sanitizeReturnTarget(rawReturnTo);
+                const hasSupabaseLib = typeof window.supabase !== 'undefined';
+                const hasSupabaseClient = typeof window.supabaseClient !== 'undefined';
+                const rememberMe = localStorage.getItem('rememberMePreference');
+                const protocol = window.location.protocol;
+                const isFileProtocol = protocol === 'file:';
+
+                let sessionOk = false;
+                let sessionUser = '-';
+                let sessionError = '-';
+
+                try {
+                    if (hasSupabaseClient && window.supabaseClient?.auth) {
+                        const { data: { session }, error } = await window.supabaseClient.auth.getSession();
+                        sessionOk = !!session;
+                        sessionUser = session?.user?.email || '-';
+                        sessionError = error ? (error.message || 'unknown') : '-';
+                    } else {
+                        sessionError = 'supabaseClient 未初始化';
+                    }
+                } catch (error) {
+                    sessionError = error?.message || '获取 session 失败';
+                }
+
+                return [
+                    ['当前时间', new Date().toLocaleString('zh-CN')],
+                    ['当前地址', window.location.href],
+                    ['页面协议', isFileProtocol ? '<span class="self-check-status-warn">file://（建议改本地服务器）</span>' : `${protocol}//`],
+                    ['当前域名', window.location.origin || 'file:// 本地文件'],
+                    ['回跳参数(returnTo)', rawReturnTo || '-'],
+                    ['回跳目标(安全)', safeReturnTo],
+                    ['Supabase 库', makeStatus(hasSupabaseLib)],
+                    ['Supabase 客户端', makeStatus(hasSupabaseClient)],
+                    ['Session 状态', sessionOk ? '<span class="self-check-status-ok">已登录</span>' : '<span class="self-check-status-warn">未登录/未建立</span>'],
+                    ['Session 用户', sessionUser],
+                    ['Session 错误', sessionError],
+                    ['记住我偏好', rememberMe ?? 'null'],
+                    ['网络状态', navigator.onLine ? '<span class="self-check-status-ok">online</span>' : '<span class="self-check-status-bad">offline</span>']
+                ];
+            }
+
+            async function renderSelfCheck() {
+                list.innerHTML = '<li class="self-check-item"><span class="self-check-key">状态</span><span class="self-check-value">检测中...</span></li>';
+                const rows = await collectSelfCheckRows();
+                list.innerHTML = rows.map(([key, value]) => `
+                    <li class="self-check-item">
+                        <span class="self-check-key">${key}</span>
+                        <span class="self-check-value">${value}</span>
+                    </li>
+                `).join('');
+            }
+
+            async function copySelfCheckReport() {
+                const rows = await collectSelfCheckRows();
+                const text = rows.map(([key, value]) => `${key}: ${String(value).replace(/<[^>]+>/g, '')}`).join('\n');
+                try {
+                    await navigator.clipboard.writeText(text);
+                    alert('自检报告已复制，可直接发给我排查。');
+                } catch (error) {
+                    alert('复制失败，请手动截图。');
+                }
+            }
+
+            toggleButton.addEventListener('click', async function () {
+                panel.classList.toggle('active');
+                if (panel.classList.contains('active')) {
+                    await renderSelfCheck();
+                }
+            });
+
+            closeButton?.addEventListener('click', function () {
+                panel.classList.remove('active');
+            });
+
+            refreshButton?.addEventListener('click', renderSelfCheck);
+            copyButton?.addEventListener('click', copySelfCheckReport);
+        })();
+    </script>
 </body>
 </html>

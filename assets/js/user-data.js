@@ -2,6 +2,7 @@ const userData = {
     isLoggedIn: false,
     user: null,
     initialized: false,
+    authListenerRegistered: false,
     isOnline: navigator.onLine,
     config: {
         darkMode: false,
@@ -42,6 +43,30 @@ const userData = {
             }
         });
         
+        if (!this.authListenerRegistered) {
+            this.authListenerRegistered = true;
+            supabaseClient.auth.onAuthStateChange(async (event, session) => {
+                if (event === 'SIGNED_OUT') {
+                    this.isLoggedIn = false;
+                    this.user = null;
+                    console.log('[UserData] 用户已登出');
+                    this.loadFromLocalStorage();
+                    window.dispatchEvent(new CustomEvent('userDataLoaded', { detail: this.config }));
+                } else if (event === 'SIGNED_IN') {
+                    this.isLoggedIn = true;
+                    this.user = session.user;
+                    console.log('[UserData] 用户已登录:', this.user.email);
+                    await this.loadConfig();
+                } else if (event === 'TOKEN_REFRESHED') {
+                    if (session?.user) {
+                        this.isLoggedIn = true;
+                        this.user = session.user;
+                    }
+                    console.log('[UserData] Token 已刷新');
+                }
+            });
+        }
+
         const { data: { session } } = await supabaseClient.auth.getSession();
         
         if (session) {
@@ -50,24 +75,10 @@ const userData = {
             console.log('[UserData] 用户已登录:', this.user.email);
             
             await this.loadConfig();
-            
-            supabaseClient.auth.onAuthStateChange(async (event, session) => {
-                if (event === 'SIGNED_OUT') {
-                    this.isLoggedIn = false;
-                    this.user = null;
-                    console.log('[UserData] 用户已登出');
-                } else if (event === 'SIGNED_IN') {
-                    this.isLoggedIn = true;
-                    this.user = session.user;
-                    console.log('[UserData] 用户已登录:', this.user.email);
-                    await this.loadConfig();
-                } else if (event === 'TOKEN_REFRESHED') {
-                    console.log('[UserData] Token 已刷新');
-                }
-            });
         } else {
             console.log('[UserData] 用户未登录，使用 localStorage');
             this.loadFromLocalStorage();
+            window.dispatchEvent(new CustomEvent('userDataLoaded', { detail: this.config }));
         }
     },
 

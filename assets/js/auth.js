@@ -128,6 +128,11 @@ async function signIn(email, password) {
         throw new Error(error.message);
     }
 
+    const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+    if (sessionError || !session) {
+        throw new Error('登录会话未建立，请稍后重试');
+    }
+
     console.log('[Auth] 登录成功:', data);
 
     // 设置会话持久化
@@ -160,6 +165,13 @@ async function signUp(email, password) {
         showAlert('注册成功！请检查邮箱验证账号', 'success');
     } else {
         showAlert('注册成功！正在跳转...', 'success');
+
+        const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+        if (sessionError || !session) {
+            setLoading(false);
+            showAlert('注册成功，但会话未建立，请手动登录', 'error');
+            return;
+        }
         
         setTimeout(() => {
             window.location.href = redirectTarget;

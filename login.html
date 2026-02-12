@@ -481,7 +481,7 @@
                 const rawReturnTo = parseReturnTarget();
                 const safeReturnTo = sanitizeReturnTarget(rawReturnTo);
                 const hasSupabaseLib = typeof window.supabase !== 'undefined';
-                const hasSupabaseClient = typeof window.supabaseClient !== 'undefined';
+                const hasSupabaseClient = !!(window.supabaseClient && window.supabaseClient.auth);
                 const rememberMe = localStorage.getItem('rememberMePreference');
                 const protocol = window.location.protocol;
                 const isFileProtocol = protocol === 'file:';
@@ -491,7 +491,7 @@
                 let sessionError = '-';
 
                 try {
-                    if (hasSupabaseClient && window.supabaseClient?.auth) {
+                    if (hasSupabaseClient) {
                         const { data: { session }, error } = await window.supabaseClient.auth.getSession();
                         sessionOk = !!session;
                         sessionUser = session?.user?.email || '-';

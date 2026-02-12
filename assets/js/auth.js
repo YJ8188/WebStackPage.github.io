@@ -11,6 +11,40 @@ const toggleLink = document.getElementById('toggleLink');
 
 let isLoginMode = true;
 
+function getSupabaseClient() {
+    if (window.supabaseClient && window.supabaseClient.auth) {
+        return window.supabaseClient;
+    }
+    if (typeof supabaseClient !== 'undefined' && supabaseClient?.auth) {
+        return supabaseClient;
+    }
+    return null;
+}
+
+function assertSupabaseReady() {
+    const client = getSupabaseClient();
+    if (!client) {
+        throw new Error('登录服务初始化失败，请刷新页面后重试');
+    }
+    return client;
+}
+
+function isAbortLikeError(message) {
+    const text = (message || '').toLowerCase();
+    return text.includes('aborted') || text.includes('aborterror') || text.includes('signal is aborted');
+}
+
+function normalizeAuthError(error) {
+    const rawMessage = error?.message || String(error || '');
+    if (isAbortLikeError(rawMessage)) {
+        return '登录请求被中断，请检查网络后重试';
+    }
+    if (!rawMessage) {
+        return '登录失败，请稍后重试';
+    }
+    return rawMessage;
+}
+
 function getRedirectTarget() {
     const params = new URLSearchParams(window.location.search);
     const raw = params.get('returnTo');
@@ -102,6 +136,7 @@ authForm.addEventListener('submit', async function(e) {
 });
 
 async function signIn(email, password) {
+    const client = assertSupabaseReady();
     const rememberMe = rememberMeCheckbox.checked;
 
     console.log('[Auth] 登录请求 - 邮箱:', email);
@@ -111,7 +146,7 @@ async function signIn(email, password) {
     localStorage.setItem('rememberMePreference', rememberMe.toString());
 
     // 使用持久化会话登录
-    const { data, error } = await supabaseClient.auth.signInWithPassword({
+    let authResult = await client.auth.signInWithPassword({
         email: email,
         password: password,
         options: {
@@ -121,14 +156,24 @@ async function signIn(email, password) {
         }
     });
 
+    if (authResult?.error && isAbortLikeError(authResult.error.message)) {
+        await new Promise(resolve => setTimeout(resolve, 250));
+        authResult = await client.auth.signInWithPassword({
+            email: email,
+            password: password
+        });
+    }
+
+    const { data, error } = authResult;
+
     setLoading(false);
 
     if (error) {
         console.error('[Auth] 登录失败:', error);
-        throw new Error(error.message);
+        throw new Error(normalizeAuthError(error));
     }
 
-    const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+    const { data: { session }, error: sessionError } = await client.auth.getSession();
     if (sessionError || !session) {
         throw new Error('登录会话未建立，请稍后重试');
     }
@@ -150,7 +195,8 @@ async function signIn(email, password) {
 }
 
 async function signUp(email, password) {
-    const { data, error } = await supabaseClient.auth.signUp({
+    const client = assertSupabaseReady();
+    const { data, error } = await client.auth.signUp({
         email: email,
         password: password
     });
@@ -166,7 +212,7 @@ async function signUp(email, password) {
     } else {
         showAlert('注册成功！正在跳转...', 'success');
 
-        const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+        const { data: { session }, error: sessionError } = await client.auth.getSession();
         if (sessionError || !session) {
             setLoading(false);
             showAlert('注册成功，但会话未建立，请手动登录', 'error');
@@ -208,7 +254,13 @@ async function checkSessionAndRedirect() {
     console.log('[Auth] 检查会话状态...');
 
     try {
-        const { data: { session }, error } = await supabaseClient.auth.getSession();
+        const client = getSupabaseClient();
+        if (!client) {
+            console.warn('[Auth] Supabase 客户端未就绪，跳过自动跳转检查');
+            return;
+        }
+
+        const { data: { session }, error } = await client.auth.getSession();
 
         if (error) {
             console.error('[Auth] 获取会话失败:', error);
@@ -239,22 +291,31 @@ async function checkSessionAndRedirect() {
 }
 
 // 监听认证状态变化
-supabaseClient.auth.onAuthStateChange((event, session) => {
-    console.log('[Auth] 认证状态变化:', event);
-
-    if (event === 'SIGNED_IN') {
-        console.log('[Auth] 用户已登录');
-    } else if (event === 'SIGNED_OUT') {
-        console.log('[Auth] 用户已登出');
-        // 清除记住我偏好
-        localStorage.removeItem('rememberMePreference');
-    } else if (event === 'TOKEN_REFRESHED') {
-        console.log('[Auth] 令牌已刷新');
+function bindAuthStateChangeListener() {
+    const client = getSupabaseClient();
+    if (!client) {
+        console.warn('[Auth] 无法绑定认证监听：Supabase 客户端未就绪');
+        return;
     }
-});
+
+    client.auth.onAuthStateChange((event, session) => {
+        console.log('[Auth] 认证状态变化:', event);
+
+        if (event === 'SIGNED_IN') {
+            console.log('[Auth] 用户已登录');
+        } else if (event === 'SIGNED_OUT') {
+            console.log('[Auth] 用户已登出');
+            localStorage.removeItem('rememberMePreference');
+        } else if (event === 'TOKEN_REFRESHED') {
+            console.log('[Auth] 令牌已刷新');
+        }
+    });
+}
 
 // 页面加载时检查会话
 document.addEventListener('DOMContentLoaded', function() {
+    bindAuthStateChangeListener();
+
     // 延迟检查，确保 Supabase 客户端已初始化
     setTimeout(() => {
         checkSessionAndRedirect();

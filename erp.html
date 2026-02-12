@@ -180,7 +180,7 @@
                 <!-- Not Logged In -->
                 <div id="notLoggedIn" style="display: none; text-align: center; padding: 50px;">
                     <h2>请先登录</h2>
-                    <a href="login.html" class="ant-btn ant-btn-primary">去登录</a>
+                    <a href="login.html?returnTo=erp-ant.html" class="ant-btn ant-btn-primary">去登录</a>
                 </div>
 
                 <!-- ERP Main Content -->
@@ -1039,24 +1039,51 @@
 
         // Initialize Checks
         document.addEventListener('DOMContentLoaded', () => {
-            // Wait a moment for userData.init() to attempt session recovery
-            setTimeout(() => {
+            setTimeout(async () => {
                 const loading = document.getElementById('loadingContainer');
                 const notLoggedIn = document.getElementById('notLoggedIn');
-                const erpContent = document.getElementById('erpContent');
 
-                // If still loading and not logged in (erp.js won't trigger if not logged in)
-                if (loading && loading.style.display !== 'none' && (!userData || !userData.isLoggedIn)) {
-                    // UI: Detected not logged in state, showing login prompt.
-                    loading.style.display = 'none';
-                    if (notLoggedIn) {
-                        notLoggedIn.style.display = 'block';
-                        // Add helpful context about localhost vs file login
-                        const h2 = notLoggedIn.querySelector('h2');
-                        if (h2) h2.innerHTML = '请先登录<br><small style="font-size:14px;color:#999;font-weight:normal;display:block;margin-top:10px;">提示：本地服务器 与文件夹打开的登录状态不互通，<br>请在此页面点击下方按钮重新登录</small>';
+                try {
+                    const authReady = !!(window.supabaseClient && supabaseClient.auth);
+                    if (!authReady) {
+                        return;
+                    }
+
+                    const { data: { session } } = await supabaseClient.auth.getSession();
+                    const loggedIn = !!(session && session.user);
+
+                    if (loggedIn) {
+                        if (window.userData) {
+                            userData.isLoggedIn = true;
+                            userData.user = session.user;
+                            if (typeof userData.loadConfig === 'function') {
+                                await userData.loadConfig();
+                            }
+                        }
+
+                        if (typeof window.checkLoginStatus === 'function') {
+                            window.checkLoginStatus();
+                        }
+                        return;
+                    }
+
+                    if (loading && loading.style.display !== 'none') {
+                        loading.style.display = 'none';
+                        if (notLoggedIn) {
+                            notLoggedIn.style.display = 'block';
+                            const h2 = notLoggedIn.querySelector('h2');
+                            if (h2) h2.innerHTML = '请先登录<br><small style="font-size:14px;color:#999;font-weight:normal;display:block;margin-top:10px;">提示：本地服务器 与文件夹打开的登录状态不互通，<br>请在此页面点击下方按钮重新登录</small>';
+                        }
+                    }
+                } catch (error) {
+                    if (loading && loading.style.display !== 'none') {
+                        loading.style.display = 'none';
+                        if (notLoggedIn) {
+                            notLoggedIn.style.display = 'block';
+                        }
                     }
                 }
-            }, 3000); // 3 seconds timeout
+            }, 1200);
         });
 
         // Redefine render functions to produce Ant Design styled HTML
@@ -1459,6 +1486,31 @@
                 });
             });
 
+            document.addEventListener('click', function (event) {
+                const triggerSelectors = [
+                    '#headerGlobalSearchBtn',
+                    '#headerNoticeBtn',
+                    '#headerUserBtn',
+                    '#headerSearchModal .modal',
+                    '#headerNoticeModal .modal',
+                    '#headerUserModal .modal'
+                ];
+                const clickedInside = triggerSelectors.some(selector => {
+                    const element = document.querySelector(selector);
+                    return element ? element.contains(event.target) : false;
+                });
+
+                if (!clickedInside) {
+                    closeAllHeaderPanels();
+                }
+            });
+
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape') {
+                    closeAllHeaderPanels();
+                }
+            });
+
             const userEmailEl = document.getElementById('userEmail');
             if (userEmailEl && window.userData && userData.user && userData.user.email) {
                 userEmailEl.textContent = userData.user.email;
@@ -1801,6 +1853,12 @@
             modal.style.display = 'none';
         }
 
+        function closeAllHeaderPanels() {
+            hideHeaderSearchModal();
+            hideHeaderNoticeModal();
+            hideHeaderUserModal();
+        }
+
         function showHeaderUserModal() {
             const modal = document.getElementById('headerUserModal');
             const userText = document.getElementById('headerUserEmailText');
@@ -1835,4 +1893,5 @@
 </body>
 
 </html>
+
 

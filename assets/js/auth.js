@@ -11,6 +11,34 @@ const toggleLink = document.getElementById('toggleLink');
 
 let isLoginMode = true;
 
+function getRedirectTarget() {
+    const params = new URLSearchParams(window.location.search);
+    const raw = params.get('returnTo');
+    const fallback = 'index.html';
+
+    if (!raw) {
+        return fallback;
+    }
+
+    try {
+        const value = decodeURIComponent(raw).trim();
+        if (!value) {
+            return fallback;
+        }
+        if (/^(https?:|\/\/|javascript:)/i.test(value)) {
+            return fallback;
+        }
+        if (value.includes('..')) {
+            return fallback;
+        }
+        return value;
+    } catch (error) {
+        return fallback;
+    }
+}
+
+const redirectTarget = getRedirectTarget();
+
 // 初始化：检查是否之前选择了记住我
 document.addEventListener('DOMContentLoaded', function() {
     const rememberPreference = localStorage.getItem('rememberMePreference');
@@ -112,7 +140,7 @@ async function signIn(email, password) {
     showAlert('登录成功！正在跳转...', 'success');
 
     setTimeout(() => {
-        window.location.href = 'index.html';
+        window.location.href = redirectTarget;
     }, 1000);
 }
 
@@ -134,7 +162,7 @@ async function signUp(email, password) {
         showAlert('注册成功！正在跳转...', 'success');
         
         setTimeout(() => {
-            window.location.href = 'index.html';
+            window.location.href = redirectTarget;
         }, 1000);
     }
 }
@@ -182,12 +210,12 @@ async function checkSessionAndRedirect() {
             const rememberPreference = localStorage.getItem('rememberMePreference');
             console.log('[Auth] 记住我偏好:', rememberPreference);
 
-            // 如果会话有效且用户选择了记住我，自动跳转到首页
+            // 如果会话有效且用户选择了记住我，自动跳转到目标页
             if (rememberPreference === 'true') {
-                console.log('[Auth] 自动跳转到首页');
+                console.log('[Auth] 自动跳转到目标页:', redirectTarget);
                 showAlert('检测到您已登录，正在跳转...', 'success');
                 setTimeout(() => {
-                    window.location.href = 'index.html';
+                    window.location.href = redirectTarget;
                 }, 1000);
             }
         } else {

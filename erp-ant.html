@@ -1257,9 +1257,9 @@
 
             tbody.innerHTML = data.map(f => `
                 <tr>
-                    <td>${f.type === 'income' ? '收入' : '支出'}</td>
+                    <td>${f.type === 'income' ? '收入' : (f.type === 'expense' ? '支出' : '系统')}</td>
                     <td>${f.category || '-'}</td>
-                    <td style="font-weight:bold; color: ${f.type === 'income' ? '#cf1322' : '#3f8600'}">${f.type === 'income' ? '+' : '-'}¥${parseFloat(f.amount).toFixed(2)}</td>
+                    <td style="font-weight:bold; color: ${f.type === 'income' ? '#cf1322' : (f.type === 'expense' ? '#3f8600' : '#2563eb')}">${f.type === 'income' ? '+' : (f.type === 'expense' ? '-' : (parseFloat(f.amount) >= 0 ? '+' : '-'))}¥${Math.abs(parseFloat(f.amount)).toFixed(2)}</td>
                     <td>${f.description || '-'}</td>
                     <td>${(() => {
                         const date = new Date(f.transaction_date);
@@ -1448,9 +1448,12 @@
         function updateFinanceSummary(data) {
             const income = data.filter(d => d.type === 'income').reduce((s, d) => s + parseFloat(d.amount), 0);
             const expense = data.filter(d => d.type === 'expense').reduce((s, d) => s + parseFloat(d.amount), 0);
+            const systemProfit = data
+                .filter(d => d.type === 'system' || (d.category && (d.category === '利润' || d.category === '利润(系统)')))
+                .reduce((s, d) => s + parseFloat(d.amount), 0);
             document.getElementById('totalIncome').innerText = '¥' + income.toFixed(2);
             document.getElementById('totalExpense').innerText = '¥' + expense.toFixed(2);
-            document.getElementById('netIncome').innerText = '¥' + (income - expense).toFixed(2);
+            document.getElementById('netIncome').innerText = '¥' + ((systemProfit !== 0 ? systemProfit : (income - expense)).toFixed(2));
         }
 
         // --- Init ---

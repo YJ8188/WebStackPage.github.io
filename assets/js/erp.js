@@ -659,6 +659,9 @@ const ERP = {
                 });
             }
 
+            // 创建财务记录（系统利润）
+            await this.addOrderProfitFinance(order.id, orderNumber, netProfit);
+
             // 更新本地状态
             order.items = itemsData;
             this.state.orders.unshift(order);
@@ -833,6 +836,9 @@ const ERP = {
                     order_id: order.id
                 });
             }
+
+            // 创建财务记录（系统利润）
+            await this.addOrderProfitFinance(order.id, orderNumber, netProfit);
 
             // 更新本地状态
             order.items = itemsData;
@@ -1070,6 +1076,33 @@ const ERP = {
             console.error('[ERP] 添加财务记录失败:', error);
             return null;
         }
+    },
+
+    async addOrderProfitFinance(orderId, orderNumber, netProfit) {
+        const profitAmount = parseFloat(netProfit || 0);
+
+        const systemResult = await this.addFinanceRecord({
+            type: 'system',
+            category: '利润',
+            amount: profitAmount,
+            description: `订单 ${orderNumber} - 系统利润`,
+            reference_id: orderId,
+            order_id: orderId
+        });
+
+        if (systemResult) {
+            return systemResult;
+        }
+
+        const compatibleType = profitAmount >= 0 ? 'income' : 'expense';
+        return this.addFinanceRecord({
+            type: compatibleType,
+            category: '利润(系统)',
+            amount: Math.abs(profitAmount),
+            description: `订单 ${orderNumber} - 系统利润（兼容模式）`,
+            reference_id: orderId,
+            order_id: orderId
+        });
     },
 
     async addFinance(financeData) {

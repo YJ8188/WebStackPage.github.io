@@ -1160,7 +1160,7 @@
             }
 
             tbody.innerHTML = data.map(order => {
-                const customer = ERP.state.customers.find(c => (typeof isSameEntityId === 'function' ? isSameEntityId(c.id, order.customer_id) : c.id === order.customer_id));
+                const customer = ERP.state.customers.find(c => String(c.id) === String(order.customer_id));
                 const shippingInfo = [];
                 if (order.shipping_company) {
                     shippingInfo.push(order.shipping_company);

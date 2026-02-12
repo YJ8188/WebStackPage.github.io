@@ -15,6 +15,24 @@ function isInventoryRiskProduct(product) {
     return minStock > 0 ? stock <= minStock : stock <= 3;
 }
 
+function isSameEntityId(left, right) {
+    if (left === null || left === undefined || right === null || right === undefined) {
+        return false;
+    }
+    return String(left) === String(right);
+}
+
+function normalizeEntityId(value) {
+    if (value === null || value === undefined) {
+        return null;
+    }
+    const text = String(value).trim();
+    if (!text) {
+        return null;
+    }
+    return /^-?\d+$/.test(text) ? Number(text) : text;
+}
+
 async function checkLoginStatus() {
     if (typeof userData !== 'undefined' && userData.isLoggedIn) {
         showERPContent();
@@ -89,7 +107,7 @@ function showCustomerProfile(customerId) {
         return;
     }
 
-    const customer = ERP.state.customers.find(item => Number(item.id) === Number(customerId));
+    const customer = ERP.state.customers.find(item => isSameEntityId(item.id, customerId));
     if (!customer) {
         if (typeof showToast === 'function') {
             showToast('未找到客户信息', 'warning');
@@ -97,7 +115,7 @@ function showCustomerProfile(customerId) {
         return;
     }
 
-    const relatedOrders = (ERP.state.orders || []).filter(order => Number(order.customer_id) === Number(customer.id));
+    const relatedOrders = (ERP.state.orders || []).filter(order => isSameEntityId(order.customer_id, customer.id));
     const totalAmount = relatedOrders.reduce((sum, order) => sum + parseFloat(order.total_amount || 0), 0);
 
     const modal = document.getElementById('customerProfileModal');
@@ -340,7 +358,7 @@ async function saveCustomer() {
     try {
         let result;
         if (customerId) {
-            result = await ERP.updateCustomer(parseInt(customerId), customerData);
+            result = await ERP.updateCustomer(normalizeEntityId(customerId), customerData);
         } else {
             // 先关闭模态框，然后异步保存
             hideCustomerModal();
@@ -392,7 +410,7 @@ async function saveCustomer() {
 }
 
 async function editCustomer(customerId) {
-    const customer = ERP.state.customers.find(c => c.id === customerId);
+    const customer = ERP.state.customers.find(c => isSameEntityId(c.id, customerId));
     if (customer) {
         showCustomerModal(customer);
     }
@@ -528,7 +546,7 @@ async function saveProduct() {
     try {
         let result;
         if (productId) {
-            result = await ERP.updateProduct(parseInt(productId), productData);
+            result = await ERP.updateProduct(normalizeEntityId(productId), productData);
         } else {
             // 先关闭模态框，然后异步保存
             hideProductModal();
@@ -580,7 +598,7 @@ async function saveProduct() {
 }
 
 async function editProduct(productId) {
-    const product = ERP.state.products.find(p => p.id === productId);
+    const product = ERP.state.products.find(p => isSameEntityId(p.id, productId));
     if (product) {
         showProductModal(product);
     }
@@ -802,7 +820,7 @@ async function saveOrder() {
     }
 
     const orderData = {
-        customer_id: parseInt(customerId),
+        customer_id: normalizeEntityId(customerId),
         notes: document.getElementById('orderNotes').value,
         status: document.getElementById('orderStatus').value,
         payment_status: document.getElementById('orderPaymentStatus').value,
@@ -823,7 +841,7 @@ async function saveOrder() {
     try {
         let result;
         if (orderId) {
-            result = await ERP.updateOrder(parseInt(orderId), orderData);
+            result = await ERP.updateOrder(normalizeEntityId(orderId), orderData);
         } else {
             // 先关闭模态框，然后异步保存
             hideOrderModal();
@@ -932,7 +950,7 @@ function calculateOrderTotal() {
 }
 
 async function editOrder(orderId) {
-    const order = ERP.state.orders.find(o => o.id === orderId);
+    const order = ERP.state.orders.find(o => isSameEntityId(o.id, orderId));
     if (order) {
         showOrderModal(order);
     }

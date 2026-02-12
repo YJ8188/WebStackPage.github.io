@@ -1365,6 +1365,17 @@ const ERP = {
 
     // ==================== 统计数据 ====================
     getStatistics() {
+        const calculateInventoryRisk = (products = []) => {
+            return (products || []).filter(product => {
+                const stock = parseFloat(product?.stock_quantity ?? 0);
+                const minStockRaw = product?.min_stock;
+                const minStock = parseFloat(minStockRaw);
+                const hasMinStock = Number.isFinite(minStock) && minStock > 0;
+
+                return hasMinStock ? stock <= minStock : stock <= 3;
+            }).length;
+        };
+
         const stats = {
             customers: {
                 total: this.state.customers.length,
@@ -1374,7 +1385,7 @@ const ERP = {
             products: {
                 total: this.state.products.length,
                 active: this.state.products.filter(p => p.status === 'active').length,
-                lowStock: this.state.products.filter(p => (p.stock_quantity || 0) <= (p.min_stock || 0)).length,
+                lowStock: calculateInventoryRisk(this.state.products),
                 totalValue: this.state.products.reduce((sum, p) => sum + (p.price * p.stock_quantity), 0)
             },
             orders: {

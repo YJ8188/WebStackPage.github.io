@@ -565,6 +565,19 @@
         </div>
     </div>
 
+    <div id="customerProfileModal" class="modal-overlay" onclick="if(event.target===this) hideCustomerProfileModal()">
+        <div class="modal" style="max-width: 680px; width: 92%;">
+            <div class="modal-header">
+                <h3 id="customerProfileTitle">客户档案</h3>
+                <button class="btn-close" onclick="hideCustomerProfileModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="customerProfileContent"></div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="hideCustomerProfileModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Product Modal -->
     <div id="productModal" class="modal-overlay">
         <div class="modal">
@@ -1731,7 +1744,15 @@
             }
             const now = new Date();
 
-            const lowStockProducts = (ERP.state.products || []).filter(p => (p.stock_quantity || 0) <= (p.min_stock || 0));
+            const lowStockProducts = (ERP.state.products || []).filter(p => {
+                if (typeof isInventoryRiskProduct === 'function') {
+                    return isInventoryRiskProduct(p);
+                }
+                const stock = parseFloat(p?.stock_quantity ?? 0);
+                const minStock = parseFloat(p?.min_stock);
+                const hasMinStock = Number.isFinite(minStock) && minStock > 0;
+                return hasMinStock ? stock <= minStock : stock <= 3;
+            });
             lowStockProducts.slice(0, 8).forEach(product => {
                 notices.push({
                     key: `low_stock_${product.id}`,

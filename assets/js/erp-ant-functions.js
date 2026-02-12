@@ -4,6 +4,16 @@
  */
 
 // ==================== 登录状态检查 ====================
+let erpRealtimeSyncTimer = null;
+let erpRealtimeSyncInProgress = false;
+
+function isInventoryRiskProduct(product) {
+    const stock = parseFloat(product?.stock_quantity ?? 0);
+    const minStock = parseFloat(product?.min_stock);
+    const hasMinStock = Number.isFinite(minStock) && minStock > 0;
+    return hasMinStock ? stock <= minStock : stock <= 3;
+}
+
 async function checkLoginStatus() {
     if (typeof userData !== 'undefined' && userData.isLoggedIn) {
         showERPContent();
@@ -60,6 +70,7 @@ function showLoading() {
 }
 
 function showNotLoggedIn() {
+    stopERPRealtimeSync();
     document.getElementById('loadingContainer').style.display = 'none';
     document.getElementById('notLoggedIn').style.display = 'block';
     document.getElementById('erpContent').style.display = 'none';
@@ -69,6 +80,7 @@ function showERPContent() {
     document.getElementById('loadingContainer').style.display = 'none';
     document.getElementById('notLoggedIn').style.display = 'none';
     document.getElementById('erpContent').style.display = 'block';
+    startERPRealtimeSync();
 }
 
 function showCustomerProfile(customerId) {
@@ -87,6 +99,45 @@ function showCustomerProfile(customerId) {
     const relatedOrders = (ERP.state.orders || []).filter(order => Number(order.customer_id) === Number(customer.id));
     const totalAmount = relatedOrders.reduce((sum, order) => sum + parseFloat(order.total_amount || 0), 0);
 
+    const modal = document.getElementById('customerProfileModal');
+    const content = document.getElementById('customerProfileContent');
+    const title = document.getElementById('customerProfileTitle');
+
+    if (modal && content) {
+        const latestOrders = relatedOrders.slice(0, 6).map(order => {
+            const orderNumber = order.order_number || `订单#${order.id}`;
+            const amount = parseFloat(order.total_amount || 0).toFixed(2);
+            return `<li style="padding:6px 0;border-bottom:1px solid #f0f0f0;">${orderNumber} · ¥${amount}</li>`;
+        }).join('');
+
+        if (title) {
+            title.textContent = `${customer.name || '客户'} · 客户档案`;
+        }
+
+        content.innerHTML = `
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 18px;line-height:1.7;">
+                <div><strong>联系人：</strong>${customer.contact_person || '-'}</div>
+                <div><strong>电话：</strong>${customer.phone || '-'}</div>
+                <div><strong>邮箱：</strong>${customer.email || '-'}</div>
+                <div><strong>状态：</strong>${customer.status === 'active' ? '活跃' : '停用'}</div>
+                <div><strong>历史订单：</strong>${relatedOrders.length} 笔</div>
+                <div><strong>累计金额：</strong>¥${totalAmount.toFixed(2)}</div>
+            </div>
+            <div style="margin-top:12px;"><strong>地址：</strong>${customer.address || '-'}</div>
+            <div style="margin-top:6px;"><strong>备注：</strong>${customer.notes || '-'}</div>
+            <div style="margin-top:14px;">
+                <strong>最近订单：</strong>
+                <ul style="list-style:none;padding:0;margin:6px 0 0;max-height:180px;overflow:auto;">
+                    ${latestOrders || '<li style="padding:6px 0;color:#999;">暂无订单</li>'}
+                </ul>
+            </div>
+        `;
+
+        modal.classList.add('active');
+        modal.style.display = 'flex';
+        return;
+    }
+
     const profileText = [
         `客户名称：${customer.name || '-'}`,
         `联系人：${customer.contact_person || '-'}`,
@@ -100,6 +151,15 @@ function showCustomerProfile(customerId) {
     ].join('\n');
 
     alert(profileText);
+}
+
+function hideCustomerProfileModal() {
+    const modal = document.getElementById('customerProfileModal');
+    if (!modal) {
+        return;
+    }
+    modal.classList.remove('active');
+    modal.style.display = '';
 }
 
 // ==================== 统计数据更新 ====================
@@ -121,14 +181,8 @@ function updateStatistics(data) {
     
     const statLowStock = document.getElementById('statLowStock');
     if (statLowStock) {
-        const inventoryRisk = (ERP.state.products || []).filter(product => {
-            const stock = parseFloat(product.stock_quantity || 0);
-            const minStockRaw = product.min_stock;
-            const minStock = Number.isFinite(parseFloat(minStockRaw)) ? parseFloat(minStockRaw) : 0;
-            const hasAlertLine = minStock > 0;
-            return hasAlertLine ? stock <= minStock : stock <= 3;
-        }).length;
-        statLowStock.textContent = inventoryRisk;
+        const inventoryRisk = (ERP.state.products || []).filter(isInventoryRiskProduct).length;
+        statLowStock.textContent = Number.isFinite(stats.products.lowStock) ? stats.products.lowStock : inventoryRisk;
     }
 
     // 更新订单统计
@@ -147,6 +201,47 @@ function updateStatistics(data) {
 }
 
 // ==================== 单位转换 ====================
+async function syncERPRealtimeData() {
+    if (erpRealtimeSyncInProgress || typeof ERP === 'undefined' || !userData?.isLoggedIn) {
+        return;
+    }
+
+    erpRealtimeSyncInProgress = true;
+    try {
+        await Promise.all([
+            ERP.loadProducts(true),
+            ERP.loadOrders(true),
+            ERP.loadFinances(true)
+        ]);
+
+        updateStatistics();
+        if (typeof renderHeaderNotices === 'function') {
+            renderHeaderNotices();
+        }
+    } catch (error) {
+        console.warn('[ERP Ant] 实时同步失败:', error?.message || error);
+    } finally {
+        erpRealtimeSyncInProgress = false;
+    }
+}
+
+function startERPRealtimeSync() {
+    if (erpRealtimeSyncTimer) {
+        return;
+    }
+
+    syncERPRealtimeData();
+    erpRealtimeSyncTimer = setInterval(syncERPRealtimeData, 15000);
+}
+
+function stopERPRealtimeSync() {
+    if (!erpRealtimeSyncTimer) {
+        return;
+    }
+    clearInterval(erpRealtimeSyncTimer);
+    erpRealtimeSyncTimer = null;
+}
+
 function getUnitText(unit) {
     const unitMap = {
         'piece': '个',
@@ -1206,6 +1301,7 @@ if (typeof window !== 'undefined') {
     window.addEventListener('erpDataLoaded', function (event) {
         updateStatistics(event.detail);
         showERPContent();
+        startERPRealtimeSync();
 
         // 自动渲染所有模块的数据，传递数据参数
         if (typeof renderCustomers === 'function') {
@@ -1263,6 +1359,8 @@ if (typeof window !== 'undefined') {
         }
         updateStatistics();
     });
+
+    window.addEventListener('beforeunload', stopERPRealtimeSync);
 }
 
 document.addEventListener('DOMContentLoaded', function () {

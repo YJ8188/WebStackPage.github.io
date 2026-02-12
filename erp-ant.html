@@ -925,7 +925,7 @@
     </div>
 
     <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <script src="assets/js/supabase.min.js"></script>
     <script src="assets/js/supabase-config.js"></script>
     <script src="assets/js/user-data.js"></script>
     <script src="assets/js/erp.js"></script>
@@ -1037,73 +1037,19 @@
             }
         }
 
-        // Initialize Checks
-        document.addEventListener('DOMContentLoaded', () => {
-            setTimeout(async () => {
-                const loading = document.getElementById('loadingContainer');
-                const notLoggedIn = document.getElementById('notLoggedIn');
-
-                try {
-                    const authReady = !!(window.supabaseClient && supabaseClient.auth);
-                    if (!authReady) {
-                        if (typeof window.checkLoginStatus === 'function') {
-                            window.checkLoginStatus();
-                        }
-                        return;
-                    }
-
-                    let session = null;
-                    for (let attempt = 1; attempt <= 3; attempt++) {
-                        try {
-                            const { data, error } = await supabaseClient.auth.getSession();
-                            session = data?.session || null;
-
-                            if (!error || !String(error.message || '').toLowerCase().includes('aborted') || attempt === 3) {
-                                break;
-                            }
-                        } catch (error) {
-                            if (!String(error?.message || '').toLowerCase().includes('aborted') || attempt === 3) {
-                                break;
-                            }
-                        }
-
-                        await new Promise(resolve => setTimeout(resolve, 200 * attempt));
-                    }
-
-                    const loggedIn = !!(session && session.user);
-
-                    if (loggedIn) {
-                        if (window.userData) {
-                            userData.isLoggedIn = true;
-                            userData.user = session.user;
-                            if (typeof userData.loadConfig === 'function') {
-                                await userData.loadConfig();
-                            }
-                        }
-
-                        if (typeof window.checkLoginStatus === 'function') {
-                            window.checkLoginStatus();
-                        }
-                        return;
-                    }
-
-                    if (loading && loading.style.display !== 'none') {
-                        loading.style.display = 'none';
-                        if (notLoggedIn) {
-                            notLoggedIn.style.display = 'block';
-                            const h2 = notLoggedIn.querySelector('h2');
-                            if (h2) h2.innerHTML = '请先登录<br><small style="font-size:14px;color:#999;font-weight:normal;display:block;margin-top:10px;">提示：本地服务器 与文件夹打开的登录状态不互通，<br>请在此页面点击下方按钮重新登录</small>';
-                        }
-                    }
-                } catch (error) {
-                    if (loading && loading.style.display !== 'none') {
-                        loading.style.display = 'none';
-                        if (notLoggedIn) {
-                            notLoggedIn.style.display = 'block';
-                        }
-                    }
+        // Initialize Checks（统一走 userData.init，避免并发取 session）
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                if (window.userData && typeof userData.init === 'function') {
+                    await userData.init();
                 }
-            }, 1200);
+            } catch (error) {
+                console.warn('[ERP] userData.init 异常:', error?.message || error);
+            }
+
+            if (typeof window.checkLoginStatus === 'function') {
+                window.checkLoginStatus();
+            }
         });
 
         // Redefine render functions to produce Ant Design styled HTML

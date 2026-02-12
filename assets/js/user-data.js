@@ -3,6 +3,7 @@ const userData = {
     user: null,
     initialized: false,
     initializing: false,
+    initPromise: null,
     authListenerRegistered: false,
     isOnline: navigator.onLine,
     config: {
@@ -68,91 +69,95 @@ const userData = {
         }
 
         if (this.initializing) {
-            console.log('[UserData] 正在初始化中，跳过重复请求');
+            console.log('[UserData] 正在初始化中，等待当前初始化完成');
+            if (this.initPromise) {
+                await this.initPromise;
+            }
             return;
         }
-        
+
         this.initializing = true;
 
-        try {
-        
-        // 监听网络状态变化
-        window.addEventListener('online', () => {
-            this.isOnline = true;
-            console.log('[UserData] 网络已连接');
-            if (typeof showToast === 'function') {
-                showToast('网络已连接', 'success');
-            }
-            
-            // 如果已登录，重新同步数据
-            if (this.isLoggedIn) {
-                this.syncData();
-            }
-        });
-        
-        window.addEventListener('offline', () => {
-            this.isOnline = false;
-            console.log('[UserData] 网络已断开');
-            if (typeof showToast === 'function') {
-                showToast('网络已断开，使用离线模式', 'warning');
-            }
-        });
-        
-        if (!this.authListenerRegistered) {
-            const client = this.getAuthClient();
-            if (client) {
-                this.authListenerRegistered = true;
-                client.auth.onAuthStateChange(async (event, session) => {
-                if (event === 'SIGNED_OUT') {
-                    this.isLoggedIn = false;
-                    this.user = null;
-                    console.log('[UserData] 用户已登出');
-                    this.loadFromLocalStorage();
-                    window.dispatchEvent(new CustomEvent('userDataLoaded', { detail: this.config }));
-                } else if (event === 'SIGNED_IN') {
+        this.initPromise = (async () => {
+            try {
+                window.addEventListener('online', () => {
+                    this.isOnline = true;
+                    console.log('[UserData] 网络已连接');
+                    if (typeof showToast === 'function') {
+                        showToast('网络已连接', 'success');
+                    }
+
+                    if (this.isLoggedIn) {
+                        this.syncData();
+                    }
+                });
+
+                window.addEventListener('offline', () => {
+                    this.isOnline = false;
+                    console.log('[UserData] 网络已断开');
+                    if (typeof showToast === 'function') {
+                        showToast('网络已断开，使用离线模式', 'warning');
+                    }
+                });
+
+                if (!this.authListenerRegistered) {
+                    const client = this.getAuthClient();
+                    if (client) {
+                        this.authListenerRegistered = true;
+                        client.auth.onAuthStateChange(async (event, session) => {
+                            if (event === 'SIGNED_OUT') {
+                                this.isLoggedIn = false;
+                                this.user = null;
+                                console.log('[UserData] 用户已登出');
+                                this.loadFromLocalStorage();
+                                window.dispatchEvent(new CustomEvent('userDataLoaded', { detail: this.config }));
+                            } else if (event === 'SIGNED_IN') {
+                                this.isLoggedIn = true;
+                                this.user = session.user;
+                                console.log('[UserData] 用户已登录:', this.user.email);
+                                await this.loadConfig();
+                            } else if (event === 'TOKEN_REFRESHED') {
+                                if (session?.user) {
+                                    this.isLoggedIn = true;
+                                    this.user = session.user;
+                                }
+                                console.log('[UserData] Token 已刷新');
+                            }
+                        });
+                    }
+                }
+
+                const { session, error } = await this.getSessionWithRetry();
+                if (error) {
+                    console.warn('[UserData] 获取会话失败（已重试）:', error?.message || error);
+                }
+
+                if (session) {
                     this.isLoggedIn = true;
                     this.user = session.user;
                     console.log('[UserData] 用户已登录:', this.user.email);
+
                     await this.loadConfig();
-                } else if (event === 'TOKEN_REFRESHED') {
-                    if (session?.user) {
-                        this.isLoggedIn = true;
-                        this.user = session.user;
-                    }
-                    console.log('[UserData] Token 已刷新');
+                } else {
+                    console.log('[UserData] 用户未登录，使用 localStorage');
+                    this.loadFromLocalStorage();
+                    window.dispatchEvent(new CustomEvent('userDataLoaded', { detail: this.config }));
                 }
-            });
+
+                this.initialized = true;
+            } catch (error) {
+                console.error('[UserData] 初始化失败:', error);
+                this.isLoggedIn = false;
+                this.user = null;
+                this.loadFromLocalStorage();
+                window.dispatchEvent(new CustomEvent('userDataLoaded', { detail: this.config }));
+                this.initialized = false;
+            } finally {
+                this.initializing = false;
             }
-        }
+        })();
 
-        const { session, error } = await this.getSessionWithRetry();
-        if (error) {
-            console.warn('[UserData] 获取会话失败（已重试）:', error?.message || error);
-        }
-        
-        if (session) {
-            this.isLoggedIn = true;
-            this.user = session.user;
-            console.log('[UserData] 用户已登录:', this.user.email);
-            
-            await this.loadConfig();
-        } else {
-            console.log('[UserData] 用户未登录，使用 localStorage');
-            this.loadFromLocalStorage();
-            window.dispatchEvent(new CustomEvent('userDataLoaded', { detail: this.config }));
-        }
-
-        this.initialized = true;
-        } catch (error) {
-            console.error('[UserData] 初始化失败:', error);
-            this.isLoggedIn = false;
-            this.user = null;
-            this.loadFromLocalStorage();
-            window.dispatchEvent(new CustomEvent('userDataLoaded', { detail: this.config }));
-            this.initialized = false;
-        } finally {
-            this.initializing = false;
-        }
+        await this.initPromise;
     },
 
     async syncData() {

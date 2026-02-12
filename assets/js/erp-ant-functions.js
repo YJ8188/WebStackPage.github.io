@@ -33,6 +33,32 @@ function normalizeEntityId(value) {
     return /^-?\d+$/.test(text) ? Number(text) : text;
 }
 
+function getERPInventoryDiagnostics() {
+    const products = (window.ERP && ERP.state && Array.isArray(ERP.state.products)) ? ERP.state.products : [];
+    const rows = products.map(product => {
+        const stockRaw = product?.stock_quantity;
+        const minStockRaw = product?.min_stock;
+        const stock = Number(stockRaw);
+        const minStock = Number(minStockRaw);
+        const safeStock = Number.isFinite(stock) ? stock : 0;
+        const safeMinStock = Number.isFinite(minStock) ? minStock : 0;
+        const risk = safeMinStock > 0 ? safeStock <= safeMinStock : safeStock <= 3;
+
+        return {
+            id: product?.id,
+            name: product?.name,
+            stockRaw,
+            minStockRaw,
+            stock: safeStock,
+            minStock: safeMinStock,
+            risk
+        };
+    });
+
+    const lowStockCount = rows.filter(item => item.risk).length;
+    return { rows, lowStockCount };
+}
+
 async function checkLoginStatus() {
     if (typeof userData !== 'undefined' && userData.isLoggedIn) {
         showERPContent();
@@ -104,10 +130,21 @@ function showERPContent() {
 
 function showCustomerProfile(customerId) {
     if (!window.ERP || !Array.isArray(ERP.state.customers)) {
+        console.warn('[ERP Debug] showCustomerProfile: ERP state unavailable');
         return;
     }
 
-    const customer = ERP.state.customers.find(item => isSameEntityId(item.id, customerId));
+    const normalizedCustomerId = normalizeEntityId(customerId);
+    const customer = ERP.state.customers.find(item => isSameEntityId(item.id, normalizedCustomerId));
+
+    console.info('[ERP Debug] customer profile click', {
+        rawCustomerId: customerId,
+        normalizedCustomerId,
+        customersCount: ERP.state.customers.length,
+        customerFound: !!customer,
+        customerIds: ERP.state.customers.map(item => item?.id)
+    });
+
     if (!customer) {
         if (typeof showToast === 'function') {
             showToast('未找到客户信息', 'warning');
@@ -177,11 +214,20 @@ function handleCustomerProfileLink(event, customerId) {
         event.preventDefault();
     }
 
-    if (customerId === null || customerId === undefined || customerId === '') {
+    const normalizedCustomerId = normalizeEntityId(customerId);
+
+    console.info('[ERP Debug] handleCustomerProfileLink', {
+        rawCustomerId: customerId,
+        normalizedCustomerId,
+        href: event?.currentTarget?.getAttribute?.('href') || null
+    });
+
+    if (normalizedCustomerId === null) {
+        console.warn('[ERP Debug] customerId is empty');
         return false;
     }
 
-    showCustomerProfile(customerId);
+    showCustomerProfile(normalizedCustomerId);
     return false;
 }
 
@@ -213,8 +259,18 @@ function updateStatistics(data) {
     
     const statLowStock = document.getElementById('statLowStock');
     if (statLowStock) {
-        const inventoryRisk = (ERP.state.products || []).filter(isInventoryRiskProduct).length;
-        statLowStock.textContent = Number.isFinite(stats.products.lowStock) ? stats.products.lowStock : inventoryRisk;
+        const diagnostics = getERPInventoryDiagnostics();
+        const inventoryRisk = diagnostics.lowStockCount;
+        const finalLowStock = Number.isFinite(stats.products.lowStock) ? stats.products.lowStock : inventoryRisk;
+        statLowStock.textContent = finalLowStock;
+
+        console.info('[ERP Debug] low stock statistics', {
+            statsLowStock: stats.products.lowStock,
+            inventoryRisk,
+            finalLowStock,
+            productsCount: diagnostics.rows.length,
+            rows: diagnostics.rows
+        });
     }
 
     // 更新订单统计
@@ -233,6 +289,24 @@ function updateStatistics(data) {
 }
 
 // ==================== 单位转换 ====================
+function printERPDiagnostics() {
+    try {
+        const inventory = getERPInventoryDiagnostics();
+        console.info('[ERP Debug] Diagnostics Snapshot', {
+            location: window.location.href,
+            isLoggedIn: !!(window.userData && userData.isLoggedIn),
+            customersCount: (window.ERP && ERP.state?.customers?.length) || 0,
+            productsCount: (window.ERP && ERP.state?.products?.length) || 0,
+            ordersCount: (window.ERP && ERP.state?.orders?.length) || 0,
+            financesCount: (window.ERP && ERP.state?.finances?.length) || 0,
+            lowStockCount: inventory.lowStockCount,
+            inventoryRows: inventory.rows
+        });
+    } catch (error) {
+        console.error('[ERP Debug] printERPDiagnostics failed', error);
+    }
+}
+
 async function syncERPRealtimeData() {
     if (erpRealtimeSyncInProgress || typeof ERP === 'undefined' || !userData?.isLoggedIn) {
         return;
@@ -1413,4 +1487,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         handleCustomerProfileLink(event, customerId);
     });
+
+    window.printERPDiagnostics = printERPDiagnostics;
+    setTimeout(printERPDiagnostics, 1200);
 });

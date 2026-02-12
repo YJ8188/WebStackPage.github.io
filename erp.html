@@ -1748,10 +1748,11 @@
                 if (typeof isInventoryRiskProduct === 'function') {
                     return isInventoryRiskProduct(p);
                 }
-                const stock = parseFloat(p?.stock_quantity ?? 0);
-                const minStock = parseFloat(p?.min_stock);
-                const hasMinStock = Number.isFinite(minStock) && minStock > 0;
-                return hasMinStock ? stock <= minStock : stock <= 3;
+                const parsedStock = Number(p?.stock_quantity);
+                const parsedMinStock = Number(p?.min_stock);
+                const stock = Number.isFinite(parsedStock) ? parsedStock : 0;
+                const minStock = Number.isFinite(parsedMinStock) ? parsedMinStock : 0;
+                return minStock > 0 ? stock <= minStock : stock <= 3;
             });
             lowStockProducts.slice(0, 8).forEach(product => {
                 notices.push({

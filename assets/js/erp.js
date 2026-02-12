@@ -1367,12 +1367,11 @@ const ERP = {
     getStatistics() {
         const calculateInventoryRisk = (products = []) => {
             return (products || []).filter(product => {
-                const stock = parseFloat(product?.stock_quantity ?? 0);
-                const minStockRaw = product?.min_stock;
-                const minStock = parseFloat(minStockRaw);
-                const hasMinStock = Number.isFinite(minStock) && minStock > 0;
-
-                return hasMinStock ? stock <= minStock : stock <= 3;
+                const parsedStock = Number(product?.stock_quantity);
+                const parsedMinStock = Number(product?.min_stock);
+                const stock = Number.isFinite(parsedStock) ? parsedStock : 0;
+                const minStock = Number.isFinite(parsedMinStock) ? parsedMinStock : 0;
+                return minStock > 0 ? stock <= minStock : stock <= 3;
             }).length;
         };
 

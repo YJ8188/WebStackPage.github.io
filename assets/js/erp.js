@@ -1454,6 +1454,10 @@ const ERP = {
     }
 };
 
+if (typeof window !== 'undefined') {
+    window.ERP = ERP;
+}
+
 // ==================== 页面加载时初始化 ====================
 
 // 立即设置事件监听器（在 DOMContentLoaded 之前）

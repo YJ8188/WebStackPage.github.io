@@ -736,10 +736,16 @@ const ERP = {
 
             const orderNumber = orderNumData;
 
+            const manualTotalAmount = parseFloat(orderData.total_amount);
+
             // 计算订单总金额
-            const totalAmount = orderData.items.reduce((sum, item) => {
+            const calculatedTotalAmount = orderData.items.reduce((sum, item) => {
                 return sum + (item.quantity * item.unit_price);
             }, 0);
+
+            const totalAmount = Number.isFinite(manualTotalAmount) && manualTotalAmount > 0
+                ? manualTotalAmount
+                : calculatedTotalAmount;
 
             // 计算订单总成本
             let totalCost = 0;
@@ -808,15 +814,16 @@ const ERP = {
                 throw itemsError;
             }
 
-            // 更新库存
-            for (const item of orderData.items) {
-                if (item.product_id) {
-                    await this.updateStock(item.product_id, -item.quantity, 'sale', order.id);
+            // 更新库存（并行执行提升速度）
+            await Promise.all(orderData.items.map(item => {
+                if (!item.product_id) {
+                    return Promise.resolve();
                 }
-            }
+                return this.updateStock(item.product_id, -item.quantity, 'sale', order.id);
+            }));
 
             // 创建财务记录（收入）
-            await this.addFinanceRecord({
+            const incomeFinance = await this.addFinanceRecord({
                 type: 'income',
                 category: '销售订单',
                 amount: totalAmount,
@@ -826,8 +833,9 @@ const ERP = {
             });
 
             // 创建财务记录（成本）
+            let costFinance = true;
             if (totalCost > 0) {
-                await this.addFinanceRecord({
+                costFinance = await this.addFinanceRecord({
                     type: 'expense',
                     category: '销售成本',
                     amount: totalCost,
@@ -838,7 +846,12 @@ const ERP = {
             }
 
             // 创建财务记录（系统利润）
-            await this.addOrderProfitFinance(order.id, orderNumber, netProfit);
+            const profitFinance = await this.addOrderProfitFinance(order.id, orderNumber, netProfit);
+
+            if (!incomeFinance || !profitFinance || (totalCost > 0 && !costFinance)) {
+                console.warn('[ERP] 订单财务记录部分写入失败，触发自动补录');
+                await this.ensureOrderFinanceRecords(order, orderNumber, totalAmount, totalCost, netProfit);
+            }
 
             // 更新本地状态
             order.items = itemsData;
@@ -861,12 +874,18 @@ const ERP = {
 
     async updateOrder(orderId, orderData) {
         try {
+            const manualTotalAmount = parseFloat(orderData.total_amount);
+            const totalAmount = Number.isFinite(manualTotalAmount) && manualTotalAmount > 0
+                ? manualTotalAmount
+                : null;
+
             const { data, error } = await supabaseClient
                 .from('erp_orders')
                 .update({
                     customer_id: orderData.customer_id || null,
                     status: orderData.status || 'pending',
                     payment_status: orderData.payment_status || 'unpaid',
+                    ...(totalAmount !== null ? { total_amount: totalAmount } : {}),
                     notes: orderData.notes || '',
                     shipping_company: orderData.shipping_company || null,
                     tracking_number: orderData.tracking_number || null,
@@ -1103,6 +1122,50 @@ const ERP = {
             reference_id: orderId,
             order_id: orderId
         });
+    },
+
+    async ensureOrderFinanceRecords(order, orderNumber, totalAmount, totalCost, netProfit) {
+        const { data: existingRows, error } = await supabaseClient
+            .from('erp_finances')
+            .select('id, type, category')
+            .eq('user_id', userData.user.id)
+            .eq('reference_id', order.id);
+
+        if (error) {
+            console.error('[ERP] 补录财务记录前查询失败:', error);
+            return;
+        }
+
+        const rows = existingRows || [];
+        const hasIncome = rows.some(row => row.type === 'income' && row.category === '销售订单');
+        const hasCost = rows.some(row => row.type === 'expense' && row.category === '销售成本');
+        const hasProfit = rows.some(row => row.type === 'system' || row.category === '利润' || row.category === '利润(系统)');
+
+        if (!hasIncome) {
+            await this.addFinanceRecord({
+                type: 'income',
+                category: '销售订单',
+                amount: totalAmount,
+                description: `订单 ${orderNumber} | 成本：¥${totalCost.toFixed(2)} | 利润：¥${netProfit.toFixed(2)}`,
+                reference_id: order.id,
+                order_id: order.id
+            });
+        }
+
+        if (totalCost > 0 && !hasCost) {
+            await this.addFinanceRecord({
+                type: 'expense',
+                category: '销售成本',
+                amount: totalCost,
+                description: `订单 ${orderNumber} - 原材料成本`,
+                reference_id: order.id,
+                order_id: order.id
+            });
+        }
+
+        if (!hasProfit) {
+            await this.addOrderProfitFinance(order.id, orderNumber, netProfit);
+        }
     },
 
     async addFinance(financeData) {

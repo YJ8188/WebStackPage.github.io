@@ -533,7 +533,7 @@ function showOrderModal(order = null) {
 
         const paymentStatusSelect = document.getElementById('orderPaymentStatus');
         const validPaymentStatus = order.payment_status && paymentStatusSelect.querySelector(`option[value="${order.payment_status}"]`);
-        paymentStatusSelect.value = validPaymentStatus ? order.paymentStatus : 'unpaid';
+        paymentStatusSelect.value = validPaymentStatus ? order.payment_status : 'unpaid';
 
         // 物流信息
         const shippingCompany = order.shipping_company || '';
@@ -662,11 +662,14 @@ async function saveOrder() {
             console.info('[ERP Ant] 订单已保存: ', result);
             
             if (result) {
-                // 重新加载数据并更新显示
-                const orders = await ERP.loadOrders(true);
-                console.info('[ERP Ant] 重新加载订单数据条数: ', orders.length);
-                renderOrders(orders);
+                // 直接使用本地状态刷新，避免额外全量查询导致卡顿
+                renderOrders(ERP.state.orders);
                 updateStatistics();
+
+                if (ERP.config.currentModule === 'finance') {
+                    const finances = await ERP.loadFinances(true);
+                    renderFinances(finances);
+                }
                 
                 if (typeof showToast === 'function') {
                     showToast('订单保存成功', 'success');
@@ -678,11 +681,14 @@ async function saveOrder() {
             // 订单更新成功
             hideOrderModal();
             
-            // 重新加载数据并更新显示
-            const orders = await ERP.loadOrders(true);
-            console.info('[ERP Ant] 重新加载订单数据条数: ', orders.length);
-            renderOrders(orders);
+            // 直接使用本地状态刷新，减少等待
+            renderOrders(ERP.state.orders);
             updateStatistics();
+
+            if (ERP.config.currentModule === 'finance') {
+                const finances = await ERP.loadFinances(true);
+                renderFinances(finances);
+            }
             
             if (typeof showToast === 'function') {
                 showToast('订单更新成功', 'success');

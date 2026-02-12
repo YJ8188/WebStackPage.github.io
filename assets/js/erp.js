@@ -823,13 +823,11 @@ const ERP = {
 
             const itemsData = itemsDataRaw || [];
 
-            this.postProcessOrder(order, orderData.items, {
+            await this.postProcessOrder(order, orderData.items, {
                 orderNumber,
                 totalAmount,
                 totalCost,
                 netProfit
-            }).catch(error => {
-                console.error('[ERP] 订单后处理失败:', error);
             });
 
             // 更新本地状态
@@ -854,8 +852,28 @@ const ERP = {
         }
     },
 
+    buildOrderContext(orderNumber, customerId, items = []) {
+        const customer = (this.state.customers || []).find(item => Number(item.id) === Number(customerId));
+        const customerName = customer?.name || '未知客户';
+
+        const itemNames = (items || []).map(item => {
+            if (item?.product_name) {
+                return item.product_name;
+            }
+            const product = (this.state.products || []).find(p => Number(p.id) === Number(item?.product_id));
+            return product?.name || '';
+        }).filter(Boolean);
+
+        const productSummary = itemNames.length === 0
+            ? '-'
+            : `${itemNames.slice(0, 3).join('、')}${itemNames.length > 3 ? ` 等${itemNames.length}项` : ''}`;
+
+        return `订单 ${orderNumber} | 客户:${customerName} | 商品:${productSummary}`;
+    },
+
     async postProcessOrder(order, items, summary) {
         const { orderNumber, totalAmount, totalCost, netProfit } = summary;
+        const orderContext = this.buildOrderContext(orderNumber, order.customer_id, items);
 
         let stockChanged = false;
         let financeChanged = false;
@@ -875,7 +893,7 @@ const ERP = {
                 type: 'income',
                 category: '销售订单',
                 amount: totalAmount,
-                description: `订单 ${orderNumber} | 成本：¥${totalCost.toFixed(2)} | 利润：¥${netProfit.toFixed(2)}`,
+                description: `${orderContext} | 成本：¥${totalCost.toFixed(2)} | 利润：¥${netProfit.toFixed(2)}`,
                 reference_id: order.id,
                 order_id: order.id
             }),
@@ -887,7 +905,7 @@ const ERP = {
                 type: 'expense',
                 category: '销售成本',
                 amount: totalCost,
-                description: `订单 ${orderNumber} - 原材料成本`,
+                description: `${orderContext} | 销售成本`,
                 reference_id: order.id,
                 order_id: order.id
             }));
@@ -899,7 +917,7 @@ const ERP = {
 
         if (hasFailed) {
             console.warn('[ERP] 订单财务记录部分写入失败，触发自动补录');
-            await this.ensureOrderFinanceRecords(order, orderNumber, totalAmount, totalCost, netProfit);
+            await this.ensureOrderFinanceRecords(order, orderNumber, totalAmount, totalCost, netProfit, items);
             financeChanged = true;
         }
 
@@ -1192,7 +1210,9 @@ const ERP = {
         });
     },
 
-    async ensureOrderFinanceRecords(order, orderNumber, totalAmount, totalCost, netProfit) {
+    async ensureOrderFinanceRecords(order, orderNumber, totalAmount, totalCost, netProfit, items = []) {
+        const orderContext = this.buildOrderContext(orderNumber, order.customer_id, items);
+
         const { data: existingRows, error } = await supabaseClient
             .from('erp_finances')
             .select('id, type, category')
@@ -1214,7 +1234,7 @@ const ERP = {
                 type: 'income',
                 category: '销售订单',
                 amount: totalAmount,
-                description: `订单 ${orderNumber} | 成本：¥${totalCost.toFixed(2)} | 利润：¥${netProfit.toFixed(2)}`,
+                description: `${orderContext} | 成本：¥${totalCost.toFixed(2)} | 利润：¥${netProfit.toFixed(2)}`,
                 reference_id: order.id,
                 order_id: order.id
             });
@@ -1225,7 +1245,7 @@ const ERP = {
                 type: 'expense',
                 category: '销售成本',
                 amount: totalCost,
-                description: `订单 ${orderNumber} - 原材料成本`,
+                description: `${orderContext} | 销售成本`,
                 reference_id: order.id,
                 order_id: order.id
             });
@@ -1237,6 +1257,9 @@ const ERP = {
     },
 
     async syncOrderFinanceRecords(orderId, orderNumber, totalAmount, totalCost, netProfit) {
+        const localOrder = this.state.orders.find(order => Number(order.id) === Number(orderId)) || {};
+        const orderContext = this.buildOrderContext(orderNumber, localOrder.customer_id, localOrder.items || []);
+
         const { data: rows, error } = await supabaseClient
             .from('erp_finances')
             .select('id, type, category')
@@ -1253,7 +1276,7 @@ const ERP = {
         const costRow = records.find(row => row.type === 'expense' && row.category === '销售成本');
         const profitRow = records.find(row => row.type === 'system' || row.category === '利润' || row.category === '利润(系统)');
 
-        const incomeDescription = `订单 ${orderNumber} | 成本：¥${totalCost.toFixed(2)} | 利润：¥${netProfit.toFixed(2)}`;
+        const incomeDescription = `${orderContext} | 成本：¥${totalCost.toFixed(2)} | 利润：¥${netProfit.toFixed(2)}`;
 
         if (incomeRow) {
             await supabaseClient
@@ -1266,7 +1289,7 @@ const ERP = {
         if (costRow) {
             await supabaseClient
                 .from('erp_finances')
-                .update({ amount: totalCost, description: `订单 ${orderNumber} - 原材料成本` })
+                .update({ amount: totalCost, description: `${orderContext} | 销售成本` })
                 .eq('id', costRow.id)
                 .eq('user_id', userData.user.id);
         }
@@ -1280,11 +1303,12 @@ const ERP = {
         }
 
         await this.ensureOrderFinanceRecords(
-            { id: orderId },
+            { id: orderId, customer_id: localOrder.customer_id },
             orderNumber,
             totalAmount,
             totalCost,
-            netProfit
+            netProfit,
+            localOrder.items || []
         );
     },
 

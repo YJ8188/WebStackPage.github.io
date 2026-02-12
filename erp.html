@@ -942,8 +942,8 @@
     <script src="assets/js/supabase.min.js"></script>
     <script src="assets/js/supabase-config.js"></script>
     <script src="assets/js/user-data.js"></script>
-    <script src="assets/js/erp.js"></script>
-    <script src="assets/js/erp-ant-functions.js"></script>
+    <script src="assets/js/erp.js?v=20260212-4"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260212-4"></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->
     <script>
@@ -1098,7 +1098,7 @@
 
             const html = data.map(customer => `
                 <tr>
-                    <td><a href="javascript:;" style="font-weight:500;" onclick='showCustomerProfile(${JSON.stringify(customer.id)})'>${customer.name}</a></td>
+                    <td><a href="#" class="customer-profile-link" data-customer-profile-id="${String(customer.id).replace(/\"/g, '&quot;')}" style="font-weight:500;">${customer.name}</a></td>
                     <td>${customer.contact_person || '-'}</td>
                     <td>${customer.phone || '-'}</td>
                     <td>${customer.email || '-'}</td>
@@ -1207,7 +1207,16 @@
                     <td>${product.name}</td>
                     <td>${product.sku || '-'}</td>
                     <td>${product.category || '-'}</td>
-                    <td style="font-weight:bold; color: ${(product.stock_quantity || 0) <= (product.min_stock || 0) ? '#cf1322' : '#3f8600'}">${product.stock_quantity ?? 0}</td>
+                    <td style="font-weight:bold; color: ${(() => {
+                        if (typeof isInventoryRiskProduct === 'function') {
+                            return isInventoryRiskProduct(product) ? '#cf1322' : '#3f8600';
+                        }
+                        const stock = Number(product?.stock_quantity);
+                        const minStock = Number(product?.min_stock);
+                        const safeStock = Number.isFinite(stock) ? stock : 0;
+                        const safeMinStock = Number.isFinite(minStock) ? minStock : 0;
+                        return (safeMinStock > 0 ? safeStock <= safeMinStock : safeStock <= 3) ? '#cf1322' : '#3f8600';
+                    })()}">${product.stock_quantity ?? 0}</td>
                     <td>${getUnitText(product.unit)}</td>
                     <td>${product.min_stock ?? '-'}</td>
                      <td>${product.status === 'active' ? '正常' : '停用'}</td>

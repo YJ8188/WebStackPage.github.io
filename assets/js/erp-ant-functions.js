@@ -1384,4 +1384,21 @@ if (typeof window !== 'undefined') {
 
 document.addEventListener('DOMContentLoaded', function () {
     initFinanceFilters();
+
+    document.addEventListener('click', function (event) {
+        const customerLink = event.target.closest('.customer-profile-link');
+        if (!customerLink) {
+            return;
+        }
+
+        event.preventDefault();
+        const customerId = customerLink.getAttribute('data-customer-profile-id');
+        if (customerId === null || customerId === '') {
+            return;
+        }
+
+        if (typeof showCustomerProfile === 'function') {
+            showCustomerProfile(customerId);
+        }
+    });
 });

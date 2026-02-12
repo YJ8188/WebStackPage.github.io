@@ -59,6 +59,51 @@ function getERPInventoryDiagnostics() {
     return { rows, lowStockCount };
 }
 
+function getLowStockRuleText(rows = []) {
+    if (!Array.isArray(rows) || rows.length === 0) {
+        return '暂无产品数据';
+    }
+
+    const thresholds = rows
+        .map(item => Number(item?.minStock))
+        .filter(value => Number.isFinite(value) && value > 0);
+
+    if (thresholds.length === 0) {
+        return '规则：库存 ≤ 3 触发预警';
+    }
+
+    const minThreshold = Math.min(...thresholds);
+    const maxThreshold = Math.max(...thresholds);
+
+    if (minThreshold === maxThreshold) {
+        return `规则：库存 ≤ ${minThreshold} 触发预警`;
+    }
+
+    return `规则：库存 ≤ 各商品预警值（${minThreshold}~${maxThreshold}）`;
+}
+
+function renderLowStockSummary(diagnostics, lowStockCount) {
+    const safeCount = Number.isFinite(lowStockCount) ? lowStockCount : 0;
+    const rows = Array.isArray(diagnostics?.rows) ? diagnostics.rows : [];
+
+    const statLowStock = document.getElementById('statLowStock');
+    if (statLowStock) {
+        statLowStock.textContent = rows.length > 0 ? `${safeCount}/${rows.length}` : String(safeCount);
+    }
+
+    const statLowStockHint = document.getElementById('statLowStockHint');
+    if (!statLowStockHint) {
+        return;
+    }
+
+    if (rows.length === 0) {
+        statLowStockHint.textContent = '暂无产品数据';
+        return;
+    }
+
+    statLowStockHint.textContent = `共 ${rows.length} 个商品，${safeCount} 个触发预警；${getLowStockRuleText(rows)}`;
+}
+
 async function checkLoginStatus() {
     if (typeof userData !== 'undefined' && userData.isLoggedIn) {
         showERPContent();
@@ -257,21 +302,18 @@ function updateStatistics(data) {
     const statProducts = document.getElementById('statProducts');
     if (statProducts) statProducts.textContent = stats.products.total;
     
-    const statLowStock = document.getElementById('statLowStock');
-    if (statLowStock) {
-        const diagnostics = getERPInventoryDiagnostics();
-        const inventoryRisk = diagnostics.lowStockCount;
-        const finalLowStock = Number.isFinite(stats.products.lowStock) ? stats.products.lowStock : inventoryRisk;
-        statLowStock.textContent = finalLowStock;
+    const diagnostics = getERPInventoryDiagnostics();
+    const inventoryRisk = diagnostics.lowStockCount;
+    const finalLowStock = Number.isFinite(stats.products.lowStock) ? stats.products.lowStock : inventoryRisk;
+    renderLowStockSummary(diagnostics, finalLowStock);
 
-        console.info('[ERP Debug] low stock statistics', {
-            statsLowStock: stats.products.lowStock,
-            inventoryRisk,
-            finalLowStock,
-            productsCount: diagnostics.rows.length,
-            rows: diagnostics.rows
-        });
-    }
+    console.info('[ERP Debug] low stock statistics', {
+        statsLowStock: stats.products.lowStock,
+        inventoryRisk,
+        finalLowStock,
+        productsCount: diagnostics.rows.length,
+        rows: diagnostics.rows
+    });
 
     // 更新订单统计
     const statOrders = document.getElementById('statOrders');
@@ -319,10 +361,7 @@ async function refreshLowStockFromLatestData(reason = 'manual') {
         }
 
         const diagnostics = getERPInventoryDiagnostics();
-        const statLowStock = document.getElementById('statLowStock');
-        if (statLowStock) {
-            statLowStock.textContent = diagnostics.lowStockCount;
-        }
+        renderLowStockSummary(diagnostics, diagnostics.lowStockCount);
 
         console.info('[ERP Debug] low stock refreshed', {
             reason,

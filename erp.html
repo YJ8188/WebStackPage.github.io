@@ -211,6 +211,7 @@
                                     <div class="analysis-card-content" id="statProducts">0</div>
                                     <div class="analysis-card-footer">
                                         库存预警: <span id="statLowStock">0</span>
+                                        <span id="statLowStockHint" style="display: block; margin-top: 4px; color: #8c8c8c; font-size: 12px;">规则：库存 ≤ 各商品预警值</span>
                                     </div>
                                 </div>
                             </div>
@@ -942,8 +943,8 @@
     <script src="assets/js/supabase.min.js"></script>
     <script src="assets/js/supabase-config.js"></script>
     <script src="assets/js/user-data.js"></script>
-    <script src="assets/js/erp.js?v=20260212-8"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260212-8"></script>
+    <script src="assets/js/erp.js?v=20260212-10"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260212-10"></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->
     <script>
@@ -1533,13 +1534,14 @@
                 }
 
                 // Update Stats
-                if (typeof ERP !== 'undefined' && ERP.getStatistics) {
+                if (typeof window.updateStatistics === 'function') {
+                    window.updateStatistics();
+                } else if (typeof ERP !== 'undefined' && ERP.getStatistics) {
                     const stats = ERP.getStatistics();
 
                     const statCustomers = document.getElementById('statCustomers');
                     const statActiveCustomers = document.getElementById('statActiveCustomers');
                     const statProducts = document.getElementById('statProducts');
-                    const statLowStock = document.getElementById('statLowStock');
                     const statOrders = document.getElementById('statOrders');
                     const statPendingOrders = document.getElementById('statPendingOrders');
                     const statRevenue = document.getElementById('statRevenue');
@@ -1548,7 +1550,6 @@
                     if (statCustomers) statCustomers.innerText = stats.customers.total;
                     if (statActiveCustomers) statActiveCustomers.innerText = stats.customers.active;
                     if (statProducts) statProducts.innerText = stats.products.total;
-                    if (statLowStock) statLowStock.innerText = stats.products.lowStock;
                     if (statOrders) statOrders.innerText = stats.orders.total;
                     if (statPendingOrders) statPendingOrders.innerText = stats.orders.pending;
                     if (statRevenue) statRevenue.innerText = '¥' + stats.finances.totalIncome.toLocaleString();

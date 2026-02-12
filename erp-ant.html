@@ -1098,14 +1098,14 @@
 
             const html = data.map(customer => `
                 <tr>
-                    <td><a href="javascript:;" style="font-weight:500;" onclick="showCustomerProfile(${customer.id})">${customer.name}</a></td>
+                    <td><a href="javascript:;" style="font-weight:500;" onclick='showCustomerProfile(${JSON.stringify(customer.id)})'>${customer.name}</a></td>
                     <td>${customer.contact_person || '-'}</td>
                     <td>${customer.phone || '-'}</td>
                     <td>${customer.email || '-'}</td>
                     <td>${customer.status === 'active' ? '活跃' : '停用'}</td>
                     <td>
-                        <button class="ant-btn" onclick="editCustomer(${customer.id})">编辑</button>
-                        <button class="ant-btn" onclick="deleteCustomer(${customer.id})" style="color:#ff4d4f; border-color:#ff4d4f; margin-left:8px;">删除</button>
+                        <button class="ant-btn" onclick='editCustomer(${JSON.stringify(customer.id)})'>编辑</button>
+                        <button class="ant-btn" onclick='deleteCustomer(${JSON.stringify(customer.id)})' style="color:#ff4d4f; border-color:#ff4d4f; margin-left:8px;">删除</button>
                     </td>
                 </tr>
             `).join('');
@@ -1138,8 +1138,8 @@
                     <td>${getUnitText(product.unit)}</td>
                      <td>${product.status === 'active' ? '上架' : '下架'}</td>
                     <td>
-                        <button class="ant-btn" onclick="editProduct(${product.id})">编辑</button>
-                        <button class="ant-btn" onclick="deleteProduct(${product.id})" style="color:#ff4d4f; border-color:#ff4d4f; margin-left:8px;">删除</button>
+                        <button class="ant-btn" onclick='editProduct(${JSON.stringify(product.id)})'>编辑</button>
+                        <button class="ant-btn" onclick='deleteProduct(${JSON.stringify(product.id)})' style="color:#ff4d4f; border-color:#ff4d4f; margin-left:8px;">删除</button>
                     </td>
                 </tr>
             `).join('');
@@ -1160,7 +1160,7 @@
             }
 
             tbody.innerHTML = data.map(order => {
-                const customer = ERP.state.customers.find(c => c.id === order.customer_id);
+                const customer = ERP.state.customers.find(c => (typeof isSameEntityId === 'function' ? isSameEntityId(c.id, order.customer_id) : c.id === order.customer_id));
                 const shippingInfo = [];
                 if (order.shipping_company) {
                     shippingInfo.push(order.shipping_company);
@@ -1180,8 +1180,8 @@
                     <td>${getShippingStatusText(order.shipping_status)}</td>
                     <td>${shippingInfo.length > 0 ? shippingInfo.join('<br>') : '-'}</td>
                     <td>
-                        <button class="ant-btn" onclick="editOrder(${order.id})">详情</button>
-                        <button class="ant-btn" onclick="deleteOrder(${order.id})" style="color:#ff4d4f; border-color:#ff4d4f; margin-left:8px;">删除</button>
+                        <button class="ant-btn" onclick='editOrder(${JSON.stringify(order.id)})'>详情</button>
+                        <button class="ant-btn" onclick='deleteOrder(${JSON.stringify(order.id)})' style="color:#ff4d4f; border-color:#ff4d4f; margin-left:8px;">删除</button>
                     </td>
                 </tr>
             `}).join('');
@@ -1212,7 +1212,7 @@
                     <td>${product.min_stock ?? '-'}</td>
                      <td>${product.status === 'active' ? '正常' : '停用'}</td>
                     <td>
-                         <button class="ant-btn ant-btn-primary" onclick="showInventoryAdjustModal(${product.id})" style="background:#faad14; border-color:#faad14;">调整</button>
+                         <button class="ant-btn ant-btn-primary" onclick='showInventoryAdjustModal(${JSON.stringify(product.id)})' style="background:#faad14; border-color:#faad14;">调整</button>
                     </td>
                 </tr>
             `).join('');
@@ -1259,7 +1259,7 @@
                         });
                     })()}</td>
                     <td>
-                        <button class="ant-btn" onclick="deleteFinance(${f.id})" style="color:#ff4d4f; border-color:#ff4d4f;">删除</button>
+                        <button class="ant-btn" onclick='deleteFinance(${JSON.stringify(f.id)})' style="color:#ff4d4f; border-color:#ff4d4f;">删除</button>
                     </td>
                 </tr>
             `).join('');

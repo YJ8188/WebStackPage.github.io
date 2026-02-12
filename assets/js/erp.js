@@ -35,6 +35,13 @@ const ERP = {
         }
     },
 
+    isSameId(left, right) {
+        if (left === null || left === undefined || right === null || right === undefined) {
+            return false;
+        }
+        return String(left) === String(right);
+    },
+
     // ==================== 状态 ====================
     state: {
         customers: [],
@@ -340,7 +347,7 @@ const ERP = {
             }
 
             // 更新本地状态
-            const index = this.state.customers.findIndex(c => c.id === customerId);
+            const index = this.state.customers.findIndex(c => this.isSameId(c.id, customerId));
             if (index !== -1) {
                 this.state.customers[index] = data;
             }
@@ -373,7 +380,7 @@ const ERP = {
             }
 
             // 更新本地状态
-            this.state.customers = this.state.customers.filter(c => c.id !== customerId);
+            this.state.customers = this.state.customers.filter(c => !this.isSameId(c.id, customerId));
 
             if (typeof showToast === 'function') {
                 showToast('客户删除成功', 'success');
@@ -478,7 +485,7 @@ const ERP = {
             }
 
             // 更新本地状态
-            const index = this.state.products.findIndex(p => p.id === productId);
+            const index = this.state.products.findIndex(p => this.isSameId(p.id, productId));
             if (index !== -1) {
                 this.state.products[index] = data;
             }
@@ -511,7 +518,7 @@ const ERP = {
             }
 
             // 更新本地状态
-            this.state.products = this.state.products.filter(p => p.id !== productId);
+            this.state.products = this.state.products.filter(p => !this.isSameId(p.id, productId));
 
             if (typeof showToast === 'function') {
                 showToast('产品删除成功', 'success');
@@ -573,7 +580,7 @@ const ERP = {
             // 计算订单总成本
             let totalCost = 0;
             for (const item of items) {
-                const product = this.state.products.find(p => p.id === item.product_id);
+                const product = this.state.products.find(p => this.isSameId(p.id, item.product_id));
                 if (product) {
                     totalCost += (product.cost || 0) * item.quantity;
                 }
@@ -609,7 +616,7 @@ const ERP = {
 
             // 创建订单明细
             const orderItems = items.map(item => {
-                const product = this.state.products.find(p => p.id === item.product_id);
+                const product = this.state.products.find(p => this.isSameId(p.id, item.product_id));
                 const unitCost = product ? (product.cost || 0) : 0;
                 const itemTotalCost = unitCost * item.quantity;
                 const itemTotalPrice = item.quantity * item.unit_price;
@@ -711,7 +718,7 @@ const ERP = {
             }
 
             // 更新本地状态
-            const index = this.state.orders.findIndex(o => o.id === orderId);
+            const index = this.state.orders.findIndex(o => this.isSameId(o.id, orderId));
             if (index !== -1) {
                 this.state.orders[index] = { ...this.state.orders[index], ...data };
             }
@@ -757,7 +764,7 @@ const ERP = {
             // 计算订单总成本
             let totalCost = 0;
             for (const item of orderData.items) {
-                const product = this.state.products.find(p => p.id === item.product_id);
+                const product = this.state.products.find(p => this.isSameId(p.id, item.product_id));
                 if (product) {
                     const itemCost = (product.cost || 0) * item.quantity;
                     totalCost += itemCost;
@@ -794,7 +801,7 @@ const ERP = {
 
             // 创建订单明细
             const orderItems = orderData.items.map(item => {
-                const product = this.state.products.find(p => p.id === item.product_id);
+                const product = this.state.products.find(p => this.isSameId(p.id, item.product_id));
                 const unitCost = product ? (product.cost || 0) : 0;
                 const itemTotalCost = unitCost * item.quantity;
                 const itemTotalPrice = item.quantity * item.unit_price;
@@ -940,7 +947,7 @@ const ERP = {
 
     async updateOrder(orderId, orderData) {
         try {
-            const localOrder = this.state.orders.find(o => o.id === orderId) || {};
+            const localOrder = this.state.orders.find(o => this.isSameId(o.id, orderId)) || {};
             const orderNumber = localOrder.order_number || `订单#${orderId}`;
             const totalCost = parseFloat(localOrder.total_cost || 0);
             const manualTotalAmount = parseFloat(orderData.total_amount);
@@ -974,7 +981,7 @@ const ERP = {
             }
 
             // 更新本地状态
-            const index = this.state.orders.findIndex(o => o.id === orderId);
+            const index = this.state.orders.findIndex(o => this.isSameId(o.id, orderId));
             if (index !== -1) {
                 this.state.orders[index] = { ...this.state.orders[index], ...data };
             }
@@ -1011,7 +1018,7 @@ const ERP = {
             }
 
             // 更新本地状态
-            this.state.orders = this.state.orders.filter(o => o.id !== orderId);
+            this.state.orders = this.state.orders.filter(o => !this.isSameId(o.id, orderId));
 
             if (typeof showToast === 'function') {
                 showToast('订单删除成功', 'success');
@@ -1075,7 +1082,7 @@ const ERP = {
             }
 
             // 更新本地状态
-            const productIndex = this.state.products.findIndex(p => p.id === productId);
+            const productIndex = this.state.products.findIndex(p => this.isSameId(p.id, productId));
             if (productIndex !== -1) {
                 this.state.products[productIndex].stock_quantity = newQuantity;
             }
@@ -1346,7 +1353,7 @@ const ERP = {
             }
 
             // 更新本地状态
-            this.state.finances = this.state.finances.filter(f => f.id !== financeId);
+            this.state.finances = this.state.finances.filter(f => !this.isSameId(f.id, financeId));
 
             if (typeof showToast === 'function') {
                 showToast('财务记录删除成功', 'success');

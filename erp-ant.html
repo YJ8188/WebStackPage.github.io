@@ -308,6 +308,8 @@
                                                 <th>联系人</th>
                                                 <th>电话</th>
                                                 <th>邮箱</th>
+                                                <th>地址</th>
+                                                <th>备注</th>
                                                 <th>状态</th>
                                                 <th>操作</th>
                                             </tr>
@@ -555,8 +557,10 @@
                         <label>备注</label>
                         <textarea id="customerNotes" class="ant-input" style="height: auto;" rows="3"></textarea>
                     </div>
-                    <!-- Hidden Address field if simpler form preferred, or add it -->
-                    <input type="hidden" id="customerAddress">
+                    <div class="form-group">
+                        <label>地址</label>
+                        <input type="text" id="customerAddress" class="ant-input" placeholder="填写客户地址（可选）">
+                    </div>
                 </form>
             </div>
             <div class="modal-footer">
@@ -941,10 +945,10 @@
 
     <!-- Scripts -->
     <script src="assets/js/supabase.min.js"></script>
-    <script src="assets/js/supabase-config.js"></script>
-    <script src="assets/js/user-data.js"></script>
-    <script src="assets/js/erp.js?v=20260212-10"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260212-10"></script>
+    <script src="assets/js/supabase-config.js?v=20260212-11"></script>
+    <script src="assets/js/user-data.js?v=20260212-11"></script>
+    <script src="assets/js/erp.js?v=20260212-11"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260212-11"></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->
     <script>
@@ -1092,7 +1096,7 @@
             }
 
             if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#999;">暂无数据</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px; color:#999;">暂无数据</td></tr>';
                 
                 return;
             }
@@ -1103,6 +1107,8 @@
                     <td>${customer.contact_person || '-'}</td>
                     <td>${customer.phone || '-'}</td>
                     <td>${customer.email || '-'}</td>
+                    <td title="${customer.address || '-'}">${customer.address || '-'}</td>
+                    <td title="${customer.notes || '-'}">${customer.notes || '-'}</td>
                     <td>${customer.status === 'active' ? '活跃' : '停用'}</td>
                     <td>
                         <button class="ant-btn" onclick='editCustomer(${JSON.stringify(customer.id)})'>编辑</button>

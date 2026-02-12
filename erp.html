@@ -942,8 +942,8 @@
     <script src="assets/js/supabase.min.js"></script>
     <script src="assets/js/supabase-config.js"></script>
     <script src="assets/js/user-data.js"></script>
-    <script src="assets/js/erp.js?v=20260212-4"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260212-4"></script>
+    <script src="assets/js/erp.js?v=20260212-5"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260212-5"></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->
     <script>
@@ -1098,7 +1098,7 @@
 
             const html = data.map(customer => `
                 <tr>
-                    <td><a href="#" class="customer-profile-link" data-customer-profile-id="${String(customer.id).replace(/\"/g, '&quot;')}" style="font-weight:500;">${customer.name}</a></td>
+                    <td><a href="#" class="customer-profile-link" data-customer-profile-id="${String(customer.id).replace(/\"/g, '&quot;')}" onclick="return handleCustomerProfileLink(event, ${JSON.stringify(customer.id)})" style="font-weight:500;">${customer.name}</a></td>
                     <td>${customer.contact_person || '-'}</td>
                     <td>${customer.phone || '-'}</td>
                     <td>${customer.email || '-'}</td>

@@ -172,6 +172,19 @@ function showCustomerProfile(customerId) {
     alert(profileText);
 }
 
+function handleCustomerProfileLink(event, customerId) {
+    if (event && typeof event.preventDefault === 'function') {
+        event.preventDefault();
+    }
+
+    if (customerId === null || customerId === undefined || customerId === '') {
+        return false;
+    }
+
+    showCustomerProfile(customerId);
+    return false;
+}
+
 function hideCustomerProfileModal() {
     const modal = document.getElementById('customerProfileModal');
     if (!modal) {
@@ -1386,7 +1399,8 @@ document.addEventListener('DOMContentLoaded', function () {
     initFinanceFilters();
 
     document.addEventListener('click', function (event) {
-        const customerLink = event.target.closest('.customer-profile-link');
+        const target = event.target instanceof Element ? event.target : null;
+        const customerLink = target ? target.closest('.customer-profile-link') : null;
         if (!customerLink) {
             return;
         }
@@ -1397,8 +1411,6 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        if (typeof showCustomerProfile === 'function') {
-            showCustomerProfile(customerId);
-        }
+        handleCustomerProfileLink(event, customerId);
     });
 });

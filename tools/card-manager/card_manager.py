@@ -24,7 +24,7 @@ DEFAULT_DEPLOY_DOMAIN = "hq168.dpdns.org"
 MANAGER_CONFIG_FILE = "manager-config.json"
 
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox, simpledialog, ttk
 
 
 @dataclass
@@ -518,6 +518,31 @@ def get_origin_remote_url(repo_root: Path) -> str:
     return output.strip()
 
 
+def get_git_config_value(repo_root: Path, key: str, global_scope: bool = False) -> str:
+    command = ["git", "config"]
+    if global_scope:
+        command.append("--global")
+    command.append(key)
+    ok, output = run_command(command, repo_root)
+    if not ok:
+        return ""
+    return output.strip()
+
+
+def set_git_config_value(repo_root: Path, key: str, value: str) -> Tuple[bool, str]:
+    return run_command(["git", "config", key, value], repo_root)
+
+
+def parse_github_username(remote_url: str) -> str:
+    normalized = remote_url.strip()
+    if not normalized:
+        return ""
+    match = re.search(r"github\.com[:/]+([^/]+)/", normalized, re.IGNORECASE)
+    if not match:
+        return ""
+    return match.group(1).strip()
+
+
 def collect_module_status(index_html: str, repo_root: Path) -> List[Tuple[str, str, str]]:
     checks: List[Tuple[str, str, str]] = []
 
@@ -950,6 +975,43 @@ class CardManagerApp:
             self.log(f"已打开内置窗口：{title} -> {url}")
         except Exception as exc:
             messagebox.showerror("打开失败", f"内置窗口启动失败：{exc}")
+
+    def ensure_git_identity(self, git_root: Path, target_origin: str) -> bool:
+        local_name = get_git_config_value(git_root, "user.name")
+        local_email = get_git_config_value(git_root, "user.email")
+        global_name = get_git_config_value(git_root, "user.name", global_scope=True)
+        global_email = get_git_config_value(git_root, "user.email", global_scope=True)
+
+        if (local_name or global_name) and (local_email or global_email):
+            return True
+
+        username = parse_github_username(target_origin) or "WebStackUser"
+        suggested_email = f"{username}@users.noreply.github.com"
+
+        final_name = local_name or global_name or username
+        final_email = local_email or global_email or suggested_email
+
+        if not final_name:
+            final_name = simpledialog.askstring("Git 身份配置", "请输入 Git 用户名（提交作者）") or "WebStackUser"
+        if not final_email:
+            final_email = simpledialog.askstring("Git 身份配置", "请输入 Git 邮箱（提交作者）") or suggested_email
+
+        ok1, out1 = set_git_config_value(git_root, "user.name", final_name)
+        ok2, out2 = set_git_config_value(git_root, "user.email", final_email)
+        if not (ok1 and ok2):
+            self.log(out1)
+            self.log(out2)
+            messagebox.showerror(
+                "Git 配置失败",
+                "提交前自动配置作者信息失败。\n"
+                "请先在命令行执行：\n"
+                "git config --global user.name " + '"你的名字"' + "\n"
+                "git config --global user.email " + '"你的邮箱"',
+            )
+            return False
+
+        self.log(f"已自动配置 Git 提交身份：{final_name} <{final_email}>")
+        return True
 
     def load_origin_url(self) -> None:
         git_root = find_git_root(self.index_path.parent if self.index_path else self.repo_root) or self.repo_root
@@ -1412,6 +1474,9 @@ class CardManagerApp:
 
         self.repo_url_var.set(target_origin)
 
+        if not self.ensure_git_identity(git_root, target_origin):
+            return
+
         ok, branch_output = run_command(["git", "branch", "--show-current"], git_root)
         if ok:
             branch = branch_output.strip()
@@ -1436,7 +1501,11 @@ class CardManagerApp:
                 if command[1] == "commit" and "nothing to commit" in output.lower():
                     self.log("没有新改动，继续执行 push。")
                     continue
-                messagebox.showerror("Git 操作失败", f"命令失败：{' '.join(command)}")
+                detail = output if output else "（命令未返回输出）"
+                messagebox.showerror(
+                    "Git 操作失败",
+                    f"命令失败：{' '.join(command)}\n\n详细信息：\n{detail}",
+                )
                 return
         ts = int(datetime.now().timestamp())
         verify_url = f"{self.build_online_url('index.html')}?v={ts}"

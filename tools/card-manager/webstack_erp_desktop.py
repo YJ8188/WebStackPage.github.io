@@ -32,6 +32,14 @@ def app_home_dir() -> Path:
     return base
 
 
+def webview_storage_dir() -> Path:
+    # 让 ERP 的登录态/本地缓存持久化，避免每次打开都像“没登录”。
+    # pywebview 的 private_mode 默认是 True（无痕），必须显式关闭。
+    path = app_home_dir() / "webview_storage"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def manager_config_path() -> Path:
     return app_home_dir() / MANAGER_CONFIG_FILE
 
@@ -127,7 +135,12 @@ def run_webview(url: str) -> None:
         height=900,
         min_size=(980, 700),
     )
-    webview.start(gui="edgechromium", debug=False)
+    webview.start(
+        gui="edgechromium",
+        debug=False,
+        private_mode=False,
+        storage_path=str(webview_storage_dir()),
+    )
 
 
 def main() -> int:
@@ -162,4 +175,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

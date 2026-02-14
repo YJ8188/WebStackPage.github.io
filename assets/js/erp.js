@@ -77,7 +77,7 @@ const ERP = {
         try {
             // 只加载统计数据，不加载详细记录
             const [customers, products, orders, finances] = await Promise.all([
-                this.loadCustomers(true),
+                this.loadCustomers({ lite: true }),
                 this.loadProducts(true),
                 this.loadOrders(true),
                 this.loadFinances(true)
@@ -137,9 +137,22 @@ const ERP = {
     },
 
     // ==================== 按需加载数据 ====================
-    async loadCustomers(lite = false) {
+    async loadCustomers(options = false) {
+        let lite = false;
+        let forceRefresh = false;
+
+        if (typeof options === 'object' && options !== null) {
+            lite = !!options.lite;
+            forceRefresh = !!options.forceRefresh;
+        } else {
+            lite = options === true;
+        }
+
+        if (forceRefresh) {
+            this.state.loaded.customers = false;
+        }
         // 如果已加载且不是强制刷新，直接返回缓存
-        if (this.state.loaded.customers && !lite) {
+        if (this.state.loaded.customers && !forceRefresh) {
             return this.state.customers;
         }
 

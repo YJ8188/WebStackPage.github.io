@@ -524,7 +524,7 @@ async function saveCustomer() {
             
             if (result) {
                 // 重新加载数据并更新显示
-                const customers = await ERP.loadCustomers(true);
+                const customers = await ERP.loadCustomers({ forceRefresh: true });
                 console.info('[ERP Ant] 重新加载客户数据条数: ', customers.length);
                 renderCustomers(customers);
                 updateStatistics();
@@ -540,7 +540,7 @@ async function saveCustomer() {
             hideCustomerModal();
             
             // 重新加载数据并更新显示
-            const customers = await ERP.loadCustomers(true);
+            const customers = await ERP.loadCustomers({ forceRefresh: true });
             console.info('[ERP Ant] 重新加载客户数据条数: ', customers.length);
             renderCustomers(customers);
             updateStatistics();
@@ -565,7 +565,21 @@ async function saveCustomer() {
 }
 
 async function editCustomer(customerId) {
-    const customer = ERP.state.customers.find(c => isSameEntityId(c.id, customerId));
+    let customer = ERP.state.customers.find(c => isSameEntityId(c.id, customerId));
+
+    const hasFullProfile = !!(customer && (
+        Object.prototype.hasOwnProperty.call(customer, 'contact_person') ||
+        Object.prototype.hasOwnProperty.call(customer, 'phone') ||
+        Object.prototype.hasOwnProperty.call(customer, 'email') ||
+        Object.prototype.hasOwnProperty.call(customer, 'address') ||
+        Object.prototype.hasOwnProperty.call(customer, 'notes')
+    ));
+
+    if (!hasFullProfile) {
+        const customers = await ERP.loadCustomers({ forceRefresh: true });
+        customer = customers.find(c => isSameEntityId(c.id, customerId));
+    }
+
     if (customer) {
         showCustomerModal(customer);
     }
@@ -581,7 +595,7 @@ async function deleteCustomer(customerId) {
         console.info('[ERP Ant] 删除客户已提交到后端: ', customerId);
         await ERP.deleteCustomer(customerId);
         console.info('[ERP Ant] 重新加载客户数据...');
-        const customers = await ERP.loadCustomers(true);
+        const customers = await ERP.loadCustomers({ forceRefresh: true });
         console.info('[ERP Ant] 重新加载客户数据条数: ', customers.length);
         
         if (typeof renderCustomers === 'function') {
@@ -604,7 +618,7 @@ async function deleteCustomer(customerId) {
         }
         
         // 重新加载数据
-        const customers = await ERP.loadCustomers(true);
+        const customers = await ERP.loadCustomers({ forceRefresh: true });
         if (typeof renderCustomers === 'function') {
             renderCustomers(customers);
         }
@@ -1481,6 +1495,17 @@ if (typeof window !== 'undefined') {
         // 自动渲染所有模块的数据，传递数据参数
         if (typeof renderCustomers === 'function') {
             renderCustomers(event.detail.customers);
+        }
+        if (window.ERP && typeof ERP.loadCustomers === 'function') {
+            ERP.loadCustomers({ forceRefresh: true })
+                .then(customers => {
+                    if (typeof renderCustomers === 'function') {
+                        renderCustomers(customers);
+                    }
+                })
+                .catch(error => {
+                    console.error('[ERP Ant] 加载完整客户数据失败:', error);
+                });
         }
         if (typeof renderProducts === 'function') {
             renderProducts(event.detail.products);

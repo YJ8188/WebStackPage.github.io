@@ -947,8 +947,8 @@
     <script src="assets/js/supabase.min.js"></script>
     <script src="assets/js/supabase-config.js?v=20260212-11"></script>
     <script src="assets/js/user-data.js?v=20260212-11"></script>
-    <script src="assets/js/erp.js?v=20260212-13"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260212-13"></script>
+    <script src="assets/js/erp.js?v=20260212-14"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260212-14"></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->
     <script>
@@ -1251,7 +1251,41 @@
                 return;
             }
 
-            tbody.innerHTML = data.map(f => `
+            const financeTypeRank = (row) => {
+                const category = String(row?.category || '');
+                if (row?.type === 'expense' && category.includes('销售成本')) return 0;
+                if (row?.type === 'income' && category.includes('销售订单')) return 1;
+                if (row?.type === 'system' || category.includes('利润')) return 2;
+                return 3;
+            };
+
+            const getTimeValue = (value) => {
+                const timestamp = new Date(value).getTime();
+                return Number.isFinite(timestamp) ? timestamp : 0;
+            };
+
+            const sortedData = [...data].sort((left, right) => {
+                const timeDiff = getTimeValue(right.transaction_date) - getTimeValue(left.transaction_date);
+                if (timeDiff !== 0) return timeDiff;
+
+                const sameOrder = String(left.order_id || '') !== ''
+                    && String(left.order_id || '') === String(right.order_id || '');
+
+                if (sameOrder) {
+                    const rankDiff = financeTypeRank(left) - financeTypeRank(right);
+                    if (rankDiff !== 0) return rankDiff;
+                }
+
+                const leftId = Number(left.id);
+                const rightId = Number(right.id);
+                if (Number.isFinite(leftId) && Number.isFinite(rightId)) {
+                    return rightId - leftId;
+                }
+
+                return String(right.id || '').localeCompare(String(left.id || ''));
+            });
+
+            tbody.innerHTML = sortedData.map(f => `
                 <tr>
                     <td>${f.type === 'income' ? '收入' : (f.type === 'expense' ? '支出' : '系统')}</td>
                     <td>${f.category || '-'}</td>

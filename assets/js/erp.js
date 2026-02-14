@@ -873,19 +873,23 @@ const ERP = {
 
             const itemsData = itemsDataRaw || [];
 
-            await this.postProcessOrder(order, orderData.items, {
+            // 先返回订单创建结果，减少用户等待体感
+            order.items = itemsData;
+            this.state.orders.unshift(order);
+            this.emitEvent('erpOrderChanged', { orderId: order.id, action: 'created' });
+
+            // 库存/财务后处理改为异步执行，完成后会通过事件刷新页面
+            this.postProcessOrder(order, orderData.items, {
                 orderNumber,
                 totalAmount,
                 totalCost,
                 netProfit
+            }).catch(error => {
+                console.error('[ERP] 订单后处理失败:', error);
+                if (typeof showToast === 'function') {
+                    showToast('订单已保存，库存/财务同步稍后自动重试', 'warning');
+                }
             });
-
-            // 更新本地状态
-            order.items = itemsData;
-            this.state.orders.unshift(order);
-            this.state.loaded.finances = false;
-
-            this.emitEvent('erpOrderChanged', { orderId: order.id, action: 'created' });
 
             if (typeof showToast === 'function') {
                 showToast('订单创建成功', 'success');

@@ -93,6 +93,8 @@ let USD_CNY_RATE = 7.25; // 美元兑人民币汇率（默认值7.25，实时获
 let lastRateUpdate = 0; // 上次汇率更新时间
 let lastLocalStorageUpdate = 0; // 上次localStorage更新时间
 const LOCAL_STORAGE_UPDATE_INTERVAL = 10000; // localStorage更新间隔：10秒
+const MAX_DISPLAY_COINS = 80; // 页面最大渲染币种数量，防止DOM过载
+const MAX_SPARKLINE_COINS = 16; // 仅为前N个币种加载7日曲线，减少并发请求
 
 // ==================== 缓存相关常量 ====================
 const CRYPTO_CACHE_KEY = 'crypto_data_cache'; // 币种数据缓存键名（已弃用，改用服务器缓存）
@@ -978,7 +980,7 @@ const rateAPIs = [
  * 节流更新UI，避免频繁DOM操作导致性能问题
  */
 let lastUIUpdateTime = 0;
-const UI_UPDATE_THROTTLE = 100; // UI更新节流间隔：100ms
+const UI_UPDATE_THROTTLE = 350; // UI更新节流间隔：350ms，降低主线程压力
 
 function throttledUpdateUI(data) {
     const now = Date.now();
@@ -987,6 +989,49 @@ function throttledUpdateUI(data) {
         requestAnimationFrame(() => {
             updateCryptoUI(data);
         });
+    }
+}
+
+async function loadFallbackCryptoData() {
+    try {
+        const response = await fetchWithTimeout('https://api.binance.com/api/v3/ticker/24hr', { timeout: 8000 });
+        if (!response.ok) {
+            return [];
+        }
+
+        const json = await response.json();
+        if (!Array.isArray(json)) {
+            return [];
+        }
+
+        const fallbackList = json
+            .filter(item => item && typeof item.symbol === 'string' && item.symbol.endsWith('USDT'))
+            .map(item => {
+                const symbol = item.symbol.replace('USDT', '').toLowerCase();
+                const coinIds = COIN_ID_MAP[symbol] || {};
+                const svgIcon = generateSvgIcon(symbol);
+
+                return {
+                    symbol,
+                    name: item.symbol.replace('USDT', ''),
+                    image: `https://assets.coincap.io/assets/icons/${symbol}@2x.png`,
+                    fallbackIcon1: coinIds.coinmarketcap ? `https://s2.coinmarketcap.com/static/img/coins/64x64/${coinIds.coinmarketcap}.png` : svgIcon,
+                    fallbackIcon2: coinIds.coingecko_id ? `https://assets.coingecko.com/coins/images/${coinIds.coingecko_id}/small/${coinIds.coingecko}.png` : svgIcon,
+                    fallbackIcon3: svgIcon,
+                    current_price: parseFloat(item.lastPrice) || 0,
+                    price_change_percentage_24h: parseFloat(item.priceChangePercent) || 0,
+                    market_cap: (parseFloat(item.lastPrice) || 0) * (parseFloat(item.volume) || 0),
+                    total_volume: parseFloat(item.quoteVolume) || 0,
+                    quoteVolume: parseFloat(item.quoteVolume) || 0,
+                    volume: parseFloat(item.volume) || 0
+                };
+            })
+            .filter(item => item.current_price > 0);
+
+        return buildDisplayCoinList(fallbackList).slice(0, MAX_DISPLAY_COINS);
+    } catch (error) {
+        Logger.error('[行情同步] REST兜底数据加载失败:', error);
+        return [];
     }
 }
 
@@ -1564,9 +1609,23 @@ async function fetchCryptoData() {
                 if (cachedData && cachedData.length > 0) {
                     Logger.warn('[行情同步] 使用缓存数据继续显示');
                 } else {
-                    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: #ef4444;">
-                        <i class="fa fa-exclamation-triangle"></i> 连接超时，请检查网络或稍后刷新页面。
-                    </td></tr>`;
+                    loadFallbackCryptoData().then(fallbackCoins => {
+                        if (Array.isArray(fallbackCoins) && fallbackCoins.length > 0) {
+                            cryptoData = fallbackCoins;
+                            renderCryptoTable(cryptoData);
+                            updateCryptoUI(cryptoData);
+                            Logger.warn('[行情同步] WebSocket超时，已切换REST兜底数据');
+                            return;
+                        }
+
+                        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: #ef4444;">
+                            <i class="fa fa-exclamation-triangle"></i> 行情连接超时，请检查网络或稍后刷新页面。
+                        </td></tr>`;
+                    }).catch(() => {
+                        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: #ef4444;">
+                            <i class="fa fa-exclamation-triangle"></i> 行情连接超时，请检查网络或稍后刷新页面。
+                        </td></tr>`;
+                    });
                 }
             }
         }, 500);
@@ -1599,12 +1658,6 @@ function renderCryptoTable(data) {
         return;
     }
 
-    // 更新标题中的币种计数
-    const coinCountTitle = document.getElementById('coin-count-title');
-    if (coinCountTitle) {
-        coinCountTitle.innerText = `（已展现${data.length}币种）`;
-    }
-
     const tbody = document.getElementById('crypto-table-body');
     if (!tbody) {
         Logger.error('[渲染表格] 找不到 tbody 元素');
@@ -1615,16 +1668,23 @@ function renderCryptoTable(data) {
     tbody.innerHTML = '';
 
     const sortedData = buildDisplayCoinList(data);
+    const displayData = sortedData.slice(0, MAX_DISPLAY_COINS);
 
-    // 保存所有币种数据用于搜索
-    allCryptoData = [...sortedData];
+    // 更新标题中的币种计数
+    const coinCountTitle = document.getElementById('coin-count-title');
+    if (coinCountTitle) {
+        coinCountTitle.innerText = `（已展现${displayData.length}/${sortedData.length}币种）`;
+    }
+
+    // 保存所有可展示币种数据用于搜索
+    allCryptoData = [...displayData];
 
     const isCNY = currentCurrency === 'CNY';
     const rate = isCNY ? (USD_CNY_RATE || 1) : 1;
     const symbol = isCNY ? '¥' : '$';
 
-    // 渲染所有币种（不限制数量）
-    sortedData.forEach(coin => {
+    // 渲染可展示币种（限制数量，避免卡顿）
+    displayData.forEach((coin, index) => {
         const rawPrice = coin.current_price;
         const price = (rawPrice * rate).toLocaleString(undefined, {
             minimumFractionDigits: 2,
@@ -1662,7 +1722,9 @@ function renderCryptoTable(data) {
         } else {
             sparklineContent = `<div id="graph-${coin.symbol}" class="graph-container-${coin.symbol}" style="height:30px; display:flex; align-items:center; justify-content:center;">-</div>`;
             sparklineDetail = `<div id="graph-detail-${coin.symbol}" class="graph-container-${coin.symbol}" style="height:60px; min-width:240px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.05); border-radius:6px; border: 1px dotted rgba(0,0,0,0.05);"></div>`;
-            setTimeout(() => loadSparkline(coin.id, coin.symbol, change), 0);
+            if (index < MAX_SPARKLINE_COINS) {
+                setTimeout(() => loadSparkline(coin.id, coin.symbol, change), 0);
+            }
         }
 
         const isOpen = expandedCoins.has(coin.symbol);
@@ -1805,8 +1867,8 @@ function updateCryptoUI(data) {
     if (!data) return;
 
     const tbody = document.getElementById('crypto-table-body');
+    const displayData = buildDisplayCoinList(data).slice(0, MAX_DISPLAY_COINS);
     if (tbody) {
-        const displayData = buildDisplayCoinList(data);
         const renderedRows = tbody.querySelectorAll('tr.main-row').length;
         const hasBtcRow = !!document.getElementById('price-btc');
         const ethExistsInData = displayData.some(coin => coin && String(coin.symbol).toLowerCase() === 'eth');
@@ -1823,7 +1885,7 @@ function updateCryptoUI(data) {
     // 更新标题中的币种计数
     const coinCountTitle = document.getElementById('coin-count-title');
     if (coinCountTitle) {
-        coinCountTitle.innerText = `（已展现${data.length}币种）`;
+        coinCountTitle.innerText = `（已展现${displayData.length}币种）`;
     }
 
     const isCNY = currentCurrency === 'CNY';
@@ -1833,7 +1895,7 @@ function updateCryptoUI(data) {
     // 批量收集需要更新的元素，减少DOM查询
     const updates = [];
 
-    data.forEach(coin => {
+    displayData.forEach(coin => {
         const priceId = `price-${coin.symbol}`;
         const priceEl = document.getElementById(priceId);
         const changeEl = document.getElementById(`change-${coin.symbol}`);
@@ -2863,12 +2925,12 @@ async function initCryptoModule() {
         }
     }, 2500);
 
-    // 实时更新汇率显示（每5秒，只在页面可见时刷新）
+    // 实时更新汇率显示（每30秒，只在页面可见时刷新）
     setInterval(() => {
         if (!document.hidden) {
             syncRate();
         }
-    }, 5000);
+    }, 30000);
 
     // 请求通知权限（延迟执行）
     setTimeout(() => {

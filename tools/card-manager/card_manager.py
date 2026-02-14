@@ -6,6 +6,7 @@ from __future__ import annotations
 import html
 import multiprocessing
 import re
+import shutil
 import subprocess
 import sys
 import threading
@@ -16,6 +17,9 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import List, Optional, Tuple
 from urllib.parse import quote
+
+
+DEFAULT_REMOTE_URL = "https://github.com/YJ8188/WebStackPage.github.io.git"
 
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
@@ -425,6 +429,38 @@ def find_git_root(start_path: Path) -> Optional[Path]:
     return None
 
 
+def app_home_dir() -> Path:
+    base = Path.home() / ".webstack-desktop"
+    base.mkdir(parents=True, exist_ok=True)
+    return base
+
+
+def resolve_embedded_workspace() -> Optional[Path]:
+    if not getattr(sys, "frozen", False):
+        return None
+    base = Path(getattr(sys, "_MEIPASS", ""))
+    candidate = base / "workspace_bundle"
+    if (candidate / "index.html").exists():
+        return candidate
+    return None
+
+
+def prepare_default_workspace() -> Path:
+    embedded = resolve_embedded_workspace()
+    if embedded:
+        workspace = app_home_dir() / "workspace"
+        index_file = workspace / "index.html"
+        if not index_file.exists():
+            shutil.copytree(embedded, workspace, dirs_exist_ok=True)
+        return workspace
+
+    local_repo = find_git_root(Path.cwd()) or Path.cwd()
+    if (local_repo / "index.html").exists():
+        return local_repo
+
+    return Path.cwd()
+
+
 def get_origin_remote_url(repo_root: Path) -> str:
     ok, output = run_command(["git", "remote", "get-url", "origin"], repo_root)
     if not ok:
@@ -477,8 +513,7 @@ def run_webview_window(url: str, title: str) -> None:
     try:
         import webview
     except Exception:
-        webbrowser.open(url)
-        return
+        raise RuntimeError("缺少 pywebview 运行依赖")
 
     window = webview.create_window(title, url=url, width=1366, height=900, min_size=(900, 600))
     webview.start(gui="edgechromium", debug=False)
@@ -498,7 +533,7 @@ class CardManagerApp:
         self.root.title("WebStack H5 一体化管理器（Win EXE）")
         self.root.geometry("1320x860")
 
-        self.repo_root = find_git_root(Path.cwd()) or Path.cwd()
+        self.repo_root = prepare_default_workspace()
         self.index_path = self.repo_root / "index.html"
 
         self.original_html: str = ""
@@ -514,6 +549,8 @@ class CardManagerApp:
         self.preview_server: Optional[ThreadingHTTPServer] = None
         self.preview_server_thread: Optional[threading.Thread] = None
         self.preview_port: Optional[int] = None
+
+        self.repo_url_var.set(DEFAULT_REMOTE_URL)
 
         self._build_ui()
         if self.index_path.exists():
@@ -719,8 +756,9 @@ class CardManagerApp:
         git_root = find_git_root(self.index_path.parent if self.index_path else self.repo_root) or self.repo_root
         remote = get_origin_remote_url(git_root)
         if not remote:
-            self.repo_url_var.set("")
-            self.log("未读取到 origin 地址。")
+            if not self.repo_url_var.get().strip():
+                self.repo_url_var.set(DEFAULT_REMOTE_URL)
+            self.log("未读取到 origin 地址，已使用默认仓库地址。")
             return
         self.repo_url_var.set(remote)
         self.log(f"当前 origin：{remote}")
@@ -819,8 +857,7 @@ class CardManagerApp:
             process.start()
             self.log(f"已打开内置窗口：{title} -> {url}")
         except Exception as exc:
-            self.log(f"内置窗口打开失败，改为浏览器：{exc}")
-            webbrowser.open(url)
+            messagebox.showerror("打开失败", f"内置窗口启动失败：{exc}")
 
     def open_home_app(self) -> None:
         self.open_web_app("WebStack 首页", "index.html")
@@ -1117,8 +1154,19 @@ class CardManagerApp:
     def push_to_master(self, from_auto: bool = False) -> None:
         git_root = find_git_root(self.index_path.parent)
         if not git_root:
-            messagebox.showerror("推送失败", "未找到 .git 仓库，无法推送。")
-            return
+            git_root = self.repo_root
+            self.log("未找到 Git 仓库，正在初始化本地仓库...")
+            init_steps = [
+                ["git", "init"],
+                ["git", "branch", "-M", "master"],
+            ]
+            for step in init_steps:
+                ok, output = run_command(step, git_root)
+                if output:
+                    self.log(output)
+                if not ok:
+                    messagebox.showerror("推送失败", f"初始化仓库失败：{' '.join(step)}")
+                    return
 
         current_origin = get_origin_remote_url(git_root)
         target_origin = self.repo_url_var.get().strip() or current_origin
@@ -1137,7 +1185,10 @@ class CardManagerApp:
                     self.log("已取消切换仓库并推送。")
                     return
 
-            ok, output = run_command(["git", "remote", "set-url", "origin", target_origin], git_root)
+            if current_origin:
+                ok, output = run_command(["git", "remote", "set-url", "origin", target_origin], git_root)
+            else:
+                ok, output = run_command(["git", "remote", "add", "origin", target_origin], git_root)
             if not ok:
                 messagebox.showerror("推送失败", f"设置 origin 失败：{output}")
                 return

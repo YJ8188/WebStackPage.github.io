@@ -5254,16 +5254,25 @@
             });
         }
 
-        window.addEventListener('scroll', function () {
-            const btn = document.querySelector('.back-to-top');
-            if (!btn) return;
+        const backTopBtn = document.querySelector('.back-to-top');
+        let backTopTicking = false;
 
-            if (window.scrollY > 300) {
-                btn.classList.add('visible');
-            } else {
-                btn.classList.remove('visible');
-            }
-        });
+        function updateBackTopBtn() {
+            if (!backTopBtn) return;
+            backTopBtn.classList.toggle('visible', window.scrollY > 300);
+        }
+
+        function onScrollForBackTop() {
+            if (backTopTicking) return;
+            backTopTicking = true;
+            requestAnimationFrame(() => {
+                updateBackTopBtn();
+                backTopTicking = false;
+            });
+        }
+
+        window.addEventListener('scroll', onScrollForBackTop, { passive: true });
+        updateBackTopBtn();
     </script>
     <!-- 全局固定搜索（支持站内+Bing+谷歌） -->
     <div class="global-search">
@@ -5974,49 +5983,44 @@
             }, { offset: Number.NEGATIVE_INFINITY }).element;
         }
         
+        let hasCardManagementInited = false;
+        let lastCardStateFingerprint = '';
+
         // 监听用户数据加载完成事件
-        window.addEventListener('userDataLoaded', async function(event) {
-            console.log('[卡片] 收到 userDataLoaded 事件，初始化卡片管理');
-            
-            // 初始化卡片管理功能（无论是否登录都需要初始化）
-            initCardManagement();
-            
-            if (typeof userData !== 'undefined' && userData.isLoggedIn) {
-                console.log('[卡片] 用户已登录，应用数据库设置');
-                
-                // 重新加载隐藏卡片
-                try {
-                    const dbHiddenCards = await userData.loadHiddenCards();
-                    dbHiddenCards.forEach(cardId => {
-                        const cardContainer = document.getElementById(cardId);
-                        if (cardContainer) {
-                            cardContainer.classList.add('card-hidden');
-                        }
-                    });
-                    console.log('[卡片] ✅ 隐藏卡片已应用');
-                } catch (error) {
-                    console.error('[卡片] 应用隐藏卡片失败:', error);
-                }
-                
-                // 重新加载排序
-                try {
-                    const dbCardOrder = await userData.loadCardOrder();
-                    if (dbCardOrder && dbCardOrder.length > 0) {
-                        const allRows = document.querySelectorAll('.row');
-                        allRows.forEach(container => {
-                            applyOrder(container, dbCardOrder);
-                        });
-                        console.log('[卡片] ✅ 排序已应用');
-                    }
-                } catch (error) {
-                    console.error('[卡片] 应用排序失败:', error);
-                }
-                
-                // 更新管理面板
-                updateHiddenPanel();
-            } else {
-                console.log('[卡片] 用户未登录，使用本地数据');
+        window.addEventListener('userDataLoaded', function(event) {
+            // 卡片管理只初始化一次，避免重复绑定拖拽事件造成卡顿
+            if (!hasCardManagementInited) {
+                initCardManagement();
+                hasCardManagementInited = true;
             }
+
+            const hiddenCards = Array.isArray(event?.detail?.hiddenCards) ? event.detail.hiddenCards : [];
+            const cardOrder = Array.isArray(event?.detail?.cardOrder) ? event.detail.cardOrder : [];
+            const identity = userData?.isLoggedIn && userData?.user?.id ? userData.user.id : 'guest';
+            const fingerprint = `${identity}|h:${hiddenCards.join(',')}|o:${cardOrder.join(',')}`;
+
+            // 配置无变化时跳过重复应用，避免反复重排
+            if (fingerprint === lastCardStateFingerprint) {
+                return;
+            }
+            lastCardStateFingerprint = fingerprint;
+
+            document.querySelectorAll('.card-hidden').forEach(el => el.classList.remove('card-hidden'));
+            hiddenCards.forEach(cardId => {
+                const cardContainer = document.getElementById(cardId);
+                if (cardContainer) {
+                    cardContainer.classList.add('card-hidden');
+                }
+            });
+
+            if (cardOrder.length > 0) {
+                const allRows = document.querySelectorAll('.row');
+                allRows.forEach(container => {
+                    applyOrder(container, cardOrder);
+                });
+            }
+
+            updateHiddenPanel();
         });
     </script>
     
@@ -6725,7 +6729,6 @@
             
             // 先从数据库加载（如果已登录）
             if (userData.isLoggedIn) {
-                await userData.loadConfig();
                 applyDarkModeState(!!userData.config.darkMode, { persistLocal: true, syncAccount: false });
             } else {
                 const savedMode = localStorage.getItem('theme_mode'); // 获取用户保存的模式设置
@@ -8351,7 +8354,7 @@
     <script src="assets/js/auth-ui.js"></script>
 
     <!-- ==================== 提醒系统脚本 ==================== -->
-    <script src="assets/js/notification.js?v=20260214-2"></script>
+    <script src="assets/js/notification.js?v=20260214-3"></script>
 </body>
 
 </html>

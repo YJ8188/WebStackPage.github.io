@@ -9,6 +9,8 @@
 let reminders = []; // 提醒列表
 let reminderTimers = {}; // 定时器对象
 let checkInterval = null; // 检查提醒的定时器
+let dateTimeTimer = null; // 日期时间定时器
+let notificationEventsBound = false; // 通知中心事件是否已绑定
 const REMINDER_KEY_LEGACY = 'reminders';
 const REMINDER_KEY_GUEST = 'reminders_guest_v1';
 
@@ -56,8 +58,12 @@ document.addEventListener('DOMContentLoaded', async function() {
     await loadReminders();
     updateReminderList();
     startReminderCheck();
-    updateDateTime();
-    setInterval(updateDateTime, 1000);
+
+    if (!dateTimeTimer) {
+        updateDateTime();
+        dateTimeTimer = setInterval(updateDateTime, 1000);
+    }
+
     initNotificationCenterEvents();
     
     // 如果已登录，加载通知面板状态
@@ -117,6 +123,8 @@ function toggleNotificationCenter() {
         closeNotificationCenter();
     } else {
         panel.style.display = 'flex';
+        updateReminderList();
+        updateBadge();
         
         // 保存到数据库（如果已登录）
         if (userData.isLoggedIn) {
@@ -138,6 +146,11 @@ function closeNotificationCenter() {
 
 // ==================== 初始化通知中心事件监听 ====================
 function initNotificationCenterEvents() {
+    if (notificationEventsBound) {
+        return;
+    }
+    notificationEventsBound = true;
+
     // 阻止点击通知中心面板时冒泡到文档
     const panel = document.getElementById('notificationPanel');
     if (panel) {
@@ -172,10 +185,10 @@ function initNotificationCenterEvents() {
     });
 }
 
-// 在页面加载时初始化事件监听
-document.addEventListener('DOMContentLoaded', function() {
-    initNotificationCenterEvents();
-});
+function isNotificationPanelVisible() {
+    const panel = document.getElementById('notificationPanel');
+    return !!panel && panel.style.display === 'flex';
+}
 
 // ==================== 切换状态分类的展开/收起 ====================
 function toggleSection(section) {
@@ -429,11 +442,13 @@ function startReminderCheck() {
         // 只在数据改变时保存
         if (dataChanged) {
             saveReminders();
+            updateBadge();
         }
 
-        // 每秒更新列表显示（为了倒计时）
-        updateReminderList();
-        updateBadge();
+        // 仅在通知面板打开时，每秒刷新倒计时文本
+        if (isNotificationPanelVisible()) {
+            updateReminderList();
+        }
 
     }, 1000);
 }

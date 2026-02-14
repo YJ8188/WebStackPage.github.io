@@ -44,7 +44,13 @@ if not exist "%BUNDLE_DIR%\index.html" (
 )
 
 echo [3/3] Build desktop/runtime EXE...
-pyinstaller --noconfirm --clean --onefile --windowed --name WebStackDesktop --add-data "workspace_bundle;workspace_bundle" webstack_runtime.py
+set BUILD_TAG=%DATE:~0,4%%DATE:~5,2%%DATE:~8,2%_%TIME:~0,2%%TIME:~3,2%%TIME:~6,2%
+set BUILD_TAG=%BUILD_TAG: =0%
+
+set DESKTOP_OUT=dist\WebStackDesktop_%BUILD_TAG%
+set MANAGER_OUT=dist\WebStackManager_%BUILD_TAG%
+
+pyinstaller --noconfirm --clean --onefile --windowed --name WebStackDesktop --distpath "%DESKTOP_OUT%" --add-data "workspace_bundle;workspace_bundle" webstack_runtime.py
 if errorlevel 1 (
   echo Desktop build failed. Check logs above.
   pause
@@ -52,7 +58,7 @@ if errorlevel 1 (
 )
 
 echo [3/3] Build manager EXE...
-pyinstaller --noconfirm --clean --onefile --windowed --name WebStackManager --add-data "workspace_bundle;workspace_bundle" card_manager.py
+pyinstaller --noconfirm --clean --onefile --windowed --name WebStackManager --distpath "%MANAGER_OUT%" --add-data "workspace_bundle;workspace_bundle" card_manager.py
 if errorlevel 1 (
   echo Manager build failed. Check logs above.
   pause
@@ -61,6 +67,6 @@ if errorlevel 1 (
 
 echo.
 echo Build complete:
-echo - %~dp0dist\WebStackDesktop.exe
-echo - %~dp0dist\WebStackManager.exe
+echo - %~dp0%DESKTOP_OUT%\WebStackDesktop.exe
+echo - %~dp0%MANAGER_OUT%\WebStackManager.exe
 pause

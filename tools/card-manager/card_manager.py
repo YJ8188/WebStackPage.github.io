@@ -641,6 +641,8 @@ class CardManagerApp:
 
         self.repo_url_var.set(DEFAULT_REMOTE_URL)
 
+        self._card_drag_source: Optional[str] = None
+
         self._build_ui()
         if self.index_path.exists():
             self.path_var.set(str(self.index_path))
@@ -722,6 +724,10 @@ class CardManagerApp:
         self.card_tree = ttk.Treeview(left, show="tree")
         self.card_tree.pack(fill="both", expand=True, pady=6)
         self.card_tree.bind("<<TreeviewSelect>>", self.on_card_tree_select)
+        # 支持拖拽排序（仅卡片节点，且仅允许同一分组内排序）
+        self.card_tree.bind("<ButtonPress-1>", self.on_card_tree_drag_start, add=True)
+        self.card_tree.bind("<B1-Motion>", self.on_card_tree_drag_motion, add=True)
+        self.card_tree.bind("<ButtonRelease-1>", self.on_card_tree_drag_drop, add=True)
 
         row = ttk.Frame(left)
         row.pack(fill="x")
@@ -1279,6 +1285,7 @@ class CardManagerApp:
         selected = self.nav_tree.selection()
         if not selected:
             return
+
         iid = selected[0]
         if not iid.startswith("n-"):
             return
@@ -1292,6 +1299,80 @@ class CardManagerApp:
         self.nav_icon_var.set(nav.icon_class)
         self.nav_label_var.set(nav.label_text)
         self.nav_target_var.set(nav.target)
+
+    def select_card_tree_item(self, iid: str) -> None:
+        if not iid:
+            return
+        try:
+            self.card_tree.selection_set(iid)
+            self.card_tree.focus(iid)
+            self.card_tree.see(iid)
+        except Exception:
+            return
+
+    def on_card_tree_drag_start(self, event: tk.Event) -> None:
+        try:
+            iid = self.card_tree.identify_row(event.y)
+        except Exception:
+            iid = ""
+
+        if not iid or not iid.startswith("c-"):
+            self._card_drag_source = None
+            return
+
+        # 点击时立即保持选中，避免“点上移/下移后不自动选中”的体验
+        self.select_card_tree_item(iid)
+        self._card_drag_source = iid
+
+    def on_card_tree_drag_motion(self, event: tk.Event) -> None:
+        if not self._card_drag_source:
+            return
+        target = self.card_tree.identify_row(event.y)
+        if not target or not target.startswith("c-"):
+            return
+        # 同一分组内才允许拖拽
+        if target.split("-")[1] != self._card_drag_source.split("-")[1]:
+            return
+        # 移动提示：保持焦点即可（Treeview 不支持原生拖拽样式）
+        self.card_tree.focus(target)
+
+    def on_card_tree_drag_drop(self, event: tk.Event) -> None:
+        source = self._card_drag_source
+        self._card_drag_source = None
+        if not source:
+            return
+
+        target = self.card_tree.identify_row(event.y)
+        if not target or not target.startswith("c-"):
+            return
+        if target == source:
+            return
+
+        src_parts = source.split("-")
+        tgt_parts = target.split("-")
+        if len(src_parts) != 3 or len(tgt_parts) != 3:
+            return
+
+        s_idx = int(src_parts[1])
+        old_idx = int(src_parts[2])
+        new_idx = int(tgt_parts[2])
+        if s_idx != int(tgt_parts[1]):
+            return
+        if not (0 <= s_idx < len(self.sections)):
+            return
+
+        section = self.sections[s_idx]
+        if not (0 <= old_idx < len(section.cards) and 0 <= new_idx < len(section.cards)):
+            return
+
+        # 重新插入
+        card = section.cards.pop(old_idx)
+        section.cards.insert(new_idx, card)
+        self.current_section_idx = s_idx
+        self.current_card_idx = new_idx
+        self.refresh_card_tree()
+        self.select_card_tree_item(f"c-{s_idx}-{new_idx}")
+        self.log("卡片顺序已拖拽调整")
 
 
 # __APPEND_BLOCK__
@@ -1332,6 +1413,7 @@ class CardManagerApp:
         section.cards[old_idx], section.cards[new_idx] = section.cards[new_idx], section.cards[old_idx]
         self.current_card_idx = new_idx
         self.refresh_card_tree()
+        self.select_card_tree_item(f"c-{self.current_section_idx}-{new_idx}")
         self.log("卡片顺序已调整")
 
     def apply_card_form(self) -> None:

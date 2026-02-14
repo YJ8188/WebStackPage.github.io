@@ -57,6 +57,56 @@ function migrateLegacyRemindersIfNeeded() {
     localStorage.removeItem(REMINDER_KEY_LEGACY);
 }
 
+function readReminderArrayByKey(storageKey) {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+        return [];
+    }
+}
+
+function getReminderBackupCandidates() {
+    if (userData?.isLoggedIn && userData?.user?.id) {
+        const userId = userData.user.id;
+        return [
+            `reminders_user_${userId}`,
+            `user_config_cache_${userId}`,
+            REMINDER_KEY_LEGACY,
+            REMINDER_KEY_GUEST
+        ];
+    }
+
+    return [REMINDER_KEY_GUEST, REMINDER_KEY_LEGACY];
+}
+
+function findBestReminderBackup() {
+    const candidates = getReminderBackupCandidates();
+
+    for (const key of candidates) {
+        if (!key) continue;
+
+        if (key.startsWith('user_config_cache_')) {
+            try {
+                const cacheConfig = JSON.parse(localStorage.getItem(key) || '{}');
+                if (Array.isArray(cacheConfig?.reminders) && cacheConfig.reminders.length > 0) {
+                    return cacheConfig.reminders;
+                }
+            } catch (error) {
+                continue;
+            }
+            continue;
+        }
+
+        const list = readReminderArrayByKey(key);
+        if (list.length > 0) {
+            return list;
+        }
+    }
+
+    return [];
+}
+
 // ==================== 初始化 ====================
 document.addEventListener('DOMContentLoaded', async function() {
     await userData.init();
@@ -806,8 +856,16 @@ async function loadReminders() {
                     console.log('[Notification] 开始将 localStorage 数据同步到数据库...');
                     await userData.saveReminders(reminders);
                 } else {
-                    reminders = [];
-                    console.log('[Notification] ℹ️ 没有找到保存的提醒');
+                    const recoveredReminders = findBestReminderBackup();
+                    if (recoveredReminders.length > 0) {
+                        reminders = recoveredReminders;
+                        writeLocalReminders(reminders);
+                        await userData.saveReminders(reminders);
+                        console.log(`[Notification] ✅ 已从历史备份恢复 ${reminders.length} 条提醒`);
+                    } else {
+                        reminders = [];
+                        console.log('[Notification] ℹ️ 没有找到保存的提醒');
+                    }
                 }
             }
         } else {

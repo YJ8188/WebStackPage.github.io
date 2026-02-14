@@ -442,113 +442,94 @@ const userData = {
         }
     },
 
+    async saveConfigFields(fields = {}) {
+        this.config = this.normalizeConfig(this.config);
+
+        if (this.isLoggedIn) {
+            const client = this.getAuthClient();
+            if (!client || !this.user?.id) {
+                console.error('[UserData] saveConfigFields 失败：登录态缺少客户端或 user.id');
+                return false;
+            }
+
+            try {
+                this.saveCachedAccountConfig(this.config);
+
+                const payload = {
+                    ...fields,
+                    updated_at: new Date().toISOString()
+                };
+
+                let { data, error } = await client
+                    .from('user_config')
+                    .update(payload)
+                    .eq('user_id', this.user.id)
+                    .select();
+
+                if (error) {
+                    console.error('[UserData] update 配置失败:', error);
+                    return false;
+                }
+
+                if (Array.isArray(data) && data.length === 0) {
+                    const insertPayload = {
+                        user_id: this.user.id,
+                        dark_mode: this.config.darkMode,
+                        hidden_cards: this.config.hiddenCards,
+                        card_order: this.config.cardOrder,
+                        notification_panel_open: this.config.notificationPanelOpen,
+                        reminders: this.config.reminders,
+                        favorites: this.config.favorites,
+                        ...payload
+                    };
+
+                    const insertResult = await client
+                        .from('user_config')
+                        .insert(insertPayload)
+                        .select();
+
+                    if (insertResult.error) {
+                        console.error('[UserData] insert 配置失败:', insertResult.error);
+                        return false;
+                    }
+                }
+
+                this.saveCachedAccountConfig(this.config);
+                return true;
+            } catch (error) {
+                console.error('[UserData] saveConfigFields 异常:', error);
+                return false;
+            }
+        }
+
+        try {
+            localStorage.setItem(this.storageKeys.guestConfig, JSON.stringify(this.config));
+            return true;
+        } catch (error) {
+            console.error('[UserData] 保存游客配置失败:', error);
+            return false;
+        }
+    },
+
     async saveConfig() {
         console.log('[UserData] saveConfig 被调用');
         console.log('[UserData] isLoggedIn:', this.isLoggedIn);
         console.log('[UserData] user:', this.user);
         console.log('[UserData] config:', this.config);
-        
-        if (this.isLoggedIn) {
-            try {
-                this.config = this.normalizeConfig(this.config);
-                this.saveCachedAccountConfig(this.config);
 
-                const payload = {
-                    user_id: this.user.id,
-                    dark_mode: this.config.darkMode,
-                    hidden_cards: this.config.hiddenCards,
-                    card_order: this.config.cardOrder,
-                    notification_panel_open: this.config.notificationPanelOpen,
-                    reminders: this.config.reminders,
-                    favorites: this.config.favorites,
-                    updated_at: new Date().toISOString()
-                };
-
-                console.log('[UserData] 开始保存到数据库...');
-                console.log('[UserData] user.id:', this.user.id);
-                console.log('[UserData] 准备保存的数据:', {
-                    ...payload
-                });
-                
-                console.log('[UserData] 执行 upsert 操作...');
-                let { data, error, status, statusText } = await supabaseClient
-                    .from('user_config')
-                    .upsert(payload, {
-                        onConflict: 'user_id'
-                    })
-                    .select();
-
-                if (error) {
-                    console.warn('[UserData] upsert 失败，尝试 update + insert 兜底:', error?.message || error);
-
-                    const updateResult = await supabaseClient
-                        .from('user_config')
-                        .update(payload)
-                        .eq('user_id', this.user.id)
-                        .select();
-
-                    data = updateResult.data;
-                    error = updateResult.error;
-                    status = updateResult.status;
-                    statusText = updateResult.statusText;
-
-                    if (!error && Array.isArray(data) && data.length === 0) {
-                        const insertResult = await supabaseClient
-                            .from('user_config')
-                            .insert(payload)
-                            .select();
-
-                        data = insertResult.data;
-                        error = insertResult.error;
-                        status = insertResult.status;
-                        statusText = insertResult.statusText;
-                    }
-                }
-
-                console.log('[UserData] upsert 操作完成');
-                console.log('[UserData] Supabase 返回 data:', data);
-                console.log('[UserData] Supabase 返回 error:', error);
-                console.log('[UserData] Supabase 返回 status:', status);
-                console.log('[UserData] Supabase 返回 statusText:', statusText);
-
-                if (error) {
-                    console.error('[UserData] 保存配置失败:', error);
-                    console.error('[UserData] 错误详情:', {
-                        message: error.message,
-                        code: error.code,
-                        details: error.details,
-                        hint: error.hint
-                    });
-                    return false;
-                }
-
-                console.log('[UserData] ✅ 配置已保存到数据库');
-                this.saveCachedAccountConfig(this.config);
-                return true;
-            } catch (error) {
-                console.error('[UserData] 保存配置异常:', error);
-                console.error('[UserData] 异常详情:', {
-                    message: error.message,
-                    stack: error.stack
-                });
-                return false;
-            }
-        } else {
-            console.log('[UserData] ⚠️ 未登录，保存到 localStorage');
-            try {
-                localStorage.setItem(this.storageKeys.guestConfig, JSON.stringify(this.config));
-                console.log('[UserData] 配置已保存到 localStorage');
-                return true;
-            } catch (error) {
-                console.error('[UserData] 保存到 localStorage 失败:', error);
-                return false;
-            }
-        }
+        return await this.saveConfigFields({
+            dark_mode: this.config.darkMode,
+            hidden_cards: this.config.hiddenCards,
+            card_order: this.config.cardOrder,
+            notification_panel_open: this.config.notificationPanelOpen,
+            reminders: this.config.reminders,
+            favorites: this.config.favorites
+        });
     },
 
     async saveReminders(reminders) {
         this.config.reminders = reminders;
-        await this.saveConfig();
+        return await this.saveConfigFields({ reminders: reminders });
     },
 
     async loadReminders() {
@@ -601,7 +582,7 @@ const userData = {
 
     async saveDarkMode(isDark) {
         this.config.darkMode = isDark;
-        await this.saveConfig();
+        return await this.saveConfigFields({ dark_mode: this.config.darkMode });
     },
 
     async loadDarkMode() {
@@ -640,7 +621,7 @@ const userData = {
 
     async saveHiddenCards(hiddenCards) {
         this.config.hiddenCards = hiddenCards;
-        await this.saveConfig();
+        return await this.saveConfigFields({ hidden_cards: this.config.hiddenCards });
     },
 
     async loadHiddenCards() {
@@ -654,7 +635,7 @@ const userData = {
 
     async saveCardOrder(cardOrder) {
         this.config.cardOrder = cardOrder;
-        await this.saveConfig();
+        return await this.saveConfigFields({ card_order: this.config.cardOrder });
     },
 
     async loadCardOrder() {
@@ -668,7 +649,7 @@ const userData = {
 
     async saveNotificationPanelOpen(isOpen) {
         this.config.notificationPanelOpen = isOpen;
-        await this.saveConfig();
+        return await this.saveConfigFields({ notification_panel_open: this.config.notificationPanelOpen });
     },
 
     async loadNotificationPanelOpen() {
@@ -711,7 +692,7 @@ const userData = {
 
     async saveFavorites(favorites) {
         this.config.favorites = favorites;
-        return await this.saveConfig();
+        return await this.saveConfigFields({ favorites: this.config.favorites });
     },
 
     async loadFavorites() {

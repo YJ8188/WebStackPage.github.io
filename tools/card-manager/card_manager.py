@@ -225,74 +225,66 @@ def parse_nav_items(index_html: str) -> Tuple[List[NavItem], Optional[MenuMeta]]
 
     menu_inner = index_html[open_end:close_start]
     li_token_re = re.compile(r"<li\b[^>]*>|</li>", re.IGNORECASE)
-    depth = 0
-    block_start_rel = -1
 
+    start_stack: List[int] = []
     for token in li_token_re.finditer(menu_inner):
         value = token.group(0)
         if value.startswith("</"):
-            depth -= 1
-            if depth == 0 and block_start_rel >= 0:
-                block_end_rel = token.end()
-                li_block = menu_inner[block_start_rel:block_end_rel]
+            if not start_stack:
+                continue
+            block_start_rel = start_stack.pop()
+            block_end_rel = token.end()
+            li_block = menu_inner[block_start_rel:block_end_rel]
 
-                if re.search(r"<ul\b", li_block, re.IGNORECASE):
-                    block_start_rel = -1
-                    continue
+            if re.search(r"<ul\b", li_block, re.IGNORECASE):
+                continue
 
-                a_open_match = re.search(r"<a\b[^>]*>", li_block, re.IGNORECASE | re.DOTALL)
-                if not a_open_match:
-                    block_start_rel = -1
-                    continue
+            a_open_match = re.search(r"<a\b[^>]*>", li_block, re.IGNORECASE | re.DOTALL)
+            if not a_open_match:
+                continue
 
-                a_open = a_open_match.group(0)
-                href = get_attr(a_open, "href")
-                if not href or href.lower().startswith("javascript"):
-                    block_start_rel = -1
-                    continue
+            a_open = a_open_match.group(0)
+            href = get_attr(a_open, "href")
+            if not href or href.lower().startswith("javascript"):
+                continue
 
-                title = strip_html_tags(extract_first(r"<span\s+class=\"title\">(.*?)</span>", li_block, ""))
-                if not title:
-                    block_start_rel = -1
-                    continue
+            title = strip_html_tags(extract_first(r"<span\s+class=\"title\">(.*?)</span>", li_block, ""))
+            if not title:
+                continue
 
-                icon_tag = extract_first(r"(<i\b[^>]*></i>)", li_block, "")
-                icon_class = get_attr(icon_tag, "class") or "linecons-star"
+            icon_tag = extract_first(r"(<i\b[^>]*></i>)", li_block, "")
+            icon_class = get_attr(icon_tag, "class") or "linecons-star"
 
-                label_match = re.search(
-                    r"<span\s+class=\"([^\"]*\blabel\b[^\"]*)\"[^>]*>(.*?)</span>",
-                    li_block,
-                    re.IGNORECASE | re.DOTALL,
+            label_match = re.search(
+                r"<span\s+class=\"([^\"]*\blabel\b[^\"]*)\"[^>]*>(.*?)</span>",
+                li_block,
+                re.IGNORECASE | re.DOTALL,
+            )
+            label_class = ""
+            label_text = ""
+            if label_match:
+                label_class = label_match.group(1).strip()
+                label_text = strip_html_tags(label_match.group(2))
+
+            target = get_attr(a_open, "target")
+            indent_match = re.search(r"^([ \t]*)<li\b", li_block, re.MULTILINE)
+            indent = indent_match.group(1) if indent_match else "                    "
+
+            items.append(
+                NavItem(
+                    title=title,
+                    href=href,
+                    icon_class=icon_class,
+                    label_text=label_text,
+                    label_class=label_class or "label label-info pull-right hidden-collapsed",
+                    target=target,
+                    indent=indent,
+                    li_start=open_end + block_start_rel,
+                    li_end=open_end + block_end_rel,
                 )
-                label_class = ""
-                label_text = ""
-                if label_match:
-                    label_class = label_match.group(1).strip()
-                    label_text = strip_html_tags(label_match.group(2))
-
-                target = get_attr(a_open, "target")
-                indent_match = re.search(r"^([ \t]*)<li\b", li_block, re.MULTILINE)
-                indent = indent_match.group(1) if indent_match else "                    "
-
-                items.append(
-                    NavItem(
-                        title=title,
-                        href=href,
-                        icon_class=icon_class,
-                        label_text=label_text,
-                        label_class=label_class or "label label-info pull-right hidden-collapsed",
-                        target=target,
-                        indent=indent,
-                        li_start=open_end + block_start_rel,
-                        li_end=open_end + block_end_rel,
-                    )
-                )
-
-                block_start_rel = -1
+            )
         else:
-            if depth == 0:
-                block_start_rel = token.start()
-            depth += 1
+            start_stack.append(token.start())
 
     return items, MenuMeta(open_start=open_start, open_end=open_end, close_start=close_start, close_end=close_end)
 
@@ -428,10 +420,56 @@ def find_git_root(start_path: Path) -> Optional[Path]:
     return None
 
 
+def get_origin_remote_url(repo_root: Path) -> str:
+    ok, output = run_command(["git", "remote", "get-url", "origin"], repo_root)
+    if not ok:
+        return ""
+    return output.strip()
+
+
+def collect_module_status(index_html: str, repo_root: Path) -> List[Tuple[str, str, str]]:
+    checks: List[Tuple[str, str, str]] = []
+
+    has_crypto = bool(re.search(r"id\s*=\s*['\"]数字货币['\"]", index_html))
+    has_gold = bool(re.search(r"id\s*=\s*['\"]金价行情['\"]", index_html))
+    has_crypto_link = "#数字货币" in index_html
+    has_gold_link = "#金价行情" in index_html
+
+    crypto_status = "正常" if has_crypto else ("仅入口" if has_crypto_link else "缺失")
+    gold_status = "正常" if has_gold else ("仅入口" if has_gold_link else "缺失")
+
+    checks.append((
+        "数字货币模块",
+        crypto_status,
+        "检查 #数字货币 的入口与锚点是否完整",
+    ))
+    checks.append((
+        "金价行情模块",
+        gold_status,
+        "检查 #金价行情 的入口与锚点是否完整",
+    ))
+    checks.append((
+        "ERP入口链接",
+        "正常" if ("erp-ant.html" in index_html or "erp.html" in index_html) else "缺失",
+        "检测首页 ERP 跳转入口",
+    ))
+
+    file_checks = [
+        ("ERP主页面", repo_root / "erp-ant.html"),
+        ("ERP备用页面", repo_root / "erp.html"),
+        ("登录页面", repo_root / "login.html"),
+        ("金价脚本", repo_root / "assets/js/metalsData.js"),
+    ]
+    for title, path in file_checks:
+        checks.append((title, "存在" if path.exists() else "缺失", str(path.relative_to(repo_root)).replace("\\", "/")))
+
+    return checks
+
+
 class CardManagerApp:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
-        self.root.title("WebStack H5 导航/卡片管理器（Win EXE）")
+        self.root.title("WebStack H5 一体化管理器（Win EXE）")
         self.root.geometry("1320x860")
 
         self.repo_root = find_git_root(Path.cwd()) or Path.cwd()
@@ -445,6 +483,8 @@ class CardManagerApp:
         self.current_section_idx: Optional[int] = None
         self.current_card_idx: Optional[int] = None
         self.current_nav_idx: Optional[int] = None
+        self.repo_url_var = tk.StringVar()
+        self.nav_filter_var = tk.StringVar()
 
         self._build_ui()
         if self.index_path.exists():
@@ -470,16 +510,27 @@ class CardManagerApp:
         self.auto_push_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(top, text="保存后自动推送 GitHub(master)", variable=self.auto_push_var).pack(side="left", padx=8)
 
+        repo_row = ttk.Frame(self.root, padding=(10, 0, 10, 8))
+        repo_row.pack(fill="x")
+        ttk.Label(repo_row, text="推送仓库").pack(side="left")
+        self.repo_url_entry = ttk.Entry(repo_row, textvariable=self.repo_url_var)
+        self.repo_url_entry.pack(side="left", fill="x", expand=True, padx=8)
+        ttk.Button(repo_row, text="读取 origin", command=self.load_origin_url).pack(side="left", padx=4)
+        ttk.Button(repo_row, text="应用到 origin", command=self.apply_origin_url).pack(side="left", padx=4)
+
         notebook = ttk.Notebook(self.root)
         notebook.pack(fill="both", expand=True, padx=10, pady=(0, 8))
 
         card_tab = ttk.Frame(notebook)
         nav_tab = ttk.Frame(notebook)
+        overview_tab = ttk.Frame(notebook)
         notebook.add(card_tab, text="卡片管理")
         notebook.add(nav_tab, text="导航管理")
+        notebook.add(overview_tab, text="一体总览")
 
         self._build_card_tab(card_tab)
         self._build_nav_tab(nav_tab)
+        self._build_overview_tab(overview_tab)
 
         log_frame = ttk.LabelFrame(self.root, text="执行日志", padding=8)
         log_frame.pack(fill="both", expand=False, padx=10, pady=(0, 10))
@@ -536,7 +587,13 @@ class CardManagerApp:
         paned.add(left, weight=2)
         paned.add(right, weight=3)
 
-        ttk.Label(left, text="左侧导航（可编辑直连项）").pack(anchor="w")
+        ttk.Label(left, text="左侧导航（支持叶子项，含金价/数字货币/ERP入口）").pack(anchor="w")
+        filter_row = ttk.Frame(left)
+        filter_row.pack(fill="x", pady=(4, 2))
+        ttk.Label(filter_row, text="筛选").pack(side="left")
+        filter_entry = ttk.Entry(filter_row, textvariable=self.nav_filter_var)
+        filter_entry.pack(side="left", fill="x", expand=True, padx=6)
+        filter_entry.bind("<KeyRelease>", lambda _event: self.refresh_nav_tree())
         self.nav_tree = ttk.Treeview(left, columns=("href",), show="tree headings")
         self.nav_tree.heading("#0", text="标题")
         self.nav_tree.heading("href", text="链接")
@@ -569,10 +626,25 @@ class CardManagerApp:
 
         ttk.Label(
             form,
-            text="说明：默认管理无子菜单的导航项；锚点链接请填 #工作常用 这种格式。",
+            text="说明：支持菜单叶子节点；锚点链接请填 #工作常用 这种格式。",
             foreground="#555",
         ).pack(anchor="w", pady=(8, 6))
         ttk.Button(form, text="应用导航修改", command=self.apply_nav_form).pack(anchor="w")
+
+    def _build_overview_tab(self, parent: ttk.Frame) -> None:
+        top = ttk.Frame(parent)
+        top.pack(fill="x", pady=8, padx=8)
+        ttk.Button(top, text="刷新模块总览", command=self.refresh_overview).pack(side="left")
+        ttk.Label(top, text="用于检查 金价/数字货币/ERP 及相关页面是否就绪", foreground="#555").pack(side="left", padx=10)
+
+        self.overview_tree = ttk.Treeview(parent, columns=("module", "status", "detail"), show="headings")
+        self.overview_tree.heading("module", text="模块")
+        self.overview_tree.heading("status", text="状态")
+        self.overview_tree.heading("detail", text="说明")
+        self.overview_tree.column("module", width=220, anchor="w")
+        self.overview_tree.column("status", width=120, anchor="center")
+        self.overview_tree.column("detail", width=720, anchor="w")
+        self.overview_tree.pack(fill="both", expand=True, pady=(0, 8), padx=8)
 
     def _form_row(self, parent: ttk.Frame, label: str, var: tk.StringVar, readonly: bool = False) -> ttk.Entry:
         row = ttk.Frame(parent)
@@ -587,6 +659,46 @@ class CardManagerApp:
         stamp = datetime.now().strftime("%H:%M:%S")
         self.log_text.insert("end", f"[{stamp}] {message}\n")
         self.log_text.see("end")
+
+    def load_origin_url(self) -> None:
+        git_root = find_git_root(self.index_path.parent if self.index_path else self.repo_root) or self.repo_root
+        remote = get_origin_remote_url(git_root)
+        if not remote:
+            self.repo_url_var.set("")
+            self.log("未读取到 origin 地址。")
+            return
+        self.repo_url_var.set(remote)
+        self.log(f"当前 origin：{remote}")
+
+    def apply_origin_url(self) -> None:
+        git_root = find_git_root(self.index_path.parent if self.index_path else self.repo_root)
+        if not git_root:
+            messagebox.showerror("失败", "未找到 Git 仓库，无法设置 origin。")
+            return
+
+        target_url = self.repo_url_var.get().strip()
+        if not target_url:
+            messagebox.showwarning("提示", "请先填写仓库地址。")
+            return
+
+        ok, output = run_command(["git", "remote", "set-url", "origin", target_url], git_root)
+        if not ok:
+            messagebox.showerror("失败", f"设置 origin 失败：{output}")
+            return
+
+        self.log(f"origin 已切换为：{target_url}")
+        messagebox.showinfo("完成", "origin 仓库地址已更新。")
+
+    def refresh_overview(self) -> None:
+        if not hasattr(self, "overview_tree"):
+            return
+
+        for node in self.overview_tree.get_children():
+            self.overview_tree.delete(node)
+
+        rows = collect_module_status(self.original_html or "", self.repo_root)
+        for title, status, detail in rows:
+            self.overview_tree.insert("", "end", values=(title, status, detail))
 
     def choose_index_file(self) -> None:
         chosen = filedialog.askopenfilename(
@@ -624,6 +736,8 @@ class CardManagerApp:
 
         self.refresh_card_tree()
         self.refresh_nav_tree()
+        self.refresh_overview()
+        self.load_origin_url()
         self.log(f"已加载文件：{path}")
         self.log(f"卡片分组：{len(self.sections)}；卡片总数：{sum(len(s.cards) for s in self.sections)}")
         self.log(f"可编辑导航项：{len(self.nav_items)}")
@@ -644,7 +758,10 @@ class CardManagerApp:
     def refresh_nav_tree(self) -> None:
         for node in self.nav_tree.get_children():
             self.nav_tree.delete(node)
+        keyword = self.nav_filter_var.get().strip().lower()
         for index, nav in enumerate(self.nav_items):
+            if keyword and keyword not in nav.title.lower() and keyword not in nav.href.lower():
+                continue
             self.nav_tree.insert("", "end", iid=f"n-{index}", text=nav.title, values=(nav.href,))
         self.current_nav_idx = None
         self.clear_nav_form()
@@ -860,6 +977,31 @@ class CardManagerApp:
             messagebox.showerror("推送失败", "未找到 .git 仓库，无法推送。")
             return
 
+        current_origin = get_origin_remote_url(git_root)
+        target_origin = self.repo_url_var.get().strip() or current_origin
+
+        if not target_origin:
+            messagebox.showerror("推送失败", "未检测到 origin 仓库地址，请先填写。")
+            return
+
+        if current_origin != target_origin:
+            if not from_auto:
+                proceed = messagebox.askyesno(
+                    "仓库切换确认",
+                    f"当前 origin:\n{current_origin or '（空）'}\n\n将切换为:\n{target_origin}\n\n是否继续？",
+                )
+                if not proceed:
+                    self.log("已取消切换仓库并推送。")
+                    return
+
+            ok, output = run_command(["git", "remote", "set-url", "origin", target_origin], git_root)
+            if not ok:
+                messagebox.showerror("推送失败", f"设置 origin 失败：{output}")
+                return
+            self.log(f"origin 已切换为：{target_origin}")
+
+        self.repo_url_var.set(target_origin)
+
         ok, branch_output = run_command(["git", "branch", "--show-current"], git_root)
         if ok:
             branch = branch_output.strip()
@@ -869,7 +1011,7 @@ class CardManagerApp:
                     return
 
         commit_msg = f"chore(index): update via manager {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-        self.log("开始推送到 GitHub master...")
+        self.log(f"开始推送到 GitHub master：{target_origin}")
         commands = [
             ["git", "add", "-A"],
             ["git", "commit", "-m", commit_msg],
@@ -900,6 +1042,8 @@ def self_check(repo_root: Path) -> int:
     print(f"[自检] 分组数量: {len(sections)}")
     print(f"[自检] 卡片数量: {sum(len(item.cards) for item in sections)}")
     print(f"[自检] 导航数量: {len(nav_items)}")
+    for module_name, module_status, _ in collect_module_status(content, repo_root):
+        print(f"[自检] {module_name}: {module_status}")
 
     rebuilt = rebuild_sections(content, sections)
     rebuilt = rebuild_nav_links(rebuilt, nav_items, menu_meta)

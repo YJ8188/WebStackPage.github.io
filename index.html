@@ -6771,7 +6771,8 @@
             
             // 先从数据库加载（如果已登录）
             if (userData.isLoggedIn) {
-                applyDarkModeState(!!userData.config.darkMode, { persistLocal: true, syncAccount: false });
+                const accountDarkMode = await userData.loadDarkMode();
+                applyDarkModeState(!!accountDarkMode, { persistLocal: true, syncAccount: false });
             } else {
                 const savedMode = localStorage.getItem('theme_mode'); // 获取用户保存的模式设置
                 // 检查系统是否偏好暗黑模式（用于首次访问）
@@ -8392,11 +8393,11 @@
     <!-- ==================== Supabase 配置脚本 ==================== -->
     <script src="assets/js/supabase.min.js"></script>
     <script src="assets/js/supabase-config.js?v=20260212-14"></script>
-    <script src="assets/js/user-data.js?v=20260214-16"></script>
+    <script src="assets/js/user-data.js?v=20260214-17"></script>
     <script src="assets/js/auth-ui.js"></script>
 
     <!-- ==================== 提醒系统脚本 ==================== -->
-    <script src="assets/js/notification.js?v=20260214-4"></script>
+    <script src="assets/js/notification.js?v=20260214-5"></script>
 </body>
 
 </html>

@@ -47,8 +47,13 @@ function migrateLegacyRemindersIfNeeded() {
         if (!localStorage.getItem(userKey)) {
             localStorage.setItem(userKey, legacy);
         }
+        localStorage.removeItem(REMINDER_KEY_LEGACY);
+        return;
     }
 
+    if (!localStorage.getItem(REMINDER_KEY_GUEST)) {
+        localStorage.setItem(REMINDER_KEY_GUEST, legacy);
+    }
     localStorage.removeItem(REMINDER_KEY_LEGACY);
 }
 

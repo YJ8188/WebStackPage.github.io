@@ -224,7 +224,13 @@ const userData = {
                                 this.isLoggedIn = true;
                                 this.user = session.user;
                                 console.log('[UserData] 用户已登录:', this.user.email);
-                                await this.loadConfig(true).catch(error => {
+                                const cachedConfig = this.loadCachedAccountConfig(this.user?.id);
+                                if (cachedConfig) {
+                                    this.config = cachedConfig;
+                                }
+                                window.dispatchEvent(new CustomEvent('userDataLoaded', { detail: this.config }));
+
+                                this.loadConfig(true).catch(error => {
                                     console.warn('[UserData] SIGNED_IN 后加载配置失败:', error?.message || error);
                                 });
                             } else if (event === 'TOKEN_REFRESHED') {
@@ -247,7 +253,13 @@ const userData = {
                     this.isLoggedIn = true;
                     this.user = session.user;
                     console.log('[UserData] 用户已登录:', this.user.email);
-                    await this.loadConfig(true).catch(error => {
+                    const cachedConfig = this.loadCachedAccountConfig(this.user?.id);
+                    if (cachedConfig) {
+                        this.config = cachedConfig;
+                    }
+                    window.dispatchEvent(new CustomEvent('userDataLoaded', { detail: this.config }));
+
+                    this.loadConfig(true).catch(error => {
                         console.warn('[UserData] 初始化后加载配置失败:', error?.message || error);
                     });
                 } else {
@@ -541,6 +553,45 @@ const userData = {
 
     async loadReminders() {
         if (this.isLoggedIn) {
+            if (Array.isArray(this.config.reminders) && this.config.reminders.length > 0) {
+                return this.config.reminders;
+            }
+
+            const client = this.getAuthClient();
+            if (client && this.user?.id) {
+                try {
+                    const { data, error } = await this.withTimeout(
+                        client
+                            .from('user_config')
+                            .select('reminders, updated_at')
+                            .eq('user_id', this.user.id)
+                            .order('updated_at', { ascending: false })
+                            .limit(1),
+                        15000,
+                        '加载提醒超时'
+                    );
+
+                    if (!error && Array.isArray(data) && data.length > 0 && Array.isArray(data[0].reminders)) {
+                        this.config.reminders = data[0].reminders;
+                        this.saveCachedAccountConfig(this.config);
+                        return this.config.reminders;
+                    }
+                } catch (error) {
+                    console.error('[UserData] 远程加载提醒失败:', error);
+                }
+            }
+
+            try {
+                const localKey = `reminders_user_${this.user.id}`;
+                const localReminders = JSON.parse(localStorage.getItem(localKey) || '[]');
+                if (Array.isArray(localReminders) && localReminders.length > 0) {
+                    this.config.reminders = localReminders;
+                    return this.config.reminders;
+                }
+            } catch (error) {
+                console.error('[UserData] 读取本地提醒缓存失败:', error);
+            }
+
             return this.config.reminders || [];
         } else {
             this.loadFromLocalStorage();
@@ -551,6 +602,40 @@ const userData = {
     async saveDarkMode(isDark) {
         this.config.darkMode = isDark;
         await this.saveConfig();
+    },
+
+    async loadDarkMode() {
+        if (this.isLoggedIn) {
+            const client = this.getAuthClient();
+            if (client && this.user?.id) {
+                try {
+                    const { data, error } = await this.withTimeout(
+                        client
+                            .from('user_config')
+                            .select('dark_mode, updated_at')
+                            .eq('user_id', this.user.id)
+                            .order('updated_at', { ascending: false })
+                            .limit(1),
+                        15000,
+                        '加载主题配置超时'
+                    );
+
+                    if (!error && Array.isArray(data) && data.length > 0) {
+                        const darkMode = !!data[0].dark_mode;
+                        this.config.darkMode = darkMode;
+                        this.saveCachedAccountConfig(this.config);
+                        return darkMode;
+                    }
+                } catch (error) {
+                    console.error('[UserData] 远程加载主题配置失败:', error);
+                }
+            }
+
+            return !!this.config.darkMode;
+        }
+
+        this.loadFromLocalStorage();
+        return !!this.config.darkMode;
     },
 
     async saveHiddenCards(hiddenCards) {
@@ -588,6 +673,35 @@ const userData = {
 
     async loadNotificationPanelOpen() {
         if (this.isLoggedIn) {
+            if (this.config.notificationPanelOpen === true) {
+                return true;
+            }
+
+            const client = this.getAuthClient();
+            if (client && this.user?.id) {
+                try {
+                    const { data, error } = await this.withTimeout(
+                        client
+                            .from('user_config')
+                            .select('notification_panel_open, updated_at')
+                            .eq('user_id', this.user.id)
+                            .order('updated_at', { ascending: false })
+                            .limit(1),
+                        15000,
+                        '加载通知面板状态超时'
+                    );
+
+                    if (!error && Array.isArray(data) && data.length > 0) {
+                        const isOpen = !!data[0].notification_panel_open;
+                        this.config.notificationPanelOpen = isOpen;
+                        this.saveCachedAccountConfig(this.config);
+                        return isOpen;
+                    }
+                } catch (error) {
+                    console.error('[UserData] 远程加载通知面板状态失败:', error);
+                }
+            }
+
             return this.config.notificationPanelOpen || false;
         } else {
             this.loadFromLocalStorage();

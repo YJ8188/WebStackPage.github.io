@@ -214,11 +214,8 @@ async function signIn(email, password) {
         // 会话信息默认存储在 localStorage 中
     }
 
-    showAlert('登录成功！正在跳转...', 'success');
-
-    setTimeout(() => {
-        window.location.href = redirectTarget;
-    }, 1000);
+    showAlert('登录成功，正在进入首页...', 'success');
+    window.location.replace(redirectTarget);
 }
 
 async function signUp(email, password) {
@@ -246,9 +243,7 @@ async function signUp(email, password) {
             return;
         }
         
-        setTimeout(() => {
-            window.location.href = redirectTarget;
-        }, 1000);
+        window.location.replace(redirectTarget);
     }
 }
 
@@ -305,9 +300,7 @@ async function checkSessionAndRedirect() {
             if (rememberPreference === 'true') {
                 console.log('[Auth] 自动跳转到目标页:', redirectTarget);
                 showAlert('检测到您已登录，正在跳转...', 'success');
-                setTimeout(() => {
-                    window.location.href = redirectTarget;
-                }, 1000);
+                window.location.replace(redirectTarget);
             }
         } else {
             console.log('[Auth] 会话无效或已过期');
@@ -346,5 +339,5 @@ document.addEventListener('DOMContentLoaded', function() {
     // 延迟检查，确保 Supabase 客户端已初始化
     setTimeout(() => {
         checkSessionAndRedirect();
-    }, 500);
+    }, 100);
 });

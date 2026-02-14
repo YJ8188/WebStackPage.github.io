@@ -78,9 +78,10 @@
 
 你可以用桌面套件直接运行和管理 H5：
 
-- `WebStackDesktop.exe`：运行版（打开即运行 首页/数字货币/金价/ERP/登录）
-- `WebStackManager.exe`：管理版（导航/卡片编辑 + 推送）
+- `WebStackManager.exe`：一体式主程序（运行+管理都在里面）
+- `WebStackDesktop.exe`：纯运行版（只运行页面）
 - 管理器支持仓库地址切换（默认读取 `origin`，避免串仓）
+- 打包后默认内置页面内容，首次运行无需先手动选文件
 
 ### 开发模式运行（管理器）
 

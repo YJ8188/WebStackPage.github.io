@@ -19,10 +19,10 @@ Source: "dist\WebStackDesktop.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "dist\WebStackManager.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
+Name: "{group}\WebStack Suite（运行+管理一体）"; Filename: "{app}\WebStackManager.exe"
 Name: "{group}\WebStack Desktop（运行版）"; Filename: "{app}\WebStackDesktop.exe"
 Name: "{group}\WebStack Manager（管理器）"; Filename: "{app}\WebStackManager.exe"
-Name: "{autodesktop}\WebStack Desktop"; Filename: "{app}\WebStackDesktop.exe"
+Name: "{autodesktop}\WebStack Suite"; Filename: "{app}\WebStackManager.exe"
 
 [Run]
-Filename: "{app}\WebStackDesktop.exe"; Description: "启动 WebStack Desktop（运行版）"; Flags: nowait postinstall skipifsilent
-
+Filename: "{app}\WebStackManager.exe"; Description: "启动 WebStack Suite（运行+管理一体）"; Flags: nowait postinstall skipifsilent

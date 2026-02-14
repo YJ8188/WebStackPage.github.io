@@ -3,4 +3,5 @@ tools/card-manager/dist/
 tools/card-manager/dist-installer/
 tools/card-manager/*.spec
 tools/card-manager/__pycache__/
+tools/card-manager/workspace_bundle/
 *.pyc

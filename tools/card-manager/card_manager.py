@@ -10,7 +10,6 @@ import shutil
 import subprocess
 import sys
 import threading
-import webbrowser
 from dataclasses import dataclass, field
 from datetime import datetime
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer

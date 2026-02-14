@@ -22,8 +22,29 @@ if errorlevel 1 (
   exit /b 1
 )
 
+echo [2/3] Prepare embedded workspace...
+set REPO_ROOT=%~dp0..\..\
+set BUNDLE_DIR=%~dp0workspace_bundle
+
+if exist "%BUNDLE_DIR%" rmdir /s /q "%BUNDLE_DIR%"
+mkdir "%BUNDLE_DIR%"
+
+for %%F in (index.html login.html erp.html erp-ant.html about.html 404.html) do (
+  if exist "%REPO_ROOT%%%F" copy /y "%REPO_ROOT%%%F" "%BUNDLE_DIR%\%%F" >nul
+)
+
+if exist "%REPO_ROOT%assets" (
+  robocopy "%REPO_ROOT%assets" "%BUNDLE_DIR%\assets" /E >nul
+)
+
+if not exist "%BUNDLE_DIR%\index.html" (
+  echo Failed to prepare workspace bundle.
+  pause
+  exit /b 1
+)
+
 echo [3/3] Build desktop/runtime EXE...
-pyinstaller --noconfirm --clean --onefile --windowed --name WebStackDesktop webstack_runtime.py
+pyinstaller --noconfirm --clean --onefile --windowed --name WebStackDesktop --add-data "workspace_bundle;workspace_bundle" webstack_runtime.py
 if errorlevel 1 (
   echo Desktop build failed. Check logs above.
   pause
@@ -31,7 +52,7 @@ if errorlevel 1 (
 )
 
 echo [3/3] Build manager EXE...
-pyinstaller --noconfirm --clean --onefile --windowed --name WebStackManager card_manager.py
+pyinstaller --noconfirm --clean --onefile --windowed --name WebStackManager --add-data "workspace_bundle;workspace_bundle" card_manager.py
 if errorlevel 1 (
   echo Manager build failed. Check logs above.
   pause

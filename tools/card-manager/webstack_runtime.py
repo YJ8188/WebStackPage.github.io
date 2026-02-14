@@ -6,8 +6,6 @@ from __future__ import annotations
 import json
 import sys
 import threading
-import time
-import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from tkinter import filedialog, messagebox
@@ -180,10 +178,11 @@ def run_desktop(url: str) -> None:
         import webview
         window = webview.create_window("WebStack Desktop", url=url, width=1440, height=900, min_size=(980, 700))
         webview.start(gui="edgechromium", debug=False)
-    except Exception:
-        webbrowser.open(url)
-        while True:
-            time.sleep(1)
+    except Exception as exc:
+        popup = tk.Tk()
+        popup.withdraw()
+        messagebox.showerror("运行失败", f"内置窗口启动失败：{exc}")
+        popup.destroy()
 
 
 def main() -> int:
@@ -211,4 +210,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

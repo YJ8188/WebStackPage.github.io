@@ -568,7 +568,7 @@
                     </li>
 
                     <!-- 菜单项：我的收藏 -->
-                                        <li>
+                                                            <li>
                         <a href="#我的收藏" class="smooth">
                             <i class="linecons-heart"></i>
                             <span class="title">我的收藏</span>
@@ -577,7 +577,7 @@
                     </li>
 
                     <!-- 菜单项：工作常用 -->
-                                        <li>
+                                                            <li>
                         <a href="#工作常用" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">工作常用</span>
@@ -586,7 +586,7 @@
                     </li>
 
                     <!-- 菜单项：常用AI -->
-                                        <li>
+                                                            <li>
                         <a href="#常用AI" class="smooth">
                             <i class="linecons-doc"></i>
                             <span class="title">常用AI</span>
@@ -601,19 +601,19 @@
                         </a>
                         <!-- 子菜单 -->
                         <ul>
-                                                <li>
+                                                                    <li>
                         <a href="#常用AI-API" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">常用AI-API</span>
                         </a>
                     </li>
-                                                <li>
+                                                                    <li>
                         <a href="#常用远程" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">常用远程</span>
                         </a>
                     </li>
-                                                <li>
+                                                                    <li>
                         <a href="#VPS资源" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">VPS资源</span>
@@ -628,55 +628,55 @@
                             <span class="title">素材资源</span>
                         </a>
                         <ul>
-                                                <li>
+                                                                    <li>
                         <a href="#图标素材" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">图标素材</span>
                         </a>
                     </li>
-                                                <li>
+                                                                    <li>
                         <a href="#LOGO设计" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">LOGO设计</span>
                         </a>
                     </li>
-                                                <li>
+                                                                    <li>
                         <a href="#平面素材" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">平面素材</span>
                         </a>
                     </li>
-                                                <li>
+                                                                    <li>
                         <a href="#UI资源" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">UI资源</span>
                         </a>
                     </li>
-                                                <li>
+                                                                    <li>
                         <a href="#Sketch资源" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">Sketch资源</span>
                         </a>
                     </li>
-                                                <li>
+                                                                    <li>
                         <a href="#字体资源" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">字体资源</span>
                         </a>
                     </li>
-                                                <li>
+                                                                    <li>
                         <a href="#Mockup" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">Mockup</span>
                         </a>
                     </li>
-                                                <li>
+                                                                    <li>
                         <a href="#摄影图库" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">摄影图库</span>
                         </a>
                     </li>
-                                                <li>
+                                                                    <li>
                         <a href="#PPT资源" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">PPT资源</span>
@@ -690,37 +690,37 @@
                             <span class="title">常用工具</span>
                         </a>
                         <ul>
-                                                <li>
+                                                                    <li>
                         <a href="#图形创意" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">图形创意</span>
                         </a>
                     </li>
-                                                <li>
+                                                                    <li>
                         <a href="#界面设计" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">界面设计</span>
                         </a>
                     </li>
-                                                <li>
+                                                                    <li>
                         <a href="#交互动效" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">交互动效</span>
                         </a>
                     </li>
-                                                <li>
+                                                                    <li>
                         <a href="#在线配色" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">在线配色</span>
                         </a>
                     </li>
-                                                <li>
+                                                                    <li>
                         <a href="#在线工具" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">在线工具</span>
                         </a>
                     </li>
-                                                <li>
+                                                                    <li>
                         <a href="#Chrome插件" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">Chrome插件</span>
@@ -734,31 +734,31 @@
                             <span class="title">学习教程</span>
                         </a>
                         <ul>
-                                                <li>
+                                                                    <li>
                         <a href="#设计规范" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">设计规范</span>
                         </a>
                     </li>
-                                                <li>
+                                                                    <li>
                         <a href="#视频教程" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">视频教程</span>
                         </a>
                     </li>
-                                                <li>
+                                                                    <li>
                         <a href="#设计文章" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">设计文章</span>
                         </a>
                     </li>
-                                                <li>
+                                                                    <li>
                         <a href="#设计电台" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">设计电台</span>
                         </a>
                     </li>
-                                                <li>
+                                                                    <li>
                         <a href="#交互设计" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">交互设计</span>
@@ -767,19 +767,19 @@
                     </li>
                         </ul>
                     </li>
-                                        <li>
+                                                            <li>
                         <a href="#数字货币" class="smooth">
                             <i class="linecons-money"></i>
                             <span class="title">数字货币</span>
                         </a>
                     </li>
-                                        <li>
+                                                            <li>
                         <a href="#金价行情" class="smooth">
                             <i class="linecons-diamond"></i>
                             <span class="title">金价行情</span>
                         </a>
                     </li>
-                                        <li>
+                                                            <li>
                         <a href="erp-ant.html" target="_blank">
                             <i class="fa fa-tachometer"></i>
                             <span class="title">何哥ERP系统</span>
@@ -5566,6 +5566,142 @@
         let draggedCardElement = null;
         let lastDragTime = 0;
         const DRAG_THROTTLE = 50;
+        const CARD_LAYOUT_FINGERPRINT_KEY = 'cardLayoutFingerprint_v1';
+        const ACCOUNT_CARD_LAYOUT_FINGERPRINT_PREFIX = 'accountCardLayoutFingerprint_';
+        let baseLayoutFingerprint = '';
+        let hasLayoutFingerprintChanged = false;
+
+        function hashStringFNV1a(input) {
+            const text = String(input || '');
+            let hash = 0x811c9dc5;
+            for (let i = 0; i < text.length; i++) {
+                hash ^= text.charCodeAt(i);
+                hash = (hash + (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24)) >>> 0;
+            }
+            return hash.toString(16);
+        }
+
+        function getCardTitle(cardContainer) {
+            return cardContainer?.querySelector('.xe-user-name strong')?.textContent?.trim() || '';
+        }
+
+        function getCardUrl(cardContainer) {
+            const widget = cardContainer?.querySelector('.xe-widget');
+            if (!widget) return '';
+
+            const tooltipUrl = widget.getAttribute('data-original-title') || '';
+            if (tooltipUrl) return tooltipUrl.trim();
+
+            const onclick = widget.getAttribute('onclick') || '';
+            const match = onclick.match(/window\.open\('([^']+)'/);
+            if (match && match[1]) return String(match[1]).trim();
+            return '';
+        }
+
+        function buildStableCardId(cardContainer, usedIds, fallbackIndex) {
+            const url = getCardUrl(cardContainer);
+            const title = getCardTitle(cardContainer);
+            const key = url || title || `fallback-${fallbackIndex}`;
+            const base = `card_${hashStringFNV1a(key)}`;
+
+            let candidate = base;
+            let suffix = 1;
+            while (usedIds.has(candidate) || document.getElementById(candidate)) {
+                suffix += 1;
+                candidate = `${base}_${suffix}`;
+            }
+            usedIds.add(candidate);
+            return candidate;
+        }
+
+        function getAllStorageKeysByPrefix(prefix) {
+            return Object.keys(localStorage).filter(key => key.startsWith(prefix));
+        }
+
+        function clearCardOrderStorage() {
+            getAllStorageKeysByPrefix('cardOrder_').forEach(key => localStorage.removeItem(key));
+            getAllStorageKeysByPrefix('defaultOrder_').forEach(key => localStorage.removeItem(key));
+        }
+
+        function flattenStoredDefaultOrder() {
+            const keys = getAllStorageKeysByPrefix('defaultOrder_')
+                .sort((left, right) => {
+                    const leftNum = Number(left.split('_')[1] || 0);
+                    const rightNum = Number(right.split('_')[1] || 0);
+                    return leftNum - rightNum;
+                });
+
+            const ids = [];
+            keys.forEach(key => {
+                try {
+                    const parsed = JSON.parse(localStorage.getItem(key) || '[]');
+                    if (Array.isArray(parsed)) {
+                        ids.push(...parsed);
+                    }
+                } catch (_) {
+                    // 忽略单个损坏键
+                }
+            });
+            return ids;
+        }
+
+        function getCurrentLayoutFingerprint() {
+            return Array.from(document.querySelectorAll('.row .col-sm-3[draggable="true"]'))
+                .map((card, index) => {
+                    if (card.id) return card.id;
+                    const title = card.querySelector('.xe-user-name strong')?.textContent?.trim() || '';
+                    return `unknown-${index}-${title}`;
+                })
+                .join('|');
+        }
+
+        function getAccountLayoutFingerprintKey(identity = 'guest') {
+            return `${ACCOUNT_CARD_LAYOUT_FINGERPRINT_PREFIX}${identity}`;
+        }
+
+        function syncLayoutFingerprint() {
+            baseLayoutFingerprint = getCurrentLayoutFingerprint();
+            const lastLayoutFingerprint = localStorage.getItem(CARD_LAYOUT_FINGERPRINT_KEY) || '';
+            const legacyDefaultFingerprint = flattenStoredDefaultOrder().join('|');
+
+            const layoutChangedByVersion = !!lastLayoutFingerprint && lastLayoutFingerprint !== baseLayoutFingerprint;
+            const layoutChangedByLegacy = !!legacyDefaultFingerprint && legacyDefaultFingerprint !== baseLayoutFingerprint;
+
+            hasLayoutFingerprintChanged = layoutChangedByVersion || layoutChangedByLegacy;
+            if (hasLayoutFingerprintChanged) {
+                clearCardOrderStorage();
+                if (typeof showToast === 'function') {
+                    showToast('检测到默认卡片布局已更新，已自动重置旧排序并同步最新布局', 'warning');
+                }
+            }
+
+            localStorage.setItem(CARD_LAYOUT_FINGERPRINT_KEY, baseLayoutFingerprint);
+        }
+
+        async function ensureAccountCardOrderCompatibility(identity = 'guest', remoteCardOrder = []) {
+            if (!baseLayoutFingerprint) {
+                baseLayoutFingerprint = getCurrentLayoutFingerprint();
+            }
+
+            const accountKey = getAccountLayoutFingerprintKey(identity);
+            const accountFingerprint = localStorage.getItem(accountKey) || '';
+            const accountLayoutChanged = identity !== 'guest' && !!accountFingerprint && accountFingerprint !== baseLayoutFingerprint;
+
+            if (hasLayoutFingerprintChanged || accountLayoutChanged) {
+                if (typeof userData !== 'undefined' && userData.isLoggedIn && Array.isArray(remoteCardOrder) && remoteCardOrder.length > 0) {
+                    try {
+                        await userData.saveCardOrder([]);
+                    } catch (error) {
+                        console.error('[卡片] 清理账号旧排序失败:', error);
+                    }
+                }
+                localStorage.setItem(accountKey, baseLayoutFingerprint);
+                return false;
+            }
+
+            localStorage.setItem(accountKey, baseLayoutFingerprint);
+            return true;
+        }
         
         // 全局函数：应用排序
         function applyOrder(container, order) {
@@ -5737,15 +5873,31 @@
             console.log('[卡片] 开始初始化卡片管理功能');
             
             // 1. 为所有卡片添加ID和draggable属性
-            let cardCounter = 1;
+            const usedIds = new Set();
+            let fallbackIndex = 1;
             document.querySelectorAll('.col-sm-3').forEach(card => {
-                if (!card.id) {
-                    card.id = `card-${cardCounter++}`;
+                const widget = card.querySelector('.xe-widget');
+                const isAddCard = !!widget && widget.classList.contains('add-card-btn');
+
+                // 不是卡片（或是“添加收藏”按钮）就不参与拖拽排序
+                if (!widget || isAddCard) {
+                    card.removeAttribute('draggable');
+                    return;
                 }
+
+                if (!card.id) {
+                    card.id = buildStableCardId(card, usedIds, fallbackIndex++);
+                } else {
+                    usedIds.add(card.id);
+                }
+
                 if (!card.hasAttribute('draggable')) {
                     card.setAttribute('draggable', 'true');
                 }
             });
+
+            // 1.1 检测默认布局变更，防止旧排序覆盖新发布顺序
+            syncLayoutFingerprint();
             
             // 2. 为所有卡片添加隐藏按钮
             document.querySelectorAll('.xe-widget').forEach(widget => {
@@ -5912,6 +6064,10 @@
                                 allCardsOrder.push(...order);
                             });
                             await userData.saveCardOrder(allCardsOrder);
+                            const accountIdentity = userData?.user?.id || 'guest';
+                            if (baseLayoutFingerprint) {
+                                localStorage.setItem(getAccountLayoutFingerprintKey(accountIdentity), baseLayoutFingerprint);
+                            }
                             console.log('[卡片] ✅ 排序数据库同步成功');
                         } catch (error) {
                             console.error('[卡片] 排序数据库同步异常:', error);
@@ -6021,7 +6177,7 @@
         let lastCardStateFingerprint = '';
 
         // 监听用户数据加载完成事件
-        window.addEventListener('userDataLoaded', function(event) {
+        window.addEventListener('userDataLoaded', async function(event) {
             // 卡片管理只初始化一次，避免重复绑定拖拽事件造成卡顿
             if (!hasCardManagementInited) {
                 initCardManagement();
@@ -6031,6 +6187,8 @@
             const hiddenCards = Array.isArray(event?.detail?.hiddenCards) ? event.detail.hiddenCards : [];
             const cardOrder = Array.isArray(event?.detail?.cardOrder) ? event.detail.cardOrder : [];
             const identity = userData?.isLoggedIn && userData?.user?.id ? userData.user.id : 'guest';
+
+            const canApplyRemoteCardOrder = await ensureAccountCardOrderCompatibility(identity, cardOrder);
             const fingerprint = `${identity}|h:${hiddenCards.join(',')}|o:${cardOrder.join(',')}`;
 
             // 配置无变化时跳过重复应用，避免反复重排
@@ -6047,7 +6205,7 @@
                 }
             });
 
-            if (cardOrder.length > 0) {
+            if (cardOrder.length > 0 && canApplyRemoteCardOrder) {
                 const allRows = document.querySelectorAll('.row');
                 allRows.forEach(container => {
                     applyOrder(container, cardOrder);

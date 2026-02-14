@@ -1214,7 +1214,14 @@ class CardManagerApp:
         self.log(f"卡片分组：{len(self.sections)}；卡片总数：{sum(len(s.cards) for s in self.sections)}")
         self.log(f"可编辑导航项：{len(self.nav_items)}")
 
-    def refresh_card_tree(self) -> None:
+    def refresh_card_tree(self, select_iid: Optional[str] = None) -> None:
+        # 默认尽量保持当前选中（避免上移/下移后丢失选中导致无法连续操作）
+        if select_iid is None:
+            if self.current_section_idx is not None and self.current_card_idx is not None:
+                select_iid = f"c-{self.current_section_idx}-{self.current_card_idx}"
+            elif self.current_section_idx is not None:
+                select_iid = f"s-{self.current_section_idx}"
+
         for node in self.card_tree.get_children():
             self.card_tree.delete(node)
         for s_idx, section in enumerate(self.sections):
@@ -1223,6 +1230,13 @@ class CardManagerApp:
             for c_idx, card in enumerate(section.cards):
                 cid = f"c-{s_idx}-{c_idx}"
                 self.card_tree.insert(sid, "end", iid=cid, text=card.title or f"未命名卡片{c_idx + 1}")
+
+        if select_iid and self.card_tree.exists(select_iid):
+            self.select_card_tree_item(select_iid)
+            # Treeview 的 selection_set 不会自动触发事件，这里手动刷新表单与索引
+            self.on_card_tree_select(None)
+            return
+
         self.current_section_idx = None
         self.current_card_idx = None
         self.clear_card_form()
@@ -1252,7 +1266,7 @@ class CardManagerApp:
         self.nav_label_var.set("")
         self.nav_target_var.set("")
 
-    def on_card_tree_select(self, _event: tk.Event) -> None:
+    def on_card_tree_select(self, _event: Optional[tk.Event]) -> None:
         selected = self.card_tree.selection()
         if not selected:
             return
@@ -1370,8 +1384,7 @@ class CardManagerApp:
         section.cards.insert(new_idx, card)
         self.current_section_idx = s_idx
         self.current_card_idx = new_idx
-        self.refresh_card_tree()
-        self.select_card_tree_item(f"c-{s_idx}-{new_idx}")
+        self.refresh_card_tree(select_iid=f"c-{s_idx}-{new_idx}")
         self.log("卡片顺序已拖拽调整")
 
 
@@ -1412,8 +1425,8 @@ class CardManagerApp:
             return
         section.cards[old_idx], section.cards[new_idx] = section.cards[new_idx], section.cards[old_idx]
         self.current_card_idx = new_idx
-        self.refresh_card_tree()
-        self.select_card_tree_item(f"c-{self.current_section_idx}-{new_idx}")
+        assert self.current_section_idx is not None
+        self.refresh_card_tree(select_iid=f"c-{self.current_section_idx}-{new_idx}")
         self.log("卡片顺序已调整")
 
     def apply_card_form(self) -> None:

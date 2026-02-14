@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
+  <defs>
+    <linearGradient id="ysb" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#13c2c2"/>
+      <stop offset="100%" stop-color="#08979c"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="24" fill="url(#ysb)"/>
+  <rect x="24" y="26" width="72" height="48" rx="10" fill="#ffffff" opacity="0.95"/>
+  <path d="M35 50h50" stroke="#08979c" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="60" cy="90" r="10" fill="#ffffff"/>
+  <text x="60" y="106" text-anchor="middle" font-size="16" font-family="Arial, Helvetica, sans-serif" fill="#ffffff" font-weight="700">YSB</text>
+</svg>

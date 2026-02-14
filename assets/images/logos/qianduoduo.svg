@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
+  <defs>
+    <linearGradient id="qdd" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1677ff"/>
+      <stop offset="100%" stop-color="#36cfc9"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="24" fill="url(#qdd)"/>
+  <circle cx="60" cy="42" r="16" fill="#ffffff" opacity="0.9"/>
+  <path d="M33 82h54" stroke="#ffffff" stroke-width="10" stroke-linecap="round"/>
+  <text x="60" y="105" text-anchor="middle" font-size="18" font-family="Arial, Helvetica, sans-serif" fill="#ffffff" font-weight="700">QDD</text>
+</svg>

@@ -568,7 +568,7 @@
                     </li>
 
                     <!-- 菜单项：我的收藏 -->
-                                                                                <li>
+                                                                                                                                            <li>
                         <a href="#我的收藏" class="smooth">
                             <i class="linecons-heart"></i>
                             <span class="title">我的收藏</span>
@@ -577,7 +577,7 @@
                     </li>
 
                     <!-- 菜单项：工作常用 -->
-                                                                                <li>
+                                                                                                                                            <li>
                         <a href="#工作常用" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">工作常用</span>
@@ -586,7 +586,7 @@
                     </li>
 
                     <!-- 菜单项：常用AI -->
-                                                                                <li>
+                                                                                                                                            <li>
                         <a href="#常用AI" class="smooth">
                             <i class="linecons-doc"></i>
                             <span class="title">常用AI</span>
@@ -601,19 +601,19 @@
                         </a>
                         <!-- 子菜单 -->
                         <ul>
-                                                                                        <li>
+                                                                                                                                                    <li>
                         <a href="#常用AI-API" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">常用AI-API</span>
                         </a>
                     </li>
-                                                                                        <li>
+                                                                                                                                                    <li>
                         <a href="#常用远程" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">常用远程</span>
                         </a>
                     </li>
-                                                                                        <li>
+                                                                                                                                                    <li>
                         <a href="#VPS资源" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">VPS资源</span>
@@ -628,55 +628,55 @@
                             <span class="title">素材资源</span>
                         </a>
                         <ul>
-                                                                                        <li>
+                                                                                                                                                    <li>
                         <a href="#图标素材" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">图标素材</span>
                         </a>
                     </li>
-                                                                                        <li>
+                                                                                                                                                    <li>
                         <a href="#LOGO设计" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">LOGO设计</span>
                         </a>
                     </li>
-                                                                                        <li>
+                                                                                                                                                    <li>
                         <a href="#平面素材" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">平面素材</span>
                         </a>
                     </li>
-                                                                                        <li>
+                                                                                                                                                    <li>
                         <a href="#UI资源" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">UI资源</span>
                         </a>
                     </li>
-                                                                                        <li>
+                                                                                                                                                    <li>
                         <a href="#Sketch资源" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">Sketch资源</span>
                         </a>
                     </li>
-                                                                                        <li>
+                                                                                                                                                    <li>
                         <a href="#字体资源" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">字体资源</span>
                         </a>
                     </li>
-                                                                                        <li>
+                                                                                                                                                    <li>
                         <a href="#Mockup" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">Mockup</span>
                         </a>
                     </li>
-                                                                                        <li>
+                                                                                                                                                    <li>
                         <a href="#摄影图库" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">摄影图库</span>
                         </a>
                     </li>
-                                                                                        <li>
+                                                                                                                                                    <li>
                         <a href="#PPT资源" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">PPT资源</span>
@@ -690,37 +690,37 @@
                             <span class="title">常用工具</span>
                         </a>
                         <ul>
-                                                                                        <li>
+                                                                                                                                                    <li>
                         <a href="#图形创意" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">图形创意</span>
                         </a>
                     </li>
-                                                                                        <li>
+                                                                                                                                                    <li>
                         <a href="#界面设计" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">界面设计</span>
                         </a>
                     </li>
-                                                                                        <li>
+                                                                                                                                                    <li>
                         <a href="#交互动效" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">交互动效</span>
                         </a>
                     </li>
-                                                                                        <li>
+                                                                                                                                                    <li>
                         <a href="#在线配色" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">在线配色</span>
                         </a>
                     </li>
-                                                                                        <li>
+                                                                                                                                                    <li>
                         <a href="#在线工具" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">在线工具</span>
                         </a>
                     </li>
-                                                                                        <li>
+                                                                                                                                                    <li>
                         <a href="#Chrome插件" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">Chrome插件</span>
@@ -734,31 +734,31 @@
                             <span class="title">学习教程</span>
                         </a>
                         <ul>
-                                                                                        <li>
+                                                                                                                                                    <li>
                         <a href="#设计规范" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">设计规范</span>
                         </a>
                     </li>
-                                                                                        <li>
+                                                                                                                                                    <li>
                         <a href="#视频教程" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">视频教程</span>
                         </a>
                     </li>
-                                                                                        <li>
+                                                                                                                                                    <li>
                         <a href="#设计文章" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">设计文章</span>
                         </a>
                     </li>
-                                                                                        <li>
+                                                                                                                                                    <li>
                         <a href="#设计电台" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">设计电台</span>
                         </a>
                     </li>
-                                                                                        <li>
+                                                                                                                                                    <li>
                         <a href="#交互设计" class="smooth">
                             <i class="linecons-star"></i>
                             <span class="title">交互设计</span>
@@ -767,19 +767,19 @@
                     </li>
                         </ul>
                     </li>
-                                                                                <li>
+                                                                                                                                            <li>
                         <a href="#数字货币" class="smooth">
                             <i class="linecons-money"></i>
                             <span class="title">数字货币</span>
                         </a>
                     </li>
-                                                                                <li>
+                                                                                                                                            <li>
                         <a href="#金价行情" class="smooth">
                             <i class="linecons-diamond"></i>
                             <span class="title">金价行情</span>
                         </a>
                     </li>
-                                                                                <li>
+                                                                                                                                            <li>
                         <a href="erp-ant.html" target="_blank">
                             <i class="fa fa-tachometer"></i>
                             <span class="title">何哥ERP系统</span>
@@ -1008,23 +1008,6 @@
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
-                        onclick="window.open('https://hg188.dpdns.org', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://hg188.dpdns.org">
-                        <div class="xe-comment-entry">
-                            <a class="xe-user-img">
-                                <img data-src="assets/images/favicon.png" class="lozad img-circle" width="40">
-                            </a>
-                            <div class="xe-comment">
-                                <a href="#" class="xe-user-name overflowClip_1">
-                                    <strong>我的博客</strong>
-                                </a>
-                                <p class="overflowClip_2">个人博客，分享一些内容</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-sm-3">
-                    <div class="xe-widget xe-conversations box2 label-info"
                         onclick="window.open('https://v8.caimomo.com', '_blank')" data-toggle="tooltip"
                         data-placement="bottom" title="" data-original-title="https://v8.caimomo.com">
                         <div class="xe-comment-entry">
@@ -1070,6 +1053,23 @@
                                     <strong>客如云商家中心</strong>
                                 </a>
                                 <p class="overflowClip_2">客如云商家中心登录</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://hg188.dpdns.org', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://hg188.dpdns.org">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="assets/images/favicon.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>我的博客</strong>
+                                </a>
+                                <p class="overflowClip_2">个人博客，分享一些内容</p>
                             </div>
                         </div>
                     </div>
@@ -1124,23 +1124,6 @@
                                     <strong>域名续签</strong>
                                 </a>
                                 <p class="overflowClip_2">2026年6月23日续约域名</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-sm-3">
-                    <div class="xe-widget xe-conversations box2 label-info"
-                        onclick="window.open('https://', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://">
-                        <div class="xe-comment-entry">
-                            <a class="xe-user-img">
-                                <img data-src="assets/images/logos/default.svg" class="lozad img-circle" width="40">
-                            </a>
-                            <div class="xe-comment">
-                                <a href="#" class="xe-user-name overflowClip_1">
-                                    <strong>新卡片</strong>
-                                </a>
-                                <p class="overflowClip_2">请填写简介</p>
                             </div>
                         </div>
                     </div>
@@ -5686,9 +5669,8 @@
             hasLayoutFingerprintChanged = layoutChangedByVersion || layoutChangedByLegacy || layoutChangedByUnknownLegacy;
             if (hasLayoutFingerprintChanged) {
                 clearCardOrderStorage();
-                if (typeof showToast === 'function') {
-                    showToast('检测到默认卡片布局已更新，已自动重置旧排序并同步最新布局', 'warning');
-                }
+                // 仅记录到控制台，避免弹出提示影响使用体验
+                console.warn('[卡片] 检测到默认卡片布局已更新，已自动重置旧排序并同步最新布局');
             }
 
             localStorage.setItem(CARD_LAYOUT_FINGERPRINT_KEY, baseLayoutFingerprint);

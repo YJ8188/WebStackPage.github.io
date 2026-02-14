@@ -65,8 +65,18 @@ if errorlevel 1 (
   exit /b 1
 )
 
+echo [3/3] Build ERP desktop EXE...
+set ERP_OUT=dist\WebStackERP_%BUILD_TAG%
+pyinstaller --noconfirm --clean --onefile --windowed --name WebStackERP --distpath "%ERP_OUT%" --add-data "workspace_bundle;workspace_bundle" webstack_erp_desktop.py
+if errorlevel 1 (
+  echo ERP build failed. Check logs above.
+  pause
+  exit /b 1
+)
+
 echo.
 echo Build complete:
 echo - %~dp0%DESKTOP_OUT%\WebStackDesktop.exe
 echo - %~dp0%MANAGER_OUT%\WebStackManager.exe
+echo - %~dp0%ERP_OUT%\WebStackERP.exe
 pause

@@ -1438,6 +1438,15 @@ class CardManagerApp:
             messagebox.showinfo("完成", "已保存到 index.html")
 
     def push_to_master(self, from_auto: bool = False) -> None:
+        # 防止用户只调整了树顺序但未点击保存，导致推送的还是旧文件
+        try:
+            if self.original_html and self.index_path and self.index_path.exists():
+                if messagebox.askyesno("推送前确认", "推送前是否先自动保存当前修改到 index.html？"):
+                    self.save_to_index()
+        except Exception:
+            # 兜底：保存失败也继续走原推送流程，让用户看到具体 Git 报错
+            pass
+
         git_root = find_git_root(self.index_path.parent)
         if not git_root:
             git_root = self.repo_root

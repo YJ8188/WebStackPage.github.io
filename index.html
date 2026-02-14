@@ -6180,6 +6180,11 @@
             if (resetBtn) {
                 resetBtn.addEventListener('click', async function() {
                     if (typeof showConfirm === 'function' && await showConfirm('确定要恢复默认排序吗？')) {
+                        // 先清理所有已保存排序，避免“恢复后又被旧排序覆盖”
+                        Object.keys(localStorage)
+                            .filter(key => key.startsWith('cardOrder_'))
+                            .forEach(key => localStorage.removeItem(key));
+
                         const allRows = document.querySelectorAll('.row');
                         allRows.forEach((container) => {
                             const containerKey = (function() {
@@ -6204,7 +6209,6 @@
                             const defaultOrder = localStorage.getItem(defaultKey);
                             if (defaultOrder) {
                                 applyOrder(container, JSON.parse(defaultOrder));
-                                localStorage.removeItem(`cardOrder_${containerKey}`);
                             }
                         });
 
@@ -6216,6 +6220,19 @@
                                 console.error('[卡片] 清理账号排序失败:', error);
                             }
                         }
+
+                        if (typeof showToast === 'function') {
+                            showToast('已恢复默认排序，即将刷新页面…', 'success');
+                        }
+
+                        // 强制刷新一次，确保重新初始化默认顺序
+                        setTimeout(() => {
+                            try {
+                                location.reload();
+                            } catch (_) {
+                                // ignore
+                            }
+                        }, 250);
                     }
                 });
             }

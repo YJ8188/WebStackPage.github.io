@@ -5642,11 +5642,7 @@
 
         function flattenStoredDefaultOrder() {
             const keys = getAllStorageKeysByPrefix('defaultOrder_')
-                .sort((left, right) => {
-                    const leftNum = Number(left.split('_')[1] || 0);
-                    const rightNum = Number(right.split('_')[1] || 0);
-                    return leftNum - rightNum;
-                });
+                .sort((left, right) => left.localeCompare(right));
 
             const ids = [];
             keys.forEach(key => {
@@ -5681,10 +5677,13 @@
             const lastLayoutFingerprint = localStorage.getItem(CARD_LAYOUT_FINGERPRINT_KEY) || '';
             const legacyDefaultFingerprint = flattenStoredDefaultOrder().join('|');
 
+            const hasLegacyOrderKeys = getAllStorageKeysByPrefix('cardOrder_').length > 0 || getAllStorageKeysByPrefix('defaultOrder_').length > 0;
+
             const layoutChangedByVersion = !!lastLayoutFingerprint && lastLayoutFingerprint !== baseLayoutFingerprint;
             const layoutChangedByLegacy = !!legacyDefaultFingerprint && legacyDefaultFingerprint !== baseLayoutFingerprint;
+            const layoutChangedByUnknownLegacy = !lastLayoutFingerprint && hasLegacyOrderKeys;
 
-            hasLayoutFingerprintChanged = layoutChangedByVersion || layoutChangedByLegacy;
+            hasLayoutFingerprintChanged = layoutChangedByVersion || layoutChangedByLegacy || layoutChangedByUnknownLegacy;
             if (hasLayoutFingerprintChanged) {
                 clearCardOrderStorage();
                 if (typeof showToast === 'function') {
@@ -5974,7 +5973,29 @@
         
         // 初始化拖拽排序功能
         function initDragSort() {
-            const allRows = document.querySelectorAll('.row');
+            const allRows = Array.from(document.querySelectorAll('.row'));
+
+            function getContainerStorageKey(container) {
+                if (!container) return 'unknown';
+                if (container.id === 'my-favorites-list') return 'favorites';
+                if (container.id === 'add-card-row') return 'favorites_add';
+
+                let current = container.previousElementSibling;
+                while (current) {
+                    if (current.tagName === 'H4') {
+                        const icon = current.querySelector('i[id]');
+                        const id = icon?.id?.trim();
+                        if (id) return `section_${id}`;
+
+                        const title = current.textContent?.trim();
+                        if (title) return `section_${hashStringFNV1a(title)}`;
+                    }
+                    current = current.previousElementSibling;
+                }
+
+                const fallback = container.id || container.className || 'row';
+                return `row_${hashStringFNV1a(fallback)}`;
+            }
             
             // 为所有卡片添加拖拽事件
             document.querySelectorAll('.col-sm-3[draggable="true"]').forEach(card => {
@@ -6002,18 +6023,17 @@
             });
             
             // 为所有容器添加拖拽支持
-            allRows.forEach(async (container, rowIndex) => {
+            allRows.forEach(async (container) => {
                 const cards = container.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)');
                 if (cards.length === 0) return;
                 
-                const storageKey = `cardOrder_${rowIndex}`;
-                const defaultKey = `defaultOrder_${rowIndex}`;
+                const containerKey = getContainerStorageKey(container);
+                const storageKey = `cardOrder_${containerKey}`;
+                const defaultKey = `defaultOrder_${containerKey}`;
                 
-                // 保存默认顺序
-                if (!localStorage.getItem(defaultKey)) {
-                    const defaultIds = Array.from(cards).map(card => card.id);
-                    localStorage.setItem(defaultKey, JSON.stringify(defaultIds));
-                }
+                // 保存默认顺序（始终以当前HTML为准，保证“恢复默认排序”可靠）
+                const defaultIds = Array.from(cards).map(card => card.id);
+                localStorage.setItem(defaultKey, JSON.stringify(defaultIds));
                 
                 // 加载保存的顺序
                 const savedOrder = localStorage.getItem(storageKey);
@@ -6067,9 +6087,10 @@
                     localStorage.setItem(storageKey, JSON.stringify(newOrder));
                     
                     // 更新所有容器的顺序
-                    allRows.forEach((c, idx) => {
+                    allRows.forEach((c) => {
                         const order = Array.from(c.querySelectorAll('.col-sm-3[draggable="true"]:not(.card-hidden)')).map(card => card.id);
-                        localStorage.setItem(`cardOrder_${idx}`, JSON.stringify(order));
+                        const key = getContainerStorageKey(c);
+                        localStorage.setItem(`cardOrder_${key}`, JSON.stringify(order));
                     });
                     
                     // 后台异步保存到数据库
@@ -6160,14 +6181,41 @@
                 resetBtn.addEventListener('click', async function() {
                     if (typeof showConfirm === 'function' && await showConfirm('确定要恢复默认排序吗？')) {
                         const allRows = document.querySelectorAll('.row');
-                        allRows.forEach((container, rowIndex) => {
-                            const defaultKey = `defaultOrder_${rowIndex}`;
+                        allRows.forEach((container) => {
+                            const containerKey = (function() {
+                                if (container.id === 'my-favorites-list') return 'favorites';
+                                if (container.id === 'add-card-row') return 'favorites_add';
+                                let current = container.previousElementSibling;
+                                while (current) {
+                                    if (current.tagName === 'H4') {
+                                        const icon = current.querySelector('i[id]');
+                                        const id = icon?.id?.trim();
+                                        if (id) return `section_${id}`;
+                                        const title = current.textContent?.trim();
+                                        if (title) return `section_${hashStringFNV1a(title)}`;
+                                    }
+                                    current = current.previousElementSibling;
+                                }
+                                const fallback = container.id || container.className || 'row';
+                                return `row_${hashStringFNV1a(fallback)}`;
+                            })();
+
+                            const defaultKey = `defaultOrder_${containerKey}`;
                             const defaultOrder = localStorage.getItem(defaultKey);
                             if (defaultOrder) {
                                 applyOrder(container, JSON.parse(defaultOrder));
-                                localStorage.removeItem(`cardOrder_${rowIndex}`);
+                                localStorage.removeItem(`cardOrder_${containerKey}`);
                             }
                         });
+
+                        // 同时清理账号端 cardOrder，避免恢复后又被账号顺序覆盖
+                        if (typeof userData !== 'undefined' && userData.isLoggedIn) {
+                            try {
+                                await userData.saveCardOrder([]);
+                            } catch (error) {
+                                console.error('[卡片] 清理账号排序失败:', error);
+                            }
+                        }
                     }
                 });
             }

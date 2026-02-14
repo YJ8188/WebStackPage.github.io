@@ -162,8 +162,7 @@ const userData = {
                                 this.isLoggedIn = true;
                                 this.user = session.user;
                                 console.log('[UserData] 用户已登录:', this.user.email);
-                                window.dispatchEvent(new CustomEvent('userDataLoaded', { detail: this.config }));
-                                this.loadConfig().catch(error => {
+                                await this.loadConfig(true).catch(error => {
                                     console.warn('[UserData] SIGNED_IN 后加载配置失败:', error?.message || error);
                                 });
                             } else if (event === 'TOKEN_REFRESHED') {
@@ -186,8 +185,7 @@ const userData = {
                     this.isLoggedIn = true;
                     this.user = session.user;
                     console.log('[UserData] 用户已登录:', this.user.email);
-                    window.dispatchEvent(new CustomEvent('userDataLoaded', { detail: this.config }));
-                    this.loadConfig().catch(error => {
+                    await this.loadConfig(true).catch(error => {
                         console.warn('[UserData] 初始化后加载配置失败:', error?.message || error);
                     });
                 } else {

@@ -3,28 +3,16 @@
         return;
     }
 
-    const trackedPrefixes = ['[Supabase]', '[UserData]', '[ERP]', '[ERP Debug]', '[ERP Ant]', '[ERP Ant HTML]'];
     const verboseEnabled = window.__ERP_VERBOSE_LOGS === true || window.localStorage?.getItem('erp_verbose_logs') === '1';
 
     if (!verboseEnabled) {
-        const shouldFilter = (args) => {
-            const first = args && args.length > 0 ? args[0] : '';
-            if (typeof first !== 'string') {
-                return false;
-            }
-            return trackedPrefixes.some(prefix => first.startsWith(prefix));
-        };
-
         const patchMethod = (method) => {
             const original = console[method] && console[method].bind(console);
             if (!original) {
                 return;
             }
             console[method] = (...args) => {
-                if (shouldFilter(args)) {
-                    return;
-                }
-                original(...args);
+                return;
             };
         };
 
@@ -32,6 +20,10 @@
         patchMethod('info');
         patchMethod('debug');
         patchMethod('warn');
+        patchMethod('table');
+        patchMethod('trace');
+
+        window.__ERP_CONSOLE_MODE = 'error-only';
     }
 
     window.__ERP_CONSOLE_FILTER_INSTALLED = true;

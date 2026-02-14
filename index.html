@@ -6622,26 +6622,36 @@
          * 切换暗黑模式/日间模式
          * 功能：切换页面的主题模式，并保存用户偏好到本地存储
          */
+        function applyDarkModeState(isDark, options = {}) {
+            const body = document.body;
+            const shouldDark = !!isDark;
+
+            if (shouldDark) {
+                body.classList.add('dark-mode');
+            } else {
+                body.classList.remove('dark-mode');
+            }
+
+            // 页面存在两个暗黑图标，统一更新
+            const icons = document.querySelectorAll('#darkModeIcon, .dark-mode-icon');
+            icons.forEach(icon => {
+                icon.className = shouldDark ? 'fa fa-sun-o dark-mode-icon' : 'fa fa-moon-o dark-mode-icon';
+            });
+
+            if (options.persistLocal !== false) {
+                localStorage.setItem('theme_mode', shouldDark ? 'dark' : 'light');
+            }
+
+            if (options.syncAccount === true && userData.isLoggedIn) {
+                userData.saveDarkMode(shouldDark).catch(error => {
+                    console.error('[主题] 同步账号主题设置失败:', error);
+                });
+            }
+        }
+
         function toggleDarkMode() {
-            const body = document.body; // 获取body元素
-            body.classList.toggle('dark-mode'); // 切换dark-mode类
-
-            const isDark = body.classList.contains('dark-mode'); // 检查当前是否为暗黑模式
-
-            // 切换图标显示
-            const icon = document.getElementById('darkModeIcon'); // 获取图标元素
-            if (icon) {
-                // 如果是暗黑模式显示太阳图标，否则显示月亮图标
-                icon.className = isDark ? 'fa fa-sun-o' : 'fa fa-moon-o';
-            }
-
-            // 保存用户偏好到本地存储
-            localStorage.setItem('theme_mode', isDark ? 'dark' : 'light');
-            
-            // 保存到数据库（如果已登录）
-            if (userData.isLoggedIn) {
-                userData.saveDarkMode(isDark);
-            }
+            const current = document.body.classList.contains('dark-mode');
+            applyDarkModeState(!current, { persistLocal: true, syncAccount: true });
         }
 
         // ==================== 初始化暗黑模式 ====================
@@ -6656,19 +6666,23 @@
             // 先从数据库加载（如果已登录）
             if (userData.isLoggedIn) {
                 await userData.loadConfig();
-                if (userData.config.darkMode) {
-                    toggleDarkMode();
-                }
+                applyDarkModeState(!!userData.config.darkMode, { persistLocal: true, syncAccount: false });
             } else {
                 const savedMode = localStorage.getItem('theme_mode'); // 获取用户保存的模式设置
                 // 检查系统是否偏好暗黑模式（用于首次访问）
                 const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
 
                 // 如果用户之前设置了暗黑模式，或者没有设置但系统偏好暗黑模式
-                if (savedMode === 'dark' || (!savedMode && sysDark)) {
-                    toggleDarkMode(); // 自动切换到暗黑模式
-                }
+                applyDarkModeState(savedMode === 'dark' || (!savedMode && sysDark), { persistLocal: true, syncAccount: false });
             }
+        });
+
+        // 登录账号后，按账号配置实时覆盖当前主题
+        window.addEventListener('userDataLoaded', function () {
+            if (!userData.isLoggedIn) {
+                return;
+            }
+            applyDarkModeState(!!userData.config.darkMode, { persistLocal: true, syncAccount: false });
         });
     </script>
     <!-- ==================== 移动端防遮挡优化补丁 ==================== -->
@@ -8272,8 +8286,8 @@
 
     <!-- ==================== Supabase 配置脚本 ==================== -->
     <script src="assets/js/supabase.min.js"></script>
-    <script src="assets/js/supabase-config.js?v=20260212-12"></script>
-    <script src="assets/js/user-data.js?v=20260212-12"></script>
+    <script src="assets/js/supabase-config.js?v=20260212-13"></script>
+    <script src="assets/js/user-data.js?v=20260212-13"></script>
     <script src="assets/js/auth-ui.js"></script>
 
     <!-- ==================== 提醒系统脚本 ==================== -->

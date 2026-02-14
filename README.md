@@ -64,11 +64,48 @@
 ├── erp-ant.html               # ERP 备用页（当前与 erp.html 内容一致）
 ├── 404.html
 ├── README.md
+├── tools/
+│   └── card-manager/          # 卡片可视化管理工具（可打包 Win EXE）
 └── assets/
     ├── css/
     ├── js/
     └── images/
 ```
+
+---
+
+## H5 管理工具（Win EXE + 安装包）
+
+你可以用桌面工具直接管理首页 H5 内容：
+
+- 左侧导航（直连项）
+- 各分组卡片（名称、URL、描述、Logo）
+- 保存后自动备份
+- 手动或自动推送到 GitHub `master`
+
+### 开发模式运行
+
+```bash
+python tools/card-manager/card_manager.py
+```
+
+### 打包便携 EXE
+
+```bash
+tools\card-manager\build_exe.bat
+```
+
+输出：`tools/card-manager/dist/WebStackCardManager.exe`
+
+### 打包安装版 Setup
+
+```bash
+tools\card-manager\build_installer.bat
+```
+
+输出：`tools/card-manager/dist-installer/WebStackCardManager-Setup.exe`
+
+> 安装版依赖 Inno Setup 6，未安装时脚本会提示下载地址。
 
 ---
 

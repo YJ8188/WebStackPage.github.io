@@ -1,0 +1,5 @@
+tools/card-manager/build/
+tools/card-manager/dist/
+tools/card-manager/dist-installer/
+tools/card-manager/*.spec
+

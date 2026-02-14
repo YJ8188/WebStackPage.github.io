@@ -1316,6 +1316,10 @@ class CardManagerApp:
         self.refresh_card_tree()
         self.log(f"已删除卡片：{removed.title}")
 
+        # 删除属于结构性变更，默认立即写入文件，避免用户误以为“删除没同步”
+        if messagebox.askyesno("删除确认", "已从树中删除卡片，是否立即保存到 index.html？"):
+            self.save_to_index()
+
     def move_card(self, delta: int) -> None:
         if self.current_section_idx is None or self.current_card_idx is None:
             messagebox.showwarning("提示", "请先选中卡片。")

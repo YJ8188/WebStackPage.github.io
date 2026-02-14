@@ -5686,9 +5686,8 @@
             hasLayoutFingerprintChanged = layoutChangedByVersion || layoutChangedByLegacy || layoutChangedByUnknownLegacy;
             if (hasLayoutFingerprintChanged) {
                 clearCardOrderStorage();
-                if (typeof showToast === 'function') {
-                    showToast('检测到默认卡片布局已更新，已自动重置旧排序并同步最新布局', 'warning');
-                }
+                // 仅记录到控制台，避免弹出提示影响使用体验
+                console.warn('[卡片] 检测到默认卡片布局已更新，已自动重置旧排序并同步最新布局');
             }
 
             localStorage.setItem(CARD_LAYOUT_FINGERPRINT_KEY, baseLayoutFingerprint);

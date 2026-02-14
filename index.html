@@ -6160,6 +6160,19 @@
         // ========== 我的收藏功能 ==========
         const FAV_KEY = 'my_favorites_v1';
 
+        function normalizeFavorites(list) {
+            return Array.isArray(list) ? list : [];
+        }
+
+        function getLocalFavorites() {
+            try {
+                return normalizeFavorites(JSON.parse(localStorage.getItem(FAV_KEY) || '[]'));
+            } catch (error) {
+                console.error('[收藏] 读取本地收藏失败:', error);
+                return [];
+            }
+        }
+
         function openAddCardModal() {
             document.getElementById('addCardOverlay').classList.add('active');
             document.getElementById('addCardModal').classList.add('active');
@@ -6257,7 +6270,7 @@
             closeAddCardModal();
             
             // 保存到 LocalStorage
-            let favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
+            let favs = getLocalFavorites();
             favs.push(newCard);
             localStorage.setItem(FAV_KEY, JSON.stringify(favs));
             console.log('[收藏] ✅ 已保存到 localStorage, 当前数量:', favs.length);
@@ -6269,6 +6282,7 @@
             // 后台异步保存到数据库（不阻塞 UI）
             if (userData.isLoggedIn) {
                 console.log('[收藏] 开始后台同步到数据库...');
+                userData.config.favorites = favs;
                 userData.saveFavorites(favs).then(result => {
                     if (result) {
                         console.log('[收藏] ✅ 数据库同步成功');
@@ -6293,7 +6307,7 @@
                 if (confirmed) {
                     console.log('[收藏] 开始删除收藏');
                     
-                    let favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
+                    let favs = getLocalFavorites();
                     console.log('[收藏] localStorage 当前收藏数:', favs.length);
                     favs = favs.filter(c => c.id !== id);
                     localStorage.setItem(FAV_KEY, JSON.stringify(favs));
@@ -6306,6 +6320,7 @@
                     // 后台异步从数据库删除（不阻塞 UI）
                     if (userData.isLoggedIn) {
                         console.log('[收藏] 开始后台同步到数据库...');
+                        userData.config.favorites = favs;
                         userData.saveFavorites(favs).then(result => {
                             if (result) {
                                 console.log('[收藏] ✅ 数据库同步成功');
@@ -6332,14 +6347,31 @@
                 return;
             }
 
-            let favs = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
-            console.log('[收藏] localStorage 收藏数:', favs.length);
+            const localFavs = getLocalFavorites();
+            let favs = localFavs;
+            console.log('[收藏] localStorage 收藏数:', localFavs.length);
 
             // 如果已登录且不强制使用 localStorage，从数据库加载收藏
             if (userData.isLoggedIn && !useLocalStorageOnly) {
-                console.log('[收藏] 已登录，使用当前配置中的收藏数据');
-                favs = userData.config.favorites || [];
-                console.log('[收藏] 配置中的收藏数:', favs.length);
+                const cloudFavs = normalizeFavorites(userData?.config?.favorites);
+                console.log('[收藏] 已登录，配置中的收藏数:', cloudFavs.length);
+
+                if (cloudFavs.length > 0) {
+                    favs = cloudFavs;
+                    if (JSON.stringify(localFavs) !== JSON.stringify(cloudFavs)) {
+                        localStorage.setItem(FAV_KEY, JSON.stringify(cloudFavs));
+                    }
+                } else if (localFavs.length > 0) {
+                    favs = localFavs;
+                    userData.config.favorites = localFavs;
+                    userData.saveFavorites(localFavs).then(result => {
+                        if (result) {
+                            console.log('[收藏] 已将本地收藏补写到云端配置');
+                        }
+                    }).catch(error => {
+                        console.error('[收藏] 本地收藏补写云端失败:', error);
+                    });
+                }
             }
 
             console.log('[收藏] 最终渲染的收藏数:', favs.length);
@@ -6441,6 +6473,7 @@
 
                             // 保存到数据库（如果已登录）
                             if (userData.isLoggedIn) {
+                                userData.config.favorites = data;
                                 userData.saveFavorites(data);
                             }
 
@@ -8239,8 +8272,8 @@
 
     <!-- ==================== Supabase 配置脚本 ==================== -->
     <script src="assets/js/supabase.min.js"></script>
-    <script src="assets/js/supabase-config.js?v=20260212-11"></script>
-    <script src="assets/js/user-data.js?v=20260212-11"></script>
+    <script src="assets/js/supabase-config.js?v=20260212-12"></script>
+    <script src="assets/js/user-data.js?v=20260212-12"></script>
     <script src="assets/js/auth-ui.js"></script>
 
     <!-- ==================== 提醒系统脚本 ==================== -->

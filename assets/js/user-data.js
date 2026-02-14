@@ -41,6 +41,33 @@ const userData = {
         };
     },
 
+    getLatestConfigRecord(records = []) {
+        if (!Array.isArray(records) || records.length === 0) {
+            return null;
+        }
+
+        const toTime = (value) => {
+            const timestamp = new Date(value || 0).getTime();
+            return Number.isFinite(timestamp) ? timestamp : 0;
+        };
+
+        const sorted = [...records].sort((left, right) => {
+            const updatedDiff = toTime(right?.updated_at) - toTime(left?.updated_at);
+            if (updatedDiff !== 0) {
+                return updatedDiff;
+            }
+
+            const createdDiff = toTime(right?.created_at) - toTime(left?.created_at);
+            if (createdDiff !== 0) {
+                return createdDiff;
+            }
+
+            return String(right?.id || '').localeCompare(String(left?.id || ''));
+        });
+
+        return sorted[0] || null;
+    },
+
     withTimeout(promise, timeout = 6000, message = '请求超时') {
         return Promise.race([
             promise,
@@ -247,7 +274,7 @@ const userData = {
                 console.log('[UserData] 使用默认配置');
                 this.config = this.getDefaultConfig();
             } else if (data && data.length > 0) {
-                const latestConfig = data[0];
+                const latestConfig = this.getLatestConfigRecord(data) || data[0];
                 this.config = {
                     darkMode: latestConfig.dark_mode || false,
                     hiddenCards: latestConfig.hidden_cards || [],
@@ -282,6 +309,11 @@ const userData = {
                 this.config = JSON.parse(saved);
                 console.log('[UserData] 已从 localStorage 加载配置:', this.config);
             }
+
+            const localFavorites = JSON.parse(localStorage.getItem('my_favorites_v1') || '[]');
+            if ((!Array.isArray(this.config.favorites) || this.config.favorites.length === 0) && Array.isArray(localFavorites) && localFavorites.length > 0) {
+                this.config.favorites = localFavorites;
+            }
         } catch (error) {
             console.error('[UserData] 从 localStorage 加载配置失败:', error);
         }
@@ -295,9 +327,7 @@ const userData = {
         
         if (this.isLoggedIn) {
             try {
-                console.log('[UserData] 开始保存到数据库...');
-                console.log('[UserData] user.id:', this.user.id);
-                console.log('[UserData] 准备保存的数据:', {
+                const payload = {
                     user_id: this.user.id,
                     dark_mode: this.config.darkMode,
                     hidden_cards: this.config.hiddenCards,
@@ -305,25 +335,49 @@ const userData = {
                     notification_panel_open: this.config.notificationPanelOpen,
                     reminders: this.config.reminders,
                     favorites: this.config.favorites,
-                    updated_at: new Date()
+                    updated_at: new Date().toISOString()
+                };
+
+                console.log('[UserData] 开始保存到数据库...');
+                console.log('[UserData] user.id:', this.user.id);
+                console.log('[UserData] 准备保存的数据:', {
+                    ...payload
                 });
                 
                 console.log('[UserData] 执行 upsert 操作...');
-                const { data, error, status, statusText } = await supabaseClient
+                let { data, error, status, statusText } = await supabaseClient
                     .from('user_config')
-                    .upsert({
-                        user_id: this.user.id,
-                        dark_mode: this.config.darkMode,
-                        hidden_cards: this.config.hiddenCards,
-                        card_order: this.config.cardOrder,
-                        notification_panel_open: this.config.notificationPanelOpen,
-                        reminders: this.config.reminders,
-                        favorites: this.config.favorites,
-                        updated_at: new Date()
-                    }, {
+                    .upsert(payload, {
                         onConflict: 'user_id'
                     })
                     .select();
+
+                if (error) {
+                    console.warn('[UserData] upsert 失败，尝试 update + insert 兜底:', error?.message || error);
+
+                    const updateResult = await supabaseClient
+                        .from('user_config')
+                        .update(payload)
+                        .eq('user_id', this.user.id)
+                        .select();
+
+                    data = updateResult.data;
+                    error = updateResult.error;
+                    status = updateResult.status;
+                    statusText = updateResult.statusText;
+
+                    if (!error && Array.isArray(data) && data.length === 0) {
+                        const insertResult = await supabaseClient
+                            .from('user_config')
+                            .insert(payload)
+                            .select();
+
+                        data = insertResult.data;
+                        error = insertResult.error;
+                        status = insertResult.status;
+                        statusText = insertResult.statusText;
+                    }
+                }
 
                 console.log('[UserData] upsert 操作完成');
                 console.log('[UserData] Supabase 返回 data:', data);
@@ -428,7 +482,7 @@ const userData = {
 
     async saveFavorites(favorites) {
         this.config.favorites = favorites;
-        await this.saveConfig();
+        return await this.saveConfig();
     },
 
     async loadFavorites() {

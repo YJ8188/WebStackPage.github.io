@@ -9,6 +9,46 @@
 let reminders = []; // 提醒列表
 let reminderTimers = {}; // 定时器对象
 let checkInterval = null; // 检查提醒的定时器
+const REMINDER_KEY_LEGACY = 'reminders';
+const REMINDER_KEY_GUEST = 'reminders_guest_v1';
+
+function getReminderStorageKey() {
+    if (userData?.isLoggedIn && userData?.user?.id) {
+        return `reminders_user_${userData.user.id}`;
+    }
+    return REMINDER_KEY_GUEST;
+}
+
+function readLocalReminders(storageKey = getReminderStorageKey()) {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+        console.error('[通知] 读取本地提醒失败:', error);
+        return [];
+    }
+}
+
+function writeLocalReminders(nextReminders, storageKey = getReminderStorageKey()) {
+    const normalized = Array.isArray(nextReminders) ? nextReminders : [];
+    localStorage.setItem(storageKey, JSON.stringify(normalized));
+}
+
+function migrateLegacyRemindersIfNeeded() {
+    const legacy = localStorage.getItem(REMINDER_KEY_LEGACY);
+    if (!legacy) {
+        return;
+    }
+
+    if (userData?.isLoggedIn && userData?.user?.id) {
+        const userKey = getReminderStorageKey();
+        if (!localStorage.getItem(userKey)) {
+            localStorage.setItem(userKey, legacy);
+        }
+    }
+
+    localStorage.removeItem(REMINDER_KEY_LEGACY);
+}
 
 // ==================== 初始化 ====================
 document.addEventListener('DOMContentLoaded', async function() {
@@ -36,12 +76,13 @@ document.addEventListener('DOMContentLoaded', async function() {
 window.addEventListener('userDataLoaded', async function(event) {
     console.log('[Notification] 收到 userDataLoaded 事件');
     console.log('[Notification] 配置数据:', event.detail);
-    
-    // 使用配置中的提醒数据，不重新加载
-    reminders = event.detail.reminders || [];
-    console.log('[Notification] 使用配置中的提醒数据:', reminders);
-    updateBadge();
+
+    await loadReminders();
     updateReminderList();
+
+    if (!userData.isLoggedIn) {
+        closeNotificationCenter();
+    }
 });
 
 // ==================== 更新时间日期 ====================
@@ -690,8 +731,8 @@ function saveReminders() {
     console.log('[Notification] userData.isLoggedIn:', userData.isLoggedIn);
     
     try {
-        // 总是保存到 localStorage 作为备份
-        localStorage.setItem('reminders', JSON.stringify(reminders));
+        // 总是保存到当前身份对应的 localStorage 作为备份
+        writeLocalReminders(reminders);
         console.log('[Notification] ✅ 提醒已保存到 localStorage');
         
         // 如果已登录，也保存到数据库
@@ -721,6 +762,8 @@ async function loadReminders() {
     console.log('[Notification] userData.isLoggedIn:', userData.isLoggedIn);
     
     try {
+        migrateLegacyRemindersIfNeeded();
+
         if (userData.isLoggedIn) {
             console.log('[Notification] 开始从数据库加载提醒...');
             const dbReminders = await userData.loadReminders();
@@ -734,10 +777,9 @@ async function loadReminders() {
                 console.log(`[Notification] ✅ 已从数据库加载 ${reminders.length} 条提醒`);
             } else {
                 console.log('[Notification] 数据库为空或未返回数据，尝试从 localStorage 加载');
-                // 如果数据库为空，尝试从 localStorage 加载
-                const saved = localStorage.getItem('reminders');
-                if (saved) {
-                    reminders = JSON.parse(saved);
+                // 如果数据库为空，尝试从当前账号的本地键加载
+                reminders = readLocalReminders();
+                if (reminders.length > 0) {
                     console.log(`[Notification] ✅ 数据库为空，已从 localStorage 加载 ${reminders.length} 条提醒`);
                     
                     // 将 localStorage 的数据同步到数据库
@@ -750,9 +792,8 @@ async function loadReminders() {
             }
         } else {
             console.log('[Notification] 未登录，从 localStorage 加载');
-            const saved = localStorage.getItem('reminders');
-            if (saved) {
-                reminders = JSON.parse(saved);
+            reminders = readLocalReminders();
+            if (reminders.length > 0) {
                 console.log(`[Notification] ✅ 已从 localStorage 加载 ${reminders.length} 条提醒`);
             } else {
                 reminders = [];

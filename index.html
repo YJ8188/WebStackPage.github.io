@@ -6169,13 +6169,40 @@
         }
 
         function migrateLegacyFavoritesIfNeeded() {
-            if (localStorage.getItem(FAV_KEY_GUEST)) {
+            const legacy = localStorage.getItem(FAV_KEY_LEGACY);
+            if (!legacy) {
                 return;
             }
-            const legacy = localStorage.getItem(FAV_KEY_LEGACY);
-            if (legacy) {
-                localStorage.setItem(FAV_KEY_GUEST, legacy);
+
+            if (userData?.isLoggedIn && userData?.user?.id) {
+                const userKey = `my_favorites_user_${userData.user.id}`;
+                if (!localStorage.getItem(userKey)) {
+                    localStorage.setItem(userKey, legacy);
+                }
                 localStorage.removeItem(FAV_KEY_LEGACY);
+            }
+        }
+
+        function cleanupLeakedGuestFavoritesIfNeeded() {
+            const guestFavs = getLocalFavorites(FAV_KEY_GUEST);
+            if (!Array.isArray(guestFavs) || guestFavs.length === 0) {
+                return;
+            }
+
+            const userFavKeys = Object.keys(localStorage).filter(key => key.startsWith('my_favorites_user_'));
+            const guestSerialized = JSON.stringify(guestFavs);
+
+            const leaked = userFavKeys.some(key => {
+                try {
+                    return guestSerialized === JSON.stringify(getLocalFavorites(key));
+                } catch (error) {
+                    return false;
+                }
+            });
+
+            if (leaked) {
+                saveLocalFavorites([], FAV_KEY_GUEST);
+                console.warn('[收藏] 已清理游客端疑似串号的收藏数据');
             }
         }
 
@@ -6454,6 +6481,7 @@
         // 初始化
         document.addEventListener('DOMContentLoaded', async function () {
             migrateLegacyFavoritesIfNeeded();
+            cleanupLeakedGuestFavoritesIfNeeded();
             renderFavorites();
 
             // 点击遮罩关闭
@@ -6463,6 +6491,9 @@
         // 监听用户数据加载完成事件
         window.addEventListener('userDataLoaded', async function(event) {
             console.log('[收藏] 收到 userDataLoaded 事件');
+            if (!userData?.isLoggedIn) {
+                cleanupLeakedGuestFavoritesIfNeeded();
+            }
             renderFavorites();
         });
 
@@ -8316,11 +8347,11 @@
     <!-- ==================== Supabase 配置脚本 ==================== -->
     <script src="assets/js/supabase.min.js"></script>
     <script src="assets/js/supabase-config.js?v=20260212-14"></script>
-    <script src="assets/js/user-data.js?v=20260212-14"></script>
+    <script src="assets/js/user-data.js?v=20260214-15"></script>
     <script src="assets/js/auth-ui.js"></script>
 
     <!-- ==================== 提醒系统脚本 ==================== -->
-    <script src="assets/js/notification.js"></script>
+    <script src="assets/js/notification.js?v=20260214-2"></script>
 </body>
 
 </html>

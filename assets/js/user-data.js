@@ -15,7 +15,9 @@ const userData = {
         favorites: []
     },
     storageKeys: {
-        guestFavorites: 'my_favorites_guest_v1'
+        guestFavorites: 'my_favorites_guest_v1',
+        guestConfig: 'user_config_guest_v1',
+        legacyGuestConfig: 'userConfig'
     },
 
     getAuthClient() {
@@ -308,7 +310,7 @@ const userData = {
         try {
             this.config = this.getDefaultConfig();
 
-            const saved = localStorage.getItem('userConfig');
+            const saved = localStorage.getItem(this.storageKeys.guestConfig);
             if (saved) {
                 const parsed = JSON.parse(saved);
                 this.config = {
@@ -317,6 +319,25 @@ const userData = {
                     favorites: []
                 };
                 console.log('[UserData] 已从 localStorage 加载配置:', this.config);
+            } else {
+                const legacySaved = localStorage.getItem(this.storageKeys.legacyGuestConfig);
+                if (legacySaved) {
+                    try {
+                        const legacyParsed = JSON.parse(legacySaved);
+                        this.config = {
+                            ...this.getDefaultConfig(),
+                            darkMode: !!legacyParsed?.darkMode,
+                            hiddenCards: Array.isArray(legacyParsed?.hiddenCards) ? legacyParsed.hiddenCards : [],
+                            cardOrder: Array.isArray(legacyParsed?.cardOrder) ? legacyParsed.cardOrder : [],
+                            favorites: []
+                        };
+                        localStorage.setItem(this.storageKeys.guestConfig, JSON.stringify(this.config));
+                        localStorage.removeItem(this.storageKeys.legacyGuestConfig);
+                        console.log('[UserData] 已迁移旧版游客配置到独立存储键');
+                    } catch (migrationError) {
+                        console.error('[UserData] 迁移旧版游客配置失败:', migrationError);
+                    }
+                }
             }
 
             const localFavorites = JSON.parse(localStorage.getItem(this.storageKeys.guestFavorites) || '[]');
@@ -418,7 +439,7 @@ const userData = {
         } else {
             console.log('[UserData] ⚠️ 未登录，保存到 localStorage');
             try {
-                localStorage.setItem('userConfig', JSON.stringify(this.config));
+                localStorage.setItem(this.storageKeys.guestConfig, JSON.stringify(this.config));
                 console.log('[UserData] 配置已保存到 localStorage');
                 return true;
             } catch (error) {

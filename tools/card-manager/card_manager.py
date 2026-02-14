@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import html
+import json
 import multiprocessing
 import re
 import shutil
@@ -19,6 +20,8 @@ from urllib.parse import quote
 
 
 DEFAULT_REMOTE_URL = "https://github.com/YJ8188/WebStackPage.github.io.git"
+DEFAULT_DEPLOY_DOMAIN = "hq168.dpdns.org"
+MANAGER_CONFIG_FILE = "manager-config.json"
 
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
@@ -434,6 +437,47 @@ def app_home_dir() -> Path:
     return base
 
 
+def manager_config_path() -> Path:
+    return app_home_dir() / MANAGER_CONFIG_FILE
+
+
+def load_manager_config() -> dict:
+    path = manager_config_path()
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def save_manager_config(config: dict) -> None:
+    path = manager_config_path()
+    path.write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def read_cname_domain(repo_root: Path) -> str:
+    cname_file = repo_root / "CNAME"
+    if not cname_file.exists():
+        return ""
+    try:
+        raw = cname_file.read_text(encoding="utf-8", errors="ignore").strip()
+    except Exception:
+        return ""
+    domain = raw.splitlines()[0].strip()
+    if not domain:
+        return ""
+    if domain.startswith("http://") or domain.startswith("https://"):
+        domain = re.sub(r"^https?://", "", domain, flags=re.IGNORECASE)
+    return domain.rstrip("/")
+
+
+def build_online_base_url(repo_root: Path) -> str:
+    domain = read_cname_domain(repo_root) or DEFAULT_DEPLOY_DOMAIN
+    return f"https://{domain}"
+
+
 def resolve_embedded_workspace() -> Optional[Path]:
     if not getattr(sys, "frozen", False):
         return None
@@ -444,20 +488,27 @@ def resolve_embedded_workspace() -> Optional[Path]:
     return None
 
 
-def prepare_default_workspace() -> Path:
+def prepare_default_workspace() -> Tuple[Path, str]:
+    config = load_manager_config()
+    bound_repo = str(config.get("bound_repo_root", "")).strip()
+    if bound_repo:
+        bound_path = Path(bound_repo)
+        if (bound_path / "index.html").exists():
+            return bound_path, "本地仓库（已绑定）"
+
     embedded = resolve_embedded_workspace()
     if embedded:
         workspace = app_home_dir() / "workspace"
         index_file = workspace / "index.html"
         if not index_file.exists():
             shutil.copytree(embedded, workspace, dirs_exist_ok=True)
-        return workspace
+        return workspace, "内置工作区"
 
     local_repo = find_git_root(Path.cwd()) or Path.cwd()
     if (local_repo / "index.html").exists():
-        return local_repo
+        return local_repo, "当前目录仓库"
 
-    return Path.cwd()
+    return Path.cwd(), "当前目录"
 
 
 def get_origin_remote_url(repo_root: Path) -> str:
@@ -532,8 +583,10 @@ class CardManagerApp:
         self.root.title("WebStack H5 一体化管理器（Win EXE）")
         self.root.geometry("1320x860")
 
-        self.repo_root = prepare_default_workspace()
+        self.config = load_manager_config()
+        self.repo_root, self.workspace_source = prepare_default_workspace()
         self.index_path = self.repo_root / "index.html"
+        self.online_base_url = build_online_base_url(self.repo_root)
 
         self.original_html: str = ""
         self.sections: List[SectionItem] = []
@@ -545,6 +598,10 @@ class CardManagerApp:
         self.current_nav_idx: Optional[int] = None
         self.repo_url_var = tk.StringVar()
         self.nav_filter_var = tk.StringVar()
+        self.workspace_target_var = tk.StringVar()
+        runtime_mode = str(self.config.get("runtime_mode", "online")).strip().lower()
+        self.runtime_mode_var = tk.StringVar(value=runtime_mode if runtime_mode in ("online", "local") else "online")
+        self.online_base_var = tk.StringVar(value=self.online_base_url)
         self.preview_server: Optional[ThreadingHTTPServer] = None
         self.preview_server_thread: Optional[threading.Thread] = None
         self.preview_port: Optional[int] = None
@@ -558,6 +615,9 @@ class CardManagerApp:
         else:
             self.path_var.set("")
             self.log("未找到默认 index.html，请先点击“选择 index.html”。")
+
+        self.refresh_workspace_target()
+        self.update_runtime_mode_ui()
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
@@ -584,6 +644,15 @@ class CardManagerApp:
         self.repo_url_entry.pack(side="left", fill="x", expand=True, padx=8)
         ttk.Button(repo_row, text="读取 origin", command=self.load_origin_url).pack(side="left", padx=4)
         ttk.Button(repo_row, text="应用到 origin", command=self.apply_origin_url).pack(side="left", padx=4)
+
+        workspace_row = ttk.Frame(self.root, padding=(10, 0, 10, 8))
+        workspace_row.pack(fill="x")
+        ttk.Label(workspace_row, text="当前编辑目标").pack(side="left")
+        ttk.Label(workspace_row, textvariable=self.workspace_target_var, foreground="#1f4e79").pack(
+            side="left", fill="x", expand=True, padx=(8, 8)
+        )
+        ttk.Button(workspace_row, text="绑定本地仓库目录", command=self.bind_local_repo).pack(side="left", padx=4)
+        ttk.Button(workspace_row, text="重置为内置工作区", command=self.reset_to_embedded_workspace).pack(side="left", padx=4)
 
         notebook = ttk.Notebook(self.root)
         notebook.pack(fill="both", expand=True, padx=10, pady=(0, 8))
@@ -717,23 +786,51 @@ class CardManagerApp:
         self.overview_tree.pack(fill="both", expand=True, pady=(0, 8), padx=8)
 
     def _build_runtime_tab(self, parent: ttk.Frame) -> None:
+        mode_row = ttk.Frame(parent)
+        mode_row.pack(fill="x", padx=8, pady=(8, 4))
+
+        ttk.Label(mode_row, text="运行模式").pack(side="left")
+        ttk.Radiobutton(
+            mode_row,
+            text="在线运行（默认）",
+            variable=self.runtime_mode_var,
+            value="online",
+            command=self.on_runtime_mode_change,
+        ).pack(side="left", padx=(8, 6))
+        ttk.Radiobutton(
+            mode_row,
+            text="本地预览（可选）",
+            variable=self.runtime_mode_var,
+            value="local",
+            command=self.on_runtime_mode_change,
+        ).pack(side="left", padx=6)
+
+        online_row = ttk.Frame(parent)
+        online_row.pack(fill="x", padx=8, pady=(0, 4))
+        ttk.Label(online_row, text="在线地址").pack(side="left")
+        self.online_base_entry = ttk.Entry(online_row, textvariable=self.online_base_var)
+        self.online_base_entry.pack(side="left", fill="x", expand=True, padx=(8, 6))
+        ttk.Button(online_row, text="从 CNAME 读取", command=self.reload_online_base_url).pack(side="left")
+
         bar = ttk.Frame(parent)
         bar.pack(fill="x", padx=8, pady=8)
 
-        ttk.Button(bar, text="启动本地服务", command=self.ensure_preview_server).pack(side="left", padx=(0, 6))
+        self.start_server_btn = ttk.Button(bar, text="启动本地预览服务", command=self.ensure_preview_server)
+        self.start_server_btn.pack(side="left", padx=(0, 6))
         ttk.Button(bar, text="首页", command=self.open_home_app).pack(side="left", padx=3)
         ttk.Button(bar, text="数字货币", command=self.open_crypto_app).pack(side="left", padx=3)
         ttk.Button(bar, text="金价行情", command=self.open_gold_app).pack(side="left", padx=3)
         ttk.Button(bar, text="ERP系统", command=self.open_erp_app).pack(side="left", padx=3)
         ttk.Button(bar, text="登录页", command=self.open_login_app).pack(side="left", padx=3)
-        ttk.Button(bar, text="停止服务", command=self.stop_preview_server).pack(side="left", padx=(10, 0))
+        self.stop_server_btn = ttk.Button(bar, text="停止本地服务", command=self.stop_preview_server)
+        self.stop_server_btn.pack(side="left", padx=(10, 0))
 
-        self.preview_status_var = tk.StringVar(value="服务状态：未启动")
+        self.preview_status_var = tk.StringVar(value="模式：在线运行")
         ttk.Label(parent, textvariable=self.preview_status_var, foreground="#444").pack(anchor="w", padx=10)
 
         tips = (
-            "说明：点击按钮后会打开内置 WebView 窗口，页面与网页版本一致，可直接使用 ERP 按钮与功能。\n"
-            "若机器未安装 WebView2 运行时或 pywebview，则自动降级为系统浏览器打开。"
+            "说明：默认使用线上地址（与你网站一致），不依赖 localhost。\n"
+            "需要调试本地改动时再切换“本地预览（可选）”。"
         )
         ttk.Label(parent, text=tips, foreground="#555", justify="left").pack(anchor="w", padx=10, pady=8)
 
@@ -750,6 +847,109 @@ class CardManagerApp:
         stamp = datetime.now().strftime("%H:%M:%S")
         self.log_text.insert("end", f"[{stamp}] {message}\n")
         self.log_text.see("end")
+
+    def persist_config(self) -> None:
+        self.config["runtime_mode"] = self.runtime_mode_var.get().strip().lower()
+        save_manager_config(self.config)
+
+    def is_embedded_workspace(self, path: Path) -> bool:
+        workspace_root = (app_home_dir() / "workspace").resolve()
+        try:
+            path.resolve().relative_to(workspace_root)
+            return True
+        except Exception:
+            return path.resolve() == workspace_root
+
+    def refresh_workspace_target(self) -> None:
+        source = self.workspace_source
+        if self.is_embedded_workspace(self.repo_root):
+            source = "内置工作区"
+        elif str(self.config.get("bound_repo_root", "")).strip() == str(self.repo_root):
+            source = "本地仓库（已绑定）"
+        self.workspace_target_var.set(f"{source}：{self.repo_root}")
+
+    def reload_online_base_url(self) -> None:
+        self.online_base_url = build_online_base_url(self.repo_root)
+        self.online_base_var.set(self.online_base_url)
+        self.log(f"在线地址已更新：{self.online_base_url}")
+
+    def on_runtime_mode_change(self) -> None:
+        self.persist_config()
+        self.update_runtime_mode_ui()
+
+    def update_runtime_mode_ui(self) -> None:
+        mode = self.runtime_mode_var.get().strip().lower()
+        if mode == "local":
+            self.start_server_btn.configure(state="normal")
+            self.stop_server_btn.configure(state="normal")
+            if self.preview_port:
+                self.preview_status_var.set(f"模式：本地预览（运行中 http://127.0.0.1:{self.preview_port}）")
+            else:
+                self.preview_status_var.set("模式：本地预览（服务未启动）")
+            return
+
+        self.stop_preview_server(silent=True)
+        self.start_server_btn.configure(state="disabled")
+        self.stop_server_btn.configure(state="disabled")
+        self.preview_status_var.set(f"模式：在线运行（{self.online_base_var.get().strip()}）")
+
+    def bind_local_repo(self) -> None:
+        selected = filedialog.askdirectory(title="选择本地仓库目录（包含 index.html）", initialdir=str(self.repo_root))
+        if not selected:
+            return
+        target = Path(selected)
+        index = target / "index.html"
+        if not index.exists():
+            messagebox.showerror("绑定失败", "所选目录不包含 index.html，请重新选择。")
+            return
+
+        self.config["bound_repo_root"] = str(target)
+        save_manager_config(self.config)
+
+        self.workspace_source = "本地仓库（已绑定）"
+        self.repo_root = target
+        self.index_path = index
+        self.path_var.set(str(index))
+        self.reload_online_base_url()
+        self.refresh_workspace_target()
+        self.stop_preview_server(silent=True)
+        self.load_index_file(initial=True)
+        self.log(f"已绑定仓库目录：{target}")
+
+    def reset_to_embedded_workspace(self) -> None:
+        if not getattr(sys, "frozen", False):
+            messagebox.showinfo("提示", "当前为源码模式，重置仅在 EXE 内置模式下可用。")
+            return
+        self.config.pop("bound_repo_root", None)
+        save_manager_config(self.config)
+
+        self.repo_root, self.workspace_source = prepare_default_workspace()
+        self.index_path = self.repo_root / "index.html"
+        self.path_var.set(str(self.index_path))
+        self.reload_online_base_url()
+        self.refresh_workspace_target()
+        self.stop_preview_server(silent=True)
+        self.load_index_file(initial=True)
+        self.log("已切换回内置工作区。")
+
+    def build_online_url(self, page: str, anchor: str = "") -> str:
+        base = self.online_base_var.get().strip().rstrip("/")
+        if not base:
+            base = build_online_base_url(self.repo_root)
+        if not re.match(r"^https?://", base, flags=re.IGNORECASE):
+            base = "https://" + base
+        url = f"{base}/{page}"
+        if anchor:
+            url += "#" + quote(anchor, safe="")
+        return url
+
+    def open_url_in_webview(self, title: str, url: str) -> None:
+        try:
+            process = multiprocessing.Process(target=run_webview_window, args=(url, title), daemon=False)
+            process.start()
+            self.log(f"已打开内置窗口：{title} -> {url}")
+        except Exception as exc:
+            messagebox.showerror("打开失败", f"内置窗口启动失败：{exc}")
 
     def load_origin_url(self) -> None:
         git_root = find_git_root(self.index_path.parent if self.index_path else self.repo_root) or self.repo_root
@@ -793,8 +993,12 @@ class CardManagerApp:
             self.overview_tree.insert("", "end", values=(title, status, detail))
 
     def ensure_preview_server(self) -> bool:
+        if self.runtime_mode_var.get().strip().lower() != "local":
+            self.preview_status_var.set("当前为在线运行模式，无需本地服务")
+            return False
+
         if self.preview_server is not None and self.preview_port is not None:
-            self.preview_status_var.set(f"服务状态：运行中 http://127.0.0.1:{self.preview_port}")
+            self.preview_status_var.set(f"模式：本地预览（运行中 http://127.0.0.1:{self.preview_port}）")
             return True
 
         host = "127.0.0.1"
@@ -816,13 +1020,14 @@ class CardManagerApp:
 
         self.preview_server_thread = threading.Thread(target=serve, daemon=True)
         self.preview_server_thread.start()
-        self.preview_status_var.set(f"服务状态：运行中 http://127.0.0.1:{self.preview_port}")
+        self.preview_status_var.set(f"模式：本地预览（运行中 http://127.0.0.1:{self.preview_port}）")
         self.log(f"内置服务已启动：http://127.0.0.1:{self.preview_port}")
         return True
 
-    def stop_preview_server(self) -> None:
+    def stop_preview_server(self, silent: bool = False) -> None:
         if self.preview_server is None:
-            self.preview_status_var.set("服务状态：未启动")
+            if not silent:
+                self.preview_status_var.set("模式：本地预览（服务未启动）")
             return
 
         try:
@@ -834,7 +1039,9 @@ class CardManagerApp:
         self.preview_server = None
         self.preview_server_thread = None
         self.preview_port = None
-        self.preview_status_var.set("服务状态：已停止")
+        if silent:
+            return
+        self.preview_status_var.set("模式：本地预览（服务已停止）")
         self.log("内置服务已停止")
 
     def build_preview_url(self, page: str, anchor: str = "") -> Optional[str]:
@@ -847,16 +1054,14 @@ class CardManagerApp:
         return url
 
     def open_web_app(self, title: str, page: str, anchor: str = "") -> None:
-        url = self.build_preview_url(page, anchor)
+        mode = self.runtime_mode_var.get().strip().lower()
+        if mode == "local":
+            url = self.build_preview_url(page, anchor)
+        else:
+            url = self.build_online_url(page, anchor)
         if not url:
             return
-
-        try:
-            process = multiprocessing.Process(target=run_webview_window, args=(url, title), daemon=False)
-            process.start()
-            self.log(f"已打开内置窗口：{title} -> {url}")
-        except Exception as exc:
-            messagebox.showerror("打开失败", f"内置窗口启动失败：{exc}")
+        self.open_url_in_webview(title, url)
 
     def open_home_app(self) -> None:
         self.open_web_app("WebStack 首页", "index.html")
@@ -908,7 +1113,18 @@ class CardManagerApp:
 
         self.index_path = path
         self.repo_root = find_git_root(path.parent) or path.parent
-        self.stop_preview_server()
+        if self.is_embedded_workspace(self.repo_root):
+            self.workspace_source = "内置工作区"
+        elif str(self.config.get("bound_repo_root", "")).strip() == str(self.repo_root):
+            self.workspace_source = "本地仓库（已绑定）"
+        else:
+            self.workspace_source = "手动选择目录"
+
+        self.online_base_url = build_online_base_url(self.repo_root)
+        self.online_base_var.set(self.online_base_url)
+
+        self.stop_preview_server(silent=True)
+        self.update_runtime_mode_ui()
         self.original_html = content
         self.sections = parse_sections(content)
         self.nav_items, self.menu_meta = parse_nav_items(content)
@@ -917,6 +1133,7 @@ class CardManagerApp:
         self.refresh_nav_tree()
         self.refresh_overview()
         self.load_origin_url()
+        self.refresh_workspace_target()
         self.log(f"已加载文件：{path}")
         self.log(f"卡片分组：{len(self.sections)}；卡片总数：{sum(len(s.cards) for s in self.sections)}")
         self.log(f"可编辑导航项：{len(self.nav_items)}")
@@ -1221,7 +1438,15 @@ class CardManagerApp:
                     continue
                 messagebox.showerror("Git 操作失败", f"命令失败：{' '.join(command)}")
                 return
-        messagebox.showinfo("完成", "已推送到 origin/master")
+        ts = int(datetime.now().timestamp())
+        verify_url = f"{self.build_online_url('index.html')}?v={ts}"
+        self.log(f"推送完成，线上验证地址：{verify_url}")
+        messagebox.showinfo(
+            "完成",
+            "已推送到 origin/master。\n\n"
+            f"线上验证地址：\n{verify_url}\n\n"
+            "如果页面暂未更新，请按 Ctrl+F5 强刷，或等待 1~5 分钟缓存刷新。",
+        )
 
 
 def self_check(repo_root: Path) -> int:
@@ -1241,7 +1466,7 @@ def self_check(repo_root: Path) -> int:
         import webview  # noqa: F401
         print("[自检] 内置WebView: 可用")
     except Exception:
-        print("[自检] 内置WebView: 不可用（将降级为系统浏览器）")
+        print("[自检] 内置WebView: 不可用（请安装 WebView2 + pywebview 依赖）")
 
     rebuilt = rebuild_sections(content, sections)
     rebuilt = rebuild_nav_links(rebuilt, nav_items, menu_meta)

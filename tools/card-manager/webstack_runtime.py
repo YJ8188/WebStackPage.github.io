@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import sys
 import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -12,10 +13,59 @@ from tkinter import filedialog, messagebox
 import tkinter as tk
 
 
-def app_config_path() -> Path:
+MANAGER_CONFIG_FILE = "manager-config.json"
+
+
+def app_home_dir() -> Path:
     base = Path.home() / ".webstack-desktop"
     base.mkdir(parents=True, exist_ok=True)
-    return base / "config.json"
+    return base
+
+
+def app_config_path() -> Path:
+    return app_home_dir() / "config.json"
+
+
+def manager_config_path() -> Path:
+    return app_home_dir() / MANAGER_CONFIG_FILE
+
+
+def load_bound_repo() -> Path | None:
+    path = manager_config_path()
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    repo = str(data.get("bound_repo_root", "")).strip()
+    if not repo:
+        return None
+    candidate = Path(repo)
+    if (candidate / "index.html").exists():
+        return candidate
+    return None
+
+
+def resolve_embedded_workspace() -> Path | None:
+    if not getattr(sys, "frozen", False):
+        return None
+    base = Path(getattr(sys, "_MEIPASS", ""))
+    candidate = base / "workspace_bundle"
+    if (candidate / "index.html").exists():
+        return candidate
+    return None
+
+
+def prepare_default_workspace() -> Path | None:
+    embedded = resolve_embedded_workspace()
+    if not embedded:
+        return None
+    workspace = app_home_dir() / "workspace"
+    index_file = workspace / "index.html"
+    if not index_file.exists():
+        shutil.copytree(embedded, workspace, dirs_exist_ok=True)
+    return workspace
 
 
 def load_last_repo() -> Path | None:
@@ -186,10 +236,14 @@ def run_desktop(url: str) -> None:
 
 
 def main() -> int:
-    repo_root = load_last_repo() or guess_repo_root()
+    repo_root = load_bound_repo() or load_last_repo() or guess_repo_root() or prepare_default_workspace()
     if repo_root is None:
         repo_root = choose_repo_root()
     if repo_root is None:
+        popup = tk.Tk()
+        popup.withdraw()
+        messagebox.showerror("启动失败", "未找到可运行的 WebStack 工作区，请先通过 WebStackManager 绑定仓库目录。")
+        popup.destroy()
         return 1
 
     save_last_repo(repo_root)

@@ -18,7 +18,8 @@ const userData = {
         guestFavorites: 'my_favorites_guest_v1',
         guestConfig: 'user_config_guest_v1',
         legacyGuestConfig: 'userConfig',
-        userConfigCachePrefix: 'user_config_cache_'
+        userConfigCachePrefix: 'user_config_cache_',
+        userConfigSnapshotPrefix: 'user_config_snapshot_'
     },
 
     getAuthClient() {
@@ -63,6 +64,89 @@ const userData = {
             return null;
         }
         return `${this.storageKeys.userConfigCachePrefix}${userId}`;
+    },
+
+    getUserConfigSnapshotPrefix(userId = this.user?.id) {
+        if (!userId) {
+            return null;
+        }
+        return `${this.storageKeys.userConfigSnapshotPrefix}${userId}_`;
+    },
+
+    getConfigSnapshots(userId = this.user?.id) {
+        try {
+            const prefix = this.getUserConfigSnapshotPrefix(userId);
+            if (!prefix) {
+                return [];
+            }
+
+            const keys = Object.keys(localStorage)
+                .filter(key => key.startsWith(prefix))
+                .sort((left, right) => right.localeCompare(left));
+
+            const snapshots = [];
+            keys.forEach((key) => {
+                try {
+                    const raw = JSON.parse(localStorage.getItem(key) || '{}');
+                    const normalized = this.normalizeConfig(raw);
+                    const snapAt = Number(raw?._snapshotAt || key.slice(prefix.length));
+                    snapshots.push({
+                        ...normalized,
+                        _snapshotAt: Number.isFinite(snapAt) ? snapAt : 0,
+                        _key: key
+                    });
+                } catch (error) {
+                    console.error('[UserData] 读取配置快照失败:', error);
+                }
+            });
+
+            return snapshots.sort((left, right) => (right._snapshotAt || 0) - (left._snapshotAt || 0));
+        } catch (error) {
+            console.error('[UserData] 获取配置快照列表失败:', error);
+            return [];
+        }
+    },
+
+    saveConfigSnapshot(config = this.config, userId = this.user?.id) {
+        try {
+            const prefix = this.getUserConfigSnapshotPrefix(userId);
+            if (!prefix) {
+                return;
+            }
+
+            const normalized = this.normalizeConfig(config);
+            const timestamp = Date.now();
+            const snapshotKey = `${prefix}${timestamp}`;
+            localStorage.setItem(snapshotKey, JSON.stringify({
+                ...normalized,
+                _snapshotAt: timestamp
+            }));
+
+            const keys = Object.keys(localStorage)
+                .filter(key => key.startsWith(prefix))
+                .sort((left, right) => right.localeCompare(left));
+
+            const maxSnapshots = 20;
+            if (keys.length > maxSnapshots) {
+                keys.slice(maxSnapshots).forEach(key => localStorage.removeItem(key));
+            }
+        } catch (error) {
+            console.error('[UserData] 保存配置快照失败:', error);
+        }
+    },
+
+    recoverArrayFromSnapshots(fieldName, userId = this.user?.id) {
+        if (!fieldName) {
+            return [];
+        }
+
+        const snapshots = this.getConfigSnapshots(userId);
+        const found = snapshots.find(item => Array.isArray(item?.[fieldName]) && item[fieldName].length > 0);
+        if (!found) {
+            return [];
+        }
+
+        return [...found[fieldName]];
     },
 
     loadCachedAccountConfig(userId = this.user?.id) {
@@ -127,6 +211,74 @@ const userData = {
         });
 
         return sorted[0] || null;
+    },
+
+    getSortedConfigRecords(records = []) {
+        if (!Array.isArray(records) || records.length === 0) {
+            return [];
+        }
+
+        const toTime = (value) => {
+            const timestamp = new Date(value || 0).getTime();
+            return Number.isFinite(timestamp) ? timestamp : 0;
+        };
+
+        return [...records].sort((left, right) => {
+            const updatedDiff = toTime(right?.updated_at) - toTime(left?.updated_at);
+            if (updatedDiff !== 0) {
+                return updatedDiff;
+            }
+
+            const createdDiff = toTime(right?.created_at) - toTime(left?.created_at);
+            if (createdDiff !== 0) {
+                return createdDiff;
+            }
+
+            return String(right?.id || '').localeCompare(String(left?.id || ''));
+        });
+    },
+
+    parseConfigRecord(record = {}) {
+        return this.normalizeConfig({
+            darkMode: record.dark_mode || false,
+            hiddenCards: record.hidden_cards || [],
+            cardOrder: record.card_order || [],
+            notificationPanelOpen: record.notification_panel_open || false,
+            reminders: record.reminders || [],
+            favorites: record.favorites || []
+        });
+    },
+
+    mergeConfigFromHistory(records = []) {
+        const sorted = this.getSortedConfigRecords(records);
+        if (sorted.length === 0) {
+            return this.getDefaultConfig();
+        }
+
+        const latest = this.parseConfigRecord(sorted[0]);
+        const merged = { ...latest };
+
+        const arrayFieldMap = [
+            ['hiddenCards', 'hidden_cards'],
+            ['cardOrder', 'card_order'],
+            ['reminders', 'reminders'],
+            ['favorites', 'favorites']
+        ];
+
+        arrayFieldMap.forEach(([targetField, sourceField]) => {
+            if (Array.isArray(merged[targetField]) && merged[targetField].length > 0) {
+                return;
+            }
+
+            const fallbackRecord = sorted.find(item => Array.isArray(item?.[sourceField]) && item[sourceField].length > 0);
+            if (!fallbackRecord) {
+                return;
+            }
+
+            merged[targetField] = [...fallbackRecord[sourceField]];
+        });
+
+        return this.normalizeConfig(merged);
     },
 
     withTimeout(promise, timeout = 12000, message = '请求超时') {
@@ -357,17 +509,25 @@ const userData = {
                     this.config = this.getDefaultConfig();
                 }
             } else if (data && data.length > 0) {
-                const latestConfig = this.getLatestConfigRecord(data) || data[0];
-                this.config = {
-                    darkMode: latestConfig.dark_mode || false,
-                    hiddenCards: latestConfig.hidden_cards || [],
-                    cardOrder: latestConfig.card_order || [],
-                    notificationPanelOpen: latestConfig.notification_panel_open || false,
-                    reminders: latestConfig.reminders || [],
-                    favorites: latestConfig.favorites || []
-                };
+                this.config = this.mergeConfigFromHistory(data);
+
+                if ((!Array.isArray(this.config.reminders) || this.config.reminders.length === 0)) {
+                    const recoveredReminders = this.recoverArrayFromSnapshots('reminders');
+                    if (recoveredReminders.length > 0) {
+                        this.config.reminders = recoveredReminders;
+                    }
+                }
+
+                if ((!Array.isArray(this.config.favorites) || this.config.favorites.length === 0)) {
+                    const recoveredFavorites = this.recoverArrayFromSnapshots('favorites');
+                    if (recoveredFavorites.length > 0) {
+                        this.config.favorites = recoveredFavorites;
+                    }
+                }
+
                 this.config = this.normalizeConfig(this.config);
                 this.saveCachedAccountConfig(this.config);
+                this.saveConfigSnapshot(this.config);
                 console.log('[UserData] 已从数据库加载配置:', this.config);
             } else {
                 if (cachedAccountConfig) {
@@ -454,6 +614,7 @@ const userData = {
 
             try {
                 this.saveCachedAccountConfig(this.config);
+                this.saveConfigSnapshot(this.config);
 
                 const payload = {
                     ...fields,
@@ -495,6 +656,7 @@ const userData = {
                 }
 
                 this.saveCachedAccountConfig(this.config);
+                this.saveConfigSnapshot(this.config);
                 return true;
             } catch (error) {
                 console.error('[UserData] saveConfigFields 异常:', error);
@@ -563,10 +725,19 @@ const userData = {
             }
 
             try {
+                const snapshotReminders = this.recoverArrayFromSnapshots('reminders');
+                if (snapshotReminders.length > 0) {
+                    this.config.reminders = snapshotReminders;
+                    this.saveCachedAccountConfig(this.config);
+                    return this.config.reminders;
+                }
+
                 const localKey = `reminders_user_${this.user.id}`;
                 const localReminders = JSON.parse(localStorage.getItem(localKey) || '[]');
                 if (Array.isArray(localReminders) && localReminders.length > 0) {
                     this.config.reminders = localReminders;
+                    this.saveCachedAccountConfig(this.config);
+                    this.saveConfigSnapshot(this.config);
                     return this.config.reminders;
                 }
             } catch (error) {
@@ -697,6 +868,23 @@ const userData = {
 
     async loadFavorites() {
         if (this.isLoggedIn) {
+            if (Array.isArray(this.config.favorites) && this.config.favorites.length > 0) {
+                return this.config.favorites;
+            }
+
+            const snapshotFavorites = this.recoverArrayFromSnapshots('favorites');
+            if (snapshotFavorites.length > 0) {
+                this.config.favorites = snapshotFavorites;
+                this.saveCachedAccountConfig(this.config);
+                return this.config.favorites;
+            }
+
+            const cachedConfig = this.loadCachedAccountConfig();
+            if (cachedConfig && Array.isArray(cachedConfig.favorites) && cachedConfig.favorites.length > 0) {
+                this.config.favorites = cachedConfig.favorites;
+                return this.config.favorites;
+            }
+
             return this.config.favorites || [];
         } else {
             this.loadFromLocalStorage();

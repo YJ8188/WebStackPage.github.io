@@ -69,9 +69,15 @@ function readReminderArrayByKey(storageKey) {
 function getReminderBackupCandidates() {
     if (userData?.isLoggedIn && userData?.user?.id) {
         const userId = userData.user.id;
+        const snapshotPrefix = `user_config_snapshot_${userId}_`;
+        const snapshotKeys = Object.keys(localStorage)
+            .filter(key => key.startsWith(snapshotPrefix))
+            .sort((left, right) => right.localeCompare(left));
+
         return [
             `reminders_user_${userId}`,
             `user_config_cache_${userId}`,
+            ...snapshotKeys,
             REMINDER_KEY_LEGACY,
             REMINDER_KEY_GUEST
         ];
@@ -81,6 +87,13 @@ function getReminderBackupCandidates() {
 }
 
 function findBestReminderBackup() {
+    if (typeof userData?.recoverArrayFromSnapshots === 'function') {
+        const snapshotReminders = userData.recoverArrayFromSnapshots('reminders');
+        if (Array.isArray(snapshotReminders) && snapshotReminders.length > 0) {
+            return snapshotReminders;
+        }
+    }
+
     const candidates = getReminderBackupCandidates();
 
     for (const key of candidates) {
@@ -91,6 +104,18 @@ function findBestReminderBackup() {
                 const cacheConfig = JSON.parse(localStorage.getItem(key) || '{}');
                 if (Array.isArray(cacheConfig?.reminders) && cacheConfig.reminders.length > 0) {
                     return cacheConfig.reminders;
+                }
+            } catch (error) {
+                continue;
+            }
+            continue;
+        }
+
+        if (key.startsWith('user_config_snapshot_')) {
+            try {
+                const snapshotConfig = JSON.parse(localStorage.getItem(key) || '{}');
+                if (Array.isArray(snapshotConfig?.reminders) && snapshotConfig.reminders.length > 0) {
+                    return snapshotConfig.reminders;
                 }
             } catch (error) {
                 continue;

@@ -1119,9 +1119,23 @@ function calculateOrderTotal() {
 }
 
 async function editOrder(orderId) {
-    const order = ERP.state.orders.find(o => isSameEntityId(o.id, orderId));
+    let order = ERP.state.orders.find(o => isSameEntityId(o.id, orderId));
+
+    const hasDetailItems = !!(order && Array.isArray(order.items));
+    if (!hasDetailItems && window.ERP && typeof ERP.loadOrderDetail === 'function') {
+        const detail = await ERP.loadOrderDetail(normalizeEntityId(orderId));
+        if (detail) {
+            order = detail;
+        }
+    }
+
     if (order) {
         showOrderModal(order);
+        return;
+    }
+
+    if (typeof showToast === 'function') {
+        showToast('未找到订单详情，请刷新后重试', 'error');
     }
 }
 

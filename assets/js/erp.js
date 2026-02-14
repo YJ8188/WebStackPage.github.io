@@ -277,6 +277,35 @@ const ERP = {
         }
     },
 
+    async loadOrderDetail(orderId) {
+        try {
+            const { data, error } = await supabaseClient
+                .from('erp_orders')
+                .select('*, customer:erp_customers(id, name, contact_person), items:erp_order_items(*)')
+                .eq('id', orderId)
+                .eq('user_id', userData.user.id)
+                .single();
+
+            if (error) {
+                throw error;
+            }
+
+            if (data) {
+                const index = this.state.orders.findIndex(order => this.isSameId(order.id, data.id));
+                if (index >= 0) {
+                    this.state.orders[index] = data;
+                } else {
+                    this.state.orders.unshift(data);
+                }
+            }
+
+            return data || null;
+        } catch (error) {
+            console.error('[ERP] 加载订单详情失败:', error);
+            return null;
+        }
+    },
+
     async loadFinances(lite = false) {
         // 如果已加载且不是强制刷新，直接返回缓存
         if (this.state.loaded.finances && !lite) {

@@ -990,6 +990,7 @@ async function saveOrder() {
 
     const orderData = {
         customer_id: normalizeEntityId(customerId),
+        customer_name: (document.getElementById('orderCustomer')?.selectedOptions?.[0]?.text || '').trim(),
         notes: document.getElementById('orderNotes').value,
         status: document.getElementById('orderStatus').value,
         payment_status: document.getElementById('orderPaymentStatus').value,

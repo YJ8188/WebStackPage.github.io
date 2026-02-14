@@ -314,7 +314,7 @@ const ERP = {
 
         try {
             const selectFields = lite
-                ? 'id, user_id, type, category, amount, transaction_date'
+                ? 'id, user_id, type, category, amount, description, reference_id, order_id, transaction_date'
                 : '*';
 
             const { data, error } = await supabaseClient
@@ -922,6 +922,8 @@ const ERP = {
                 totalAmount,
                 totalCost,
                 netProfit
+            }, {
+                customerName: orderData.customer_name || ''
             }).catch(error => {
                 console.error('[ERP] 订单后处理失败:', error);
                 if (typeof showToast === 'function') {
@@ -944,9 +946,10 @@ const ERP = {
         }
     },
 
-    buildOrderContext(orderNumber, customerId, items = []) {
+    buildOrderContext(orderNumber, customerId, items = [], context = {}) {
         const customer = (this.state.customers || []).find(item => this.isSameId(item.id, customerId));
-        const customerName = customer?.name || '未知客户';
+        const fallbackCustomerName = String(context?.customerName || '').trim();
+        const customerName = customer?.name || fallbackCustomerName || '未知客户';
 
         const itemNames = (items || []).map(item => {
             const product = (this.state.products || []).find(p => this.isSameId(p.id, item?.product_id));
@@ -971,8 +974,8 @@ const ERP = {
         return `订单 ${orderNumber} | 客户:${customerName} | 商品:${productSummary}`;
     },
 
-    buildOrderFinanceDescriptions(orderNumber, customerId, items = [], totalAmount = 0, totalCost = 0, netProfit = 0) {
-        const orderContext = this.buildOrderContext(orderNumber, customerId, items);
+    buildOrderFinanceDescriptions(orderNumber, customerId, items = [], totalAmount = 0, totalCost = 0, netProfit = 0, context = {}) {
+        const orderContext = this.buildOrderContext(orderNumber, customerId, items, context);
         const amountText = `¥${parseFloat(totalAmount || 0).toFixed(2)}`;
         const costText = `¥${parseFloat(totalCost || 0).toFixed(2)}`;
         const profitText = `¥${parseFloat(netProfit || 0).toFixed(2)}`;
@@ -985,7 +988,7 @@ const ERP = {
         };
     },
 
-    async postProcessOrder(order, items, summary) {
+    async postProcessOrder(order, items, summary, context = {}) {
         const { orderNumber, totalAmount, totalCost, netProfit } = summary;
         const { incomeDescription, costDescription, profitDescription } = this.buildOrderFinanceDescriptions(
             orderNumber,
@@ -993,7 +996,8 @@ const ERP = {
             items,
             totalAmount,
             totalCost,
-            netProfit
+            netProfit,
+            context
         );
 
         let stockChanged = false;

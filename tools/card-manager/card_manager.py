@@ -543,6 +543,14 @@ def parse_github_username(remote_url: str) -> str:
     return match.group(1).strip()
 
 
+def has_common_history_with_origin_master(repo_root: Path) -> Tuple[bool, str]:
+    ok_fetch, out_fetch = run_command(["git", "fetch", "origin", "master"], repo_root)
+    if not ok_fetch:
+        return False, out_fetch
+    ok_base, out_base = run_command(["git", "merge-base", "master", "origin/master"], repo_root)
+    return ok_base and bool(out_base.strip()), out_base
+
+
 def collect_module_status(index_html: str, repo_root: Path) -> List[Tuple[str, str, str]]:
     checks: List[Tuple[str, str, str]] = []
 
@@ -1477,6 +1485,19 @@ class CardManagerApp:
         if not self.ensure_git_identity(git_root, target_origin):
             return
 
+        has_common_history, history_detail = has_common_history_with_origin_master(git_root)
+        if not has_common_history:
+            if self.is_embedded_workspace(git_root):
+                messagebox.showerror(
+                    "推送失败",
+                    "当前是内置工作区，且与远程 master 无共同提交历史，无法直接推送。\n\n"
+                    "请先点击右上角“绑定本地仓库目录”，选择你的真实项目目录后再推送。\n\n"
+                    f"当前目录：{git_root}",
+                )
+                self.log("推送中止：内置工作区与远程仓库无共同历史，请先绑定本地仓库目录。")
+                return
+            self.log(f"历史检查提示：{history_detail}")
+
         ok, branch_output = run_command(["git", "branch", "--show-current"], git_root)
         if ok:
             branch = branch_output.strip()
@@ -1501,6 +1522,24 @@ class CardManagerApp:
                 if command[1] == "commit" and "nothing to commit" in output.lower():
                     self.log("没有新改动，继续执行 push。")
                     continue
+                if command[1] == "push" and ("fetch first" in output.lower() or "non-fast-forward" in output.lower()):
+                    self.log("检测到远程领先，尝试自动 rebase 后再次推送...")
+                    ok_rebase, out_rebase = run_command(["git", "pull", "--rebase", "origin", "master"], git_root)
+                    if out_rebase:
+                        self.log(out_rebase)
+                    if ok_rebase:
+                        ok_retry, out_retry = run_command(["git", "push", "origin", "master"], git_root)
+                        self.log("$ git push origin master")
+                        if out_retry:
+                            self.log(out_retry)
+                        if ok_retry:
+                            break
+                    messagebox.showerror(
+                        "推送失败",
+                        "远程分支领先，本地自动同步后仍推送失败。\n"
+                        "请先绑定真实仓库目录，或手动执行 git pull --rebase 后再推送。",
+                    )
+                    return
                 detail = output if output else "（命令未返回输出）"
                 messagebox.showerror(
                     "Git 操作失败",

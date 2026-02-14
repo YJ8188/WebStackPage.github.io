@@ -14,6 +14,9 @@ const userData = {
         reminders: [],
         favorites: []
     },
+    storageKeys: {
+        guestFavorites: 'my_favorites_guest_v1'
+    },
 
     getAuthClient() {
         if (window.supabaseClient && window.supabaseClient.auth) {
@@ -156,6 +159,7 @@ const userData = {
                                 this.isLoggedIn = false;
                                 this.user = null;
                                 console.log('[UserData] 用户已登出');
+                                this.config = this.getDefaultConfig();
                                 this.loadFromLocalStorage();
                                 window.dispatchEvent(new CustomEvent('userDataLoaded', { detail: this.config }));
                             } else if (event === 'SIGNED_IN') {
@@ -302,14 +306,21 @@ const userData = {
 
     loadFromLocalStorage() {
         try {
+            this.config = this.getDefaultConfig();
+
             const saved = localStorage.getItem('userConfig');
             if (saved) {
-                this.config = JSON.parse(saved);
+                const parsed = JSON.parse(saved);
+                this.config = {
+                    ...this.getDefaultConfig(),
+                    ...parsed,
+                    favorites: []
+                };
                 console.log('[UserData] 已从 localStorage 加载配置:', this.config);
             }
 
-            const localFavorites = JSON.parse(localStorage.getItem('my_favorites_v1') || '[]');
-            if ((!Array.isArray(this.config.favorites) || this.config.favorites.length === 0) && Array.isArray(localFavorites) && localFavorites.length > 0) {
+            const localFavorites = JSON.parse(localStorage.getItem(this.storageKeys.guestFavorites) || '[]');
+            if (Array.isArray(localFavorites) && localFavorites.length > 0) {
                 this.config.favorites = localFavorites;
             }
         } catch (error) {

@@ -6158,19 +6158,42 @@
 
     <script>
         // ========== 我的收藏功能 ==========
-        const FAV_KEY = 'my_favorites_v1';
+        const FAV_KEY_LEGACY = 'my_favorites_v1';
+        const FAV_KEY_GUEST = 'my_favorites_guest_v1';
+
+        function getCurrentFavoritesKey() {
+            if (userData?.isLoggedIn && userData?.user?.id) {
+                return `my_favorites_user_${userData.user.id}`;
+            }
+            return FAV_KEY_GUEST;
+        }
+
+        function migrateLegacyFavoritesIfNeeded() {
+            if (localStorage.getItem(FAV_KEY_GUEST)) {
+                return;
+            }
+            const legacy = localStorage.getItem(FAV_KEY_LEGACY);
+            if (legacy) {
+                localStorage.setItem(FAV_KEY_GUEST, legacy);
+                localStorage.removeItem(FAV_KEY_LEGACY);
+            }
+        }
 
         function normalizeFavorites(list) {
             return Array.isArray(list) ? list : [];
         }
 
-        function getLocalFavorites() {
+        function getLocalFavorites(storageKey = getCurrentFavoritesKey()) {
             try {
-                return normalizeFavorites(JSON.parse(localStorage.getItem(FAV_KEY) || '[]'));
+                return normalizeFavorites(JSON.parse(localStorage.getItem(storageKey) || '[]'));
             } catch (error) {
                 console.error('[收藏] 读取本地收藏失败:', error);
                 return [];
             }
+        }
+
+        function saveLocalFavorites(favs, storageKey = getCurrentFavoritesKey()) {
+            localStorage.setItem(storageKey, JSON.stringify(normalizeFavorites(favs)));
         }
 
         function openAddCardModal() {
@@ -6270,9 +6293,10 @@
             closeAddCardModal();
             
             // 保存到 LocalStorage
-            let favs = getLocalFavorites();
+            const storageKey = getCurrentFavoritesKey();
+            let favs = getLocalFavorites(storageKey);
             favs.push(newCard);
-            localStorage.setItem(FAV_KEY, JSON.stringify(favs));
+            saveLocalFavorites(favs, storageKey);
             console.log('[收藏] ✅ 已保存到 localStorage, 当前数量:', favs.length);
 
             // 立即渲染（不等待，使用 localStorage）
@@ -6307,10 +6331,11 @@
                 if (confirmed) {
                     console.log('[收藏] 开始删除收藏');
                     
-                    let favs = getLocalFavorites();
+                    const storageKey = getCurrentFavoritesKey();
+                    let favs = getLocalFavorites(storageKey);
                     console.log('[收藏] localStorage 当前收藏数:', favs.length);
                     favs = favs.filter(c => c.id !== id);
-                    localStorage.setItem(FAV_KEY, JSON.stringify(favs));
+                    saveLocalFavorites(favs, storageKey);
                     console.log('[收藏] ✅ 已从 localStorage 删除');
 
                     // 立即渲染（不等待，使用 localStorage）
@@ -6347,7 +6372,8 @@
                 return;
             }
 
-            const localFavs = getLocalFavorites();
+            const storageKey = getCurrentFavoritesKey();
+            const localFavs = getLocalFavorites(storageKey);
             let favs = localFavs;
             console.log('[收藏] localStorage 收藏数:', localFavs.length);
 
@@ -6359,7 +6385,7 @@
                 if (cloudFavs.length > 0) {
                     favs = cloudFavs;
                     if (JSON.stringify(localFavs) !== JSON.stringify(cloudFavs)) {
-                        localStorage.setItem(FAV_KEY, JSON.stringify(cloudFavs));
+                        saveLocalFavorites(cloudFavs, storageKey);
                     }
                 } else if (localFavs.length > 0) {
                     favs = localFavs;
@@ -6427,6 +6453,7 @@
 
         // 初始化
         document.addEventListener('DOMContentLoaded', async function () {
+            migrateLegacyFavoritesIfNeeded();
             renderFavorites();
 
             // 点击遮罩关闭
@@ -6441,7 +6468,8 @@
 
         // 导出收藏数据
         function exportFavorites() {
-            const favs = localStorage.getItem(FAV_KEY);
+            const storageKey = getCurrentFavoritesKey();
+            const favs = localStorage.getItem(storageKey);
             if (!favs || favs === '[]') {
                 showToast('还没有收藏任何链接哦！', 'info');
                 return;
@@ -6469,7 +6497,8 @@
                     const data = JSON.parse(json);
                     if (Array.isArray(data)) {
                         if (await showConfirm('导入将覆盖当前的收藏数据，确定要继续吗？')) {
-                            localStorage.setItem(FAV_KEY, JSON.stringify(data));
+                            const storageKey = getCurrentFavoritesKey();
+                            saveLocalFavorites(data, storageKey);
 
                             // 保存到数据库（如果已登录）
                             if (userData.isLoggedIn) {
@@ -8286,8 +8315,8 @@
 
     <!-- ==================== Supabase 配置脚本 ==================== -->
     <script src="assets/js/supabase.min.js"></script>
-    <script src="assets/js/supabase-config.js?v=20260212-13"></script>
-    <script src="assets/js/user-data.js?v=20260212-13"></script>
+    <script src="assets/js/supabase-config.js?v=20260212-14"></script>
+    <script src="assets/js/user-data.js?v=20260212-14"></script>
     <script src="assets/js/auth-ui.js"></script>
 
     <!-- ==================== 提醒系统脚本 ==================== -->

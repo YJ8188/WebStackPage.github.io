@@ -420,7 +420,7 @@
 
     <script src="assets/js/supabase.min.js"></script>
     <script src="assets/js/supabase-config.js?v=20260212-14"></script>
-    <script src="assets/js/auth.js?v=20260214-2"></script>
+    <script src="assets/js/auth.js?v=20260214-3"></script>
 
     <button type="button" id="selfCheckToggle" class="self-check-toggle">登录自检</button>
     <section id="selfCheckPanel" class="self-check-panel" aria-live="polite">
@@ -482,6 +482,15 @@
                 const hasSupabaseLib = typeof window.supabase !== 'undefined';
                 const hasSupabaseClient = !!(window.supabaseClient && window.supabaseClient.auth);
                 const rememberMe = localStorage.getItem('rememberMePreference');
+                const rememberMeExpiresAtRaw = localStorage.getItem('rememberMeExpiresAt');
+                const rememberMeExpiresAt = Number(rememberMeExpiresAtRaw);
+                const rememberMeHasExpiry = Number.isFinite(rememberMeExpiresAt) && rememberMeExpiresAt > 0;
+                const rememberMeExpired = rememberMe === 'true'
+                    ? (!rememberMeHasExpiry || Date.now() >= rememberMeExpiresAt)
+                    : false;
+                const rememberMeExpireText = rememberMeHasExpiry
+                    ? new Date(rememberMeExpiresAt).toLocaleString('zh-CN')
+                    : '未设置（视为过期）';
                 const protocol = window.location.protocol;
                 const isFileProtocol = protocol === 'file:';
 
@@ -515,6 +524,8 @@
                     ['Session 用户', sessionUser],
                     ['Session 错误', sessionError],
                     ['记住我偏好', rememberMe ?? 'null'],
+                    ['记住我到期时间', rememberMeExpireText],
+                    ['记住我是否过期', rememberMeExpired ? '<span class="self-check-status-warn">已过期</span>' : '<span class="self-check-status-ok">未过期</span>'],
                     ['网络状态', navigator.onLine ? '<span class="self-check-status-ok">online</span>' : '<span class="self-check-status-bad">offline</span>']
                 ];
             }

@@ -722,12 +722,21 @@ const ERP = {
                 }
             }
 
+            const { incomeDescription, costDescription, profitDescription } = this.buildOrderFinanceDescriptions(
+                orderNumber,
+                order.customer_id,
+                items,
+                totalAmount,
+                totalCost,
+                netProfit
+            );
+
             // 创建财务记录（收入）
             await this.addFinanceRecord({
                 type: 'income',
                 category: '销售订单',
                 amount: totalAmount,
-                description: `订单 ${orderNumber} | 成本：¥${totalCost.toFixed(2)} | 利润：¥${netProfit.toFixed(2)}`,
+                description: incomeDescription,
                 reference_id: order.id,
                 order_id: order.id
             });
@@ -738,14 +747,14 @@ const ERP = {
                     type: 'expense',
                     category: '销售成本',
                     amount: totalCost,
-                    description: `订单 ${orderNumber} - 原材料成本`,
+                    description: costDescription,
                     reference_id: order.id,
                     order_id: order.id
                 });
             }
 
             // 创建财务记录（系统利润）
-            await this.addOrderProfitFinance(order.id, orderNumber, netProfit);
+            await this.addOrderProfitFinance(order.id, orderNumber, netProfit, profitDescription);
 
             // 更新本地状态
             order.items = itemsData;
@@ -936,27 +945,56 @@ const ERP = {
     },
 
     buildOrderContext(orderNumber, customerId, items = []) {
-        const customer = (this.state.customers || []).find(item => Number(item.id) === Number(customerId));
+        const customer = (this.state.customers || []).find(item => this.isSameId(item.id, customerId));
         const customerName = customer?.name || '未知客户';
 
         const itemNames = (items || []).map(item => {
-            if (item?.product_name) {
-                return item.product_name;
+            const product = (this.state.products || []).find(p => this.isSameId(p.id, item?.product_id));
+            const productName = item?.product_name || product?.name || '';
+            const quantity = Number(item?.quantity);
+
+            if (!productName) {
+                return '';
             }
-            const product = (this.state.products || []).find(p => Number(p.id) === Number(item?.product_id));
-            return product?.name || '';
+
+            if (Number.isFinite(quantity) && quantity > 0) {
+                return `${productName}x${quantity}`;
+            }
+
+            return productName;
         }).filter(Boolean);
 
         const productSummary = itemNames.length === 0
-            ? '-'
+            ? '未识别商品'
             : `${itemNames.slice(0, 3).join('、')}${itemNames.length > 3 ? ` 等${itemNames.length}项` : ''}`;
 
         return `订单 ${orderNumber} | 客户:${customerName} | 商品:${productSummary}`;
     },
 
+    buildOrderFinanceDescriptions(orderNumber, customerId, items = [], totalAmount = 0, totalCost = 0, netProfit = 0) {
+        const orderContext = this.buildOrderContext(orderNumber, customerId, items);
+        const amountText = `¥${parseFloat(totalAmount || 0).toFixed(2)}`;
+        const costText = `¥${parseFloat(totalCost || 0).toFixed(2)}`;
+        const profitText = `¥${parseFloat(netProfit || 0).toFixed(2)}`;
+
+        return {
+            orderContext,
+            incomeDescription: `${orderContext} | 销售额:${amountText} | 成本:${costText} | 利润:${profitText}`,
+            costDescription: `${orderContext} | 销售成本:${costText}`,
+            profitDescription: `${orderContext} | 系统利润:${profitText}`
+        };
+    },
+
     async postProcessOrder(order, items, summary) {
         const { orderNumber, totalAmount, totalCost, netProfit } = summary;
-        const orderContext = this.buildOrderContext(orderNumber, order.customer_id, items);
+        const { incomeDescription, costDescription, profitDescription } = this.buildOrderFinanceDescriptions(
+            orderNumber,
+            order.customer_id,
+            items,
+            totalAmount,
+            totalCost,
+            netProfit
+        );
 
         let stockChanged = false;
         let financeChanged = false;
@@ -976,11 +1014,11 @@ const ERP = {
                 type: 'income',
                 category: '销售订单',
                 amount: totalAmount,
-                description: `${orderContext} | 成本：¥${totalCost.toFixed(2)} | 利润：¥${netProfit.toFixed(2)}`,
+                description: incomeDescription,
                 reference_id: order.id,
                 order_id: order.id
             }),
-            this.addOrderProfitFinance(order.id, orderNumber, netProfit)
+            this.addOrderProfitFinance(order.id, orderNumber, netProfit, profitDescription)
         ];
 
         if (totalCost > 0) {
@@ -988,7 +1026,7 @@ const ERP = {
                 type: 'expense',
                 category: '销售成本',
                 amount: totalCost,
-                description: `${orderContext} | 销售成本`,
+                description: costDescription,
                 reference_id: order.id,
                 order_id: order.id
             }));
@@ -1266,14 +1304,15 @@ const ERP = {
         }
     },
 
-    async addOrderProfitFinance(orderId, orderNumber, netProfit) {
+    async addOrderProfitFinance(orderId, orderNumber, netProfit, profitDescription = '') {
         const profitAmount = parseFloat(netProfit || 0);
+        const description = profitDescription || `订单 ${orderNumber} - 系统利润`;
 
         const systemResult = await this.addFinanceRecord({
             type: 'system',
             category: '利润',
             amount: profitAmount,
-            description: `订单 ${orderNumber} - 系统利润`,
+            description,
             reference_id: orderId,
             order_id: orderId
         });
@@ -1287,14 +1326,21 @@ const ERP = {
             type: compatibleType,
             category: '利润(系统)',
             amount: Math.abs(profitAmount),
-            description: `订单 ${orderNumber} - 系统利润（兼容模式）`,
+            description: `${description}（兼容模式）`,
             reference_id: orderId,
             order_id: orderId
         });
     },
 
     async ensureOrderFinanceRecords(order, orderNumber, totalAmount, totalCost, netProfit, items = []) {
-        const orderContext = this.buildOrderContext(orderNumber, order.customer_id, items);
+        const { incomeDescription, costDescription, profitDescription } = this.buildOrderFinanceDescriptions(
+            orderNumber,
+            order.customer_id,
+            items,
+            totalAmount,
+            totalCost,
+            netProfit
+        );
 
         const { data: existingRows, error } = await supabaseClient
             .from('erp_finances')
@@ -1317,7 +1363,7 @@ const ERP = {
                 type: 'income',
                 category: '销售订单',
                 amount: totalAmount,
-                description: `${orderContext} | 成本：¥${totalCost.toFixed(2)} | 利润：¥${netProfit.toFixed(2)}`,
+                description: incomeDescription,
                 reference_id: order.id,
                 order_id: order.id
             });
@@ -1328,20 +1374,27 @@ const ERP = {
                 type: 'expense',
                 category: '销售成本',
                 amount: totalCost,
-                description: `${orderContext} | 销售成本`,
+                description: costDescription,
                 reference_id: order.id,
                 order_id: order.id
             });
         }
 
         if (!hasProfit) {
-            await this.addOrderProfitFinance(order.id, orderNumber, netProfit);
+            await this.addOrderProfitFinance(order.id, orderNumber, netProfit, profitDescription);
         }
     },
 
     async syncOrderFinanceRecords(orderId, orderNumber, totalAmount, totalCost, netProfit) {
-        const localOrder = this.state.orders.find(order => Number(order.id) === Number(orderId)) || {};
-        const orderContext = this.buildOrderContext(orderNumber, localOrder.customer_id, localOrder.items || []);
+        const localOrder = this.state.orders.find(order => this.isSameId(order.id, orderId)) || {};
+        const { incomeDescription, costDescription, profitDescription } = this.buildOrderFinanceDescriptions(
+            orderNumber,
+            localOrder.customer_id,
+            localOrder.items || [],
+            totalAmount,
+            totalCost,
+            netProfit
+        );
 
         const { data: rows, error } = await supabaseClient
             .from('erp_finances')
@@ -1359,8 +1412,6 @@ const ERP = {
         const costRow = records.find(row => row.type === 'expense' && row.category === '销售成本');
         const profitRow = records.find(row => row.type === 'system' || row.category === '利润' || row.category === '利润(系统)');
 
-        const incomeDescription = `${orderContext} | 成本：¥${totalCost.toFixed(2)} | 利润：¥${netProfit.toFixed(2)}`;
-
         if (incomeRow) {
             await supabaseClient
                 .from('erp_finances')
@@ -1372,7 +1423,7 @@ const ERP = {
         if (costRow) {
             await supabaseClient
                 .from('erp_finances')
-                .update({ amount: totalCost, description: `${orderContext} | 销售成本` })
+                .update({ amount: totalCost, description: costDescription })
                 .eq('id', costRow.id)
                 .eq('user_id', userData.user.id);
         }
@@ -1380,7 +1431,10 @@ const ERP = {
         if (profitRow) {
             await supabaseClient
                 .from('erp_finances')
-                .update({ amount: profitRow.type === 'system' ? netProfit : Math.abs(netProfit) })
+                .update({
+                    amount: profitRow.type === 'system' ? netProfit : Math.abs(netProfit),
+                    description: profitDescription
+                })
                 .eq('id', profitRow.id)
                 .eq('user_id', userData.user.id);
         }

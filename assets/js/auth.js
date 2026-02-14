@@ -11,6 +11,10 @@ const toggleLink = document.getElementById('toggleLink');
 
 let isLoginMode = true;
 
+const REMEMBER_ME_KEY = 'rememberMePreference';
+const REMEMBER_ME_EXPIRES_KEY = 'rememberMeExpiresAt';
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
 function getSupabaseClient() {
     if (window.supabaseClient && window.supabaseClient.auth) {
         return window.supabaseClient;
@@ -24,13 +28,13 @@ function getSupabaseClient() {
 function assertSupabaseReady() {
     const client = getSupabaseClient();
     if (!client) {
-        throw new Error('登录服务初始化失败，请刷新页面后重试');
+        throw new Error('登录服务初始化失败，请刷新后重试');
     }
     return client;
 }
 
 function isAbortLikeError(message) {
-    const text = (message || '').toLowerCase();
+    const text = String(message || '').toLowerCase();
     return text.includes('aborted') || text.includes('aborterror') || text.includes('signal is aborted');
 }
 
@@ -39,10 +43,57 @@ function normalizeAuthError(error) {
     if (isAbortLikeError(rawMessage)) {
         return '登录请求被中断，请检查网络后重试';
     }
-    if (!rawMessage) {
-        return '登录失败，请稍后重试';
+    return rawMessage || '登录失败，请稍后重试';
+}
+
+function clearRememberMeState() {
+    localStorage.removeItem(REMEMBER_ME_KEY);
+    localStorage.removeItem(REMEMBER_ME_EXPIRES_KEY);
+}
+
+function setRememberMeState(enabled) {
+    const rememberEnabled = enabled === true;
+    localStorage.setItem(REMEMBER_ME_KEY, rememberEnabled.toString());
+
+    if (rememberEnabled) {
+        const expiresAt = Date.now() + THIRTY_DAYS_MS;
+        localStorage.setItem(REMEMBER_ME_EXPIRES_KEY, String(expiresAt));
+    } else {
+        localStorage.removeItem(REMEMBER_ME_EXPIRES_KEY);
     }
-    return rawMessage;
+}
+
+function getRememberMeMeta() {
+    const enabled = localStorage.getItem(REMEMBER_ME_KEY) === 'true';
+    const rawExpires = localStorage.getItem(REMEMBER_ME_EXPIRES_KEY);
+    const expiresAt = Number(rawExpires);
+    const validExpiry = Number.isFinite(expiresAt) && expiresAt > 0;
+
+    if (enabled && !validExpiry) {
+        return {
+            enabled: true,
+            expiresAt: null,
+            expired: true
+        };
+    }
+
+    return {
+        enabled,
+        expiresAt: validExpiry ? expiresAt : null,
+        expired: enabled && validExpiry ? Date.now() >= expiresAt : false
+    };
+}
+
+async function safeLocalSignOut(client) {
+    try {
+        await Promise.race([
+            client.auth.signOut({ scope: 'local' }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('signout-timeout')), 5000))
+        ]);
+    } catch (error) {
+        return false;
+    }
+    return true;
 }
 
 async function getSessionWithRetry(client, maxAttempts = 3) {
@@ -83,13 +134,7 @@ function getRedirectTarget() {
 
     try {
         const value = decodeURIComponent(raw).trim();
-        if (!value) {
-            return fallback;
-        }
-        if (/^(https?:|\/\/|javascript:)/i.test(value)) {
-            return fallback;
-        }
-        if (value.includes('..')) {
+        if (!value || /^(https?:|\/\/|javascript:)/i.test(value) || value.includes('..')) {
             return fallback;
         }
         return value;
@@ -99,22 +144,6 @@ function getRedirectTarget() {
 }
 
 const redirectTarget = getRedirectTarget();
-
-// 初始化：检查是否之前选择了记住我
-document.addEventListener('DOMContentLoaded', function() {
-    const rememberPreference = localStorage.getItem('rememberMePreference');
-    if (rememberPreference === 'true') {
-        rememberMeCheckbox.checked = true;
-    }
-});
-
-toggleMode();
-
-toggleLink.addEventListener('click', function(e) {
-    e.preventDefault();
-    isLoginMode = !isLoginMode;
-    toggleMode();
-});
 
 function toggleMode() {
     if (isLoginMode) {
@@ -132,124 +161,12 @@ function toggleMode() {
     }
 }
 
-authForm.addEventListener('submit', async function(e) {
-    e.preventDefault();
-
-    const email = emailInput.value.trim();
-    const password = passwordInput.value;
-
-    if (!email || !password) {
-        showAlert('请填写邮箱和密码', 'error');
-        return;
-    }
-
-    if (password.length < 6) {
-        showAlert('密码至少需要6个字符', 'error');
-        return;
-    }
-
-    setLoading(true);
-
-    try {
-        if (isLoginMode) {
-            await signIn(email, password);
-        } else {
-            await signUp(email, password);
-        }
-    } catch (error) {
-        showAlert(error.message, 'error');
-        setLoading(false);
-    }
-});
-
-async function signIn(email, password) {
-    const client = assertSupabaseReady();
-    const rememberMe = rememberMeCheckbox.checked;
-
-    console.log('[Auth] 登录请求 - 邮箱:', email);
-    console.log('[Auth] 记住我:', rememberMe);
-
-    // 保存记住我的偏好
-    localStorage.setItem('rememberMePreference', rememberMe.toString());
-
-    // 使用持久化会话登录
-    let authResult = await client.auth.signInWithPassword({
-        email: email,
-        password: password,
-        options: {
-            // 启用持久化会话
-            // 注意：Supabase 默认会话有效期为1小时，刷新令牌有效期需在项目设置中配置
-            // 这里我们使用 localStorage 来持久化会话
-        }
-    });
-
-    if (authResult?.error && isAbortLikeError(authResult.error.message)) {
-        await new Promise(resolve => setTimeout(resolve, 250));
-        authResult = await client.auth.signInWithPassword({
-            email: email,
-            password: password
-        });
-    }
-
-    const { data, error } = authResult;
-
-    setLoading(false);
-
-    if (error) {
-        console.error('[Auth] 登录失败:', error);
-        throw new Error(normalizeAuthError(error));
-    }
-
-    const { session, error: sessionError } = await getSessionWithRetry(client);
-    if (sessionError || !session) {
-        throw new Error(normalizeAuthError(sessionError) || '登录会话未建立，请稍后重试');
-    }
-
-    console.log('[Auth] 登录成功:', data);
-
-    // 设置会话持久化
-    if (rememberMe) {
-        console.log('[Auth] 启用30天免登录');
-        // Supabase 会自动处理会话刷新，我们只需要确保会话被持久化
-        // 会话信息默认存储在 localStorage 中
-    }
-
-    showAlert('登录成功，正在进入首页...', 'success');
-    window.location.replace(redirectTarget);
-}
-
-async function signUp(email, password) {
-    const client = assertSupabaseReady();
-    const { data, error } = await client.auth.signUp({
-        email: email,
-        password: password
-    });
-
-    setLoading(false);
-
-    if (error) {
-        throw new Error(error.message);
-    }
-
-    if (data.user && !data.session) {
-        showAlert('注册成功！请检查邮箱验证账号', 'success');
-    } else {
-        showAlert('注册成功！正在跳转...', 'success');
-
-        const { session, error: sessionError } = await getSessionWithRetry(client);
-        if (sessionError || !session) {
-            setLoading(false);
-            showAlert('注册成功，但会话未建立，请手动登录', 'error');
-            return;
-        }
-        
-        window.location.replace(redirectTarget);
-    }
-}
-
 function showAlert(message, type) {
+    if (!alertBox) {
+        return;
+    }
     alertBox.textContent = message;
-    alertBox.className = 'alert alert-' + type + ' show';
+    alertBox.className = `alert alert-${type} show`;
 
     setTimeout(() => {
         alertBox.classList.remove('show');
@@ -257,6 +174,10 @@ function showAlert(message, type) {
 }
 
 function setLoading(loading) {
+    if (!submitBtn) {
+        return;
+    }
+
     if (loading) {
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<span class="loading-spinner"></span>处理中...';
@@ -266,77 +187,142 @@ function setLoading(loading) {
     }
 }
 
-// ==================== 会话自动恢复功能 ====================
+async function signIn(email, password) {
+    const client = assertSupabaseReady();
+    const rememberMe = rememberMeCheckbox?.checked === true;
 
-/**
- * 检查当前会话状态
- * 如果会话有效且用户选择了记住我，则自动跳转到首页
- */
+    setRememberMeState(rememberMe);
+
+    let authResult = await client.auth.signInWithPassword({
+        email,
+        password
+    });
+
+    if (authResult?.error && isAbortLikeError(authResult.error.message)) {
+        await new Promise(resolve => setTimeout(resolve, 250));
+        authResult = await client.auth.signInWithPassword({ email, password });
+    }
+
+    const { error } = authResult;
+    if (error) {
+        throw new Error(normalizeAuthError(error));
+    }
+
+    const { session, error: sessionError } = await getSessionWithRetry(client);
+    if (sessionError || !session) {
+        throw new Error(normalizeAuthError(sessionError) || '登录会话未建立，请稍后重试');
+    }
+
+    if (rememberMe) {
+        setRememberMeState(true);
+    }
+
+    showAlert('登录成功，正在进入首页...', 'success');
+    window.location.replace(redirectTarget);
+}
+
+async function signUp(email, password) {
+    const client = assertSupabaseReady();
+    const { data, error } = await client.auth.signUp({ email, password });
+
+    if (error) {
+        throw new Error(error.message || '注册失败，请稍后重试');
+    }
+
+    if (data.user && !data.session) {
+        showAlert('注册成功，请检查邮箱并完成验证', 'success');
+        return;
+    }
+
+    showAlert('注册成功，正在跳转...', 'success');
+    window.location.replace(redirectTarget);
+}
+
 async function checkSessionAndRedirect() {
-    console.log('[Auth] 检查会话状态...');
-
     try {
         const client = getSupabaseClient();
         if (!client) {
-            console.warn('[Auth] Supabase 客户端未就绪，跳过自动跳转检查');
             return;
         }
 
         const { session, error } = await getSessionWithRetry(client);
-
-        if (error) {
-            console.error('[Auth] 获取会话失败:', error);
+        if (error || !session) {
             return;
         }
 
-        if (session) {
-            console.log('[Auth] 会话有效，用户已登录:', session.user.email);
+        const rememberMeta = getRememberMeMeta();
+        if (rememberMeta.enabled && rememberMeta.expired) {
+            await safeLocalSignOut(client);
+            clearRememberMeState();
+            showAlert('30天自动登录已过期，请重新登录', 'info');
+            return;
+        }
 
-            // 检查是否选择了记住我
-            const rememberPreference = localStorage.getItem('rememberMePreference');
-            console.log('[Auth] 记住我偏好:', rememberPreference);
-
-            // 如果会话有效且用户选择了记住我，自动跳转到目标页
-            if (rememberPreference === 'true') {
-                console.log('[Auth] 自动跳转到目标页:', redirectTarget);
-                showAlert('检测到您已登录，正在跳转...', 'success');
-                window.location.replace(redirectTarget);
-            }
-        } else {
-            console.log('[Auth] 会话无效或已过期');
+        if (rememberMeta.enabled) {
+            showAlert('检测到您已登录，正在跳转...', 'success');
+            window.location.replace(redirectTarget);
         }
     } catch (error) {
         console.error('[Auth] 检查会话异常:', error);
     }
 }
 
-// 监听认证状态变化
 function bindAuthStateChangeListener() {
     const client = getSupabaseClient();
     if (!client) {
-        console.warn('[Auth] 无法绑定认证监听：Supabase 客户端未就绪');
         return;
     }
 
-    client.auth.onAuthStateChange((event, session) => {
-        console.log('[Auth] 认证状态变化:', event);
-
-        if (event === 'SIGNED_IN') {
-            console.log('[Auth] 用户已登录');
-        } else if (event === 'SIGNED_OUT') {
-            console.log('[Auth] 用户已登出');
-            localStorage.removeItem('rememberMePreference');
-        } else if (event === 'TOKEN_REFRESHED') {
-            console.log('[Auth] 令牌已刷新');
+    client.auth.onAuthStateChange((event) => {
+        if (event === 'SIGNED_OUT') {
+            clearRememberMeState();
         }
     });
 }
 
-// 页面加载时检查会话
-document.addEventListener('DOMContentLoaded', function() {
+toggleLink?.addEventListener('click', function (event) {
+    event.preventDefault();
+    isLoginMode = !isLoginMode;
+    toggleMode();
+});
+
+authForm?.addEventListener('submit', async function (event) {
+    event.preventDefault();
+
+    const email = emailInput?.value?.trim() || '';
+    const password = passwordInput?.value || '';
+
+    if (!email || !password) {
+        showAlert('请填写邮箱和密码', 'error');
+        return;
+    }
+
+    setLoading(true);
+    try {
+        if (isLoginMode) {
+            await signIn(email, password);
+        } else {
+            await signUp(email, password);
+        }
+    } catch (error) {
+        showAlert(error.message || '操作失败，请重试', 'error');
+    } finally {
+        setLoading(false);
+    }
+});
+
+document.addEventListener('DOMContentLoaded', function () {
+    const rememberMeta = getRememberMeMeta();
+    if (rememberMeta.enabled && rememberMeta.expired) {
+        clearRememberMeState();
+        rememberMeCheckbox.checked = false;
+    } else {
+        rememberMeCheckbox.checked = rememberMeta.enabled;
+    }
+
+    toggleMode();
     bindAuthStateChangeListener();
 
-    // 延迟检查，确保 Supabase 客户端已初始化
     setTimeout(() => {
         checkSessionAndRedirect();
     }, 100);

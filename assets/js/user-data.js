@@ -19,7 +19,9 @@ const userData = {
         guestConfig: 'user_config_guest_v1',
         legacyGuestConfig: 'userConfig',
         userConfigCachePrefix: 'user_config_cache_',
-        userConfigSnapshotPrefix: 'user_config_snapshot_'
+        userConfigSnapshotPrefix: 'user_config_snapshot_',
+        rememberMePreference: 'rememberMePreference',
+        rememberMeExpiresAt: 'rememberMeExpiresAt'
     },
 
     getAuthClient() {
@@ -30,6 +32,60 @@ const userData = {
             return supabaseClient;
         }
         return null;
+    },
+
+    clearRememberMeState() {
+        localStorage.removeItem(this.storageKeys.rememberMePreference);
+        localStorage.removeItem(this.storageKeys.rememberMeExpiresAt);
+    },
+
+    getRememberMeMeta() {
+        const enabled = localStorage.getItem(this.storageKeys.rememberMePreference) === 'true';
+        const rawExpiresAt = localStorage.getItem(this.storageKeys.rememberMeExpiresAt);
+        const expiresAt = Number(rawExpiresAt);
+        const hasValidExpiry = Number.isFinite(expiresAt) && expiresAt > 0;
+
+        if (enabled && !hasValidExpiry) {
+            return {
+                enabled: true,
+                expiresAt: null,
+                expired: true
+            };
+        }
+
+        return {
+            enabled,
+            expiresAt: hasValidExpiry ? expiresAt : null,
+            expired: enabled && hasValidExpiry ? Date.now() >= expiresAt : false
+        };
+    },
+
+    async enforceRememberMeExpiry(client = this.getAuthClient(), session = null) {
+        if (!client || !session) {
+            return false;
+        }
+
+        const rememberMeta = this.getRememberMeMeta();
+        if (!rememberMeta.enabled || !rememberMeta.expired) {
+            return false;
+        }
+
+        try {
+            await Promise.race([
+                client.auth.signOut({ scope: 'local' }),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('remember-me-expired-timeout')), 5000))
+            ]);
+        } catch (error) {
+            console.error('[UserData] 30天自动登录过期后登出失败:', error);
+        }
+
+        this.clearRememberMeState();
+        this.isLoggedIn = false;
+        this.user = null;
+        this.config = this.getDefaultConfig();
+        this.loadFromLocalStorage();
+        window.dispatchEvent(new CustomEvent('userDataLoaded', { detail: this.config }));
+        return true;
     },
 
     isAbortLikeError(error) {
@@ -360,12 +416,15 @@ const userData = {
                     }
                 });
 
+                const authClient = this.getAuthClient();
+
                 if (!this.authListenerRegistered) {
-                    const client = this.getAuthClient();
+                    const client = authClient;
                     if (client) {
                         this.authListenerRegistered = true;
                         client.auth.onAuthStateChange(async (event, session) => {
                             if (event === 'SIGNED_OUT') {
+                                this.clearRememberMeState();
                                 this.isLoggedIn = false;
                                 this.user = null;
                                 console.log('[UserData] 用户已登出');
@@ -373,6 +432,11 @@ const userData = {
                                 this.loadFromLocalStorage();
                                 window.dispatchEvent(new CustomEvent('userDataLoaded', { detail: this.config }));
                             } else if (event === 'SIGNED_IN') {
+                                const rememberExpired = await this.enforceRememberMeExpiry(client, session);
+                                if (rememberExpired) {
+                                    return;
+                                }
+
                                 this.isLoggedIn = true;
                                 this.user = session.user;
                                 console.log('[UserData] 用户已登录:', this.user.email);
@@ -402,6 +466,12 @@ const userData = {
                 }
 
                 if (session) {
+                    const rememberExpired = await this.enforceRememberMeExpiry(authClient, session);
+                    if (rememberExpired) {
+                        this.initialized = true;
+                        return;
+                    }
+
                     this.isLoggedIn = true;
                     this.user = session.user;
                     console.log('[UserData] 用户已登录:', this.user.email);

@@ -50,6 +50,7 @@ async function handleLogout() {
         signOutError = error;
     } finally {
         localStorage.removeItem('rememberMePreference');
+        localStorage.removeItem('rememberMeExpiresAt');
 
         if (window.userData) {
             userData.isLoggedIn = false;

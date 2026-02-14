@@ -955,10 +955,10 @@ async function saveOrder() {
         const select = item.querySelector('.product-select');
         const quantityInput = item.querySelector('.item-quantity');
         const unitPriceInput = item.querySelector('.item-unit-price');
-        const productId = parseInt(select.value);
+        const productId = normalizeEntityId(select.value);
         const quantity = parseInt(quantityInput.value) || 0;
 
-        if (productId && quantity > 0) {
+        if (productId !== null && quantity > 0) {
             const selectedOption = select.options[select.selectedIndex];
             const productName = selectedOption?.dataset.name || '';
             const selectedPrice = parseFloat(selectedOption?.dataset.price) || 0;
@@ -1077,10 +1077,10 @@ function getOrderItems() {
         const select = item.querySelector('.product-select');
         const quantityInput = item.querySelector('.item-quantity');
         const unitPriceInput = item.querySelector('.item-unit-price');
-        const productId = parseInt(select.value);
+        const productId = normalizeEntityId(select.value);
         const quantity = parseInt(quantityInput.value) || 0;
 
-        if (productId && quantity > 0) {
+        if (productId !== null && quantity > 0) {
             const selectedOption = select.options[select.selectedIndex];
             const productName = selectedOption?.dataset.name || '';
             const selectedPrice = parseFloat(selectedOption?.dataset.price) || 0;

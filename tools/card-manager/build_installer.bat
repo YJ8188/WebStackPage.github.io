@@ -31,6 +31,5 @@ if errorlevel 1 (
 )
 
 echo.
-echo Installer ready in: %~dp0dist-installer\WebStackCardManager-Setup.exe
+echo Installer ready in: %~dp0dist-installer\WebStackDesktopSuite-Setup.exe
 pause
-

@@ -22,14 +22,24 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [3/3] Build EXE...
-pyinstaller --noconfirm --clean --onefile --windowed --name WebStackCardManager card_manager.py
+echo [3/3] Build desktop/runtime EXE...
+pyinstaller --noconfirm --clean --onefile --windowed --name WebStackDesktop webstack_runtime.py
 if errorlevel 1 (
-  echo Build failed. Check logs above.
+  echo Desktop build failed. Check logs above.
+  pause
+  exit /b 1
+)
+
+echo [3/3] Build manager EXE...
+pyinstaller --noconfirm --clean --onefile --windowed --name WebStackManager card_manager.py
+if errorlevel 1 (
+  echo Manager build failed. Check logs above.
   pause
   exit /b 1
 )
 
 echo.
-echo Build complete: %~dp0dist\WebStackCardManager.exe
+echo Build complete:
+echo - %~dp0dist\WebStackDesktop.exe
+echo - %~dp0dist\WebStackManager.exe
 pause

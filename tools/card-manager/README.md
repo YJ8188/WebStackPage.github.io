@@ -1,79 +1,54 @@
-# WebStack H5 一体化管理工具（Win EXE）
+# WebStack Desktop Suite（Win EXE）
 
-该工具用于可视化管理你的项目页面，核心目标：
+该套件包含两个 EXE：
 
-- 一体管理首页导航 + 卡片
-- 快速检查金价/数字货币/ERP模块是否存在
-- 在 EXE 内置窗口直接打开首页/金价/数字货币/ERP
-- 保存后可自动推送 GitHub `master`
-- 手动推送时可切换仓库地址，防止串仓
+- `WebStackDesktop.exe`：**运行版**（打开即用，直接运行首页/数字货币/金价/ERP/登录）
+- `WebStackManager.exe`：**管理器**（编辑导航、卡片、仓库推送）
 
-## 功能概览
+## 你要的效果
 
-1. **卡片管理**
-   - 分组树编辑
-   - 卡片新增/删除/排序
-   - 编辑标题、URL、描述、Logo
+- 打开 EXE 后可直接进入 H5 页面（不是只看状态）
+- 数字货币、金价行情实时刷新逻辑沿用原网页脚本
+- ERP 页面、登录、按钮交互与网页一致（同一套页面）
 
-2. **导航管理**
-   - 管理左侧菜单叶子项（含金价、数字货币、ERP入口）
-   - 支持标题/链接/图标/标签编辑
-   - 支持关键词筛选
+## 结构说明
 
-3. **一体总览**
-   - 检查 `数字货币`、`金价行情`、`ERP入口`
-   - 检查 `erp-ant.html`、`erp.html`、`login.html`、`assets/js/metalsData.js`
+- `webstack_runtime.py`：运行版入口（本地服务 + WebView 桌面壳）
+- `card_manager.py`：管理器入口
+- `build_exe.bat`：同时打包两个 EXE
+- `build_installer.bat`：打包安装包（Setup）
+- `webstack_card_manager.iss`：Inno Setup 脚本
 
-4. **仓库安全推送**
-   - 顶部显示当前 `origin` 地址
-   - 可手动切换到任意 GitHub 仓库地址
-   - 推送前自动校验并记录目标仓库
-
-5. **内置应用运行**
-   - 在“内置应用”页签直接打开：首页、数字货币、金价、ERP、登录页
-   - 默认使用内置 WebView 窗口（与网页功能一致）
-   - 若环境缺少 WebView 依赖，自动降级为系统浏览器打开
-
-## 文件说明
-
-- `card_manager.py`：主程序（Tkinter UI）
-- `build_exe.bat`：打包便携 EXE
-- `webstack_card_manager.iss`：Inno Setup 安装脚本
-- `build_installer.bat`：一键构建安装包
-
-## 运行方式
-
-### 开发模式
-
-```bash
-python tools/card-manager/card_manager.py
-```
-
-### 便携 EXE
+## 打包
 
 ```bash
 tools\card-manager\build_exe.bat
 ```
 
-输出：`tools/card-manager/dist/WebStackCardManager.exe`
+输出：
 
-### 安装版 Setup
+- `tools/card-manager/dist/WebStackDesktop.exe`
+- `tools/card-manager/dist/WebStackManager.exe`
 
-前提：安装 `Inno Setup 6`
+## 安装包
 
 ```bash
 tools\card-manager\build_installer.bat
 ```
 
-输出：`tools/card-manager/dist-installer/WebStackCardManager-Setup.exe`
+输出：
 
-## Git 推送说明
+- `tools/card-manager/dist-installer/WebStackDesktopSuite-Setup.exe`
 
-- 内置命令：`git add -A` → `git commit` → `git push origin master`
-- 支持切换 `origin` 仓库地址，适配不同用户使用同一工具
-- 若无改动，commit 阶段会自动跳过并继续 push
+## 运行机制
 
-## 运行依赖说明
+1. 运行版会自动启动本地 HTTP 服务（127.0.0.1 随机端口）
+2. WebView 加载桌面壳页面
+3. 壳内 iframe 加载 `index.html` / `erp-ant.html` / `login.html`
+4. 所有功能使用你现有 H5 逻辑，不另造 ERP
 
-- `pywebview`：用于 EXE 内置网页窗口
-- Windows 建议安装 WebView2 Runtime（多数 Win10/11 已内置）
+## 仓库防串码
+
+- 管理器可显示并切换 `origin` 仓库地址
+- 推送前可确认目标仓库，再推送 `master`
+

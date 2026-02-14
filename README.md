@@ -74,22 +74,24 @@
 
 ---
 
-## H5 管理工具（Win EXE + 安装包）
+## WebStack Desktop Suite（Win EXE + 安装包）
 
-你可以用桌面工具直接管理首页 H5 内容：
+你可以用桌面套件直接运行和管理 H5：
 
-- 左侧导航（含菜单叶子项，可定位金价/数字货币/ERP入口）
-- 各分组卡片（名称、URL、描述、Logo）
-- 一体总览（检查金价/数字货币/ERP与关键文件）
-- 内置应用窗口（直接打开并使用 首页/数字货币/金价/ERP）
-- 保存后自动备份
-- 手动或自动推送到 GitHub `master`
-- 手动推送支持切换仓库地址（默认读取 `origin`，避免串仓）
+- `WebStackDesktop.exe`：运行版（打开即运行 首页/数字货币/金价/ERP/登录）
+- `WebStackManager.exe`：管理版（导航/卡片编辑 + 推送）
+- 管理器支持仓库地址切换（默认读取 `origin`，避免串仓）
 
-### 开发模式运行
+### 开发模式运行（管理器）
 
 ```bash
 python tools/card-manager/card_manager.py
+```
+
+### 开发模式运行（桌面运行版）
+
+```bash
+python tools/card-manager/webstack_runtime.py
 ```
 
 ### 打包便携 EXE
@@ -98,7 +100,10 @@ python tools/card-manager/card_manager.py
 tools\card-manager\build_exe.bat
 ```
 
-输出：`tools/card-manager/dist/WebStackCardManager.exe`
+输出：
+
+- `tools/card-manager/dist/WebStackDesktop.exe`
+- `tools/card-manager/dist/WebStackManager.exe`
 
 ### 打包安装版 Setup
 
@@ -106,7 +111,7 @@ tools\card-manager\build_exe.bat
 tools\card-manager\build_installer.bat
 ```
 
-输出：`tools/card-manager/dist-installer/WebStackCardManager-Setup.exe`
+输出：`tools/card-manager/dist-installer/WebStackDesktopSuite-Setup.exe`
 
 > 安装版依赖 Inno Setup 6，未安装时脚本会提示下载地址。
 

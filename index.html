@@ -5566,6 +5566,99 @@
         let draggedCardElement = null;
         let lastDragTime = 0;
         const DRAG_THROTTLE = 50;
+        const CARD_LAYOUT_FINGERPRINT_KEY = 'cardLayoutFingerprint_v1';
+        const ACCOUNT_CARD_LAYOUT_FINGERPRINT_PREFIX = 'accountCardLayoutFingerprint_';
+        let baseLayoutFingerprint = '';
+        let hasLayoutFingerprintChanged = false;
+
+        function getAllStorageKeysByPrefix(prefix) {
+            return Object.keys(localStorage).filter(key => key.startsWith(prefix));
+        }
+
+        function clearCardOrderStorage() {
+            getAllStorageKeysByPrefix('cardOrder_').forEach(key => localStorage.removeItem(key));
+            getAllStorageKeysByPrefix('defaultOrder_').forEach(key => localStorage.removeItem(key));
+        }
+
+        function flattenStoredDefaultOrder() {
+            const keys = getAllStorageKeysByPrefix('defaultOrder_')
+                .sort((left, right) => {
+                    const leftNum = Number(left.split('_')[1] || 0);
+                    const rightNum = Number(right.split('_')[1] || 0);
+                    return leftNum - rightNum;
+                });
+
+            const ids = [];
+            keys.forEach(key => {
+                try {
+                    const parsed = JSON.parse(localStorage.getItem(key) || '[]');
+                    if (Array.isArray(parsed)) {
+                        ids.push(...parsed);
+                    }
+                } catch (_) {
+                    // 忽略单个损坏键
+                }
+            });
+            return ids;
+        }
+
+        function getCurrentLayoutFingerprint() {
+            return Array.from(document.querySelectorAll('.row .col-sm-3[draggable="true"]'))
+                .map((card, index) => {
+                    if (card.id) return card.id;
+                    const title = card.querySelector('.xe-user-name strong')?.textContent?.trim() || '';
+                    return `unknown-${index}-${title}`;
+                })
+                .join('|');
+        }
+
+        function getAccountLayoutFingerprintKey(identity = 'guest') {
+            return `${ACCOUNT_CARD_LAYOUT_FINGERPRINT_PREFIX}${identity}`;
+        }
+
+        function syncLayoutFingerprint() {
+            baseLayoutFingerprint = getCurrentLayoutFingerprint();
+            const lastLayoutFingerprint = localStorage.getItem(CARD_LAYOUT_FINGERPRINT_KEY) || '';
+            const legacyDefaultFingerprint = flattenStoredDefaultOrder().join('|');
+
+            const layoutChangedByVersion = !!lastLayoutFingerprint && lastLayoutFingerprint !== baseLayoutFingerprint;
+            const layoutChangedByLegacy = !!legacyDefaultFingerprint && legacyDefaultFingerprint !== baseLayoutFingerprint;
+
+            hasLayoutFingerprintChanged = layoutChangedByVersion || layoutChangedByLegacy;
+            if (hasLayoutFingerprintChanged) {
+                clearCardOrderStorage();
+                if (typeof showToast === 'function') {
+                    showToast('检测到默认卡片布局已更新，已自动重置旧排序并同步最新布局', 'warning');
+                }
+            }
+
+            localStorage.setItem(CARD_LAYOUT_FINGERPRINT_KEY, baseLayoutFingerprint);
+        }
+
+        async function ensureAccountCardOrderCompatibility(identity = 'guest', remoteCardOrder = []) {
+            if (!baseLayoutFingerprint) {
+                baseLayoutFingerprint = getCurrentLayoutFingerprint();
+            }
+
+            const accountKey = getAccountLayoutFingerprintKey(identity);
+            const accountFingerprint = localStorage.getItem(accountKey) || '';
+            const accountLayoutChanged = identity !== 'guest' && !!accountFingerprint && accountFingerprint !== baseLayoutFingerprint;
+
+            if (hasLayoutFingerprintChanged || accountLayoutChanged) {
+                if (typeof userData !== 'undefined' && userData.isLoggedIn && Array.isArray(remoteCardOrder) && remoteCardOrder.length > 0) {
+                    try {
+                        await userData.saveCardOrder([]);
+                    } catch (error) {
+                        console.error('[卡片] 清理账号旧排序失败:', error);
+                    }
+                }
+                localStorage.setItem(accountKey, baseLayoutFingerprint);
+                return false;
+            }
+
+            localStorage.setItem(accountKey, baseLayoutFingerprint);
+            return true;
+        }
         
         // 全局函数：应用排序
         function applyOrder(container, order) {
@@ -5746,6 +5839,9 @@
                     card.setAttribute('draggable', 'true');
                 }
             });
+
+            // 1.1 检测默认布局变更，防止旧排序覆盖新发布顺序
+            syncLayoutFingerprint();
             
             // 2. 为所有卡片添加隐藏按钮
             document.querySelectorAll('.xe-widget').forEach(widget => {
@@ -5912,6 +6008,10 @@
                                 allCardsOrder.push(...order);
                             });
                             await userData.saveCardOrder(allCardsOrder);
+                            const accountIdentity = userData?.user?.id || 'guest';
+                            if (baseLayoutFingerprint) {
+                                localStorage.setItem(getAccountLayoutFingerprintKey(accountIdentity), baseLayoutFingerprint);
+                            }
                             console.log('[卡片] ✅ 排序数据库同步成功');
                         } catch (error) {
                             console.error('[卡片] 排序数据库同步异常:', error);
@@ -6021,7 +6121,7 @@
         let lastCardStateFingerprint = '';
 
         // 监听用户数据加载完成事件
-        window.addEventListener('userDataLoaded', function(event) {
+        window.addEventListener('userDataLoaded', async function(event) {
             // 卡片管理只初始化一次，避免重复绑定拖拽事件造成卡顿
             if (!hasCardManagementInited) {
                 initCardManagement();
@@ -6031,6 +6131,8 @@
             const hiddenCards = Array.isArray(event?.detail?.hiddenCards) ? event.detail.hiddenCards : [];
             const cardOrder = Array.isArray(event?.detail?.cardOrder) ? event.detail.cardOrder : [];
             const identity = userData?.isLoggedIn && userData?.user?.id ? userData.user.id : 'guest';
+
+            const canApplyRemoteCardOrder = await ensureAccountCardOrderCompatibility(identity, cardOrder);
             const fingerprint = `${identity}|h:${hiddenCards.join(',')}|o:${cardOrder.join(',')}`;
 
             // 配置无变化时跳过重复应用，避免反复重排
@@ -6047,7 +6149,7 @@
                 }
             });
 
-            if (cardOrder.length > 0) {
+            if (cardOrder.length > 0 && canApplyRemoteCardOrder) {
                 const allRows = document.querySelectorAll('.row');
                 allRows.forEach(container => {
                     applyOrder(container, cardOrder);

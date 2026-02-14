@@ -568,27 +568,27 @@
                     </li>
 
                     <!-- 菜单项：我的收藏 -->
-                                        <li>
+                    <li>
                         <a href="#我的收藏" class="smooth">
-                            <i class="linecons-heart"></i>
+                            <i class="linecons-heart"></i> <!-- 心形图标 -->
                             <span class="title">我的收藏</span>
-                            <span class="label label-primary pull-right hidden-collapsed">New</span>
+                            <span class="label label-primary pull-right hidden-collapsed">New</span> <!-- New标签 -->
                         </a>
                     </li>
 
                     <!-- 菜单项：工作常用 -->
-                                        <li>
+                    <li>
                         <a href="#工作常用" class="smooth">
-                            <i class="linecons-star"></i>
+                            <i class="linecons-star"></i> <!-- 星形图标 -->
                             <span class="title">工作常用</span>
-                            <span class="label label-pink pull-right hidden-collapsed">Hot</span>
+                            <span class="label label-pink pull-right hidden-collapsed">Hot</span> <!-- Hot标签 -->
                         </a>
                     </li>
 
                     <!-- 菜单项：常用AI -->
-                                        <li>
+                    <li>
                         <a href="#常用AI" class="smooth">
-                            <i class="linecons-doc"></i>
+                            <i class="linecons-doc"></i> <!-- 文档图标 -->
                             <span class="title">常用AI</span>
                         </a>
                     </li>
@@ -601,25 +601,22 @@
                         </a>
                         <!-- 子菜单 -->
                         <ul>
-                                                <li>
-                        <a href="#常用AI-API" class="smooth">
-                            <i class="linecons-star"></i>
-                            <span class="title">常用AI-API</span>
-                        </a>
-                    </li>
-                                                <li>
-                        <a href="#常用远程" class="smooth">
-                            <i class="linecons-star"></i>
-                            <span class="title">常用远程</span>
-                        </a>
-                    </li>
-                                                <li>
-                        <a href="#VPS资源" class="smooth">
-                            <i class="linecons-star"></i>
-                            <span class="title">VPS资源</span>
-                            <span class="label label-pink pull-right hidden-collapsed">Hot</span>
-                        </a>
-                    </li>
+                            <li>
+                                <a href="#常用AI-API" class="smooth">
+                                    <span class="title">常用AI-API</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#常用远程" class="smooth">
+                                    <span class="title">常用远程</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#VPS资源" class="smooth">
+                                    <span class="title">VPS资源</span>
+                                    <span class="label label-pink pull-right hidden-collapsed">Hot</span>
+                                </a>
+                            </li>
                         </ul>
                     </li>
                     <li>
@@ -628,60 +625,51 @@
                             <span class="title">素材资源</span>
                         </a>
                         <ul>
-                                                <li>
-                        <a href="#图标素材" class="smooth">
-                            <i class="linecons-star"></i>
-                            <span class="title">图标素材</span>
-                        </a>
-                    </li>
-                                                <li>
-                        <a href="#LOGO设计" class="smooth">
-                            <i class="linecons-star"></i>
-                            <span class="title">LOGO设计</span>
-                        </a>
-                    </li>
-                                                <li>
-                        <a href="#平面素材" class="smooth">
-                            <i class="linecons-star"></i>
-                            <span class="title">平面素材</span>
-                        </a>
-                    </li>
-                                                <li>
-                        <a href="#UI资源" class="smooth">
-                            <i class="linecons-star"></i>
-                            <span class="title">UI资源</span>
-                        </a>
-                    </li>
-                                                <li>
-                        <a href="#Sketch资源" class="smooth">
-                            <i class="linecons-star"></i>
-                            <span class="title">Sketch资源</span>
-                        </a>
-                    </li>
-                                                <li>
-                        <a href="#字体资源" class="smooth">
-                            <i class="linecons-star"></i>
-                            <span class="title">字体资源</span>
-                        </a>
-                    </li>
-                                                <li>
-                        <a href="#Mockup" class="smooth">
-                            <i class="linecons-star"></i>
-                            <span class="title">Mockup</span>
-                        </a>
-                    </li>
-                                                <li>
-                        <a href="#摄影图库" class="smooth">
-                            <i class="linecons-star"></i>
-                            <span class="title">摄影图库</span>
-                        </a>
-                    </li>
-                                                <li>
-                        <a href="#PPT资源" class="smooth">
-                            <i class="linecons-star"></i>
-                            <span class="title">PPT资源</span>
-                        </a>
-                    </li>
+                            <li>
+                                <a href="#图标素材" class="smooth">
+                                    <span class="title">图标素材</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#LOGO设计" class="smooth">
+                                    <span class="title">LOGO设计</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#平面素材" class="smooth">
+                                    <span class="title">平面素材</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#UI资源" class="smooth">
+                                    <span class="title">UI资源</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#Sketch资源" class="smooth">
+                                    <span class="title">Sketch资源</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#字体资源" class="smooth">
+                                    <span class="title">字体资源</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#Mockup" class="smooth">
+                                    <span class="title">Mockup</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#摄影图库" class="smooth">
+                                    <span class="title">摄影图库</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#PPT资源" class="smooth">
+                                    <span class="title">PPT资源</span>
+                                </a>
+                            </li>
                         </ul>
                     </li>
                     <li>
@@ -690,42 +678,36 @@
                             <span class="title">常用工具</span>
                         </a>
                         <ul>
-                                                <li>
-                        <a href="#图形创意" class="smooth">
-                            <i class="linecons-star"></i>
-                            <span class="title">图形创意</span>
-                        </a>
-                    </li>
-                                                <li>
-                        <a href="#界面设计" class="smooth">
-                            <i class="linecons-star"></i>
-                            <span class="title">界面设计</span>
-                        </a>
-                    </li>
-                                                <li>
-                        <a href="#交互动效" class="smooth">
-                            <i class="linecons-star"></i>
-                            <span class="title">交互动效</span>
-                        </a>
-                    </li>
-                                                <li>
-                        <a href="#在线配色" class="smooth">
-                            <i class="linecons-star"></i>
-                            <span class="title">在线配色</span>
-                        </a>
-                    </li>
-                                                <li>
-                        <a href="#在线工具" class="smooth">
-                            <i class="linecons-star"></i>
-                            <span class="title">在线工具</span>
-                        </a>
-                    </li>
-                                                <li>
-                        <a href="#Chrome插件" class="smooth">
-                            <i class="linecons-star"></i>
-                            <span class="title">Chrome插件</span>
-                        </a>
-                    </li>
+                            <li>
+                                <a href="#图形创意" class="smooth">
+                                    <span class="title">图形创意</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#界面设计" class="smooth">
+                                    <span class="title">界面设计</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#交互动效" class="smooth">
+                                    <span class="title">交互动效</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#在线配色" class="smooth">
+                                    <span class="title">在线配色</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#在线工具" class="smooth">
+                                    <span class="title">在线工具</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#Chrome插件" class="smooth">
+                                    <span class="title">Chrome插件</span>
+                                </a>
+                            </li>
                         </ul>
                     </li>
                     <li>
@@ -734,52 +716,47 @@
                             <span class="title">学习教程</span>
                         </a>
                         <ul>
-                                                <li>
-                        <a href="#设计规范" class="smooth">
-                            <i class="linecons-star"></i>
-                            <span class="title">设计规范</span>
-                        </a>
-                    </li>
-                                                <li>
-                        <a href="#视频教程" class="smooth">
-                            <i class="linecons-star"></i>
-                            <span class="title">视频教程</span>
-                        </a>
-                    </li>
-                                                <li>
-                        <a href="#设计文章" class="smooth">
-                            <i class="linecons-star"></i>
-                            <span class="title">设计文章</span>
-                        </a>
-                    </li>
-                                                <li>
-                        <a href="#设计电台" class="smooth">
-                            <i class="linecons-star"></i>
-                            <span class="title">设计电台</span>
-                        </a>
-                    </li>
-                                                <li>
-                        <a href="#交互设计" class="smooth">
-                            <i class="linecons-star"></i>
-                            <span class="title">交互设计</span>
-                            <span class="label label-pink pull-right hidden-collapsed">Hot</span>
-                        </a>
-                    </li>
+                            <li>
+                                <a href="#设计规范" class="smooth">
+                                    <span class="title">设计规范</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#视频教程" class="smooth">
+                                    <span class="title">视频教程</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#设计文章" class="smooth">
+                                    <span class="title">设计文章</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#设计电台" class="smooth">
+                                    <span class="title">设计电台</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#交互设计" class="smooth">
+                                    <span class="title">交互设计</span>
+                                    <span class="label label-pink pull-right hidden-collapsed">Hot</span>
+                                </a>
+                            </li>
                         </ul>
                     </li>
-                                        <li>
+                    <li>
                         <a href="#数字货币" class="smooth">
                             <i class="linecons-money"></i>
                             <span class="title">数字货币</span>
                         </a>
                     </li>
-                                        <li>
+                    <li>
                         <a href="#金价行情" class="smooth">
                             <i class="linecons-diamond"></i>
                             <span class="title">金价行情</span>
                         </a>
                     </li>
-                                        <li>
+                    <li>
                         <a href="erp-ant.html" target="_blank">
                             <i class="fa fa-tachometer"></i>
                             <span class="title">何哥ERP系统</span>
@@ -863,6 +840,7 @@
             <!-- 工作常用 -->
             <h4 class="text-gray"><i class="linecons-star" style="margin-right: 7px;" id="工作常用"></i>工作常用</h4>
 
+            <!-- 第一行：4个 -->
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -900,8 +878,9 @@
                 </div>
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
-                        onclick="window.open('https://gas.taimi100.com/agent/User/login', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://gas.taimi100.com/agent/User/login">
+                        onclick="window.open('https://gas.taimi100.com/agent/User/login', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://gas.taimi100.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
                                 <img data-src="assets/images/taimi.png" class="lozad img-circle" width="40">
@@ -918,10 +897,11 @@
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
                         onclick="window.open('https://8.fuioupay.com/main.fuiou##', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://8.fuioupay.com/main.fuiou##">
+                        data-placement="bottom" title="" data-original-title="https://8.fuioupay.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/pinterest.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/pinterest.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -934,14 +914,16 @@
                 </div>
             </div>
 
+            <!-- 第二行：4个 -->
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
                         onclick="window.open('https://sp.mxipos.com/login', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://sp.mxipos.com/login">
+                        data-placement="bottom" title="" data-original-title="https://sp.mxipos.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/pinterest.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/pinterest.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -958,8 +940,11 @@
                         data-placement="bottom" title="" data-original-title="https://wmp.fuioupay.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/pinterest.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/pinterest.png" class="lozad img-circle"
+                                    width="40">
                             </a>
+                            <span class="label label-info" data-toggle="tooltip" data-placement="left" title=""
+                                data-original-title="Hello I am a Tooltip"></span>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
                                     <strong>富友商户服务平台</strong>
@@ -972,11 +957,13 @@
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
                         onclick="window.open('https://sly.tcsl.com.cn/login/index', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://sly.tcsl.com.cn/login/index">
+                        data-placement="bottom" title="" data-original-title="https://www.tcsl.com.cn/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
                                 <img data-src="assets/images/logos/tiancai.png" class="lozad img-circle" width="40">
                             </a>
+                            <span class="label label-info" data-toggle="tooltip" data-placement="left" title=""
+                                data-original-title="Hello I am a Tooltip"></span>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
                                     <strong>天财商龙</strong>
@@ -988,12 +975,15 @@
                 </div>
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
-                        onclick="window.open('https://eshop-mch.xgd.com/web/user/login?redirect=https%3A%2F%2Feshop-mch.xgd.com%2Fweb%2Fadmin%2Fhome', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://eshop-mch.xgd.com/web/user/login?redirect=https%3A%2F%2Feshop-mch.xgd.com%2Fweb%2Fadmin%2Fhome">
+                        onclick="window.open('https://eshop-mch.xgd.com/web/user/login?redirect=https%3A%2F%2Feshop-mch.xgd.com%2Fweb%2Fadmin%2Fhome', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://eshop-mch.xgd.com">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
                                 <img data-src="assets/images/logos/yundian.ico" class="lozad img-circle" width="40">
                             </a>
+                            <span class="label label-info" data-toggle="tooltip" data-placement="left" title=""
+                                data-original-title="Hello I am a Tooltip"></span>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
                                     <strong>嘉联云店</strong>
@@ -1005,6 +995,7 @@
                 </div>
             </div>
 
+            <!-- 第三行：4个 -->
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -1014,6 +1005,8 @@
                             <a class="xe-user-img">
                                 <img data-src="assets/images/favicon.png" class="lozad img-circle" width="40">
                             </a>
+                            <span class="label label-info" data-toggle="tooltip" data-placement="left" title=""
+                                data-original-title="Hello I am a Tooltip"></span>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
                                     <strong>我的博客</strong>
@@ -1025,66 +1018,14 @@
                 </div>
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
-                        onclick="window.open('https://v8.caimomo.com', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://v8.caimomo.com">
-                        <div class="xe-comment-entry">
-                            <a class="xe-user-img">
-                                <img data-src="assets/images/logos/qianduoduo.svg" class="lozad img-circle" width="40">
-                            </a>
-                            <div class="xe-comment">
-                                <a href="#" class="xe-user-name overflowClip_1">
-                                    <strong>钱多多商家后台</strong>
-                                </a>
-                                <p class="overflowClip_2">钱多多商家后台管理系统</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-sm-3">
-                    <div class="xe-widget xe-conversations box2 label-info"
-                        onclick="window.open('https://leshua.yun8609.com/zm/login?redirect=%2Findex', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://leshua.yun8609.com/zm/login?redirect=%2Findex">
-                        <div class="xe-comment-entry">
-                            <a class="xe-user-img">
-                                <img data-src="assets/images/logos/yishoubao.svg" class="lozad img-circle" width="40">
-                            </a>
-                            <div class="xe-comment">
-                                <a href="#" class="xe-user-name overflowClip_1">
-                                    <strong>宜收宝云店</strong>
-                                </a>
-                                <p class="overflowClip_2">宜收宝云店商户后台</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-sm-3">
-                    <div class="xe-widget xe-conversations box2 label-info"
-                        onclick="window.open('https://login.keruyun.com/?fromOnpos=true', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://login.keruyun.com/?fromOnpos=true">
-                        <div class="xe-comment-entry">
-                            <a class="xe-user-img">
-                                <img data-src="assets/images/logos/keruyun.svg" class="lozad img-circle" width="40">
-                            </a>
-                            <div class="xe-comment">
-                                <a href="#" class="xe-user-name overflowClip_1">
-                                    <strong>客如云商家中心</strong>
-                                </a>
-                                <p class="overflowClip_2">客如云商家中心登录</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-sm-3">
-                    <div class="xe-widget xe-conversations box2 label-info"
                         onclick="window.open('https://github.com/', '_blank')" data-toggle="tooltip"
                         data-placement="bottom" title="" data-original-title="https://github.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
                                 <img data-src="assets/images/logos/github.png" class="lozad img-circle" width="40">
                             </a>
+                            <span class="label label-info" data-toggle="tooltip" data-placement="left" title=""
+                                data-original-title="Hello I am a Tooltip"></span>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
                                     <strong>github</strong>
@@ -1102,6 +1043,8 @@
                             <a class="xe-user-img">
                                 <img data-src="assets/images/logos/cf.ico" class="lozad img-circle" width="40">
                             </a>
+                            <span class="label label-info" data-toggle="tooltip" data-placement="left" title=""
+                                data-original-title="Hello I am a Tooltip"></span>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
                                     <strong>cloudflare托管</strong>
@@ -1113,12 +1056,15 @@
                 </div>
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
-                        onclick="window.open('https://dash.domain.digitalplat.org/panel/main?page=%2Fpanel%2Fmanager%2Fhq168.dpdns.org', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://dash.domain.digitalplat.org/panel/main?page=%2Fpanel%2Fmanager%2Fhq168.dpdns.org">
+                        onclick="window.open('https://dash.domain.digitalplat.org/panel/main?page=%2Fpanel%2Fmanager%2Fhq168.dpdns.org', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://dash.domain.digitalplat.org">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
                                 <img data-src="assets/images/logos/dfd.jpg" class="lozad img-circle" width="40">
                             </a>
+                            <span class="label label-info" data-toggle="tooltip" data-placement="left" title=""
+                                data-original-title="Hello I am a Tooltip"></span>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
                                     <strong>域名续签</strong>
@@ -1130,11 +1076,74 @@
                 </div>
             </div>
 
+            <!-- 第四行：3个 -->
+            <div class="row">
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://v8.caimomo.com', '_blank')" data-toggle="tooltip"
+                        data-placement="bottom" title="" data-original-title="https://v8.caimomo.com">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="assets/images/logos/qianduoduo.svg" class="lozad img-circle" width="40">
+                            </a>
+                            <span class="label label-info" data-toggle="tooltip" data-placement="left" title=""
+                                data-original-title="钱多多商家后台"></span>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>钱多多商家后台</strong>
+                                </a>
+                                <p class="overflowClip_2">钱多多商家后台管理系统</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://leshua.yun8609.com/zm/login?redirect=%2Findex', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://leshua.yun8609.com/zm/login?redirect=%2Findex">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="assets/images/logos/yishoubao.svg" class="lozad img-circle" width="40">
+                            </a>
+                            <span class="label label-info" data-toggle="tooltip" data-placement="left" title=""
+                                data-original-title="宜收宝云店"></span>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>宜收宝云店</strong>
+                                </a>
+                                <p class="overflowClip_2">宜收宝云店商户后台</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info"
+                        onclick="window.open('https://login.keruyun.com/?fromOnpos=true', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://login.keruyun.com/?fromOnpos=true">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="assets/images/logos/keruyun.svg" class="lozad img-circle" width="40">
+                            </a>
+                            <span class="label label-info" data-toggle="tooltip" data-placement="left" title=""
+                                data-original-title="客如云商家中心"></span>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>客如云商家中心</strong>
+                                </a>
+                                <p class="overflowClip_2">客如云商家中心登录</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <br />
             <!-- END 工作常用 -->
             <!-- 推荐 -->
             <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="推荐"></i>推荐</h4>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -1172,8 +1181,9 @@
                 </div>
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
-                        onclick="window.open('https://www.xn--mes358aby2apfg.site/register?code=YkLcFh1t', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://www.xn--mes358aby2apfg.site/register?code=YkLcFh1t">
+                        onclick="window.open('https://www.xn--mes358aby2apfg.site/register?code=YkLcFh1t','_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://www.赔钱机场.site/login">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
                                 <img data-src="assets/images/logos/peiqian.png" class="lozad img-circle" width="40">
@@ -1187,10 +1197,26 @@
                         </div>
                     </div>
                 </div>
+                <!-- <div class="col-sm-3">
+                    <div class="xe-widget xe-conversations box2 label-info" onclick="window.open('https://www.xn--mes358aby2apfg.site/register?code=YkLcFh1t', '_blank')" data-toggle="tooltip" data-placement="bottom" title="" data-original-title="https://www.赔钱机场.site/login">
+                        <div class="xe-comment-entry">
+                            <a class="xe-user-img">
+                                <img data-src="assets/images/logos/peiqian.png" class="lozad img-circle" width="40">
+                            </a>
+                            <div class="xe-comment">
+                                <a href="#" class="xe-user-name overflowClip_1">
+                                    <strong>赔钱-科学上网</strong>
+                                </a>
+                                <p class="overflowClip_2">优秀的科学上网（贼便宜，长期稳定，点击注册领取优惠券）</p>
+                            </div>
+                        </div>
+                    </div>
+                </div> -->
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
-                        onclick="window.open('https://vercel.com/javas-projects-7d91ea6e', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://vercel.com/javas-projects-7d91ea6e">
+                        onclick="window.open('https://vercel.com/javas-projects-7d91ea6e', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://vercel.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
                                 <img data-src="assets/images/logos/vercel.ico" class="lozad img-circle" width="40">
@@ -1205,7 +1231,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -1242,17 +1267,15 @@
                     </div>
                 </div>
             </div>
-
             <br />
             <!--END 推荐 -->
             <!-- 常用AI -->
             <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="常用AI"></i>常用AI</h4>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
                         onclick="window.open('https://www.chatgpt.com/', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://www.chatgpt.com/">
+                        data-placement="bottom" title="" data-original-title="https://www.openai.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
                                 <img data-src="assets/images/logos/openai.png" class="lozad img-circle" width="40">
@@ -1269,7 +1292,7 @@
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
                         onclick="window.open('https://claude.ai/new', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://claude.ai/new">
+                        data-placement="bottom" title="" data-original-title="https://claude.ai/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
                                 <img data-src="assets/images/logos/claude.png" class="lozad img-circle" width="40">
@@ -1285,8 +1308,9 @@
                 </div>
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
-                        onclick="window.open('https://aistudio.google.com/prompts/new_chat?model=gemini-3-pro-image-preview', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://aistudio.google.com/prompts/new_chat?model=gemini-3-pro-image-preview">
+                        onclick="window.open('https://aistudio.google.com/prompts/new_chat?model=gemini-3-pro-image-preview', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://aistudio.google.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
                                 <img data-src="assets/images/logos/googleAI.png" class="lozad img-circle" width="40">
@@ -1302,8 +1326,8 @@
                 </div>
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
-                        onclick="window.open('https://chatglm.cn/main/alltoolsdetail?lang=zh', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://chatglm.cn/main/alltoolsdetail?lang=zh">
+                        onclick="window.open('https://chatglm.cn/main/alltoolsdetail?lang=zh', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title="" data-original-title="https://chatglm.cn">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
                                 <img data-src="assets/images/logos/zpqy.png" class="lozad img-circle" width="40">
@@ -1318,12 +1342,11 @@
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
                         onclick="window.open('https://www.doubao.com/chat/', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://www.doubao.com/chat/">
+                        data-placement="bottom" title="" data-original-title="https://www.doubao.com">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
                                 <img data-src="assets/images/logos/doubao.png" class="lozad img-circle" width="40">
@@ -1389,7 +1412,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -1460,21 +1482,22 @@
                     </div>
                 </div>
             </div>
-
             <br />
             <!--END 常用AI -->
             <!-- 常用AI-API -->
             <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="常用AI-API"></i>常用AI-API</h4>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
-                        onclick="window.open('https://www.88code.ai/register?ref=6WSPPP', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://www.88code.ai/register?ref=6WSPPP">
+                        onclick="window.open('https://www.88code.ai/register?ref=6WSPPP', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://www.88code.ai/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
                                 <img data-src="assets/images/logos/88code.png" class="lozad img-circle" width="40">
                             </a>
+                            <span class="label label-info" data-toggle="tooltip" data-placement="left" title=""
+                                data-original-title="Hello I am a Tooltip"></span>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
                                     <strong>88code</strong>
@@ -1486,8 +1509,9 @@
                 </div>
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
-                        onclick="window.open('https://foxcode.rjj.cc/auth/register?aff=5S0ZA7', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://foxcode.rjj.cc/auth/register?aff=5S0ZA7">
+                        onclick="window.open('https://foxcode.rjj.cc/auth/register?aff=5S0ZA7', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://foxaihub.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
                                 <img data-src="assets/images/logos/88code.png" class="lozad img-circle" width="40">
@@ -1504,7 +1528,7 @@
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
                         onclick="window.open('https://oneapi.6868ai.com', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://oneapi.6868ai.com">
+                        data-placement="bottom" title="" data-original-title="oneapi.6868ai.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
                                 <img data-src="assets/images/logos/6868API.png" class="lozad img-circle" width="40">
@@ -1524,7 +1548,8 @@
                         data-placement="bottom" title="" data-original-title="https://free.duckcoding.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/duckcoding.gif" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/duckcoding.gif" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -1536,7 +1561,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -1573,20 +1597,19 @@
                     </div>
                 </div>
             </div>
-
             <br />
             <!--END 常用AI-API -->
             <!-- 常用远程 -->
             <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="常用远程"></i>常用远程</h4>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
                         onclick="window.open('https://sunlogin.oray.com/product/feat', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://sunlogin.oray.com/product/feat">
+                        data-placement="bottom" title="" data-original-title="https://sunlogin.oray.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/xiangrikui.ico" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/xiangrikui.ico" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -1649,13 +1672,10 @@
                     </div>
                 </div>
             </div>
-
-            <br />
             <!--END 常用远程 -->
             <br />
             <!-- VPS资源 -->
             <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="VPS资源"></i>VPS资源</h4>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -1669,7 +1689,8 @@
                                 <a href="#" class="xe-user-name overflowClip_1">
                                     <strong>render免费VPS转发</strong>
                                 </a>
-                                <p class="overflowClip_2">Render 云应用部署平台</p>
+                                <p class="overflowClip_2">Render 云应用部署平台
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -1680,7 +1701,8 @@
                         data-placement="bottom" title="" data-original-title="https://uptimerobot.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/favicon.ico" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/favicon.ico" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -1714,7 +1736,8 @@
                         data-placement="bottom" title="" data-original-title="https://supabase.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/supabase.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/supabase.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -1726,7 +1749,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -1740,7 +1762,8 @@
                                 <a href="#" class="xe-user-name overflowClip_1">
                                     <strong>Lapa</strong>
                                 </a>
-                                <p class="overflowClip_2">The best landing page design inspiration from around the web.</p>
+                                <p class="overflowClip_2">The best landing page design inspiration from around the web.
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -1768,7 +1791,8 @@
                         data-placement="bottom" title="" data-original-title="https://designmunk.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/designmunk.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/designmunk.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -1797,7 +1821,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -1840,13 +1863,15 @@
                         data-placement="bottom" title="" data-original-title="https://www.siteinspire.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/siteInspire.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/siteInspire.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
                                     <strong>Site Inspire</strong>
                                 </a>
-                                <p class="overflowClip_2">A CSS gallery and showcase of the best web design inspiration.</p>
+                                <p class="overflowClip_2">A CSS gallery and showcase of the best web design inspiration.
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -1857,7 +1882,8 @@
                         data-placement="bottom" title="" data-original-title="http://web.uedna.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/WebInspiration.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/WebInspiration.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -1869,7 +1895,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -1895,7 +1920,8 @@
                         data-placement="bottom" title="" data-original-title="https://www.reallygoodux.io/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/ReallyGoodUX.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/ReallyGoodUX.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -1903,18 +1929,18 @@
                                 </a>
                                 <p class="overflowClip_2">A library of screenshots and examples of really good UX.
                                     Brought
-                                    to you by</p>
+                                    to you by
+                                    <Appcues class=""></Appcues>
+                                </p>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-
             <br />
             <!--END VPS资源 -->
             <!-- 图标素材 -->
             <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="图标素材"></i>图标素材</h4>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -1922,7 +1948,8 @@
                         data-placement="bottom" title="" data-original-title="https://www.iconfinder.com">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/Iconfinder.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/Iconfinder.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -1956,7 +1983,8 @@
                         data-placement="bottom" title="" data-original-title="https://iconmonstr.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/iconmonstr.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/iconmonstr.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -1973,7 +2001,8 @@
                         data-placement="bottom" title="" data-original-title="http://www.iconarchive.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/iconarchive.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/iconarchive.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -1985,7 +2014,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -1993,7 +2021,8 @@
                         data-placement="bottom" title="" data-original-title="https://findicons.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/FindIcons.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/FindIcons.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -2010,7 +2039,8 @@
                         data-placement="bottom" title="" data-original-title="https://icomoon.io/app/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/IcoMoonApp.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/IcoMoonApp.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -2058,7 +2088,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -2083,7 +2112,8 @@
                         data-placement="bottom" title="" data-original-title="https://material.io/icons/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/Materialicons.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/Materialicons.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -2098,11 +2128,12 @@
                 </div>
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
-                        onclick="window.open('fontawesomeicon', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="fontawesomeicon">
+                        onclick="window.open('fontawesomeicon', '_blank')" data-toggle="tooltip" data-placement="bottom"
+                        title="" data-original-title="fontawesomeicon">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/fontawesomeicon.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/fontawesomeicon.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -2131,7 +2162,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -2139,7 +2169,8 @@
                         data-placement="bottom" title="" data-original-title="http://simplelineicons.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/simplelineicons.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/simplelineicons.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -2151,12 +2182,10 @@
                     </div>
                 </div>
             </div>
-
             <br />
             <!--END 图标素材 -->
             <!-- LOGO设计 -->
             <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="LOGO设计"></i>LOGO设计</h4>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -2164,7 +2193,8 @@
                         data-placement="bottom" title="" data-original-title="http://www.iconsfeed.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/iconsfeed.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/iconsfeed.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -2181,7 +2211,8 @@
                         data-placement="bottom" title="" data-original-title="http://iosicongallery.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/iosicongallery.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/iosicongallery.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -2198,7 +2229,8 @@
                         data-placement="bottom" title="" data-original-title="https://worldvectorlogo.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/worldvectorlogo.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/worldvectorlogo.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -2215,19 +2247,19 @@
                         data-placement="bottom" title="" data-original-title="http://instantlogosearch.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/InstantLogoSearch.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/InstantLogoSearch.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
                                     <strong>Instant Logo Search</strong>
                                 </a>
-                                <p class="overflowClip_2">Search &amp; download thousands of logos instantly</p>
+                                <p class="overflowClip_2">Search & download thousands of logos instantly</p>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-
             <br />
             <!--END LOGO设计 -->
             <!-- 平面素材 -->
@@ -2489,7 +2521,6 @@
             <!--END 素材图库 -->
             <!-- UI资源 -->
             <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="UI资源"></i>UI资源</h4>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -2497,7 +2528,8 @@
                         data-placement="bottom" title="" data-original-title="https://www.gulusucai.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/gulusucai.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/gulusucai.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -2514,7 +2546,8 @@
                         data-placement="bottom" title="" data-original-title="https://freebiesbug.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/freebiesbug.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/freebiesbug.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -2533,7 +2566,8 @@
                         data-placement="bottom" title="" data-original-title="https://freebiesupply.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/freebiesupply.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/freebiesupply.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -2562,7 +2596,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -2610,7 +2643,7 @@
                                 <a href="#" class="xe-user-name overflowClip_1">
                                     <strong>uplabs</strong>
                                 </a>
-                                <p class="overflowClip_2">Daily resources for product designers &amp; developers</p>
+                                <p class="overflowClip_2">Daily resources for product designers & developers</p>
                             </div>
                         </div>
                     </div>
@@ -2633,7 +2666,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -2647,7 +2679,8 @@
                                 <a href="#" class="xe-user-name overflowClip_1">
                                     <strong>Fribbble</strong>
                                 </a>
-                                <p class="overflowClip_2">Free PSD files and other free design resources by Dribbblers.</p>
+                                <p class="overflowClip_2">Free PSD files and other free design resources by Dribbblers.
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -2658,7 +2691,8 @@
                         data-placement="bottom" title="" data-original-title="http://principlerepo.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/PrincipleRepo.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/PrincipleRepo.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -2675,7 +2709,8 @@
                         data-placement="bottom" title="" data-original-title="https://designmodo.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/Designmodo.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/Designmodo.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -2687,12 +2722,10 @@
                     </div>
                 </div>
             </div>
-
             <br />
             <!--END UI资源 -->
             <!-- Sketch资源 -->
             <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="Sketch资源"></i>Sketch资源</h4>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -2717,7 +2750,8 @@
                         data-placement="bottom" title="" data-original-title="http://utom.design/measure/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/SketchMeasure.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/SketchMeasure.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -2736,7 +2770,8 @@
                         data-placement="bottom" title="" data-original-title="https://www.sketchappsources.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/sketchappsources.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/sketchappsources.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -2767,7 +2802,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -2775,7 +2809,8 @@
                         data-placement="bottom" title="" data-original-title="http://sketchhunt.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/sketchhunt.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/sketchhunt.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -2810,7 +2845,8 @@
                         data-placement="bottom" title="" data-original-title="https://awesome-sket.ch/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/AwesomeSketchPlugins.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/AwesomeSketchPlugins.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -2827,25 +2863,25 @@
                         data-placement="bottom" title="" data-original-title="https://www.sketchcasts.net/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/sketchcasts.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/sketchcasts.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
                                     <strong>Sketchcasts</strong>
                                 </a>
                                 <p class="overflowClip_2">Learn Sketch Train your design skills with a weekly video
-                                    tutorial</p>
+                                    tutorial
+                                </p>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-
             <br />
             <!--END Sketch资源 -->
             <!-- 字体资源 -->
             <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="字体资源"></i>字体资源</h4>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -2853,7 +2889,8 @@
                         data-placement="bottom" title="" data-original-title="https://www.ziticangku.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/ziticangku.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/ziticangku.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -2870,7 +2907,8 @@
                         data-placement="bottom" title="" data-original-title="https://fonts.google.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/googlefont.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/googlefont.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -2905,7 +2943,8 @@
                         data-placement="bottom" title="" data-original-title="http://www.foundertype.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/Fondertype.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/Fondertype.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -2917,7 +2956,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -2942,7 +2980,8 @@
                         data-placement="bottom" title="" data-original-title="https://www.fontsquirrel.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/fontsquirrel.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/fontsquirrel.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -2959,7 +2998,8 @@
                         data-placement="bottom" title="" data-original-title="https://www.urbanfonts.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/UrbanFonts.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/UrbanFonts.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -2988,7 +3028,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -3053,13 +3092,12 @@
                                 <a href="#" class="xe-user-name overflowClip_1">
                                     <strong>My Fonts</strong>
                                 </a>
-                                <p class="overflowClip_2">Fonts for Print, Products &amp; Screens</p>
+                                <p class="overflowClip_2">Fonts for Print, Products & Screens</p>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -3084,7 +3122,8 @@
                         data-placement="bottom" title="" data-original-title="https://www.onlinewebfonts.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/OnlineWebFonts.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/OnlineWebFonts.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -3101,7 +3140,8 @@
                         data-placement="bottom" title="" data-original-title="http://www.abstractfonts.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/abstractfonts.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/abstractfonts.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -3113,12 +3153,10 @@
                     </div>
                 </div>
             </div>
-
             <br />
             <!--END 字体资源 -->
             <!-- Mockup -->
             <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="Mockup"></i>Mockup</h4>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -3126,7 +3164,8 @@
                         data-placement="bottom" title="" data-original-title="https://mockup.zone/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/MockupZone.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/MockupZone.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -3151,7 +3190,7 @@
                                 <a href="#" class="xe-user-name overflowClip_1">
                                     <strong>Dunnnk</strong>
                                 </a>
-                                <p class="overflowClip_2">Generate Product Mockups For Free</p>
+                                <p class="overflowClip_2"> Generate Product Mockups For Free</p>
                             </div>
                         </div>
                     </div>
@@ -3162,7 +3201,8 @@
                         data-placement="bottom" title="" data-original-title="http://www.graphberry.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/graphberry.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/graphberry.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -3191,7 +3231,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -3199,7 +3238,8 @@
                         data-placement="bottom" title="" data-original-title="https://free.lstore.graphics/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/mockupworld.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/mockupworld.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -3222,7 +3262,8 @@
                                 <a href="#" class="xe-user-name overflowClip_1">
                                     <strong>Lstore</strong>
                                 </a>
-                                <p class="overflowClip_2">Exclusive mindblowing freebies for designers and developers</p>
+                                <p class="overflowClip_2">Exclusive mindblowing freebies for designers and developers
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -3250,7 +3291,8 @@
                         data-placement="bottom" title="" data-original-title="http://forgraphictm.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/forgraphictm.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/forgraphictm.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -3262,12 +3304,10 @@
                     </div>
                 </div>
             </div>
-
             <br />
             <!--END Mockup -->
             <!-- 摄影图库 -->
             <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="摄影图库"></i>摄影图库</h4>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -3292,7 +3332,8 @@
                         data-placement="bottom" title="" data-original-title="https://visualhunt.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/visualhunt.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/visualhunt.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -3309,7 +3350,8 @@
                         data-placement="bottom" title="" data-original-title="https://librestock.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/librestock.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/librestock.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -3338,7 +3380,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -3346,7 +3387,8 @@
                         data-placement="bottom" title="" data-original-title="https://www.splitshire.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/SplitShire.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/SplitShire.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -3363,7 +3405,8 @@
                         data-placement="bottom" title="" data-original-title="https://stocksnap.io/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/StockSnap.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/StockSnap.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -3380,13 +3423,14 @@
                         data-placement="bottom" title="" data-original-title="http://albumarium.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/albumarium.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/albumarium.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
                                     <strong>albumarium</strong>
                                 </a>
-                                <p class="overflowClip_2">The best place to find &amp; share beautiful images</p>
+                                <p class="overflowClip_2">The best place to find & share beautiful images</p>
                             </div>
                         </div>
                     </div>
@@ -3397,7 +3441,8 @@
                         data-placement="bottom" title="" data-original-title="https://myphotopack.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/myphotopack.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/myphotopack.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -3409,7 +3454,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -3417,7 +3461,8 @@
                         data-placement="bottom" title="" data-original-title="http://notaselfie.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/notaselfie.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/notaselfie.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -3476,13 +3521,12 @@
                                 <a href="#" class="xe-user-name overflowClip_1">
                                     <strong>55mm</strong>
                                 </a>
-                                <p class="overflowClip_2">Use our FREE photos to tell your story!</p>
+                                <p class="overflowClip_2">Use our FREE photos to tell your story! </p>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -3490,13 +3534,14 @@
                         data-placement="bottom" title="" data-original-title="http://thestocks.im/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/thestocks.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/thestocks.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
                                     <strong>thestocks</strong>
                                 </a>
-                                <p class="overflowClip_2">Use our FREE photos to tell your story!</p>
+                                <p class="overflowClip_2">Use our FREE photos to tell your story! </p>
                             </div>
                         </div>
                     </div>
@@ -3507,13 +3552,15 @@
                         data-placement="bottom" title="" data-original-title="http://freenaturestock.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/freenaturestock.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/freenaturestock.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
                                     <strong>freenaturestock</strong>
                                 </a>
-                                <p class="overflowClip_2">Exclusive mindblowing freebies for designers and developers</p>
+                                <p class="overflowClip_2">Exclusive mindblowing freebies for designers and developers
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -3524,7 +3571,8 @@
                         data-placement="bottom" title="" data-original-title="https://negativespace.co/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/negativespace.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/negativespace.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -3541,20 +3589,20 @@
                         data-placement="bottom" title="" data-original-title="https://gratisography.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/gratisography.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/gratisography.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
                                     <strong>gratisography</strong>
                                 </a>
                                 <p class="overflowClip_2">Free high-resolution pictures you can use on your personal and
-                                    commercial projects, free of copyright restrictions.</p>
+                                    commercial projects, free of copyright restrictions. </p>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -3562,7 +3610,8 @@
                         data-placement="bottom" title="" data-original-title="http://imcreator.com/free">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/imcreator.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/imcreator.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -3580,7 +3629,8 @@
                         data-placement="bottom" title="" data-original-title="http://www.lifeofpix.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/lifeofpix.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/lifeofpix.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -3597,7 +3647,8 @@
                         data-placement="bottom" title="" data-original-title="https://skitterphoto.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/skitterphoto.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/skitterphoto.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -3626,7 +3677,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -3634,7 +3684,8 @@
                         data-placement="bottom" title="" data-original-title="https://skitterphoto.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/skitterphoto.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/skitterphoto.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -3651,7 +3702,8 @@
                         data-placement="bottom" title="" data-original-title="https://magdeleine.co/browse/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/magdeleine.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/magdeleine.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -3674,7 +3726,7 @@
                                 <a href="#" class="xe-user-name overflowClip_1">
                                     <strong>jeshoots</strong>
                                 </a>
-                                <p class="overflowClip_2">New Free Photos &amp; Mockups in to your Inbox!</p>
+                                <p class="overflowClip_2">New Free Photos & Mockups in to your Inbox!</p>
                             </div>
                         </div>
                     </div>
@@ -3685,19 +3737,19 @@
                         data-placement="bottom" title="" data-original-title="https://www.hdwallpapers.net">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/hdwallpapers.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/hdwallpapers.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
                                     <strong>hdwallpapers</strong>
                                 </a>
-                                <p class="overflowClip_2">High Definition Wallpapers &amp; Desktop Backgrounds</p>
+                                <p class="overflowClip_2">High Definition Wallpapers & Desktop Backgrounds</p>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -3705,7 +3757,8 @@
                         data-placement="bottom" title="" data-original-title="http://publicdomainarchive.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/publicdomainarchive.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/publicdomainarchive.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -3717,20 +3770,20 @@
                     </div>
                 </div>
             </div>
-
             <br />
             <!--END 摄影图库 -->
             <!-- PPT资源 -->
             <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="PPT资源"></i>PPT资源</h4>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
-                        onclick="window.open('http://www.officeplus.cn/Template/Home.shtml', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="http://www.officeplus.cn/Template/Home.shtml">
+                        onclick="window.open('http://www.officeplus.cn/Template/Home.shtml', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="http://www.officeplus.cn/Template/Home.shtml">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/officeplus.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/officeplus.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -3793,7 +3846,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -3830,20 +3882,20 @@
                     </div>
                 </div>
             </div>
-
             <br />
             <!--END PPT资源 -->
             <!-- 图形创意 -->
             <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="图形创意"></i>图形创意</h4>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
-                        onclick="window.open('https://www.adobe.com/cn/products/photoshop.html', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://www.adobe.com/cn/products/photoshop.html">
+                        onclick="window.open('https://www.adobe.com/cn/products/photoshop.html', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://www.adobe.com/cn/products/photoshop.html">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/photoshop.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/photoshop.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -3860,7 +3912,8 @@
                         data-placement="bottom" title="" data-original-title="https://affinity.serif.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/AffinityDesigner.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/AffinityDesigner.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -3873,11 +3926,13 @@
                 </div>
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
-                        onclick="window.open('https://www.adobe.com/cn/products/illustrator/', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://www.adobe.com/cn/products/illustrator/">
+                        onclick="window.open('https://www.adobe.com/cn/products/illustrator/', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://www.adobe.com/cn/products/illustrator/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/Illustrator.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/Illustrator.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -3890,11 +3945,13 @@
                 </div>
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
-                        onclick="window.open('http://www.adobe.com/cn/products/indesign.html', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="http://www.adobe.com/cn/products/indesign.html">
+                        onclick="window.open('http://www.adobe.com/cn/products/indesign.html', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="http://www.adobe.com/cn/products/indesign.html">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/INDESIGN .png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/INDESIGN .png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -3906,12 +3963,12 @@
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
-                        onclick="window.open('https://www.maxon.net/en/products/cinema-4d/overview/', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://www.maxon.net/en/products/cinema-4d/overview/">
+                        onclick="window.open('https://www.maxon.net/en/products/cinema-4d/overview/', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://www.maxon.net/en/products/cinema-4d/overview/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
                                 <img data-src="assets/images/logos/cinema4d.png" class="lozad img-circle" width="40">
@@ -3929,8 +3986,9 @@
                 </div>
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
-                        onclick="window.open('https://www.autodesk.com/products/3ds-max/overview', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://www.autodesk.com/products/3ds-max/overview">
+                        onclick="window.open('https://www.autodesk.com/products/3ds-max/overview', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://www.autodesk.com/products/3ds-max/overview">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
                                 <img data-src="assets/images/logos/3dsmax.png" class="lozad img-circle" width="40">
@@ -3962,12 +4020,10 @@
                     </div>
                 </div>
             </div>
-
             <br />
             <!--END 图形创意 -->
             <!-- 界面设计 -->
             <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="界面设计"></i>界面设计</h4>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -3975,7 +4031,8 @@
                         data-placement="bottom" title="" data-original-title="https://sketchapp.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/sketchapp.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/sketchapp.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -3992,7 +4049,8 @@
                         data-placement="bottom" title="" data-original-title="http://www.adobe.com/products/xd.html">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/ADOBEXDCC.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/ADOBEXDCC.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -4009,7 +4067,8 @@
                         data-placement="bottom" title="" data-original-title="https://www.invisionapp.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/invisionapp.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/invisionapp.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -4026,7 +4085,8 @@
                         data-placement="bottom" title="" data-original-title="https://marvelapp.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/marvelapp.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/marvelapp.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -4038,12 +4098,12 @@
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
-                        onclick="window.open('https://creative.adobe.com/zh-cn/products/download/muse', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://creative.adobe.com/zh-cn/products/download/muse">
+                        onclick="window.open('https://creative.adobe.com/zh-cn/products/download/muse', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://creative.adobe.com/zh-cn/products/download/muse">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
                                 <img data-src="assets/images/logos/MuseCC.png" class="lozad img-circle" width="40">
@@ -4076,20 +4136,20 @@
                     </div>
                 </div>
             </div>
-
             <br />
             <!--END 界面设计 -->
             <!-- 交互动效 -->
             <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="交互动效"></i>交互动效</h4>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
-                        onclick="window.open('https://www.adobe.com/cn/products/aftereffects/', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://www.adobe.com/cn/products/aftereffects/">
+                        onclick="window.open('https://www.adobe.com/cn/products/aftereffects/', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://www.adobe.com/cn/products/aftereffects/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/AdobeAfterEffectsCC.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/AdobeAfterEffectsCC.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -4106,7 +4166,8 @@
                         data-placement="bottom" title="" data-original-title="http://principleformac.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/principle.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/principle.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -4154,7 +4215,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -4174,12 +4234,10 @@
                     </div>
                 </div>
             </div>
-
             <br />
             <!--END 交互动效 -->
             <!-- 在线配色 -->
             <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="在线配色"></i>在线配色</h4>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -4194,7 +4252,7 @@
                                     <strong>khroma</strong>
                                 </a>
                                 <p class="overflowClip_2">Khroma is the fastest way to discover, search, and save color
-                                    combos you&#x27;ll want to use.</p>
+                                    combos you'll want to use.</p>
                             </div>
                         </div>
                     </div>
@@ -4205,7 +4263,8 @@
                         data-placement="bottom" title="" data-original-title="https://uigradients.com">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/uigradients.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/uigradients.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -4222,7 +4281,8 @@
                         data-placement="bottom" title="" data-original-title="http://gradients.io/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/gradients.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/gradients.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -4252,7 +4312,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -4260,7 +4319,8 @@
                         data-placement="bottom" title="" data-original-title="https://webgradients.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/webgradients.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/webgradients.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -4268,7 +4328,7 @@
                                 </a>
                                 <p class="overflowClip_2">WebGradients is a free collection of 180 linear gradients that
                                     you
-                                    can use as content backdrops in any part of your website.</p>
+                                    can use as content backdrops in any part of your website. </p>
                             </div>
                         </div>
                     </div>
@@ -4296,7 +4356,8 @@
                         data-placement="bottom" title="" data-original-title="http://www.thedayscolor.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/thedayscolor.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/thedayscolor.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -4313,7 +4374,8 @@
                         data-placement="bottom" title="" data-original-title="http://flatuicolors.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/flatuicolors.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/flatuicolors.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -4325,7 +4387,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -4350,7 +4411,8 @@
                         data-placement="bottom" title="" data-original-title="http://www.colorhunt.co/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/colorhunt.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/colorhunt.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -4363,11 +4425,13 @@
                 </div>
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
-                        onclick="window.open('https://color.adobe.com/zh/create/color-wheel', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://color.adobe.com/zh/create/color-wheel">
+                        onclick="window.open('https://color.adobe.com/zh/create/color-wheel', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://color.adobe.com/zh/create/color-wheel">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/AdobeColorCC.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/AdobeColorCC.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -4386,7 +4450,8 @@
                         data-placement="bottom" title="" data-original-title="http://www.flatuicolorpicker.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/flatuicolorpicker.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/flatuicolorpicker.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -4398,7 +4463,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -4406,7 +4470,8 @@
                         data-placement="bottom" title="" data-original-title="http://qrohlf.com/trianglify-generator/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/trianglify.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/trianglify.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -4440,7 +4505,8 @@
                         data-placement="bottom" title="" data-original-title="http://www.vanschneider.com/colors">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/vanschneider.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/vanschneider.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -4448,18 +4514,16 @@
                                 </a>
                                 <p class="overflowClip_2">Color Claim was created in 2012 by Tobias van Schneider with
                                     the
-                                    goal to collect &amp; combine unique colors for my future projects.</p>
+                                    goal to collect & combine unique colors for my future projects.</p>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-
             <br />
             <!--END 在线配色 -->
             <!-- 在线工具 -->
             <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="在线工具"></i>在线工具</h4>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -4482,8 +4546,8 @@
                 </div>
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
-                        onclick="window.open('http://goqr.me/', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="http://goqr.me/">
+                        onclick="window.open('http://goqr.me/', '_blank')" data-toggle="tooltip" data-placement="bottom"
+                        title="" data-original-title="http://goqr.me/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
                                 <img data-src="assets/images/logos/goqr.png" class="lozad img-circle" width="40">
@@ -4521,19 +4585,20 @@
                         data-placement="bottom" title="" data-original-title="http://inloop.github.io/shadow4android/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/Android9patch.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/Android9patch.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
                                     <strong>Android 9 patch</strong>
                                 </a>
-                                <p class="overflowClip_2">Android 9-patch shadow generator fully customizable shadows</p>
+                                <p class="overflowClip_2">Android 9-patch shadow generator fully customizable shadows
+                                </p>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -4541,7 +4606,8 @@
                         data-placement="bottom" title="" data-original-title="http://screensiz.es/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/screensizes.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/screensizes.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -4587,12 +4653,10 @@
                     </div>
                 </div>
             </div>
-
             <br />
             <!--END 在线工具 -->
             <!-- Chrome插件 -->
             <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="Chrome插件"></i>Chrome插件</h4>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -4600,7 +4664,8 @@
                         data-placement="bottom" title="" data-original-title="https://www.wappalyzer.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/wappalyzer.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/wappalyzer.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -4651,7 +4716,8 @@
                         data-placement="bottom" title="" data-original-title="https://csspeeper.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/csspeeper.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/csspeeper.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -4663,7 +4729,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -4694,19 +4759,18 @@
                                 <a href="#" class="xe-user-name overflowClip_1">
                                     <strong>mustsee</strong>
                                 </a>
-                                <p class="overflowClip_2">Discover the world&#x27;s most beautiful places at every opened
-                                    tab.</p>
+                                <p class="overflowClip_2">Discover the world's most beautiful places at every opened
+                                    tab.
+                                </p>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-
             <br />
             <!--END Chrome插件 -->
             <!-- 设计规范 -->
             <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="设计规范"></i>设计规范</h4>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -4714,30 +4778,33 @@
                         data-placement="bottom" title="" data-original-title="http://designguidelines.co/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/designguidelines.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/designguidelines.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
                                     <strong>Design Guidelines</strong>
                                 </a>
-                                <p class="overflowClip_2">Design Guidelines — The way products are built.</p>
+                                <p class="overflowClip_2">Design Guidelines &mdash; The way products are built.</p>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
-                        onclick="window.open('https://github.com/alexpate/awesome-design-systems', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://github.com/alexpate/awesome-design-systems">
+                        onclick="window.open('https://github.com/alexpate/awesome-design-systems', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://github.com/alexpate/awesome-design-systems">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/awesome_design_systems.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/awesome_design_systems.png"
+                                    class="lozad img-circle" width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
                                     <strong>Awesome design systems</strong>
                                 </a>
-                                <p class="overflowClip_2">A collection of awesome design systems</p>
+                                <p class="overflowClip_2"> A collection of awesome design systems</p>
                             </div>
                         </div>
                     </div>
@@ -4748,7 +4815,8 @@
                         data-placement="bottom" title="" data-original-title="https://material.io/guidelines/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/Material_Design.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/Material_Design.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -4761,11 +4829,13 @@
                 </div>
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
-                        onclick="window.open('https://developer.apple.com/ios/human-interface-guidelines', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://developer.apple.com/ios/human-interface-guidelines">
+                        onclick="window.open('https://developer.apple.com/ios/human-interface-guidelines', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://developer.apple.com/ios/human-interface-guidelines">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/human_interface_guidelines.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/human_interface_guidelines.png"
+                                    class="lozad img-circle" width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -4777,7 +4847,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -4785,7 +4854,8 @@
                         data-placement="bottom" title="" data-original-title="http://viggoz.com/photoshopetiquette/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/photoshopetiquette.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/photoshopetiquette.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -4797,12 +4867,10 @@
                     </div>
                 </div>
             </div>
-
             <br />
             <!--END 设计规范 -->
             <!-- 视频教程 -->
             <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="视频教程"></i>视频教程</h4>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -4810,7 +4878,8 @@
                         data-placement="bottom" title="" data-original-title="http://www.photoshoplady.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/PhotoshopLady.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/PhotoshopLady.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -4844,7 +4913,8 @@
                         data-placement="bottom" title="" data-original-title="http://www.c945.com/web-ui-tutorial/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/web_ui_tutorial.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/web_ui_tutorial.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -4873,12 +4943,10 @@
                     </div>
                 </div>
             </div>
-
             <br />
             <!--END 视频教程 -->
             <!-- 设计文章 -->
             <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="设计文章"></i>设计文章</h4>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -4903,7 +4971,8 @@
                         data-placement="bottom" title="" data-original-title="https://webdesignledger.com">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/webdesignledger.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/webdesignledger.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -4932,12 +5001,10 @@
                     </div>
                 </div>
             </div>
-
             <br />
             <!--END 设计文章 -->
             <!-- 设计电台 -->
             <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="设计电台"></i>设计电台</h4>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -4992,12 +5059,10 @@
                     </div>
                 </div>
             </div>
-
             <br />
             <!--END 设计电台 -->
             <!-- 交互设计 -->
             <h4 class="text-gray"><i class="linecons-tag" style="margin-right: 7px;" id="交互设计"></i>交互设计</h4>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -5005,7 +5070,8 @@
                         data-placement="bottom" title="" data-original-title="http://littlebigdetails.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/littlebigdetails.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/littlebigdetails.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -5013,18 +5079,20 @@
                                 </a>
                                 <p class="overflowClip_2">Little Big Details is a curated collection of the finer
                                     details of
-                                    design, updated every day.</p>
+                                    design, updated every day. </p>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
-                        onclick="window.open('https://www.smashingmagazine.com/category/user-experience', '_blank')" data-toggle="tooltip"
-                        data-placement="bottom" title="" data-original-title="https://www.smashingmagazine.com/category/user-experience">
+                        onclick="window.open('https://www.smashingmagazine.com/category/user-experience', '_blank')"
+                        data-toggle="tooltip" data-placement="bottom" title=""
+                        data-original-title="https://www.smashingmagazine.com/category/user-experience">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/smashingmagazine.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/smashingmagazine.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -5050,7 +5118,8 @@
                                     <strong>nngroup</strong>
                                 </a>
                                 <p class="overflowClip_2">Evidence-Based User Experience Research, Training, and
-                                    Consulting</p>
+                                    Consulting
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -5061,7 +5130,8 @@
                         data-placement="bottom" title="" data-original-title="http://boxesandarrows.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/boxesandarrows.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/boxesandarrows.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -5069,13 +5139,12 @@
                                 </a>
                                 <p class="overflowClip_2">Boxes and Arrows is devoted to the practice, innovation, and
                                     discussion of design; including graphic design, interaction design, information
-                                    architecture and the design of business.</p>
+                                    architecture and the design of business. </p>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-
             <div class="row">
                 <div class="col-sm-3">
                     <div class="xe-widget xe-conversations box2 label-info"
@@ -5083,15 +5152,16 @@
                         data-placement="bottom" title="" data-original-title="http://uxdesignweekly.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/uxdesignweekly.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/uxdesignweekly.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
                                     <strong>UX Design Weekly</strong>
                                 </a>
-                                <p class="overflowClip_2">get a hand picked list of the best user experience design
+                                <p class="overflowClip_2"> get a hand picked list of the best user experience design
                                     links
-                                    every week.</p>
+                                    every week. </p>
                             </div>
                         </div>
                     </div>
@@ -5119,7 +5189,8 @@
                         data-placement="bottom" title="" data-original-title="https://www.gulusucai.com/">
                         <div class="xe-comment-entry">
                             <a class="xe-user-img">
-                                <img data-src="assets/images/logos/gulusucai.png" class="lozad img-circle" width="40">
+                                <img data-src="assets/images/logos/gulusucai.png" class="lozad img-circle"
+                                    width="40">
                             </a>
                             <div class="xe-comment">
                                 <a href="#" class="xe-user-name overflowClip_1">
@@ -5131,8 +5202,6 @@
                     </div>
                 </div>
             </div>
-
-            <br />
             <!--END 交互设计 -->
 
             <!-- 数字货币板块占位符（由JS动态生成内容） -->

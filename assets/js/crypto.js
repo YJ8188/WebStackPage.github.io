@@ -39,22 +39,22 @@ const LOG_LEVEL = (() => {
 const Logger = {
     debug: (...args) => {
         if (LOG_LEVEL <= LogLevel.DEBUG) {
-            console.log('[DEBUG]', ...args);
+            console.log('[调试]', ...args);
         }
     },
     info: (...args) => {
         if (LOG_LEVEL <= LogLevel.INFO) {
-            console.log('[INFO]', ...args);
+            console.log('[信息]', ...args);
         }
     },
     warn: (...args) => {
         if (LOG_LEVEL <= LogLevel.WARN) {
-            console.warn('[WARN]', ...args);
+            console.warn('[警告]', ...args);
         }
     },
     error: (...args) => {
         if (LOG_LEVEL <= LogLevel.ERROR) {
-            console.error('[ERROR]', ...args);
+            console.error('[错误]', ...args);
         }
     },
     /**
@@ -99,6 +99,10 @@ const CRYPTO_CACHE_KEY = 'crypto_data_cache'; // 币种数据缓存键名（已�
 const CRYPTO_CACHE_EXPIRY = 5 * 60 * 1000; // 缓存过期时间：5分钟
 let cachedCryptoData = null; // 缓存的币种数据（已弃用，改用服务器缓存）
 const SERVER_CACHE_URL = 'https://crypto-websocket-proxy.onrender.com/api/cache'; // 服务器缓存端点
+// 该缓存端点近期频繁返回 404，默认关闭以避免浏览器控制台出现英文网络报错
+const ENABLE_SERVER_CACHE = localStorage.getItem('cryptoUseServerCache') === '1';
+let serverCacheDisabled = !ENABLE_SERVER_CACHE;
+let serverCacheWarningPrinted = false;
 
 // ==================== 缓存和工具 ====================
 // K线图缓存（限制最多缓存20个币种，防止内存泄漏）
@@ -155,17 +159,38 @@ let allCryptoData = [];
  * 从服务器缓存读取币种数据
  */
 async function loadCachedCryptoData() {
+    if (serverCacheDisabled || !SERVER_CACHE_URL) {
+        return null;
+    }
+
     try {
         const res = await fetch(SERVER_CACHE_URL);
-        if (res.ok) {
-            const result = await res.json();
-            if (result.success && result.data) {
-                console.log(`[缓存] ✅ 从服务器缓存加载了 ${result.data.length} 个币种`);
-                return result.data;
+        if (!res.ok) {
+            serverCacheDisabled = true;
+            if (!serverCacheWarningPrinted) {
+                serverCacheWarningPrinted = true;
+                Logger.warn(`[缓存] 服务器缓存不可用（HTTP ${res.status}），已自动切换为实时数据模式`);
             }
+            return null;
+        }
+
+        const result = await res.json();
+        if (result.success && Array.isArray(result.data)) {
+            Logger.info(`[缓存] 已从服务器缓存加载 ${result.data.length} 个币种`);
+            return result.data;
+        }
+
+        serverCacheDisabled = true;
+        if (!serverCacheWarningPrinted) {
+            serverCacheWarningPrinted = true;
+            Logger.warn('[缓存] 服务器缓存返回数据格式异常，已自动切换为实时数据模式');
         }
     } catch (e) {
-        console.error('[缓存] ❌ 读取服务器缓存失败:', e);
+        serverCacheDisabled = true;
+        if (!serverCacheWarningPrinted) {
+            serverCacheWarningPrinted = true;
+            Logger.warn('[缓存] 服务器缓存读取失败，已自动切换为实时数据模式');
+        }
     }
     return null;
 }
@@ -175,7 +200,7 @@ async function loadCachedCryptoData() {
  */
 function saveCachedCryptoData(coins) {
     // 已弃用，改用服务器端缓存
-    console.log('[缓存] 💾 已切换到服务器端缓存，本地缓存已弃用');
+    Logger.debug('[缓存] 本地缓存写入已停用，当前使用实时数据流');
 }
 
 /**
@@ -1497,7 +1522,7 @@ async function fetchCryptoData() {
     });
 
     // 优先使用缓存数据
-    const cachedData = loadCachedCryptoData();
+    const cachedData = await loadCachedCryptoData();
     if (cachedData && cachedData.length > 0) {
         cryptoData = cachedData;
         renderCryptoTable(cryptoData);
@@ -1589,33 +1614,17 @@ function renderCryptoTable(data) {
     Logger.debug('[渲染表格] 开始清空表格内容');
     tbody.innerHTML = '';
 
+    const sortedData = buildDisplayCoinList(data);
+
     // 保存所有币种数据用于搜索
-    allCryptoData = [...data];
+    allCryptoData = [...sortedData];
 
     const isCNY = currentCurrency === 'CNY';
     const rate = isCNY ? (USD_CNY_RATE || 1) : 1;
     const symbol = isCNY ? '¥' : '$';
 
-    // 排序逻辑: BTC第一, ETH第二, 其他按币安API推送顺序(即按交易量排序)
-    data.sort((a, b) => {
-        // BTC排第一
-        if (a.symbol === 'btc') return -1;
-        if (b.symbol === 'btc') return 1;
-
-        // ETH排第二
-        if (a.symbol === 'eth') {
-            return b.symbol === 'btc' ? 1 : -1;
-        }
-        if (b.symbol === 'eth') {
-            return a.symbol === 'btc' ? -1 : 1;
-        }
-
-        // 其他按币安API推送顺序(已按交易量排序)
-        return 0;
-    });
-
     // 渲染所有币种（不限制数量）
-    data.forEach(coin => {
+    sortedData.forEach(coin => {
         const rawPrice = coin.current_price;
         const price = (rawPrice * rate).toLocaleString(undefined, {
             minimumFractionDigits: 2,
@@ -1751,8 +1760,63 @@ function coal(val) {
     return (val && !isNaN(val)) ? parseFloat(val) : 0;
 }
 
+function getCoinSortVolume(coin) {
+    return coal(coin?.quoteVolume || coin?.total_volume || coin?.volume || coin?.market_cap);
+}
+
+function buildDisplayCoinList(data) {
+    if (!Array.isArray(data)) {
+        return [];
+    }
+
+    const uniqueCoins = [];
+    const seenSymbols = new Set();
+
+    data.forEach((coin) => {
+        if (!coin || !coin.symbol) {
+            return;
+        }
+
+        const normalizedSymbol = String(coin.symbol).toLowerCase();
+        if (seenSymbols.has(normalizedSymbol)) {
+            return;
+        }
+
+        seenSymbols.add(normalizedSymbol);
+        uniqueCoins.push({ ...coin, symbol: normalizedSymbol });
+    });
+
+    return uniqueCoins.sort((a, b) => {
+        if (a.symbol === 'btc') return -1;
+        if (b.symbol === 'btc') return 1;
+        if (a.symbol === 'eth') return -1;
+        if (b.symbol === 'eth') return 1;
+
+        const volumeDiff = getCoinSortVolume(b) - getCoinSortVolume(a);
+        if (volumeDiff !== 0) {
+            return volumeDiff;
+        }
+
+        return a.symbol.localeCompare(b.symbol);
+    });
+}
+
 function updateCryptoUI(data) {
     if (!data) return;
+
+    const tbody = document.getElementById('crypto-table-body');
+    if (tbody) {
+        const displayData = buildDisplayCoinList(data);
+        const renderedRows = tbody.querySelectorAll('tr.main-row').length;
+        const hasBtcRow = !!document.getElementById('price-btc');
+        const ethExistsInData = displayData.some(coin => coin && String(coin.symbol).toLowerCase() === 'eth');
+        const hasEthRow = !ethExistsInData || !!document.getElementById('price-eth');
+
+        if (renderedRows !== displayData.length || !hasBtcRow || !hasEthRow) {
+            renderCryptoTable(displayData);
+            return;
+        }
+    }
 
     // 不再保存到本地缓存，服务器端会自动缓存
 

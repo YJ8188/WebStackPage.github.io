@@ -593,13 +593,37 @@ def collect_module_status(index_html: str, repo_root: Path) -> List[Tuple[str, s
 
 
 def run_webview_window(url: str, title: str) -> None:
+    """打开网页（优先内置 WebView，失败自动降级）。
+
+    - 优先使用 pywebview（更像桌面程序）
+    - 但在缺少依赖（常见：pythonnet）、WebView2 不可用等情况下，
+      自动降级为系统默认浏览器，避免 EXE 直接崩溃。
+    """
+
     try:
         import webview
     except Exception:
-        raise RuntimeError("缺少 pywebview 运行依赖")
+        import webbrowser
 
-    window = webview.create_window(title, url=url, width=1366, height=900, min_size=(900, 600))
-    webview.start(gui="edgechromium", debug=False)
+        webbrowser.open(url)
+        return
+
+    webview.create_window(title, url=url, width=1366, height=900, min_size=(900, 600))
+
+    # edgechromium 体验最好，但可能因为 pythonnet/WebView2 等原因失败。
+    try:
+        webview.start(gui="edgechromium", debug=False)
+        return
+    except Exception:
+        pass
+
+    # 尝试默认后端；再失败就降级浏览器。
+    try:
+        webview.start(debug=False)
+    except Exception:
+        import webbrowser
+
+        webbrowser.open(url)
 
 
 class RepoRequestHandler(SimpleHTTPRequestHandler):
@@ -983,6 +1007,16 @@ class CardManagerApp:
         return url
 
     def open_url_in_webview(self, title: str, url: str) -> None:
+        # pywebview 属于可选依赖：缺失时直接降级为系统浏览器。
+        try:
+            import webview  # noqa: F401
+        except Exception:
+            import webbrowser
+
+            webbrowser.open(url)
+            self.log(f"已使用系统浏览器打开：{title} -> {url}")
+            return
+
         try:
             process = multiprocessing.Process(target=run_webview_window, args=(url, title), daemon=False)
             process.start()

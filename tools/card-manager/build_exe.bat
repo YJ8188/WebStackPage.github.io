@@ -12,12 +12,10 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [2/3] Install dependencies...
+echo [2/3] Install build dependencies...
 python -m pip install --upgrade pyinstaller
-python -m pip install --no-deps pywebview==4.4.1
-python -m pip install bottle proxy-tools typing_extensions
 if errorlevel 1 (
-  echo Failed to install dependencies.
+  echo Failed to install pyinstaller.
   pause
   exit /b 1
 )
@@ -43,21 +41,12 @@ if not exist "%BUNDLE_DIR%\index.html" (
   exit /b 1
 )
 
-echo [3/3] Build desktop/runtime EXE...
+echo [3/3] Build WebStackManager.exe...
 set BUILD_TAG=%DATE:~0,4%%DATE:~5,2%%DATE:~8,2%_%TIME:~0,2%%TIME:~3,2%%TIME:~6,2%
 set BUILD_TAG=%BUILD_TAG: =0%
 
-set DESKTOP_OUT=dist\WebStackDesktop_%BUILD_TAG%
 set MANAGER_OUT=dist\WebStackManager_%BUILD_TAG%
 
-pyinstaller --noconfirm --clean --onefile --windowed --name WebStackDesktop --distpath "%DESKTOP_OUT%" --add-data "workspace_bundle;workspace_bundle" webstack_runtime.py
-if errorlevel 1 (
-  echo Desktop build failed. Check logs above.
-  pause
-  exit /b 1
-)
-
-echo [3/3] Build manager EXE...
 pyinstaller --noconfirm --clean --onefile --windowed --name WebStackManager --distpath "%MANAGER_OUT%" --add-data "workspace_bundle;workspace_bundle" card_manager.py
 if errorlevel 1 (
   echo Manager build failed. Check logs above.
@@ -65,18 +54,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [3/3] Build ERP desktop EXE...
-set ERP_OUT=dist\WebStackERP_%BUILD_TAG%
-pyinstaller --noconfirm --clean --onefile --windowed --name WebStackERP --distpath "%ERP_OUT%" --add-data "workspace_bundle;workspace_bundle" webstack_erp_desktop.py
-if errorlevel 1 (
-  echo ERP build failed. Check logs above.
-  pause
-  exit /b 1
-)
-
 echo.
 echo Build complete:
-echo - %~dp0%DESKTOP_OUT%\WebStackDesktop.exe
 echo - %~dp0%MANAGER_OUT%\WebStackManager.exe
-echo - %~dp0%ERP_OUT%\WebStackERP.exe
 pause

@@ -1,57 +1,44 @@
-# WebStack Desktop Suite（Win EXE）
+# WebStack Manager（Win EXE）
 
-该套件包含两个 EXE（默认推荐一体式）：
+本目录提供一个 Windows 桌面管理器：`WebStackManager.exe`。
 
-- `WebStackManager.exe`：**一体式主程序**（运行+管理都在里面）
-- `WebStackDesktop.exe`：纯运行版（只运行页面）
+它用于可视化管理你的 `index.html` 卡片/导航，并支持一键推送到 GitHub `master` 分支。
 
-## 你要的效果
+## 功能
 
-- 打开 EXE 后可直接进入 H5 页面（不是只看状态，也无需先手动选文件）
-- 数字货币、金价行情实时刷新逻辑沿用原网页脚本
-- ERP 页面、登录、按钮交互与网页一致（同一套页面）
-- 不再降级为系统浏览器，统一走 EXE 内窗口
-- 运行模式支持：`在线运行（默认）` + `本地预览（可选）`
-- 支持绑定本地仓库目录，防止“推送了但线上看不到变化”
+- 卡片管理：新增/编辑/删除/拖拽排序/上移下移/恢复默认排序
+- 导航管理：编辑左侧导航数据（按项目现有结构）
+- 运行模式：支持“在线运行（默认）/本地预览（可选）”
+- 推送：一键提交并推送到目标仓库的 `master`
+- 防串码：可读取/应用 `origin` 地址，避免推错仓库
 
-## 结构说明
+## 打包 EXE
 
-- `webstack_runtime.py`：运行版入口（本地服务 + WebView 桌面壳）
-- `card_manager.py`：管理器入口
-- `build_exe.bat`：同时打包两个 EXE
-- `build_installer.bat`：打包安装包（Setup）
-- `webstack_card_manager.iss`：Inno Setup 脚本
+运行：
 
-## 打包
-
-```bash
+```bat
 tools\card-manager\build_exe.bat
 ```
 
-输出：
+输出（带时间戳目录，避免文件占用导致失败）：
 
-- `tools/card-manager/dist/WebStackDesktop.exe`
-- `tools/card-manager/dist/WebStackManager.exe`
+- `tools/card-manager/dist/WebStackManager_YYYYMMDD_HHMMSS/WebStackManager.exe`
 
-## 安装包
+## 打包安装包
 
-```bash
+需要先安装 Inno Setup 6。
+
+```bat
 tools\card-manager\build_installer.bat
 ```
 
 输出：
 
-- `tools/card-manager/dist-installer/WebStackDesktopSuite-Setup.exe`
+- `tools/card-manager/dist-installer/WebStackManager-Setup.exe`
 
-## 运行机制
+## 使用建议（新手友好）
 
-1. 默认使用在线模式，直接打开 CNAME 域名（如 `https://hq168.dpdns.org`）
-2. 需要调试本地代码时，手动切到本地预览模式（127.0.0.1 随机端口）
-3. 所有功能使用你现有 H5 逻辑，不另造 ERP
-4. 打包时内置 `workspace_bundle`，首次运行自动解包到用户目录
-5. 可绑定真实仓库目录，编辑与推送都作用于同一目标
+1. 推荐在管理器里点“绑定本地仓库目录”，选择你真实的仓库目录（包含 `.git` 的那个）。
+2. 修改/排序后点“保存”，再点“手动推送 master”。
+3. 如果你发现“推送成功但线上没变化”，通常是推到了别的目录/别的仓库；绑定本地仓库可避免这个问题。
 
-## 仓库防串码
-
-- 管理器可显示并切换 `origin` 仓库地址
-- 推送前可确认目标仓库，再推送 `master`

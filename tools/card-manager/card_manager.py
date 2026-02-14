@@ -4,13 +4,18 @@
 from __future__ import annotations
 
 import html
+import multiprocessing
 import re
 import subprocess
 import sys
+import threading
+import webbrowser
 from dataclasses import dataclass, field
 from datetime import datetime
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import List, Optional, Tuple
+from urllib.parse import quote
 
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
@@ -434,9 +439,11 @@ def collect_module_status(index_html: str, repo_root: Path) -> List[Tuple[str, s
     has_gold = bool(re.search(r"id\s*=\s*['\"]金价行情['\"]", index_html))
     has_crypto_link = "#数字货币" in index_html
     has_gold_link = "#金价行情" in index_html
+    has_crypto_placeholder = "数字货币板块占位符" in index_html
+    has_gold_placeholder = "金价行情板块占位符" in index_html
 
-    crypto_status = "正常" if has_crypto else ("仅入口" if has_crypto_link else "缺失")
-    gold_status = "正常" if has_gold else ("仅入口" if has_gold_link else "缺失")
+    crypto_status = "正常" if (has_crypto or (has_crypto_link and has_crypto_placeholder)) else ("仅入口" if has_crypto_link else "缺失")
+    gold_status = "正常" if (has_gold or (has_gold_link and has_gold_placeholder)) else ("仅入口" if has_gold_link else "缺失")
 
     checks.append((
         "数字货币模块",
@@ -466,6 +473,25 @@ def collect_module_status(index_html: str, repo_root: Path) -> List[Tuple[str, s
     return checks
 
 
+def run_webview_window(url: str, title: str) -> None:
+    try:
+        import webview
+    except Exception:
+        webbrowser.open(url)
+        return
+
+    window = webview.create_window(title, url=url, width=1366, height=900, min_size=(900, 600))
+    webview.start(gui="edgechromium", debug=False)
+
+
+class RepoRequestHandler(SimpleHTTPRequestHandler):
+    def __init__(self, *args, directory: str, **kwargs):
+        super().__init__(*args, directory=directory, **kwargs)
+
+    def log_message(self, format: str, *args) -> None:
+        return
+
+
 class CardManagerApp:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
@@ -485,6 +511,9 @@ class CardManagerApp:
         self.current_nav_idx: Optional[int] = None
         self.repo_url_var = tk.StringVar()
         self.nav_filter_var = tk.StringVar()
+        self.preview_server: Optional[ThreadingHTTPServer] = None
+        self.preview_server_thread: Optional[threading.Thread] = None
+        self.preview_port: Optional[int] = None
 
         self._build_ui()
         if self.index_path.exists():
@@ -493,6 +522,8 @@ class CardManagerApp:
         else:
             self.path_var.set("")
             self.log("未找到默认 index.html，请先点击“选择 index.html”。")
+
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def _build_ui(self) -> None:
         top = ttk.Frame(self.root, padding=10)
@@ -524,13 +555,16 @@ class CardManagerApp:
         card_tab = ttk.Frame(notebook)
         nav_tab = ttk.Frame(notebook)
         overview_tab = ttk.Frame(notebook)
+        runtime_tab = ttk.Frame(notebook)
         notebook.add(card_tab, text="卡片管理")
         notebook.add(nav_tab, text="导航管理")
         notebook.add(overview_tab, text="一体总览")
+        notebook.add(runtime_tab, text="内置应用")
 
         self._build_card_tab(card_tab)
         self._build_nav_tab(nav_tab)
         self._build_overview_tab(overview_tab)
+        self._build_runtime_tab(runtime_tab)
 
         log_frame = ttk.LabelFrame(self.root, text="执行日志", padding=8)
         log_frame.pack(fill="both", expand=False, padx=10, pady=(0, 10))
@@ -646,6 +680,27 @@ class CardManagerApp:
         self.overview_tree.column("detail", width=720, anchor="w")
         self.overview_tree.pack(fill="both", expand=True, pady=(0, 8), padx=8)
 
+    def _build_runtime_tab(self, parent: ttk.Frame) -> None:
+        bar = ttk.Frame(parent)
+        bar.pack(fill="x", padx=8, pady=8)
+
+        ttk.Button(bar, text="启动本地服务", command=self.ensure_preview_server).pack(side="left", padx=(0, 6))
+        ttk.Button(bar, text="首页", command=self.open_home_app).pack(side="left", padx=3)
+        ttk.Button(bar, text="数字货币", command=self.open_crypto_app).pack(side="left", padx=3)
+        ttk.Button(bar, text="金价行情", command=self.open_gold_app).pack(side="left", padx=3)
+        ttk.Button(bar, text="ERP系统", command=self.open_erp_app).pack(side="left", padx=3)
+        ttk.Button(bar, text="登录页", command=self.open_login_app).pack(side="left", padx=3)
+        ttk.Button(bar, text="停止服务", command=self.stop_preview_server).pack(side="left", padx=(10, 0))
+
+        self.preview_status_var = tk.StringVar(value="服务状态：未启动")
+        ttk.Label(parent, textvariable=self.preview_status_var, foreground="#444").pack(anchor="w", padx=10)
+
+        tips = (
+            "说明：点击按钮后会打开内置 WebView 窗口，页面与网页版本一致，可直接使用 ERP 按钮与功能。\n"
+            "若机器未安装 WebView2 运行时或 pywebview，则自动降级为系统浏览器打开。"
+        )
+        ttk.Label(parent, text=tips, foreground="#555", justify="left").pack(anchor="w", padx=10, pady=8)
+
     def _form_row(self, parent: ttk.Frame, label: str, var: tk.StringVar, readonly: bool = False) -> ttk.Entry:
         row = ttk.Frame(parent)
         row.pack(fill="x", pady=4)
@@ -700,6 +755,93 @@ class CardManagerApp:
         for title, status, detail in rows:
             self.overview_tree.insert("", "end", values=(title, status, detail))
 
+    def ensure_preview_server(self) -> bool:
+        if self.preview_server is not None and self.preview_port is not None:
+            self.preview_status_var.set(f"服务状态：运行中 http://127.0.0.1:{self.preview_port}")
+            return True
+
+        host = "127.0.0.1"
+        try:
+            handler_factory = lambda *args, **kwargs: RepoRequestHandler(*args, directory=str(self.repo_root), **kwargs)
+            server = ThreadingHTTPServer((host, 0), handler_factory)
+        except Exception as exc:
+            messagebox.showerror("启动失败", f"本地服务启动失败：{exc}")
+            return False
+
+        self.preview_server = server
+        self.preview_port = int(server.server_address[1])
+
+        def serve() -> None:
+            try:
+                server.serve_forever(poll_interval=0.5)
+            except Exception:
+                pass
+
+        self.preview_server_thread = threading.Thread(target=serve, daemon=True)
+        self.preview_server_thread.start()
+        self.preview_status_var.set(f"服务状态：运行中 http://127.0.0.1:{self.preview_port}")
+        self.log(f"内置服务已启动：http://127.0.0.1:{self.preview_port}")
+        return True
+
+    def stop_preview_server(self) -> None:
+        if self.preview_server is None:
+            self.preview_status_var.set("服务状态：未启动")
+            return
+
+        try:
+            self.preview_server.shutdown()
+            self.preview_server.server_close()
+        except Exception:
+            pass
+
+        self.preview_server = None
+        self.preview_server_thread = None
+        self.preview_port = None
+        self.preview_status_var.set("服务状态：已停止")
+        self.log("内置服务已停止")
+
+    def build_preview_url(self, page: str, anchor: str = "") -> Optional[str]:
+        if not self.ensure_preview_server():
+            return None
+        assert self.preview_port is not None
+        url = f"http://127.0.0.1:{self.preview_port}/{page}"
+        if anchor:
+            url += "#" + quote(anchor, safe="")
+        return url
+
+    def open_web_app(self, title: str, page: str, anchor: str = "") -> None:
+        url = self.build_preview_url(page, anchor)
+        if not url:
+            return
+
+        try:
+            process = multiprocessing.Process(target=run_webview_window, args=(url, title), daemon=False)
+            process.start()
+            self.log(f"已打开内置窗口：{title} -> {url}")
+        except Exception as exc:
+            self.log(f"内置窗口打开失败，改为浏览器：{exc}")
+            webbrowser.open(url)
+
+    def open_home_app(self) -> None:
+        self.open_web_app("WebStack 首页", "index.html")
+
+    def open_crypto_app(self) -> None:
+        self.open_web_app("WebStack 数字货币", "index.html", "数字货币")
+
+    def open_gold_app(self) -> None:
+        self.open_web_app("WebStack 金价行情", "index.html", "金价行情")
+
+    def open_erp_app(self) -> None:
+        page = "erp-ant.html" if (self.repo_root / "erp-ant.html").exists() else "erp.html"
+        self.open_web_app("WebStack ERP系统", page)
+
+    def open_login_app(self) -> None:
+        self.open_web_app("WebStack 登录", "login.html")
+
+    def on_close(self) -> None:
+        self.stop_preview_server()
+        self.root.destroy()
+
     def choose_index_file(self) -> None:
         chosen = filedialog.askopenfilename(
             title="选择 index.html",
@@ -730,6 +872,7 @@ class CardManagerApp:
 
         self.index_path = path
         self.repo_root = find_git_root(path.parent) or path.parent
+        self.stop_preview_server()
         self.original_html = content
         self.sections = parse_sections(content)
         self.nav_items, self.menu_meta = parse_nav_items(content)
@@ -1044,6 +1187,11 @@ def self_check(repo_root: Path) -> int:
     print(f"[自检] 导航数量: {len(nav_items)}")
     for module_name, module_status, _ in collect_module_status(content, repo_root):
         print(f"[自检] {module_name}: {module_status}")
+    try:
+        import webview  # noqa: F401
+        print("[自检] 内置WebView: 可用")
+    except Exception:
+        print("[自检] 内置WebView: 不可用（将降级为系统浏览器）")
 
     rebuilt = rebuild_sections(content, sections)
     rebuilt = rebuild_nav_links(rebuilt, nav_items, menu_meta)
@@ -1055,6 +1203,7 @@ def self_check(repo_root: Path) -> int:
 
 
 def main() -> int:
+    multiprocessing.freeze_support()
     if "--self-check" in sys.argv:
         return self_check(Path.cwd())
     root = tk.Tk()

@@ -12,10 +12,12 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [2/3] Install/upgrade PyInstaller...
+echo [2/3] Install dependencies...
 python -m pip install --upgrade pyinstaller
+python -m pip install --no-deps pywebview==4.4.1
+python -m pip install bottle proxy-tools typing_extensions
 if errorlevel 1 (
-  echo Failed to install PyInstaller.
+  echo Failed to install dependencies.
   pause
   exit /b 1
 )
@@ -31,4 +33,3 @@ if errorlevel 1 (
 echo.
 echo Build complete: %~dp0dist\WebStackCardManager.exe
 pause
-

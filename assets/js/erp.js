@@ -13,6 +13,11 @@ const ERP = {
         requestTimeout: 30000, // 请求超时时间（毫秒）
     },
 
+    runtime: {
+        initPromise: null,
+        initializedUserId: null
+    },
+
     // ==================== 工具函数 ====================
     /**
      * 为 Promise 添加超时处理
@@ -68,22 +73,47 @@ const ERP = {
             return;
         }
 
-        // 初始化时只加载统计数据，不加载详细数据
-        await this.loadStatisticsOnly();
+        const currentUserId = userData?.user?.id || null;
+
+        if (this.runtime.initPromise) {
+            return this.runtime.initPromise;
+        }
+
+        if (this.runtime.initializedUserId && this.runtime.initializedUserId === currentUserId) {
+            return;
+        }
+
+        this.runtime.initPromise = (async () => {
+            try {
+                // 初始化时只加载统计数据，不加载详细数据
+                await this.loadStatisticsOnly();
+                this.runtime.initializedUserId = currentUserId;
+            } finally {
+                this.runtime.initPromise = null;
+            }
+        })();
+
+        return this.runtime.initPromise;
     },
 
     // ==================== 只加载统计数据（快速初始化） ====================
     async loadStatisticsOnly() {
         try {
+            const shouldKeepFullCustomers = this.state.loaded.customers && Array.isArray(this.state.customers) && this.state.customers.length > 0;
+
             // 只加载统计数据，不加载详细记录
-            const [customers, products, orders, finances] = await Promise.all([
-                this.loadCustomers({ lite: true }),
+            let [customers, products, orders, finances] = await Promise.all([
+                shouldKeepFullCustomers ? Promise.resolve(this.state.customers) : this.loadCustomers({ lite: true }),
                 this.loadProducts(true),
                 this.loadOrders(true),
                 this.loadFinances(true)
             ]);
 
-            this.state.customers = customers;
+            if (!shouldKeepFullCustomers) {
+                this.state.customers = customers;
+            } else {
+                customers = this.state.customers;
+            }
             this.state.products = products;
             this.state.orders = orders;
             this.state.finances = finances;

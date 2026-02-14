@@ -17,7 +17,8 @@ const userData = {
     storageKeys: {
         guestFavorites: 'my_favorites_guest_v1',
         guestConfig: 'user_config_guest_v1',
-        legacyGuestConfig: 'userConfig'
+        legacyGuestConfig: 'userConfig',
+        userConfigCachePrefix: 'user_config_cache_'
     },
 
     getAuthClient() {
@@ -44,6 +45,61 @@ const userData = {
             reminders: [],
             favorites: []
         };
+    },
+
+    normalizeConfig(rawConfig = {}) {
+        return {
+            darkMode: !!rawConfig?.darkMode,
+            hiddenCards: Array.isArray(rawConfig?.hiddenCards) ? rawConfig.hiddenCards : [],
+            cardOrder: Array.isArray(rawConfig?.cardOrder) ? rawConfig.cardOrder : [],
+            notificationPanelOpen: !!rawConfig?.notificationPanelOpen,
+            reminders: Array.isArray(rawConfig?.reminders) ? rawConfig.reminders : [],
+            favorites: Array.isArray(rawConfig?.favorites) ? rawConfig.favorites : []
+        };
+    },
+
+    getUserConfigCacheKey(userId = this.user?.id) {
+        if (!userId) {
+            return null;
+        }
+        return `${this.storageKeys.userConfigCachePrefix}${userId}`;
+    },
+
+    loadCachedAccountConfig(userId = this.user?.id) {
+        try {
+            const cacheKey = this.getUserConfigCacheKey(userId);
+            if (!cacheKey) {
+                return null;
+            }
+
+            const saved = localStorage.getItem(cacheKey);
+            if (!saved) {
+                return null;
+            }
+
+            const parsed = JSON.parse(saved);
+            return this.normalizeConfig(parsed);
+        } catch (error) {
+            console.error('[UserData] 读取账号配置缓存失败:', error);
+            return null;
+        }
+    },
+
+    saveCachedAccountConfig(config = this.config, userId = this.user?.id) {
+        try {
+            const cacheKey = this.getUserConfigCacheKey(userId);
+            if (!cacheKey) {
+                return;
+            }
+
+            const normalized = this.normalizeConfig(config);
+            localStorage.setItem(cacheKey, JSON.stringify({
+                ...normalized,
+                _cachedAt: Date.now()
+            }));
+        } catch (error) {
+            console.error('[UserData] 保存账号配置缓存失败:', error);
+        }
     },
 
     getLatestConfigRecord(records = []) {
@@ -73,7 +129,7 @@ const userData = {
         return sorted[0] || null;
     },
 
-    withTimeout(promise, timeout = 6000, message = '请求超时') {
+    withTimeout(promise, timeout = 12000, message = '请求超时') {
         return Promise.race([
             promise,
             new Promise((_, reject) => {
@@ -235,10 +291,16 @@ const userData = {
         console.log('[UserData] loadConfig 被调用');
         console.log('[UserData] user.id:', this.user?.id);
 
+        const cachedAccountConfig = this.loadCachedAccountConfig();
+
         const client = this.getAuthClient();
         if (!client || !this.user?.id) {
             console.warn('[UserData] loadConfig 跳过：客户端或 user.id 不可用');
-            this.loadFromLocalStorage();
+            if (cachedAccountConfig) {
+                this.config = cachedAccountConfig;
+            } else {
+                this.loadFromLocalStorage();
+            }
             if (triggerEvent) {
                 window.dispatchEvent(new CustomEvent('userDataLoaded', { detail: this.config }));
             }
@@ -253,7 +315,7 @@ const userData = {
                     .from('user_config')
                     .select('*')
                     .eq('user_id', this.user.id),
-                6000,
+                12000,
                 '加载用户配置超时'
             );
 
@@ -274,9 +336,14 @@ const userData = {
                     status: status,
                     statusText: statusText
                 });
-                
-                console.log('[UserData] 使用默认配置');
-                this.config = this.getDefaultConfig();
+
+                if (cachedAccountConfig) {
+                    console.warn('[UserData] 数据库返回错误，已回退到账号本地缓存配置');
+                    this.config = cachedAccountConfig;
+                } else {
+                    console.log('[UserData] 使用默认配置');
+                    this.config = this.getDefaultConfig();
+                }
             } else if (data && data.length > 0) {
                 const latestConfig = this.getLatestConfigRecord(data) || data[0];
                 this.config = {
@@ -287,10 +354,17 @@ const userData = {
                     reminders: latestConfig.reminders || [],
                     favorites: latestConfig.favorites || []
                 };
+                this.config = this.normalizeConfig(this.config);
+                this.saveCachedAccountConfig(this.config);
                 console.log('[UserData] 已从数据库加载配置:', this.config);
             } else {
-                console.log('[UserData] 用户配置不存在，使用默认配置');
-                this.config = this.getDefaultConfig();
+                if (cachedAccountConfig) {
+                    console.warn('[UserData] 数据库暂无配置，已使用账号本地缓存配置');
+                    this.config = cachedAccountConfig;
+                } else {
+                    console.log('[UserData] 用户配置不存在，使用默认配置');
+                    this.config = this.getDefaultConfig();
+                }
             }
             
             if (triggerEvent) {
@@ -299,7 +373,12 @@ const userData = {
             }
         } catch (error) {
             console.error('[UserData] 加载配置异常:', error);
-            this.loadFromLocalStorage();
+            if (cachedAccountConfig) {
+                console.warn('[UserData] 数据库加载异常，已回退到账号本地缓存配置');
+                this.config = cachedAccountConfig;
+            } else {
+                this.loadFromLocalStorage();
+            }
             if (triggerEvent) {
                 window.dispatchEvent(new CustomEvent('userDataLoaded', { detail: this.config }));
             }
@@ -318,6 +397,7 @@ const userData = {
                     ...parsed,
                     favorites: []
                 };
+                this.config = this.normalizeConfig(this.config);
                 console.log('[UserData] 已从 localStorage 加载配置:', this.config);
             } else {
                 const legacySaved = localStorage.getItem(this.storageKeys.legacyGuestConfig);
@@ -331,6 +411,7 @@ const userData = {
                             cardOrder: Array.isArray(legacyParsed?.cardOrder) ? legacyParsed.cardOrder : [],
                             favorites: []
                         };
+                        this.config = this.normalizeConfig(this.config);
                         localStorage.setItem(this.storageKeys.guestConfig, JSON.stringify(this.config));
                         localStorage.removeItem(this.storageKeys.legacyGuestConfig);
                         console.log('[UserData] 已迁移旧版游客配置到独立存储键');
@@ -357,6 +438,9 @@ const userData = {
         
         if (this.isLoggedIn) {
             try {
+                this.config = this.normalizeConfig(this.config);
+                this.saveCachedAccountConfig(this.config);
+
                 const payload = {
                     user_id: this.user.id,
                     dark_mode: this.config.darkMode,
@@ -427,6 +511,7 @@ const userData = {
                 }
 
                 console.log('[UserData] ✅ 配置已保存到数据库');
+                this.saveCachedAccountConfig(this.config);
                 return true;
             } catch (error) {
                 console.error('[UserData] 保存配置异常:', error);

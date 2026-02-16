@@ -1600,6 +1600,17 @@ const ERP = {
         return summaryMap;
     },
 
+    buildPurchaseOrderNumber(purchaseDate = null) {
+        const date = purchaseDate ? new Date(purchaseDate) : new Date();
+        const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
+        const y = safeDate.getFullYear();
+        const m = String(safeDate.getMonth() + 1).padStart(2, '0');
+        const d = String(safeDate.getDate()).padStart(2, '0');
+        const msTail = String(safeDate.getTime()).slice(-5);
+        const randomTail = String(Math.floor(Math.random() * 90) + 10);
+        return `CG-${y}${m}${d}-${msTail}${randomTail}`;
+    },
+
     async releaseOrderLockedInventory(orderId, items = [], reason = '订单状态回补库存', releaseType = 'order_release') {
         const resolvedItems = await this.resolveOrderItemsForInventory(orderId, items);
         const expectedMap = this.buildOrderItemQuantityMap(resolvedItems);
@@ -2087,6 +2098,7 @@ const ERP = {
             const safeUnitCost = Number.isFinite(Number(options?.unitCost)) ? Number(options.unitCost) : 0;
             const safePurchaseDate = options?.purchaseDate || new Date().toISOString();
             const safeSupplier = String(options?.supplier || '').trim();
+            const safePurchaseOrderNo = String(options?.purchaseOrderNo || '').trim() || this.buildPurchaseOrderNumber(safePurchaseDate);
             const safePaymentStatus = String(options?.paymentStatus || 'paid').toLowerCase();
             const userNote = String(notes || '').trim();
             const purchaseAmount = Math.abs(safeQuantity) * Math.max(safeUnitCost, 0);
@@ -2105,6 +2117,7 @@ const ERP = {
             if (normalizedType === 'purchase') {
                 const purchaseMeta = [
                     '采购入库',
+                    `采购单号=${safePurchaseOrderNo}`,
                     `商品=${productName}`,
                     `数量=${Math.abs(safeQuantity)}`,
                     `单价=${Math.max(safeUnitCost, 0)}`,
@@ -2124,7 +2137,7 @@ const ERP = {
             if (result) {
                 // 创建财务记录
                 if (normalizedType === 'purchase') {
-                    const baseDescription = `采购入库 ${productName} x${Math.abs(safeQuantity)}，供应商：${safeSupplier || '未填写'}${userNote ? `，备注：${userNote}` : ''}`;
+                    const baseDescription = `采购单号:${safePurchaseOrderNo}，采购入库 ${productName} x${Math.abs(safeQuantity)}，供应商：${safeSupplier || '未填写'}${userNote ? `，备注：${userNote}` : ''}`;
 
                     if (paidAmount > 0) {
                         await this.addFinanceRecord({

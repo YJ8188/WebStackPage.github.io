@@ -3191,7 +3191,7 @@ function renderPurchaseRecords(records = []) {
 
     const rows = Array.isArray(records) ? records : [];
     if (rows.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:16px;color:#999;">暂无采购记录</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:16px;color:#999;">暂无采购记录</td></tr>';
         return;
     }
 
@@ -3201,6 +3201,7 @@ function renderPurchaseRecords(records = []) {
     tbody.innerHTML = rows.map(record => {
         const meta = parsePurchaseMetaFromNotes(record?.notes);
         const productFromState = productMap.get(String(record?.product_id));
+        const purchaseOrderNo = String(meta['采购单号'] || (record?.id ? `CG-LOG-${record.id}` : '-')).trim() || '-';
         const productName = meta['商品'] || productFromState?.name || `商品#${record?.product_id || '-'}`;
         const quantity = Number(meta['数量'] ?? Math.abs(Number(record?.quantity_change || 0)));
         const unitCost = Number(meta['单价'] ?? 0);
@@ -3216,6 +3217,7 @@ function renderPurchaseRecords(records = []) {
         return `
             <tr>
                 <td>${displayTime ? displayTime.toLocaleString('zh-CN') : '-'}</td>
+                <td>${escapeHtmlText(purchaseOrderNo)}</td>
                 <td>${escapeHtmlText(productName)}</td>
                 <td>${Number.isFinite(quantity) ? quantity : '-'}</td>
                 <td>${formatCurrency(unitCost)}</td>
@@ -4838,6 +4840,8 @@ function normalizePurchasePaymentStatus(value) {
 function parsePurchaseRecordForDashboard(record, productMap = new Map()) {
     const meta = parsePurchaseMetaFromNotes(record?.notes);
     const productFromState = productMap.get(String(record?.product_id || '')) || null;
+    const fallbackOrderNo = record?.id ? `CG-LOG-${record.id}` : 'CG-UNKNOWN';
+    const purchaseOrderNo = String(meta['采购单号'] || fallbackOrderNo).trim() || fallbackOrderNo;
     const productName = String(meta['商品'] || productFromState?.name || `商品#${record?.product_id || '-'}`);
     const quantityRaw = Number(meta['数量'] ?? Math.abs(Number(record?.quantity_change || 0)));
     const quantity = Number.isFinite(quantityRaw) ? Math.abs(quantityRaw) : 0;
@@ -4855,10 +4859,12 @@ function parsePurchaseRecordForDashboard(record, productMap = new Map()) {
         ? Math.max(payableAmountRaw, 0)
         : Math.max(amount - paidAmount, 0);
     const supplier = String(meta['供应商'] || '').trim() || '未填写供应商';
+    const note = String(meta['备注'] || '').trim();
     const purchaseDate = parseFinanceDate(meta['时间'] || record?.created_at || '');
 
     return {
         id: record?.id,
+        purchaseOrderNo,
         productId: record?.product_id,
         productName,
         quantity,
@@ -4868,6 +4874,7 @@ function parsePurchaseRecordForDashboard(record, productMap = new Map()) {
         paymentStatus,
         paidAmount,
         payableAmount,
+        note,
         purchaseDate
     };
 }
@@ -5329,6 +5336,111 @@ async function autoSettleSupplierPayables(supplierName) {
     }
 }
 
+async function exportPurchaseDetailsByMonth(monthKey = '') {
+    const targetMonth = String(monthKey || getCurrentYearMonthText()).trim();
+    const products = Array.isArray(ERP.state?.products) ? ERP.state.products : [];
+    const productMap = new Map(products.map(item => [String(item?.id), item]));
+    const logs = await ensureDashboardPurchaseRecords(500);
+    const rows = logs
+        .map(record => parsePurchaseRecordForDashboard(record, productMap))
+        .filter(item => {
+            const date = item?.purchaseDate instanceof Date ? item.purchaseDate : null;
+            if (!date) {
+                return false;
+            }
+            const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            return key === targetMonth;
+        });
+
+    if (!rows.length) {
+        if (typeof showToast === 'function') {
+            showToast(`${targetMonth} 暂无采购明细`, 'info');
+        }
+        return;
+    }
+
+    const headers = ['采购单号', '采购时间', '供应商', '商品', '数量', '单价', '总额', '付款状态', '已付', '待付', '备注'];
+    const paymentStatusMap = { paid: '已付款', unpaid: '未付款', partial: '部分付款' };
+    const exportRows = rows.map(item => [
+        item.purchaseOrderNo || '-',
+        item.purchaseDate ? item.purchaseDate.toLocaleString('zh-CN') : '-',
+        item.supplier || '-',
+        item.productName || '-',
+        Number(item.quantity || 0),
+        Number(item.unitCost || 0).toFixed(2),
+        Number(item.amount || 0).toFixed(2),
+        paymentStatusMap[String(item.paymentStatus || '').toLowerCase()] || String(item.paymentStatus || '-'),
+        Number(item.paidAmount || 0).toFixed(2),
+        Number(item.payableAmount || 0).toFixed(2),
+        item.note || '-'
+    ]);
+    downloadCsvFile(`采购明细-${targetMonth}-${formatFileTimestamp()}.csv`, headers, exportRows);
+    if (typeof showToast === 'function') {
+        showToast(`已导出 ${targetMonth} 采购明细`, 'success');
+    }
+}
+
+async function exportSupplierMonthlyStatement() {
+    const supplierName = String(prompt('请输入供应商名称（必填）', '') || '').trim();
+    if (!supplierName) {
+        return;
+    }
+    const defaultMonth = getCurrentYearMonthText();
+    const monthInput = String(prompt('请输入结算月份（格式：YYYY-MM）', defaultMonth) || '').trim() || defaultMonth;
+    if (!/^\d{4}-\d{2}$/.test(monthInput)) {
+        alert('月份格式错误，请使用 YYYY-MM');
+        return;
+    }
+
+    const products = Array.isArray(ERP.state?.products) ? ERP.state.products : [];
+    const productMap = new Map(products.map(item => [String(item?.id), item]));
+    const logs = await ensureDashboardPurchaseRecords(500);
+    const rows = logs
+        .map(record => parsePurchaseRecordForDashboard(record, productMap))
+        .filter(item => {
+            const date = item?.purchaseDate instanceof Date ? item.purchaseDate : null;
+            if (!date) {
+                return false;
+            }
+            const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            return key === monthInput && String(item.supplier || '').trim() === supplierName;
+        });
+
+    if (!rows.length) {
+        if (typeof showToast === 'function') {
+            showToast(`${monthInput} 未找到供应商 ${supplierName} 的采购记录`, 'info');
+        }
+        return;
+    }
+
+    const totalAmount = rows.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    const totalPaid = rows.reduce((sum, item) => sum + Number(item.paidAmount || 0), 0);
+    const totalPayable = rows.reduce((sum, item) => sum + Number(item.payableAmount || 0), 0);
+    const headers = ['类型', '月份', '供应商', '采购单号', '采购时间', '商品', '数量', '单价', '采购总额', '已付', '待付', '备注'];
+    const exportRows = [
+        ['汇总', monthInput, supplierName, '-', '-', '-', '-', '-', totalAmount.toFixed(2), totalPaid.toFixed(2), totalPayable.toFixed(2), `采购笔数=${rows.length}`],
+        ...rows.map(item => [
+            '明细',
+            monthInput,
+            supplierName,
+            item.purchaseOrderNo || '-',
+            item.purchaseDate ? item.purchaseDate.toLocaleString('zh-CN') : '-',
+            item.productName || '-',
+            Number(item.quantity || 0),
+            Number(item.unitCost || 0).toFixed(2),
+            Number(item.amount || 0).toFixed(2),
+            Number(item.paidAmount || 0).toFixed(2),
+            Number(item.payableAmount || 0).toFixed(2),
+            item.note || '-'
+        ])
+    ];
+
+    downloadCsvFile(`供应商月结单-${supplierName}-${monthInput}-${formatFileTimestamp()}.csv`, headers, exportRows);
+    if (typeof showToast === 'function') {
+        showToast(`已导出供应商月结单：${supplierName} ${monthInput}`, 'success');
+    }
+}
+
 async function renderDashboardSupplierReconciliation() {
     const container = document.getElementById('dashboardSupplierReconciliation');
     if (!container || !window.ERP) {
@@ -5384,6 +5496,16 @@ async function renderDashboardSupplierReconciliation() {
                 <span class="ant-tag" style="margin:0;">本月采购 ${formatCurrency(stats.currentMonth.amount)}</span>
                 <span class="ant-tag" style="margin:0;">本月已付 ${formatCurrency(stats.currentMonth.paidAmount)}</span>
                 <span class="ant-tag" style="margin:0;">本月待付 ${formatCurrency(stats.currentMonth.payableAmount)}</span>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+                <button class="ant-btn" style="height:26px;line-height:24px;padding:0 10px;font-size:12px;color:#0958d9;border-color:#91caff;"
+                    onclick='exportPurchaseDetailsByMonth(${JSON.stringify(stats.currentMonthKey)})'>
+                    导出当月采购明细
+                </button>
+                <button class="ant-btn" style="height:26px;line-height:24px;padding:0 10px;font-size:12px;color:#531dab;border-color:#d3adf7;"
+                    onclick='exportSupplierMonthlyStatement()'>
+                    导出供应商月结单
+                </button>
             </div>
             <div style="font-size:12px;color:#8c8c8c;margin-bottom:4px;">最近月份对账</div>
             ${monthRowsHtml || '<div style="font-size:12px;color:#8c8c8c;">暂无采购对账数据</div>'}

@@ -18,6 +18,23 @@ function normalizeTrackingNumber(value: unknown): string {
   return String(value ?? "").trim().replace(/\s+/g, "");
 }
 
+function isAlreadyRegisteredError(errorRecord: Record<string, unknown> | null): boolean {
+  if (!errorRecord) {
+    return false;
+  }
+
+  const code = String(errorRecord.code ?? "");
+  const message = String(errorRecord.message ?? "").toLowerCase();
+
+  if (code === "-18010016" || code === "-18019901") {
+    return true;
+  }
+
+  return message.includes("has been registered")
+    || message.includes("don't need to repeat registration")
+    || message.includes("already registered");
+}
+
 function statusToChinese(statusCode: string): string {
   const map: Record<string, string> = {
     NotFound: "暂无轨迹",
@@ -134,8 +151,7 @@ serve(async (req) => {
 
     if (rejectedRecord?.error) {
       const rejectError = rejectedRecord.error as Record<string, unknown>;
-      const code = String(rejectError.code ?? "");
-      if (code !== "-18010016") {
+      if (!isAlreadyRegisteredError(rejectError)) {
         const rejectMessage = String(rejectError.message || "17TRACK 注册单号失败");
         return jsonResponse({ ok: false, message: rejectMessage });
       }

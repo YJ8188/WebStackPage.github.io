@@ -1067,6 +1067,26 @@
                             style="margin-top: 8px; padding: 8px 10px; border: 1px solid #d9d9d9; border-radius: 6px; background: #fafafa; font-size: 12px; color: #8c8c8c;">
                             风控提示：添加商品后自动分析超金额、超折扣、异常毛利。
                         </div>
+                        <div
+                            style="margin-top: 8px; padding: 8px 10px; border: 1px dashed #d9d9d9; border-radius: 6px; background: #fafafa;">
+                            <div style="font-size: 12px; color: #595959; margin-bottom: 6px;">风控阈值配置（当前浏览器按账号保存）</div>
+                            <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                                <input type="number" id="orderRiskAmountThreshold" class="ant-input" placeholder="超金额阈值"
+                                    min="1" step="1" style="width: 130px;">
+                                <input type="number" id="orderRiskDiscountThreshold" class="ant-input" placeholder="超折扣阈值(%)"
+                                    min="1" max="100" step="0.1" style="width: 130px;">
+                                <input type="number" id="orderRiskMarginThreshold" class="ant-input" placeholder="低毛利阈值(%)"
+                                    min="1" max="100" step="0.1" style="width: 130px;">
+                                <input type="number" id="orderRiskLowMarginAmountFloor" class="ant-input" placeholder="低毛利触发金额"
+                                    min="1" step="1" style="width: 140px;">
+                                <button type="button" class="ant-btn" onclick="resetOrderRiskConfigToDefault()">重置阈值</button>
+                            </div>
+                        </div>
+                        <div id="orderRiskApprovalGroup" class="form-group" style="display:none; margin-top: 8px;">
+                            <label style="color:#cf1322;">高风险审批原因（必填）</label>
+                            <textarea id="orderRiskApprovalReason" class="ant-textarea" rows="2"
+                                placeholder="请填写高风险订单继续保存的原因"></textarea>
+                        </div>
                     </div>
 
                     <div class="form-group" style="display: flex; gap: 10px;">
@@ -1363,7 +1383,7 @@
     <script src="assets/js/supabase-config.js?v=20260212-14"></script>
     <script src="assets/js/user-data.js?v=20260214-20"></script>
     <script src="assets/js/erp.js?v=20260216-30"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260216-29"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260216-31"></script>
     <script src="assets/js/pwa-register.js?v=20260216-1" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->
@@ -1585,6 +1605,7 @@
 
             tbody.innerHTML = data.map(order => {
                 const customer = ERP.state.customers.find(c => String(c.id) === String(order.customer_id));
+                const hasRiskApproval = String(order?.notes || '').includes('[风控审批]');
                 const shippingInfo = [];
                 if (order.shipping_company) {
                     shippingInfo.push(order.shipping_company);
@@ -1595,7 +1616,7 @@
 
                 return `
                 <tr>
-                    <td>${order.order_number}</td>
+                    <td>${order.order_number}${hasRiskApproval ? '<span style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:999px;background:#fff1f0;color:#cf1322;border:1px solid #ffa39e;font-size:11px;">风控</span>' : ''}</td>
                     <td>${customer ? customer.name : '-'}</td>
                     <td>${new Date(order.order_date).toLocaleDateString()}</td>
                     <td style="font-weight:500;">¥${parseFloat(order.total_amount).toFixed(2)}</td>

@@ -549,6 +549,10 @@
                                 <button class="ant-btn" onclick="triggerERPBackupImport()">
                                     <i class="fa fa-upload"></i> 导入备份JSON
                                 </button>
+                                <select id="financeTrendRange" class="ant-select" onchange="renderFinanceTrendSummary()">
+                                    <option value="7">趋势7天</option>
+                                    <option value="30" selected>趋势30天</option>
+                                </select>
                                 <input type="file" id="backupImportInput" accept=".json,application/json" style="display:none;">
                             </div>
 
@@ -1073,8 +1077,8 @@
     <script src="assets/js/supabase.min.js"></script>
     <script src="assets/js/supabase-config.js?v=20260212-14"></script>
     <script src="assets/js/user-data.js?v=20260212-14"></script>
-    <script src="assets/js/erp.js?v=20260216-25"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260216-15"></script>
+    <script src="assets/js/erp.js?v=20260216-26"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260216-16"></script>
     <script src="assets/js/pwa-register.js?v=20260216-1" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->
@@ -1445,11 +1449,10 @@
                         });
                     })()}</td>
                     <td>
-                        ${typeof isPayableFinanceRecord === 'function' && isPayableFinanceRecord(f)
-                            ? `<button class="ant-btn" onclick='markPayableAsPaid(${JSON.stringify(f.id)})' style="color:#237804; border-color:#b7eb8f; margin-right:8px;">结清</button>`
-                            : ''
+                        ${typeof getFinanceActionButtons === 'function'
+                            ? getFinanceActionButtons(f)
+                            : `<button class="ant-btn" onclick='deleteFinance(${JSON.stringify(f.id)})' style="color:#ff4d4f; border-color:#ff4d4f;">删除</button>`
                         }
-                        <button class="ant-btn" onclick='deleteFinance(${JSON.stringify(f.id)})' style="color:#ff4d4f; border-color:#ff4d4f;">删除</button>
                     </td>
                 </tr>
             `).join('');

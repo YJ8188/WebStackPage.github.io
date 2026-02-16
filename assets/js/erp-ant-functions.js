@@ -124,7 +124,7 @@ function formatCurrency(value) {
     return `¥${amount.toFixed(2)}`;
 }
 
-const ERP_SYSTEM_FINANCE_CATEGORIES = ['销售订单', '销售成本', '利润', '利润(系统)'];
+const ERP_SYSTEM_FINANCE_CATEGORIES = ['销售订单', '销售成本', '利润', '利润(系统)', '应付账款', '采购付款', '回款确认'];
 
 function normalizeTextKey(value) {
     return String(value || '').trim().toLowerCase();
@@ -2990,9 +2990,11 @@ function renderFinanceTrendSummary(finances = null) {
     }
 
     const source = Array.isArray(finances) ? finances : (Array.isArray(ERP.state?.finances) ? ERP.state.finances : []);
+    const selectedRange = Math.max(1, parseInt(document.getElementById('financeTrendRange')?.value || '30', 10));
     const rows30 = buildFinanceTrendRows(source, 30);
     const rows7 = rows30.slice(-7);
     const rows1 = rows30.slice(-1);
+    const rowsSelected = selectedRange === 30 ? rows30 : buildFinanceTrendRows(source, selectedRange);
 
     const summary1 = calcFinanceSummaryFromRows(rows1);
     summary1.net = summary1.income - summary1.expense;
@@ -3000,13 +3002,15 @@ function renderFinanceTrendSummary(finances = null) {
     summary7.net = summary7.income - summary7.expense;
     const summary30 = calcFinanceSummaryFromRows(rows30);
     summary30.net = summary30.income - summary30.expense;
+    const summarySelected = calcFinanceSummaryFromRows(rowsSelected);
+    summarySelected.net = summarySelected.income - summarySelected.expense;
 
     const maxDaily = Math.max(
         1,
-        ...rows7.map(row => Math.max(row.income, row.expense))
+        ...rowsSelected.map(row => Math.max(row.income, row.expense))
     );
 
-    const barsHtml = rows7.map(row => {
+    const barsHtml = rowsSelected.map(row => {
         const incomeWidth = Math.round((row.income / maxDaily) * 100);
         const expenseWidth = Math.round((row.expense / maxDaily) * 100);
         return `
@@ -3040,12 +3044,53 @@ function renderFinanceTrendSummary(finances = null) {
                 <div style="font-size:18px;font-weight:600;color:#237804;">${formatCurrency(summary30.net)}</div>
                 <div style="font-size:12px;color:#8c8c8c;">收 ${formatCurrency(summary30.income)} / 支 ${formatCurrency(summary30.expense)}</div>
             </div>
+            <div style="flex:1;min-width:180px;padding:10px 12px;border:1px solid #ffe7ba;border-radius:8px;background:#fff7e6;">
+                <div style="font-size:12px;color:#8c8c8c;">近${selectedRange}天净额</div>
+                <div style="font-size:18px;font-weight:600;color:#d46b08;">${formatCurrency(summarySelected.net)}</div>
+                <div style="font-size:12px;color:#8c8c8c;">收 ${formatCurrency(summarySelected.income)} / 支 ${formatCurrency(summarySelected.expense)}</div>
+            </div>
         </div>
         <div style="margin-top:10px;padding:10px;border:1px solid #f0f0f0;border-radius:8px;background:#fff;">
-            <div style="font-size:13px;font-weight:500;color:#262626;margin-bottom:8px;">近7天收支趋势（粉=收入，绿=支出）</div>
+            <div style="font-size:13px;font-weight:500;color:#262626;margin-bottom:8px;">近${selectedRange}天收支趋势（粉=收入，绿=支出）</div>
             ${barsHtml || '<div style="font-size:12px;color:#999;">暂无数据</div>'}
         </div>
     `;
+}
+
+function resolveFinanceOrderId(finance) {
+    const rawOrderId = finance?.order_id ?? finance?.reference_id;
+    if (rawOrderId === null || rawOrderId === undefined || rawOrderId === '') {
+        return null;
+    }
+    return rawOrderId;
+}
+
+function isReceivableFinanceRecord(finance) {
+    const type = String(finance?.type || '');
+    const category = String(finance?.category || '');
+    if (type !== 'income' || !category.includes('销售订单')) {
+        return false;
+    }
+
+    const linkedOrderId = resolveFinanceOrderId(finance);
+    if (linkedOrderId === null) {
+        return false;
+    }
+
+    const order = (ERP.state?.orders || []).find(item => String(item?.id) === String(linkedOrderId));
+    if (!order) {
+        return false;
+    }
+
+    const paymentStatus = String(order?.payment_status || 'unpaid');
+    const orderStatus = String(order?.status || '');
+    if (paymentStatus === 'paid') {
+        return false;
+    }
+    if (orderStatus === 'cancelled' || orderStatus === 'refunded') {
+        return false;
+    }
+    return Number(finance?.amount || 0) > 0;
 }
 
 function isPayableFinanceRecord(finance) {
@@ -3054,6 +3099,56 @@ function isPayableFinanceRecord(finance) {
         return false;
     }
     return Number(finance?.amount || 0) > 0;
+}
+
+async function markReceivableAsPaid(orderId) {
+    if (!window.ERP || typeof ERP.settleOrderReceivable !== 'function') {
+        alert('当前版本不支持该操作，请刷新后重试');
+        return;
+    }
+
+    const order = (ERP.state?.orders || []).find(item => String(item?.id) === String(orderId)) || null;
+    if (!order) {
+        alert('未找到订单信息，请刷新后重试');
+        return;
+    }
+
+    if (String(order?.payment_status || '').toLowerCase() === 'paid') {
+        if (typeof showToast === 'function') {
+            showToast('该订单已回款', 'info');
+        }
+        return;
+    }
+
+    const amount = Number(order?.total_amount || 0);
+    const orderNumber = order?.order_number || `订单#${orderId}`;
+    const confirmText = `确认将 ${orderNumber} 标记为已回款吗？\n应收金额：${formatCurrency(amount)}`;
+    if (!confirm(confirmText)) {
+        return;
+    }
+
+    const note = prompt('可选：填写回款备注（可留空）', '') || '';
+    const result = await ERP.settleOrderReceivable(orderId, {
+        settleDate: new Date().toISOString(),
+        note
+    });
+
+    if (!result) {
+        return;
+    }
+
+    await Promise.all([
+        ERP.loadOrders(true),
+        ERP.loadFinances(true)
+    ]);
+
+    if (typeof searchOrders === 'function') {
+        searchOrders();
+    }
+    if (typeof renderFinances === 'function') {
+        renderFinances(ERP.state.finances);
+    }
+    updateStatistics();
 }
 
 async function markPayableAsPaid(financeId) {
@@ -3089,6 +3184,22 @@ async function markPayableAsPaid(financeId) {
         renderFinances(finances);
     }
     updateStatistics();
+}
+
+function getFinanceActionButtons(finance) {
+    const buttons = [];
+    const linkedOrderId = resolveFinanceOrderId(finance);
+
+    if (isReceivableFinanceRecord(finance) && linkedOrderId !== null) {
+        buttons.push(`<button class="ant-btn" onclick='markReceivableAsPaid(${JSON.stringify(linkedOrderId)})' style="color:#0958d9; border-color:#91caff; margin-right:8px;">回款</button>`);
+    }
+
+    if (isPayableFinanceRecord(finance)) {
+        buttons.push(`<button class="ant-btn" onclick='markPayableAsPaid(${JSON.stringify(finance?.id)})' style="color:#237804; border-color:#b7eb8f; margin-right:8px;">结清</button>`);
+    }
+
+    buttons.push(`<button class="ant-btn" onclick='deleteFinance(${JSON.stringify(finance?.id)})' style="color:#ff4d4f; border-color:#ff4d4f;">删除</button>`);
+    return buttons.join('');
 }
 
 function downloadJsonFile(fileName, data) {

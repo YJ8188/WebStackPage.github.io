@@ -2528,6 +2528,98 @@ const ERP = {
         }
     },
 
+    async settleOrderReceivable(orderId, options = {}) {
+        try {
+            let before = this.state.orders.find(item => this.isSameId(item.id, orderId)) || null;
+            if (!before) {
+                before = await this.loadOrderDetail(orderId);
+            }
+            if (!before) {
+                throw new Error('未找到订单记录');
+            }
+
+            if (String(before.payment_status || '').toLowerCase() === 'paid') {
+                return before;
+            }
+
+            const settleDate = options?.settleDate || new Date().toISOString();
+            const settleNote = String(options?.note || '').trim();
+            const { data, error } = await supabaseClient
+                .from('erp_orders')
+                .update({
+                    payment_status: 'paid'
+                })
+                .eq('id', orderId)
+                .eq('user_id', userData.user.id)
+                .select()
+                .single();
+
+            if (error) {
+                throw error;
+            }
+
+            const index = this.state.orders.findIndex(item => this.isSameId(item.id, orderId));
+            if (index >= 0) {
+                this.state.orders[index] = { ...this.state.orders[index], ...data };
+            }
+
+            const { data: incomeRows, error: incomeQueryError } = await supabaseClient
+                .from('erp_finances')
+                .select('id, description')
+                .eq('user_id', userData.user.id)
+                .eq('reference_id', orderId)
+                .eq('type', 'income')
+                .eq('category', '销售订单');
+
+            if (!incomeQueryError && Array.isArray(incomeRows) && incomeRows.length > 0) {
+                const settleTag = `【已回款 ${String(settleDate).slice(0, 10)}】`;
+                for (const row of incomeRows) {
+                    const currentDesc = String(row?.description || '').trim();
+                    if (currentDesc.includes('已回款')) {
+                        continue;
+                    }
+                    const nextDesc = `${currentDesc || '销售订单回款'} ${settleTag}${settleNote ? ` 备注：${settleNote}` : ''}`.trim();
+                    await supabaseClient
+                        .from('erp_finances')
+                        .update({ description: nextDesc })
+                        .eq('id', row.id)
+                        .eq('user_id', userData.user.id);
+                }
+            }
+
+            this.emitEvent('erpOrderChanged', { orderId, action: 'payment-settled', payment_status: 'paid' });
+            this.emitEvent('erpFinanceChanged', { orderId, action: 'receivable-settled' });
+            this.logAudit({
+                module: 'finance',
+                action: 'settle_receivable',
+                entityType: 'order',
+                entityId: orderId,
+                entityName: data?.order_number || before?.order_number || `订单#${orderId}`,
+                details: {
+                    before: {
+                        payment_status: before?.payment_status
+                    },
+                    after: {
+                        payment_status: data?.payment_status || 'paid'
+                    },
+                    settled_at: settleDate,
+                    note: settleNote
+                }
+            });
+
+            if (typeof showToast === 'function') {
+                showToast('应收账款已确认回款', 'success');
+            }
+            return data;
+        } catch (error) {
+            console.error('[ERP] 结清应收账款失败:', error);
+            if (typeof showToast === 'function') {
+                showToast('回款确认失败: ' + (error?.message || '未知错误'), 'error');
+            }
+            return null;
+        }
+    },
+
     async deleteFinance(financeId) {
         try {
             const removedFinance = this.state.finances.find(f => this.isSameId(f.id, financeId)) || null;

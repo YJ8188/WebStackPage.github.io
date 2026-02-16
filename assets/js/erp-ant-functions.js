@@ -5255,6 +5255,80 @@ function calculateSupplierReconciliationStats(purchaseRows = []) {
     };
 }
 
+function getSupplierPayableFinances(supplierName) {
+    const safeSupplier = String(supplierName || '').trim();
+    if (!safeSupplier || !window.ERP) {
+        return [];
+    }
+
+    const rows = Array.isArray(ERP.state?.finances) ? ERP.state.finances : [];
+    const supplierTag = `供应商：${safeSupplier}`;
+    return rows.filter(item => {
+        const category = String(item?.category || '');
+        if (!category.includes('应付账款')) {
+            return false;
+        }
+        const amount = Math.abs(Number(item?.amount || 0));
+        if (!Number.isFinite(amount) || amount <= 0) {
+            return false;
+        }
+        const description = String(item?.description || '');
+        return description.includes(supplierTag) || description.includes(safeSupplier);
+    });
+}
+
+async function autoSettleSupplierPayables(supplierName) {
+    const safeSupplier = String(supplierName || '').trim();
+    if (!safeSupplier) {
+        return;
+    }
+    if (!window.ERP || typeof ERP.settlePayableFinance !== 'function') {
+        alert('当前版本不支持自动核销，请刷新后重试');
+        return;
+    }
+
+    const payableRows = getSupplierPayableFinances(safeSupplier);
+    if (!payableRows.length) {
+        if (typeof showToast === 'function') {
+            showToast(`供应商 ${safeSupplier} 暂无待核销应付`, 'info');
+        }
+        return;
+    }
+
+    const totalAmount = payableRows.reduce((sum, row) => sum + Math.abs(Number(row?.amount || 0)), 0);
+    const confirmed = confirm(`确认自动核销供应商「${safeSupplier}」吗？\n待核销 ${payableRows.length} 笔，应付合计 ${formatCurrency(totalAmount)}。`);
+    if (!confirmed) {
+        return;
+    }
+
+    let successCount = 0;
+    for (const row of payableRows) {
+        const amount = Math.abs(Number(row?.amount || 0));
+        if (!Number.isFinite(amount) || amount <= 0) {
+            continue;
+        }
+        const result = await ERP.settlePayableFinance(row.id, {
+            settleDate: new Date().toISOString(),
+            note: `供应商对账中心自动核销：${safeSupplier}`,
+            paidAmount: amount
+        });
+        if (result) {
+            successCount += 1;
+        }
+    }
+
+    await ERP.loadFinances(true);
+    if (typeof renderFinances === 'function') {
+        syncFinanceViewRows(ERP.state.finances, 'all');
+        renderFinances(ERP.state.finances);
+    }
+    updateStatistics();
+
+    if (typeof showToast === 'function') {
+        showToast(`自动核销完成：成功 ${successCount}/${payableRows.length} 笔`, successCount === payableRows.length ? 'success' : 'warning');
+    }
+}
+
 async function renderDashboardSupplierReconciliation() {
     const container = document.getElementById('dashboardSupplierReconciliation');
     if (!container || !window.ERP) {
@@ -5290,6 +5364,12 @@ async function renderDashboardSupplierReconciliation() {
             </div>
             <div style="color:#8c8c8c;margin-top:2px;">
                 本月采购 ${formatCurrency(item.amount)} / 已付 ${formatCurrency(item.paidAmount)} / ${item.count} 批次
+            </div>
+            <div style="margin-top:4px;">
+                <button class="ant-btn" style="height:24px;line-height:22px;padding:0 8px;font-size:12px;color:#237804;border-color:#b7eb8f;"
+                    onclick='autoSettleSupplierPayables(${JSON.stringify(item.supplier)})'>
+                    一键核销
+                </button>
             </div>
         </div>
     `).join('');
@@ -5408,6 +5488,139 @@ function calculateRestockRecommendations(products = [], orders = [], itemRows = 
     };
 }
 
+async function createPurchaseFromRestock(productId, suggestedQty = 0) {
+    if (!window.ERP || typeof ERP.adjustInventory !== 'function') {
+        alert('当前版本不支持该操作，请刷新后重试');
+        return;
+    }
+
+    const normalizedProductId = normalizeEntityId(productId);
+    const product = (ERP.state?.products || []).find(item => isSameEntityId(item?.id, normalizedProductId));
+    if (!product) {
+        alert('未找到商品信息，请刷新后重试');
+        return;
+    }
+
+    const defaultQty = Math.max(Number(suggestedQty || 0), 1);
+    const qtyText = prompt(`请输入补货数量（商品：${product.name || '-'}）`, String(defaultQty));
+    if (qtyText === null) {
+        return;
+    }
+    const qty = Math.max(Math.floor(Number(String(qtyText).trim())), 0);
+    if (!Number.isFinite(qty) || qty <= 0) {
+        alert('补货数量无效，请输入大于 0 的整数');
+        return;
+    }
+
+    const defaultCost = Math.max(Number(product?.cost ?? product?.cost_price ?? 0), 0);
+    const costText = prompt(`请输入采购单价（默认 ${defaultCost.toFixed(2)}）`, defaultCost.toFixed(2));
+    if (costText === null) {
+        return;
+    }
+    const unitCost = Math.max(Number(String(costText).trim()), 0);
+    if (!Number.isFinite(unitCost) || unitCost < 0) {
+        alert('采购单价无效');
+        return;
+    }
+
+    const defaultSupplier = String(product?.supplier || '系统补货').trim() || '系统补货';
+    const supplierText = prompt('请输入供应商名称（默认：系统补货）', defaultSupplier);
+    if (supplierText === null) {
+        return;
+    }
+    const supplier = String(supplierText || '').trim() || '系统补货';
+    const note = `补货建议自动生成：建议${defaultQty}，实际${qty}`;
+
+    const result = await ERP.adjustInventory(normalizedProductId, qty, 'purchase', note, {
+        unitCost,
+        supplier,
+        paymentStatus: 'unpaid',
+        paidAmount: 0,
+        purchaseDate: new Date().toISOString()
+    });
+
+    if (!result) {
+        return;
+    }
+
+    await Promise.all([
+        ERP.loadProducts(true),
+        ERP.loadFinances(true),
+        loadPurchaseRecords(120)
+    ]);
+
+    if (typeof renderInventory === 'function') {
+        renderInventory(Array.isArray(ERP.state?.products) ? ERP.state.products : []);
+    }
+    updateStatistics();
+}
+
+async function createBulkPurchaseFromRestockRecommendations() {
+    if (!window.ERP || typeof ERP.adjustInventory !== 'function') {
+        alert('当前版本不支持该操作，请刷新后重试');
+        return;
+    }
+
+    const products = Array.isArray(ERP.state?.products) ? ERP.state.products : [];
+    const orders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
+    const validOrders = orders.filter(order => {
+        const status = normalizeOrderStatusValue(order?.status || '');
+        return status !== 'cancelled' && status !== 'refunded';
+    });
+    const itemRows = await loadDashboardOrderItems(validOrders);
+    const stats = calculateRestockRecommendations(products, validOrders, itemRows);
+    const candidates = (stats.rows || []).filter(item => Number(item?.recommendQty || 0) > 0);
+
+    if (!candidates.length) {
+        if (typeof showToast === 'function') {
+            showToast('当前没有可生成的补货建议', 'info');
+        }
+        return;
+    }
+
+    const totalQty = candidates.reduce((sum, item) => sum + Number(item?.recommendQty || 0), 0);
+    const confirmed = confirm(`确认一键生成待付采购单吗？\n商品 ${candidates.length} 个，建议补货总量 ${totalQty}。`);
+    if (!confirmed) {
+        return;
+    }
+
+    let successCount = 0;
+    for (const row of candidates) {
+        const product = products.find(item => isSameEntityId(item?.id, row.productId));
+        if (!product) {
+            continue;
+        }
+        const qty = Math.max(Number(row?.recommendQty || 0), 0);
+        const unitCost = Math.max(Number(product?.cost ?? product?.cost_price ?? 0), 0);
+        if (qty <= 0 || unitCost <= 0) {
+            continue;
+        }
+        const result = await ERP.adjustInventory(row.productId, qty, 'purchase', `补货建议自动生成：风险${row.riskLevel || 0}级`, {
+            unitCost,
+            supplier: String(product?.supplier || '系统补货').trim() || '系统补货',
+            paymentStatus: 'unpaid',
+            paidAmount: 0,
+            purchaseDate: new Date().toISOString()
+        });
+        if (result) {
+            successCount += 1;
+        }
+    }
+
+    await Promise.all([
+        ERP.loadProducts(true),
+        ERP.loadFinances(true),
+        loadPurchaseRecords(120)
+    ]);
+    if (typeof renderInventory === 'function') {
+        renderInventory(Array.isArray(ERP.state?.products) ? ERP.state.products : []);
+    }
+    updateStatistics();
+    if (typeof showToast === 'function') {
+        showToast(`批量补货完成：成功 ${successCount}/${candidates.length} 个商品`, successCount === candidates.length ? 'success' : 'warning');
+    }
+}
+
 async function renderDashboardRestockRecommendations() {
     const container = document.getElementById('dashboardRestockRecommendations');
     if (!container || !window.ERP) {
@@ -5435,6 +5648,12 @@ async function renderDashboardRestockRecommendations() {
                 <div style="font-size:12px;color:#8c8c8c;margin-top:2px;">
                     库存 ${item.stock}（预警 ${item.minStock}）/ 近30天销量 ${item.sold30} / 可售 ${coverText} / 建议补货 ${item.recommendQty}
                 </div>
+                <div style="margin-top:4px;">
+                    <button class="ant-btn" style="height:24px;line-height:22px;padding:0 8px;font-size:12px;color:#0958d9;border-color:#91caff;"
+                        onclick='createPurchaseFromRestock(${JSON.stringify(item.productId)}, ${Number(item.recommendQty || 0)})'>
+                        一键生成待付采购
+                    </button>
+                </div>
             </div>
         `;
     }).join('');
@@ -5449,6 +5668,12 @@ async function renderDashboardRestockRecommendations() {
                 <span class="ant-tag" style="margin:0;">紧急/低预警 ${stats.summary.urgent}</span>
                 <span class="ant-tag" style="margin:0;">7天风险 ${stats.summary.warning}</span>
                 <span class="ant-tag" style="margin:0;">建议补货 ${stats.summary.suggest}</span>
+            </div>
+            <div style="margin-bottom:8px;">
+                <button class="ant-btn ant-btn-primary" style="height:28px;line-height:26px;padding:0 10px;font-size:12px;"
+                    onclick="createBulkPurchaseFromRestockRecommendations()">
+                    一键生成建议补货待付采购单
+                </button>
             </div>
             ${rowsHtml || '<div style="font-size:12px;color:#8c8c8c;">当前暂无补货建议</div>'}
         </div>
@@ -5496,7 +5721,7 @@ async function renderDashboardInventoryCapital() {
     const rows = products.map(product => {
         const productId = String(product?.id || '');
         const stock = Math.max(Number(product?.stock_quantity ?? product?.stock ?? 0), 0);
-        const unitCost = Math.max(Number(product?.cost_price ?? 0), 0);
+        const unitCost = Math.max(Number(product?.cost ?? product?.cost_price ?? 0), 0);
         const stockValue = stock * unitCost;
         const soldQty30 = Math.max(Number(soldQtyMap.get(productId) || 0), 0);
         const avgDailySales = soldQty30 > 0 ? (soldQty30 / 30) : 0;

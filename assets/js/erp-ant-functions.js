@@ -1559,13 +1559,114 @@ async function deleteOrder(orderId) {
     }
 }
 
-function searchOrders() {
-    const keyword = document.getElementById('orderSearch').value.toLowerCase();
-    const filtered = ERP.state.orders.filter(order => {
-        const customer = ERP.state.customers.find(c => c.id === order.customer_id);
-        return order.order_number.toLowerCase().includes(keyword) ||
-            (customer && customer.name.toLowerCase().includes(keyword));
+function getOrderSearchKeyword() {
+    const keywordInput = document.getElementById('orderSearch');
+    return String(keywordInput?.value || '').trim().toLowerCase();
+}
+
+function getOrderStatusFilterValue() {
+    const statusSelect = document.getElementById('orderStatusFilter');
+    return String(statusSelect?.value || 'all').trim().toLowerCase();
+}
+
+function filterOrdersBySearchAndStatus(orders) {
+    const keyword = getOrderSearchKeyword();
+    const statusFilter = getOrderStatusFilterValue();
+    const customers = Array.isArray(ERP.state?.customers) ? ERP.state.customers : [];
+
+    return (Array.isArray(orders) ? orders : []).filter(order => {
+        const orderNumber = String(order?.order_number || `订单#${order?.id || ''}`).toLowerCase();
+        const customer = customers.find(item => isSameEntityId(item?.id, order?.customer_id));
+        const customerName = String(customer?.name || order?.customer_name || '').toLowerCase();
+        const normalizedStatus = normalizeOrderStatusValue(order?.status || 'pending');
+
+        const matchKeyword = !keyword
+            || orderNumber.includes(keyword)
+            || customerName.includes(keyword);
+        const matchStatus = statusFilter === 'all' || normalizedStatus === statusFilter;
+
+        return matchKeyword && matchStatus;
     });
+}
+
+async function updateOrderStatusByAction(orderId, targetStatus, actionLabel = '状态更新') {
+    const normalizedOrderId = normalizeEntityId(orderId);
+    if (normalizedOrderId === null) {
+        if (typeof showToast === 'function') {
+            showToast('订单标识无效，无法更新状态', 'error');
+        }
+        return;
+    }
+
+    const order = (ERP.state.orders || []).find(item => isSameEntityId(item?.id, normalizedOrderId));
+    const orderNumber = order?.order_number || `订单#${normalizedOrderId}`;
+    const fromText = getOrderStatusText(order?.status || 'pending');
+    const toText = getOrderStatusText(targetStatus);
+
+    if (!confirm(`确认执行【${actionLabel}】？\n订单：${orderNumber}\n状态：${fromText} → ${toText}`)) {
+        return;
+    }
+
+    try {
+        const updated = await ERP.updateOrderStatus(normalizedOrderId, targetStatus);
+        if (!updated) {
+            throw new Error('状态更新未生效');
+        }
+
+        await Promise.all([
+            ERP.loadOrders(true),
+            ERP.loadFinances(true)
+        ]);
+
+        searchOrders();
+        if (typeof renderFinances === 'function') {
+            renderFinances(ERP.state.finances);
+        }
+        updateStatistics();
+    } catch (error) {
+        console.error('[ERP Ant] 订单审批操作失败:', error);
+        if (typeof showToast === 'function') {
+            showToast(`${actionLabel}失败：${error?.message || '未知错误'}`, 'error');
+        }
+    }
+}
+
+function getOrderQuickActions(order) {
+    const status = normalizeOrderStatusValue(order?.status || 'pending');
+    const orderIdLiteral = JSON.stringify(order?.id);
+    const buttons = [];
+
+    if (status === 'pending') {
+        buttons.push(
+            `<button class="ant-btn" onclick="updateOrderStatusByAction(${orderIdLiteral}, 'confirmed', '订单审批通过')" style="color:#1890ff; border-color:#91d5ff;">审批通过</button>`,
+            `<button class="ant-btn" onclick="updateOrderStatusByAction(${orderIdLiteral}, 'cancelled', '订单审批驳回')" style="color:#cf1322; border-color:#ffccc7;">驳回</button>`
+        );
+    }
+
+    if (status === 'shipped' || status === 'signed') {
+        buttons.push(
+            `<button class="ant-btn" onclick="updateOrderStatusByAction(${orderIdLiteral}, 'refunded', '退款审批')" style="color:#722ed1; border-color:#d3adf7;">退款审批</button>`
+        );
+    }
+
+    return buttons.join('');
+}
+
+function resetOrderFilters() {
+    const keywordInput = document.getElementById('orderSearch');
+    const statusSelect = document.getElementById('orderStatusFilter');
+    if (keywordInput) {
+        keywordInput.value = '';
+    }
+    if (statusSelect) {
+        statusSelect.value = 'all';
+    }
+    searchOrders();
+}
+
+function searchOrders() {
+    const sourceOrders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
+    const filtered = filterOrdersBySearchAndStatus(sourceOrders);
     renderOrders(filtered);
 }
 

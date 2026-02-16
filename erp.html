@@ -392,6 +392,23 @@
                                         <input type="text" id="orderSearch" class="ant-input" placeholder="订单号/客户名"
                                             oninput="searchOrders()">
                                     </div>
+                                    <div class="search-item">
+                                        <label class="search-label">订单状态:</label>
+                                        <select id="orderStatusFilter" class="ant-select" onchange="searchOrders()">
+                                            <option value="all">全部状态</option>
+                                            <option value="pending">待审批</option>
+                                            <option value="confirmed">已确认</option>
+                                            <option value="shipped">已发货</option>
+                                            <option value="signed">已签收</option>
+                                            <option value="completed">已完成</option>
+                                            <option value="refunded">已退款</option>
+                                            <option value="cancelled">已取消</option>
+                                        </select>
+                                    </div>
+                                    <div class="search-item">
+                                        <button class="ant-btn ant-btn-primary" onclick="searchOrders()">查询</button>
+                                        <button class="ant-btn" onclick="resetOrderFilters()" style="margin-left:8px;">重置</button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -961,8 +978,8 @@
     <script src="assets/js/supabase.min.js"></script>
     <script src="assets/js/supabase-config.js?v=20260212-14"></script>
     <script src="assets/js/user-data.js?v=20260212-14"></script>
-    <script src="assets/js/erp.js?v=20260216-20"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260216-10"></script>
+    <script src="assets/js/erp.js?v=20260216-21"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260216-11"></script>
     <script src="assets/js/pwa-register.js?v=20260216-1" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->
@@ -1197,13 +1214,20 @@
                     <td>${customer ? customer.name : '-'}</td>
                     <td>${new Date(order.order_date).toLocaleDateString()}</td>
                     <td style="font-weight:500;">¥${parseFloat(order.total_amount).toFixed(2)}</td>
-                    <td>${getOrderStatusText(order.status)}</td>
+                    <td>
+                        <span style="display:inline-flex;align-items:center;padding:2px 10px;border-radius:999px;font-size:12px;color:${getOrderStatusColor(order.status)};background:${getOrderStatusBg(order.status)};border:1px solid ${getOrderStatusBorder(order.status)};">
+                            ${getOrderStatusText(order.status)}
+                        </span>
+                    </td>
                     <td>${getPaymentStatusText(order.payment_status)}</td>
                     <td>${getShippingStatusText(order.shipping_status)}</td>
                     <td>${shippingInfo.length > 0 ? shippingInfo.join('<br>') : '-'}</td>
                     <td>
-                        <button class="ant-btn" onclick='editOrder(${JSON.stringify(order.id)})'>详情</button>
-                        <button class="ant-btn" onclick='deleteOrder(${JSON.stringify(order.id)})' style="color:#ff4d4f; border-color:#ff4d4f; margin-left:8px;">删除</button>
+                        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                            <button class="ant-btn" onclick='editOrder(${JSON.stringify(order.id)})'>详情</button>
+                            ${typeof getOrderQuickActions === 'function' ? getOrderQuickActions(order) : ''}
+                            <button class="ant-btn" onclick='deleteOrder(${JSON.stringify(order.id)})' style="color:#ff4d4f; border-color:#ff4d4f;">删除</button>
+                        </div>
                     </td>
                 </tr>
             `}).join('');

@@ -101,6 +101,55 @@ const ERP = {
         return String(left) === String(right);
     },
 
+    getConfiguredAdminEmails() {
+        const values = [];
+        const append = (source) => {
+            if (!source) return;
+            if (Array.isArray(source)) {
+                source.forEach(item => append(item));
+                return;
+            }
+            if (typeof source === 'string') {
+                source
+                    .split(/[\n,;，；\s]+/)
+                    .map(item => String(item || '').trim().toLowerCase())
+                    .filter(Boolean)
+                    .forEach(item => values.push(item));
+                return;
+            }
+            if (typeof source === 'object') {
+                append(source.erpAdminEmails);
+                append(source.adminEmails);
+            }
+        };
+
+        append(typeof window !== 'undefined' ? window.ERP_ADMIN_EMAILS : null);
+        append(userData?.config?.erpAdminEmails);
+        append(userData?.config?.adminEmails);
+
+        try {
+            if (typeof localStorage !== 'undefined') {
+                append(localStorage.getItem('erp_admin_emails'));
+            }
+        } catch (error) {
+            console.warn('[ERP] 读取管理员配置失败:', error?.message || error);
+        }
+
+        return Array.from(new Set(values));
+    },
+
+    isCurrentUserAdmin() {
+        const email = String(userData?.user?.email || '').trim().toLowerCase();
+        const adminEmails = this.getConfiguredAdminEmails();
+        if (!adminEmails.length) {
+            return true;
+        }
+        if (!email) {
+            return false;
+        }
+        return adminEmails.includes(email);
+    },
+
     sanitizeAuditData(value) {
         try {
             if (value === null || value === undefined) {
@@ -1665,6 +1714,15 @@ const ERP = {
         return segments.join('|');
     },
 
+    extractPurchaseOrderNoFromText(text = '') {
+        const source = String(text || '');
+        const match = source.match(/采购单号[:=]\s*([^\s，,;；|]+)/);
+        if (!match) {
+            return '';
+        }
+        return String(match[1] || '').trim();
+    },
+
     normalizePurchaseApprovalStatus(value = '') {
         const text = String(value || '').trim().toLowerCase();
         if (text === 'pending') return 'pending';
@@ -1765,6 +1823,52 @@ const ERP = {
         }
 
         return changedCount;
+    },
+
+    async getPurchaseApprovalMetaByOrderNo(purchaseOrderNo = '') {
+        const safeOrderNo = String(purchaseOrderNo || '').trim();
+        if (!safeOrderNo) {
+            return null;
+        }
+
+        const { data, error } = await supabaseClient
+            .from('erp_inventory_logs')
+            .select('id, user_id, type, notes, created_at')
+            .eq('user_id', userData.user.id)
+            .eq('type', 'purchase')
+            .ilike('notes', `%采购单号=${safeOrderNo}%`)
+            .order('created_at', { ascending: false })
+            .limit(20);
+
+        if (error) {
+            throw error;
+        }
+
+        const rows = Array.isArray(data) ? data : [];
+        if (!rows.length) {
+            return null;
+        }
+
+        const pickTs = (row) => {
+            const meta = this.parsePurchaseMetaFromNotes(row?.notes || '');
+            const text = String(meta['审批时间'] || row?.created_at || '').trim();
+            const date = new Date(text);
+            return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+        };
+
+        rows.sort((left, right) => pickTs(right) - pickTs(left));
+        const target = rows[0];
+        const meta = this.parsePurchaseMetaFromNotes(target?.notes || '');
+        return {
+            logId: target?.id || null,
+            approvalStatus: this.normalizePurchaseApprovalStatus(meta['审批'] || 'approved'),
+            approvalOperator: String(meta['审批人'] || '').trim(),
+            approvalTime: String(meta['审批时间'] || '').trim(),
+            approvalNote: String(meta['审批备注'] || '').trim(),
+            rollbackStatus: String(meta['冲销状态'] || '').trim(),
+            rollbackTime: String(meta['冲销时间'] || '').trim(),
+            rollbackNote: String(meta['冲销备注'] || '').trim()
+        };
     },
 
     async releaseOrderLockedInventory(orderId, items = [], reason = '订单状态回补库存', releaseType = 'order_release') {
@@ -2340,6 +2444,10 @@ const ERP = {
 
     async updatePurchaseApproval(logId, approvalStatus = 'approved', approvalNote = '') {
         try {
+            if (!this.isCurrentUserAdmin()) {
+                throw new Error('仅管理员可以执行采购审批');
+            }
+
             const safeStatus = this.normalizePurchaseApprovalStatus(approvalStatus);
             if (!['pending', 'approved', 'rejected'].includes(safeStatus)) {
                 throw new Error('审批状态无效');
@@ -2767,6 +2875,18 @@ const ERP = {
                 throw new Error('该记录不是应付账款，无法结清');
             }
 
+            const beforeDescription = String(before.description || '').trim();
+            if (beforeDescription.includes('已驳回冲销')) {
+                throw new Error('该应付记录对应采购已驳回冲销，禁止结清');
+            }
+            const purchaseOrderNo = this.extractPurchaseOrderNoFromText(beforeDescription);
+            if (purchaseOrderNo) {
+                const approvalMeta = await this.getPurchaseApprovalMetaByOrderNo(purchaseOrderNo);
+                if (approvalMeta && String(approvalMeta.approvalStatus || '').toLowerCase() === 'rejected') {
+                    throw new Error(`采购单 ${purchaseOrderNo} 已驳回，禁止结清应付`);
+                }
+            }
+
             const settleDate = options?.settleDate || new Date().toISOString();
             const settleNote = String(options?.note || '').trim();
             const payableAmount = Math.abs(parseFloat(before.amount) || 0);
@@ -2775,7 +2895,6 @@ const ERP = {
                 ? Math.min(requestedPaidAmount, payableAmount)
                 : payableAmount;
             const remainingAmount = Math.max(payableAmount - settleAmount, 0);
-            const beforeDescription = String(before.description || '').trim();
             if (settleAmount <= 0) {
                 throw new Error('本次付款金额必须大于 0');
             }

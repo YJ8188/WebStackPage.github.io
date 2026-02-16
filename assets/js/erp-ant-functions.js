@@ -3197,6 +3197,7 @@ function renderPurchaseRecords(records = []) {
 
     const products = Array.isArray(ERP.state?.products) ? ERP.state.products : [];
     const productMap = new Map(products.map(item => [String(item?.id), item]));
+    const canApprovePurchase = isCurrentUserPurchaseApprover();
 
     tbody.innerHTML = rows.map(record => {
         const meta = parsePurchaseMetaFromNotes(record?.notes);
@@ -3233,16 +3234,20 @@ function renderPurchaseRecords(records = []) {
             rollbackNote ? `冲销备注：${rollbackNote}` : ''
         ].filter(Boolean).join('\n');
         const approvalActions = approvalStatus === 'pending'
-            ? `
-                <button class="ant-btn" style="height:24px;line-height:22px;padding:0 8px;font-size:12px;color:#237804;border-color:#b7eb8f;margin-right:6px;"
-                    onclick='setPurchaseApprovalStatus(${JSON.stringify(record?.id)}, "approved")'>通过</button>
-                <button class="ant-btn" style="height:24px;line-height:22px;padding:0 8px;font-size:12px;color:#cf1322;border-color:#ffa39e;"
-                    onclick='setPurchaseApprovalStatus(${JSON.stringify(record?.id)}, "rejected")'>驳回</button>
-            `
-            : `
-                <button class="ant-btn" style="height:24px;line-height:22px;padding:0 8px;font-size:12px;color:#d46b08;border-color:#ffd591;"
-                    onclick='setPurchaseApprovalStatus(${JSON.stringify(record?.id)}, "pending")'>改待审</button>
-            `;
+            ? (canApprovePurchase
+                ? `
+                    <button class="ant-btn" style="height:24px;line-height:22px;padding:0 8px;font-size:12px;color:#237804;border-color:#b7eb8f;margin-right:6px;"
+                        onclick='setPurchaseApprovalStatus(${JSON.stringify(record?.id)}, "approved")'>通过</button>
+                    <button class="ant-btn" style="height:24px;line-height:22px;padding:0 8px;font-size:12px;color:#cf1322;border-color:#ffa39e;"
+                        onclick='setPurchaseApprovalStatus(${JSON.stringify(record?.id)}, "rejected")'>驳回</button>
+                `
+                : `<span style="font-size:12px;color:#8c8c8c;">仅管理员可审批</span>`)
+            : (canApprovePurchase
+                ? `
+                    <button class="ant-btn" style="height:24px;line-height:22px;padding:0 8px;font-size:12px;color:#d46b08;border-color:#ffd591;"
+                        onclick='setPurchaseApprovalStatus(${JSON.stringify(record?.id)}, "pending")'>改待审</button>
+                `
+                : `<span style="font-size:12px;color:#8c8c8c;">仅管理员可改审</span>`);
         const extraAction = `
             <button class="ant-btn" style="height:24px;line-height:22px;padding:0 8px;font-size:12px;color:#531dab;border-color:#d3adf7;margin-top:4px;"
                 onclick='showPurchaseApprovalLog(${JSON.stringify(record?.id)})'>日志</button>
@@ -3273,6 +3278,10 @@ function renderPurchaseRecords(records = []) {
 async function setPurchaseApprovalStatus(logId, approvalStatus = 'approved') {
     if (!window.ERP || typeof ERP.updatePurchaseApproval !== 'function') {
         alert('当前版本不支持采购审批，请刷新后重试');
+        return;
+    }
+    if (!isCurrentUserPurchaseApprover()) {
+        alert('仅管理员可以执行采购审批');
         return;
     }
 
@@ -4957,6 +4966,18 @@ function formatPurchaseApprovalStatus(status) {
     if (safeStatus === 'pending') return '待审批';
     if (safeStatus === 'rejected') return '已驳回';
     return '已通过';
+}
+
+function isCurrentUserPurchaseApprover() {
+    if (!window.ERP || typeof ERP.isCurrentUserAdmin !== 'function') {
+        return true;
+    }
+    try {
+        return !!ERP.isCurrentUserAdmin();
+    } catch (error) {
+        console.error('[ERP] 审批权限检查失败:', error?.message || error);
+        return false;
+    }
 }
 
 function parsePurchaseApprovalHistory(raw = '') {
@@ -6938,6 +6959,22 @@ async function markPayableAsPaid(financeId) {
         return;
     }
 
+    const description = String(current?.description || '');
+    if (description.includes('已驳回冲销')) {
+        alert('该应付记录对应采购已驳回冲销，禁止结清');
+        return;
+    }
+    if (typeof ERP.extractPurchaseOrderNoFromText === 'function' && typeof ERP.getPurchaseApprovalMetaByOrderNo === 'function') {
+        const purchaseOrderNo = ERP.extractPurchaseOrderNoFromText(description);
+        if (purchaseOrderNo) {
+            const approvalMeta = await ERP.getPurchaseApprovalMetaByOrderNo(purchaseOrderNo);
+            if (approvalMeta && String(approvalMeta.approvalStatus || '').toLowerCase() === 'rejected') {
+                alert(`采购单 ${purchaseOrderNo} 已驳回，禁止结清应付`);
+                return;
+            }
+        }
+    }
+
     const amount = Math.abs(Number(current?.amount || 0));
     const amountInput = prompt(`请输入本次付款金额（最多 ${amount.toFixed(2)}）`, amount.toFixed(2));
     if (amountInput === null) {
@@ -6984,7 +7021,12 @@ function getFinanceActionButtons(finance) {
     }
 
     if (isPayableFinanceRecord(finance)) {
-        buttons.push(`<button class="ant-btn" onclick='markPayableAsPaid(${JSON.stringify(finance?.id)})' style="color:#237804; border-color:#b7eb8f; margin-right:8px;">结清</button>`);
+        const blockedByRejected = String(finance?.description || '').includes('已驳回冲销');
+        if (blockedByRejected) {
+            buttons.push(`<button class="ant-btn" disabled style="color:#8c8c8c;border-color:#d9d9d9;margin-right:8px;cursor:not-allowed;">已驳回</button>`);
+        } else {
+            buttons.push(`<button class="ant-btn" onclick='markPayableAsPaid(${JSON.stringify(finance?.id)})' style="color:#237804; border-color:#b7eb8f; margin-right:8px;">结清</button>`);
+        }
         buttons.push(`<button class="ant-btn" onclick='showPayablePaymentHistory(${JSON.stringify(financeId)})' style="color:#531dab; border-color:#d3adf7; margin-right:8px;">付款记录</button>`);
     }
 

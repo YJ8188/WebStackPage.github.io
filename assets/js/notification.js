@@ -13,6 +13,7 @@ let dateTimeTimer = null; // 日期时间定时器
 let notificationEventsBound = false; // 通知中心事件是否已绑定
 const REMINDER_KEY_LEGACY = 'reminders';
 const REMINDER_KEY_GUEST = 'reminders_guest_v1';
+let notificationTimersSuspended = false;
 
 function getReminderStorageKey() {
     if (userData?.isLoggedIn && userData?.user?.id) {
@@ -139,10 +140,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     updateReminderList();
     startReminderCheck();
 
-    if (!dateTimeTimer) {
-        updateDateTime();
-        dateTimeTimer = setInterval(updateDateTime, 1000);
-    }
+    startDateTimeTicker();
 
     initNotificationCenterEvents();
     
@@ -156,6 +154,30 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
         }
     }
+});
+
+document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'hidden') {
+        notificationTimersSuspended = true;
+        stopReminderCheck();
+        stopDateTimeTicker();
+        return;
+    }
+
+    if (notificationTimersSuspended) {
+        notificationTimersSuspended = false;
+        runReminderCheckTick();
+        startReminderCheck();
+        startDateTimeTicker();
+        if (isNotificationPanelVisible()) {
+            updateReminderList();
+        }
+    }
+});
+
+window.addEventListener('beforeunload', function() {
+    stopReminderCheck();
+    stopDateTimeTicker();
 });
 
 // 监听用户数据加载完成事件
@@ -194,6 +216,22 @@ function updateDateTime() {
 
         timeElement.textContent = `${hours}:${minutes}:${seconds}`;
     }
+}
+
+function startDateTimeTicker() {
+    if (dateTimeTimer) {
+        return;
+    }
+    updateDateTime();
+    dateTimeTimer = setInterval(updateDateTime, 1000);
+}
+
+function stopDateTimeTicker() {
+    if (!dateTimeTimer) {
+        return;
+    }
+    clearInterval(dateTimeTimer);
+    dateTimeTimer = null;
 }
 
 // ==================== 切换通知中心面板 ====================
@@ -469,68 +507,77 @@ function getRepeatText(repeat) {
 
 // ==================== 开始检查提醒 ====================
 function startReminderCheck() {
-    if (checkInterval) {
-        clearInterval(checkInterval);
+    if (checkInterval || document.visibilityState === 'hidden') {
+        return;
     }
+
+    runReminderCheckTick();
 
     // 每秒检查一次
     checkInterval = setInterval(() => {
-        const now = new Date().getTime();
-        let dataChanged = false;
-
-        reminders.forEach(reminder => {
-            if (!reminder.active) return;
-
-            let shouldTrigger = false;
-
-            switch (reminder.type) {
-                case 'countdown':
-                case 'event':
-                    if (now >= reminder.endTime) {
-                        shouldTrigger = true;
-                    }
-                    break;
-
-                case 'schedule':
-                    if (reminder.nextTrigger && now >= reminder.nextTrigger) {
-                        shouldTrigger = true;
-                        // 计算下一次触发时间
-                        reminder.nextTrigger = calculateNextScheduleTrigger(reminder.time, reminder.repeat);
-                        if (!reminder.nextTrigger && reminder.repeat === 'once') {
-                            reminder.active = false;
-                        }
-                        dataChanged = true;
-                    }
-                    break;
-
-                case 'repeat':
-                    if (reminder.nextTrigger && now >= reminder.nextTrigger) {
-                        shouldTrigger = true;
-                        // 计算下一次触发时间
-                        reminder.nextTrigger = calculateNextRepeatTrigger(reminder.startDay, reminder.endDay);
-                        dataChanged = true;
-                    }
-                    break;
-            }
-
-            if (shouldTrigger) {
-                triggerReminder(reminder);
-                dataChanged = true;
-            }
-        });
-
-        // 只在数据改变时保存
-        if (dataChanged) {
-            saveReminders();
-            updateBadge();
-        }
-
-        // 仅在通知面板打开时，每秒刷新倒计时文本
-        if (isNotificationPanelVisible()) {
-            updateReminderList();
-        }
-
+        runReminderCheckTick();
     }, 1000);
+}
+
+function stopReminderCheck() {
+    if (!checkInterval) {
+        return;
+    }
+    clearInterval(checkInterval);
+    checkInterval = null;
+}
+
+function runReminderCheckTick() {
+    const now = new Date().getTime();
+    let dataChanged = false;
+
+    reminders.forEach(reminder => {
+        if (!reminder.active) return;
+
+        let shouldTrigger = false;
+
+        switch (reminder.type) {
+            case 'countdown':
+            case 'event':
+                if (now >= reminder.endTime) {
+                    shouldTrigger = true;
+                }
+                break;
+
+            case 'schedule':
+                if (reminder.nextTrigger && now >= reminder.nextTrigger) {
+                    shouldTrigger = true;
+                    reminder.nextTrigger = calculateNextScheduleTrigger(reminder.time, reminder.repeat);
+                    if (!reminder.nextTrigger && reminder.repeat === 'once') {
+                        reminder.active = false;
+                    }
+                    dataChanged = true;
+                }
+                break;
+
+            case 'repeat':
+                if (reminder.nextTrigger && now >= reminder.nextTrigger) {
+                    shouldTrigger = true;
+                    reminder.nextTrigger = calculateNextRepeatTrigger(reminder.startDay, reminder.endDay);
+                    dataChanged = true;
+                }
+                break;
+        }
+
+        if (shouldTrigger) {
+            triggerReminder(reminder);
+            dataChanged = true;
+        }
+    });
+
+    if (dataChanged) {
+        saveReminders();
+        updateBadge();
+    }
+
+    if (isNotificationPanelVisible()) {
+        updateReminderList();
+    }
 }
 
 // ==================== 触发提醒 ====================

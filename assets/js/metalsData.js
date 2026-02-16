@@ -19,9 +19,17 @@ var MetalsData = {
     nextRefreshTime: 0,       // 下次刷新时间
     isRefreshing: false,      // 是否正在刷新
     cachedData: null,         // 缓存的数据
+    initialized: false,       // 是否已初始化
+    themeObserver: null,      // 主题监听器
+    mediaThemeQuery: null,    // 系统主题监听
+    mediaThemeHandler: null,  // 系统主题回调
 
     // 初始化数据
     init: function() {
+        if (this.initialized) {
+            return;
+        }
+        this.initialized = true;
         console.log('%c[金价行情] 初始化数据模块', 'color: #10b981; font-weight: bold;');
         this.fetchGoldPrice();
         this.startAutoRefresh();
@@ -32,6 +40,9 @@ var MetalsData = {
     // 启动自动刷新
     startAutoRefresh: function() {
         var self = this;
+        if (document.visibilityState === 'hidden') {
+            return;
+        }
         if (this.refreshTimer) {
             clearInterval(this.refreshTimer);
         }
@@ -45,12 +56,23 @@ var MetalsData = {
     // 启动倒计时显示
     startCountdown: function() {
         var self = this;
+        if (document.visibilityState === 'hidden') {
+            return;
+        }
         if (this.countdownTimer) {
             clearInterval(this.countdownTimer);
         }
         this.countdownTimer = setInterval(function() {
             self.updateCountdownDisplay();
         }, 1000);
+    },
+
+    // 停止倒计时显示
+    stopCountdown: function() {
+        if (this.countdownTimer) {
+            clearInterval(this.countdownTimer);
+            this.countdownTimer = null;
+        }
     },
 
     // 更新倒计时显示
@@ -85,21 +107,43 @@ var MetalsData = {
                      window.matchMedia('(prefers-color-scheme: dark)').matches;
 
         // 监听主题变化
-        var observer = new MutationObserver(function(mutations) {
+        if (this.themeObserver) {
+            this.themeObserver.disconnect();
+            this.themeObserver = null;
+        }
+
+        this.themeObserver = new MutationObserver(function(mutations) {
             mutations.forEach(function(mutation) {
                 if (mutation.attributeName === 'class' || mutation.attributeName === 'data-theme') {
                     MetalsData.applyDarkMode();
                 }
             });
         });
-        observer.observe(body, { attributes: true });
+        this.themeObserver.observe(body, { attributes: true });
 
         // 监听系统主题变化
-        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function() {
+        if (this.mediaThemeQuery && this.mediaThemeHandler) {
+            this.mediaThemeQuery.removeEventListener('change', this.mediaThemeHandler);
+        }
+        this.mediaThemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        this.mediaThemeHandler = function() {
             MetalsData.applyDarkMode();
-        });
+        };
+        this.mediaThemeQuery.addEventListener('change', this.mediaThemeHandler);
 
         this.applyDarkMode();
+    },
+
+    destroyThemeWatchers: function() {
+        if (this.themeObserver) {
+            this.themeObserver.disconnect();
+            this.themeObserver = null;
+        }
+
+        if (this.mediaThemeQuery && this.mediaThemeHandler) {
+            this.mediaThemeQuery.removeEventListener('change', this.mediaThemeHandler);
+            this.mediaThemeHandler = null;
+        }
     },
 
     // 应用黑暗模式样式
@@ -1033,14 +1077,18 @@ document.addEventListener('visibilitychange', function() {
     if (document.visibilityState === 'visible') {
         console.log('%c[金价行情] 页面可见，恢复自动刷新', 'color: #10b981;');
         MetalsData.startAutoRefresh();
+        MetalsData.startCountdown();
         MetalsData.fetchGoldPrice();
     } else if (document.visibilityState === 'hidden') {
         console.log('%c[金价行情] 页面隐藏，暂停自动刷新', 'color: #f59e0b;');
         MetalsData.stopAutoRefresh();
+        MetalsData.stopCountdown();
     }
 });
 
 // 页面卸载时停止刷新
 window.addEventListener('beforeunload', function() {
     MetalsData.stopAutoRefresh();
+    MetalsData.stopCountdown();
+    MetalsData.destroyThemeWatchers();
 });

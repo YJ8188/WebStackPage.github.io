@@ -92,9 +92,11 @@ let cryptoData = []; // 加密货币数据数组
 let USD_CNY_RATE = 7.25; // 美元兑人民币汇率（默认值7.25，实时获取后会更新）
 let lastRateUpdate = 0; // 上次汇率更新时间
 let lastLocalStorageUpdate = 0; // 上次localStorage更新时间
+let cryptoRateSyncInterval = null; // 汇率同步定时器
 const LOCAL_STORAGE_UPDATE_INTERVAL = 10000; // localStorage更新间隔：10秒
 const MAX_DISPLAY_COINS = 80; // 页面最大渲染币种数量，防止DOM过载
 const MAX_SPARKLINE_COINS = 16; // 仅为前N个币种加载7日曲线，减少并发请求
+let cryptoPageVisible = document.visibilityState !== 'hidden'; // 页面是否可见
 
 // ==================== 缓存相关常量 ====================
 const CRYPTO_CACHE_KEY = 'crypto_data_cache'; // 币种数据缓存键名（已弃用，改用服务器缓存）
@@ -983,6 +985,10 @@ let lastUIUpdateTime = 0;
 const UI_UPDATE_THROTTLE = 350; // UI更新节流间隔：350ms，降低主线程压力
 
 function throttledUpdateUI(data) {
+    if (!cryptoPageVisible) {
+        return;
+    }
+
     const now = Date.now();
     if (now - lastUIUpdateTime >= UI_UPDATE_THROTTLE) {
         lastUIUpdateTime = now;
@@ -2926,7 +2932,10 @@ async function initCryptoModule() {
     }, 2500);
 
     // 实时更新汇率显示（每30秒，只在页面可见时刷新）
-    setInterval(() => {
+    if (cryptoRateSyncInterval) {
+        clearInterval(cryptoRateSyncInterval);
+    }
+    cryptoRateSyncInterval = setInterval(() => {
         if (!document.hidden) {
             syncRate();
         }
@@ -2943,6 +2952,34 @@ async function initCryptoModule() {
         }
     }, 3000);
 }
+
+document.addEventListener('visibilitychange', () => {
+    cryptoPageVisible = document.visibilityState !== 'hidden';
+
+    if (cryptoPageVisible) {
+        if (binanceMarketData.length > 0) {
+            throttledUpdateUI(binanceMarketData);
+        }
+        return;
+    }
+});
+
+window.addEventListener('beforeunload', () => {
+    if (cryptoRateSyncInterval) {
+        clearInterval(cryptoRateSyncInterval);
+        cryptoRateSyncInterval = null;
+    }
+
+    stopHeartbeat();
+
+    if (binanceWS && binanceWS.readyState === WebSocket.OPEN) {
+        try {
+            binanceWS.close(1000, 'page-unload');
+        } catch (error) {
+            Logger.warn('[币安API] 页面卸载时关闭连接失败:', error?.message || error);
+        }
+    }
+});
 
 /**
  * 绑定事件监听器（独立函数，延迟执行）

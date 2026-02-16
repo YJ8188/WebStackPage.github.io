@@ -27,14 +27,18 @@
 │   ├── js/
 │   └── images/
 └── tools/
-    └── card-manager/
-        ├── dist/
-        │   ├── WebStackERP.exe
-        │   └── WebStackManager.exe
-        ├── build_exe.bat
-        ├── build_erp_exe.bat
-        ├── card_manager.py
-        └── webstack_erp_desktop.py
+    ├── card-manager/
+    │   ├── dist/
+    │   │   ├── WebStackERP.exe
+    │   │   └── WebStackManager.exe
+    │   ├── build_exe.bat
+    │   ├── build_erp_exe.bat
+    │   ├── card_manager.py
+    │   └── webstack_erp_desktop.py
+    └── erp-native/
+        ├── app.py
+        ├── supabase_native.py
+        └── build_erp_native_exe.bat
 ```
 
 ## 桌面工具（当前保留）
@@ -46,6 +50,10 @@
 ### `WebStackERP.exe`
 - 用途：ERP 桌面端入口（封装现有 ERP 页面与登录流程）
 - 位置：`tools/card-manager/dist/WebStackERP.exe`
+
+### `WebStackERPNative.exe`（原生体验版）
+- 用途：原生 UI（Tkinter）ERP 客户端，直接读写 Supabase 数据
+- 源码目录：`tools/erp-native/`
 
 ## 开发与打包
 

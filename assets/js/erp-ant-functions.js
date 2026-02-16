@@ -149,11 +149,9 @@ async function checkLoginStatus() {
                     userData.isLoggedIn = true;
                     userData.user = session.user;
                     if (typeof userData.loadConfig === 'function') {
-                        try {
-                            await userData.loadConfig(true);
-                        } catch (loadConfigError) {
+                        userData.loadConfig(true).catch(loadConfigError => {
                             console.error('[ERP Ant] 会话恢复后加载用户配置失败:', loadConfigError);
-                        }
+                        });
                     }
                 }
                 showERPContent();

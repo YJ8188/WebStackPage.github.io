@@ -18,7 +18,9 @@
 
     <script>
         (function () {
-            const debugEnabled = localStorage.getItem('debugMode') === '1';
+            const host = String(window.location.hostname || '').toLowerCase();
+            const isLocalHost = host === 'localhost' || host === '127.0.0.1';
+            const debugEnabled = localStorage.getItem('debugMode') === '1' && isLocalHost;
             window.__DEBUG_MODE__ = debugEnabled;
 
             if (!debugEnabled && typeof console !== 'undefined') {

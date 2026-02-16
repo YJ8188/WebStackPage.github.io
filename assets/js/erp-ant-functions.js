@@ -614,7 +614,9 @@ function updateStatistics(data) {
     renderFinanceCashflowOverview();
     renderFinanceRiskAlerts();
     renderDashboardBusinessCards();
+    renderDashboardSalesFunnel();
     renderDashboardCustomerInsights();
+    renderDashboardCustomerRiskAlerts();
     renderDashboardTopProducts();
 }
 
@@ -3323,6 +3325,100 @@ function renderDashboardBusinessCards() {
     `;
 }
 
+function buildSalesFunnelStats() {
+    const orders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
+    const normalizeStatus = value => String(value || '').trim().toLowerCase();
+    const validOrders = orders.filter(order => {
+        const status = normalizeStatus(order?.status);
+        return status !== 'cancelled' && status !== 'refunded';
+    });
+
+    const counters = {
+        pending: 0,
+        confirmed: 0,
+        transit: 0,
+        completed: 0
+    };
+
+    validOrders.forEach(order => {
+        const status = normalizeStatus(order?.status);
+        if (status === 'pending') {
+            counters.pending += 1;
+            return;
+        }
+        if (status === 'confirmed') {
+            counters.confirmed += 1;
+            return;
+        }
+        if (status === 'shipped' || status === 'signed') {
+            counters.transit += 1;
+            return;
+        }
+        if (status === 'completed') {
+            counters.completed += 1;
+        }
+    });
+
+    const total = validOrders.length;
+    const completedRate = total > 0 ? (counters.completed / total) : 0;
+    const pendingOver3Days = validOrders.filter(order => normalizeStatus(order?.status) === 'pending')
+        .filter(order => {
+            const days = getAgingDays(order?.order_date);
+            return Number.isFinite(days) && days > 3;
+        }).length;
+
+    return {
+        total,
+        pendingOver3Days,
+        completedRate,
+        steps: [
+            { key: 'pending', title: '待审批', count: counters.pending, color: '#722ed1', bg: '#f9f0ff' },
+            { key: 'confirmed', title: '待发货', count: counters.confirmed, color: '#1677ff', bg: '#f0f5ff' },
+            { key: 'transit', title: '在途/已签收', count: counters.transit, color: '#d46b08', bg: '#fff7e6' },
+            { key: 'completed', title: '已完成', count: counters.completed, color: '#237804', bg: '#f6ffed' }
+        ]
+    };
+}
+
+function renderDashboardSalesFunnel() {
+    const container = document.getElementById('dashboardSalesFunnel');
+    if (!container || !window.ERP) {
+        return;
+    }
+
+    const funnel = buildSalesFunnelStats();
+    const maxCount = Math.max(1, ...funnel.steps.map(step => step.count));
+    const barsHtml = funnel.steps.map(step => {
+        const widthPercent = Math.max(6, Math.round((step.count / maxCount) * 100));
+        const ratioText = funnel.total > 0 ? `${((step.count / funnel.total) * 100).toFixed(1)}%` : '0.0%';
+        return `
+            <div style="margin-bottom:8px;">
+                <div style="display:flex;justify-content:space-between;font-size:12px;color:#595959;">
+                    <span>${step.title}</span>
+                    <span>${step.count} 单（${ratioText}）</span>
+                </div>
+                <div style="height:10px;background:#f5f5f5;border-radius:999px;overflow:hidden;margin-top:4px;">
+                    <div style="height:10px;background:${step.color};width:${widthPercent}%;"></div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <div style="flex:1;min-width:320px;padding:12px 14px;border:1px solid #d9d9d9;border-radius:8px;background:#fff;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div style="font-size:14px;font-weight:600;color:#262626;">销售漏斗</div>
+                <div style="font-size:12px;color:#8c8c8c;">有效订单 ${funnel.total} 笔</div>
+            </div>
+            ${barsHtml || '<div style="font-size:12px;color:#8c8c8c;">暂无订单数据</div>'}
+            <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:8px;font-size:12px;">
+                <span class="ant-tag" style="margin:0;">完成率 ${(funnel.completedRate * 100).toFixed(1)}%</span>
+                <span class="ant-tag" style="margin:0;">超3天待审批 ${funnel.pendingOver3Days} 单</span>
+            </div>
+        </div>
+    `;
+}
+
 function calculateCustomerSegmentStats() {
     const orders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
     const customers = Array.isArray(ERP.state?.customers) ? ERP.state.customers : [];
@@ -3422,6 +3518,104 @@ function renderDashboardCustomerInsights() {
             </div>
             <div style="font-size:12px;color:#8c8c8c;margin-bottom:4px;">消费TOP客户</div>
             ${topCustomersHtml || '<div style="font-size:12px;color:#8c8c8c;">暂无客户成交数据</div>'}
+        </div>
+    `;
+}
+
+function calculateCustomerRiskAlerts(options = {}) {
+    const warningDays = Math.max(1, parseInt(options.warningDays ?? 30, 10));
+    const orders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
+    const customers = Array.isArray(ERP.state?.customers) ? ERP.state.customers : [];
+    const customerMap = new Map(customers.map(item => [String(item?.id), item]));
+    const profileMap = new Map();
+
+    orders.forEach(order => {
+        const status = String(order?.status || '').toLowerCase();
+        if (status === 'cancelled' || status === 'refunded') {
+            return;
+        }
+        const customerId = order?.customer_id;
+        if (customerId === null || customerId === undefined || String(customerId).trim() === '') {
+            return;
+        }
+        const key = String(customerId);
+        if (!profileMap.has(key)) {
+            const customer = customerMap.get(key) || null;
+            profileMap.set(key, {
+                customerId: key,
+                customerName: customer?.name || '-',
+                orderCount: 0,
+                amount: 0,
+                latestDate: null
+            });
+        }
+        const profile = profileMap.get(key);
+        profile.orderCount += 1;
+        profile.amount += Math.max(Number(order?.total_amount || 0), 0);
+        const date = parseFinanceDate(order?.order_date);
+        if (date && (!profile.latestDate || date.getTime() > profile.latestDate.getTime())) {
+            profile.latestDate = date;
+        }
+    });
+
+    const riskRows = Array.from(profileMap.values())
+        .map(item => {
+            const days = item.latestDate ? getAgingDays(item.latestDate.toISOString()) : null;
+            return {
+                ...item,
+                days
+            };
+        })
+        .filter(item => Number.isFinite(item.days) && item.days >= warningDays)
+        .sort((left, right) => {
+            const dayDiff = Number(right.days || 0) - Number(left.days || 0);
+            if (dayDiff !== 0) return dayDiff;
+            return Number(right.amount || 0) - Number(left.amount || 0);
+        });
+
+    const highValueRiskCount = riskRows.filter(item => Number(item.amount || 0) >= 10000).length;
+    const totalRiskAmount = riskRows.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+    return {
+        warningDays,
+        riskRows,
+        riskCount: riskRows.length,
+        highValueRiskCount,
+        totalRiskAmount
+    };
+}
+
+function renderDashboardCustomerRiskAlerts() {
+    const container = document.getElementById('dashboardCustomerRisk');
+    if (!container || !window.ERP) {
+        return;
+    }
+
+    const risk = calculateCustomerRiskAlerts({ warningDays: 30 });
+    const listHtml = risk.riskRows
+        .slice(0, 8)
+        .map(item => `
+            <div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed #f0f0f0;">
+                <div style="font-size:12px;color:#262626;">
+                    <div>${item.customerName}</div>
+                    <div style="color:#8c8c8c;">${item.days} 天未下单 / 历史 ${item.orderCount} 单</div>
+                </div>
+                <div style="font-size:12px;color:#cf1322;font-weight:600;">${formatCurrency(item.amount)}</div>
+            </div>
+        `)
+        .join('');
+
+    container.innerHTML = `
+        <div style="flex:1;min-width:320px;padding:12px 14px;border:1px solid #ffccc7;border-radius:8px;background:#fff1f0;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div style="font-size:14px;font-weight:600;color:#cf1322;">客户流失预警（${risk.warningDays}天）</div>
+                <div style="font-size:12px;color:#cf1322;">${risk.riskCount} 人</div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;margin-bottom:8px;">
+                <span class="ant-tag" style="margin:0;">高价值风险 ${risk.highValueRiskCount}</span>
+                <span class="ant-tag" style="margin:0;">风险历史销售 ${formatCurrency(risk.totalRiskAmount)}</span>
+            </div>
+            ${listHtml || '<div style="font-size:12px;color:#8c8c8c;">暂无流失风险客户</div>'}
         </div>
     `;
 }

@@ -18,6 +18,41 @@ function normalizeTrackingNumber(value: unknown): string {
   return String(value ?? "").trim().replace(/\s+/g, "");
 }
 
+function formatBeijingTime(value: unknown): string {
+  const text = String(value ?? "").trim();
+  if (!text) {
+    return "";
+  }
+
+  const date = new Date(text);
+  if (!Number.isFinite(date.getTime())) {
+    return text;
+  }
+
+  const parts = new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+
+  const get = (type: string) => parts.find((part) => part.type === type)?.value || "00";
+  return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}:${get("second")}`;
+}
+
+function getTimeScore(value: unknown): number {
+  const text = String(value ?? "").trim();
+  if (!text) {
+    return 0;
+  }
+  const ts = Date.parse(text);
+  return Number.isFinite(ts) ? ts : 0;
+}
+
 function isAlreadyRegisteredError(errorRecord: Record<string, unknown> | null): boolean {
   if (!errorRecord) {
     return false;
@@ -36,7 +71,14 @@ function isAlreadyRegisteredError(errorRecord: Record<string, unknown> | null): 
 }
 
 function statusToChinese(statusCode: string): string {
+  const normalized = String(statusCode || "").trim();
+  const baseCode = normalized.split("_")[0];
+
   const map: Record<string, string> = {
+    Delivered_Other: "已签收",
+    OutForDelivery_Other: "派送中",
+    InTransit_Other: "运输中",
+    NotFound_Other: "暂无轨迹",
     NotFound: "暂无轨迹",
     InfoReceived: "已下单",
     InTransit: "运输中",
@@ -47,7 +89,30 @@ function statusToChinese(statusCode: string): string {
     Expired: "已过期",
     Pending: "待处理",
   };
-  return map[statusCode] || statusCode || "状态未知";
+  return map[normalized] || map[baseCode] || normalized || "状态未知";
+}
+
+function providerToChinese(name: string): string {
+  const raw = String(name || "").trim();
+  const map: Record<string, string> = {
+    "STO Express": "申通快递",
+    "ZTO Express": "中通快递",
+    "YTO Express": "圆通速递",
+    "Yunda Express": "韵达速递",
+    "SF Express": "顺丰速运",
+    "JD Logistics": "京东物流",
+    "USPS": "USPS",
+  };
+  return map[raw] || raw || "17TRACK";
+}
+
+function cleanDescription(text: unknown): string {
+  return String(text ?? "")
+    .replace(/【物流问题无需找商家或平台[^】]*】/g, "")
+    .replace(/有事呼叫我[^。！!?]*[。！!?]?/g, "")
+    .replace(/若有延迟，请直接联系我们[:：]?\d{3,4}-\d{5,8}，?谢谢您的理解。?/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function normalizeTimeline(trackInfo: Record<string, unknown>): Array<Record<string, string>> {
@@ -62,32 +127,36 @@ function normalizeTimeline(trackInfo: Record<string, unknown>): Array<Record<str
   });
 
   const normalizeText = (value: unknown): string => String(value ?? "").trim();
-  const toTimestamp = (value: string): number => {
-    if (!value) {
-      return 0;
-    }
-    const ts = Date.parse(value);
-    return Number.isFinite(ts) ? ts : 0;
-  };
-
   const normalized = events.map((event) => {
-    const time = normalizeText(
-      event.time_utc ?? event.time_iso ?? event.time ?? event.created_at ?? event.date
+    const rawTime = normalizeText(
+      event.time_iso ?? event.time_utc ?? event.time ?? event.created_at ?? event.date
     );
-    const status = normalizeText(event.status ?? event.sub_status ?? event.event ?? "状态更新");
-    const description = normalizeText(
+    const rawStatus = normalizeText(
+      event.sub_status ?? event.status ?? event.stage ?? event.event ?? "状态更新"
+    );
+    const status = statusToChinese(rawStatus);
+    const description = cleanDescription(
       event.description ?? event.content ?? event.context ?? event.sub_status_descr
     );
     const location = normalizeText(
       event.location ??
         [event.city, event.state, event.country].filter(Boolean).join(" ")
     );
+    const timestampScore = getTimeScore(
+      event.time_iso ?? event.time_utc ?? event.time ?? event.created_at ?? event.date
+    );
+    const time = formatBeijingTime(rawTime);
 
-    return { time, status, description, location };
+    return { time, status, description, location, _score: String(timestampScore) };
   });
 
-  normalized.sort((left, right) => toTimestamp(right.time) - toTimestamp(left.time));
-  return normalized.slice(0, 40);
+  normalized.sort((left, right) => Number(right._score || "0") - Number(left._score || "0"));
+  return normalized.slice(0, 40).map((item) => ({
+    time: item.time,
+    status: item.status,
+    description: item.description,
+    location: item.location,
+  }));
 }
 
 async function call17Track(
@@ -180,16 +249,19 @@ serve(async (req) => {
     const timeline = normalizeTimeline(trackInfo);
     const latestStatusCode = String(latestStatus.status || "");
     const latestStatusText = statusToChinese(latestStatusCode);
+    const latestEventRawStatus = String(
+      latestEventRaw.sub_status ?? latestEventRaw.status ?? latestEventRaw.stage ?? latestStatusCode ?? ""
+    );
     const latestEvent = {
-      time: String(
+      time: formatBeijingTime(
         latestEventRaw.time_utc ??
           latestEventRaw.time_iso ??
           latestEventRaw.time ??
           latestEventRaw.date ??
           ""
       ),
-      status: String(latestEventRaw.status ?? latestEventRaw.sub_status ?? latestStatusCode ?? ""),
-      description: String(
+      status: statusToChinese(latestEventRawStatus),
+      description: cleanDescription(
         latestEventRaw.description ?? latestEventRaw.content ?? latestEventRaw.sub_status_descr ?? ""
       ),
       location: String(
@@ -203,7 +275,7 @@ serve(async (req) => {
       trackingNumber,
       shippingCompany,
       provider: "17TRACK",
-      providerName: String(firstProvider.name || "17TRACK"),
+      providerName: providerToChinese(String(firstProvider.name || "17TRACK")),
       carrier: first.carrier ?? null,
       latestStatusCode,
       latestStatusText,

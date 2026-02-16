@@ -895,6 +895,8 @@ function renderOrderLogisticsTimeline(events = []) {
             </div>
         `;
     }).join('');
+
+    timelineEl.scrollTop = 0;
 }
 
 function resetOrderLogisticsPanel() {

@@ -884,14 +884,16 @@ function renderOrderLogisticsTimeline(events = []) {
 
     timelineEl.innerHTML = events.map(event => {
         const timeText = escapeHtmlText(event?.time || '-');
-        const statusText = escapeHtmlText(event?.status || '状态更新');
-        const descText = escapeHtmlText(event?.description || '');
-        const locationText = escapeHtmlText(event?.location || '');
-        const pieces = [statusText, descText, locationText].filter(Boolean);
+        const rawDisplayText = String(event?.displayText || '').trim();
+        const statusText = String(event?.status || '').trim();
+        const descText = String(event?.description || '').trim();
+        const locationText = String(event?.location || '').trim();
+        const fallbackText = [statusText, descText, locationText].filter(Boolean).join(' ｜ ');
+        const displayText = escapeHtmlText(rawDisplayText || fallbackText || '状态更新');
         return `
             <div class="order-logistics-item">
                 <div class="order-logistics-time">${timeText}</div>
-                <div class="order-logistics-main">${pieces.join(' ｜ ') || '状态更新'}</div>
+                <div class="order-logistics-main">${displayText}</div>
             </div>
         `;
     }).join('');

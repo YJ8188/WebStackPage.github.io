@@ -652,6 +652,7 @@ function updateStatistics(data) {
     renderDashboardProcurementCycle();
     renderDashboardSupplierReconciliation();
     renderDashboardRestockRecommendations();
+    renderDashboardGrossMarginAlerts();
 }
 
 // ==================== 单位转换 ====================
@@ -3160,6 +3161,7 @@ function initFinanceFilters() {
     const startInput = document.getElementById('financeDateStart');
     const endInput = document.getElementById('financeDateEnd');
     const reportMonthInput = document.getElementById('financeReportMonth');
+    const dailyReportDateInput = document.getElementById('financeDailyReportDate');
 
     if (rangeSelect) {
         rangeSelect.value = 'all';
@@ -3174,6 +3176,11 @@ function initFinanceFilters() {
     }
     if (reportMonthInput && !reportMonthInput.value) {
         reportMonthInput.value = getCurrentYearMonthText();
+    }
+    if (dailyReportDateInput && !dailyReportDateInput.value) {
+        const now = new Date();
+        const dateText = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        dailyReportDateInput.value = dateText;
     }
 
     syncFinanceViewRows(Array.isArray(ERP.state?.finances) ? ERP.state.finances : [], 'all');
@@ -5063,6 +5070,151 @@ async function renderDashboardRestockRecommendations() {
     `;
 }
 
+function calculateGrossMarginAnomalyStats(orders = [], customers = [], itemRows = []) {
+    const safeOrders = Array.isArray(orders) ? orders : [];
+    const customerMap = new Map((Array.isArray(customers) ? customers : []).map(item => [String(item?.id), item]));
+    const itemCostMap = new Map();
+
+    (Array.isArray(itemRows) ? itemRows : []).forEach(item => {
+        const orderId = String(item?.order_id || '');
+        if (!orderId) {
+            return;
+        }
+        if (!itemCostMap.has(orderId)) {
+            itemCostMap.set(orderId, {
+                hasRows: false,
+                hasCost: false
+            });
+        }
+        const target = itemCostMap.get(orderId);
+        target.hasRows = true;
+        const totalCost = Number(item?.total_cost);
+        const unitCost = Number(item?.unit_cost);
+        if ((Number.isFinite(totalCost) && totalCost > 0) || (Number.isFinite(unitCost) && unitCost > 0)) {
+            target.hasCost = true;
+        }
+    });
+
+    const anomalyRows = [];
+    let negativeCount = 0;
+    let lowCount = 0;
+    let missingCostCount = 0;
+
+    safeOrders.forEach(order => {
+        const status = normalizeOrderStatusValue(order?.status || '');
+        if (status === 'cancelled' || status === 'refunded') {
+            return;
+        }
+
+        const revenue = Math.max(Number(order?.total_amount || 0), 0);
+        const cost = Math.max(Number(order?.total_cost || 0), 0);
+        const fallbackProfit = revenue - cost;
+        const profit = Number.isFinite(Number(order?.net_profit)) ? Number(order.net_profit) : fallbackProfit;
+        const margin = revenue > 0 ? (profit / revenue) : null;
+        const orderId = String(order?.id || '');
+        const itemCostMeta = itemCostMap.get(orderId) || { hasRows: false, hasCost: false };
+
+        let level = 0;
+        let reason = '';
+        if (profit < 0) {
+            level = 4;
+            reason = '负毛利';
+            negativeCount += 1;
+        } else if (margin !== null && margin < 0.1 && revenue > 0) {
+            level = 3;
+            reason = '低毛利(<10%)';
+            lowCount += 1;
+        } else if (revenue > 0 && cost <= 0 && itemCostMeta.hasRows && !itemCostMeta.hasCost) {
+            level = 2;
+            reason = '成本缺失';
+            missingCostCount += 1;
+        }
+
+        if (level <= 0) {
+            return;
+        }
+
+        const customer = customerMap.get(String(order?.customer_id || '')) || null;
+        anomalyRows.push({
+            orderId: order?.id,
+            orderNumber: order?.order_number || `订单#${order?.id || '-'}`,
+            customerName: customer?.name || '-',
+            revenue,
+            cost,
+            profit,
+            margin,
+            level,
+            reason,
+            status
+        });
+    });
+
+    anomalyRows.sort((left, right) => {
+        const levelDiff = Number(right.level || 0) - Number(left.level || 0);
+        if (levelDiff !== 0) return levelDiff;
+        const profitDiff = Number(left.profit || 0) - Number(right.profit || 0);
+        if (profitDiff !== 0) return profitDiff;
+        return Number(right.revenue || 0) - Number(left.revenue || 0);
+    });
+
+    return {
+        anomalyRows,
+        summary: {
+            total: anomalyRows.length,
+            negativeCount,
+            lowCount,
+            missingCostCount
+        }
+    };
+}
+
+async function renderDashboardGrossMarginAlerts() {
+    const container = document.getElementById('dashboardGrossMarginAlerts');
+    if (!container || !window.ERP) {
+        return;
+    }
+
+    const orders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
+    const customers = Array.isArray(ERP.state?.customers) ? ERP.state.customers : [];
+    const validOrders = orders.filter(order => {
+        const status = normalizeOrderStatusValue(order?.status || '');
+        return status !== 'cancelled' && status !== 'refunded';
+    });
+    const itemRows = await loadDashboardOrderItems(validOrders);
+    const stats = calculateGrossMarginAnomalyStats(validOrders, customers, itemRows);
+
+    const rowsHtml = stats.anomalyRows.slice(0, 10).map((item, index) => {
+        const levelColor = item.level >= 4 ? '#cf1322' : (item.level === 3 ? '#d46b08' : '#1677ff');
+        const marginText = item.margin === null ? '-' : `${(item.margin * 100).toFixed(1)}%`;
+        return `
+            <div style="padding:6px 0;border-bottom:1px dashed #f0f0f0;">
+                <div style="display:flex;justify-content:space-between;gap:8px;">
+                    <span style="font-size:12px;color:#262626;">${index + 1}. ${escapeHtmlText(item.orderNumber)} / ${escapeHtmlText(item.customerName)}</span>
+                    <span style="font-size:12px;color:${levelColor};">${item.reason}</span>
+                </div>
+                <div style="font-size:12px;color:#8c8c8c;margin-top:2px;">
+                    收入 ${formatCurrency(item.revenue)} / 成本 ${formatCurrency(item.cost)} / 毛利 ${formatCurrency(item.profit)} / 毛利率 ${marginText}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <div style="flex:1;min-width:320px;padding:12px 14px;border:1px solid #ffccc7;border-radius:8px;background:#fff1f0;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div style="font-size:14px;font-weight:600;color:#cf1322;">毛利异常检测</div>
+                <div style="font-size:12px;color:#8c8c8c;">异常 ${stats.summary.total} 单</div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;margin-bottom:8px;">
+                <span class="ant-tag" style="margin:0;">负毛利 ${stats.summary.negativeCount}</span>
+                <span class="ant-tag" style="margin:0;">低毛利 ${stats.summary.lowCount}</span>
+                <span class="ant-tag" style="margin:0;">成本缺失 ${stats.summary.missingCostCount}</span>
+            </div>
+            ${rowsHtml || '<div style="font-size:12px;color:#8c8c8c;">暂无毛利异常订单</div>'}
+        </div>
+    `;
+}
+
 function createAgingBucket() {
     return {
         d7: 0,
@@ -5713,6 +5865,130 @@ function exportMonthlyBusinessReportCsv() {
 
     if (typeof showToast === 'function') {
         showToast(`已导出 ${monthKey} 月度经营报告`, 'success');
+    }
+}
+
+function getSelectedFinanceDailyReportDateText() {
+    const input = document.getElementById('financeDailyReportDate');
+    const raw = String(input?.value || '').trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+        return raw;
+    }
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+function isSameDateText(dateValue, dateText) {
+    const date = parseFinanceDate(dateValue);
+    if (!date || !dateText) {
+        return false;
+    }
+    const normalized = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    return normalized === dateText;
+}
+
+async function exportDailyBusinessReportCsv() {
+    if (!window.ERP) {
+        alert('ERP 尚未初始化');
+        return;
+    }
+
+    const dateText = getSelectedFinanceDailyReportDateText();
+    const orders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
+    const finances = Array.isArray(ERP.state?.finances) ? ERP.state.finances : [];
+    const customers = Array.isArray(ERP.state?.customers) ? ERP.state.customers : [];
+    const customerMap = new Map(customers.map(item => [String(item?.id), item]));
+
+    const ordersInDay = orders.filter(order => isSameDateText(order?.order_date, dateText));
+    const validOrdersInDay = ordersInDay.filter(order => {
+        const status = normalizeOrderStatusValue(order?.status || '');
+        return status !== 'cancelled' && status !== 'refunded';
+    });
+    const financesInDay = finances.filter(finance => isSameDateText(finance?.transaction_date, dateText));
+
+    const orderAmount = validOrdersInDay.reduce((sum, order) => sum + Math.max(Number(order?.total_amount || 0), 0), 0);
+    const orderCost = validOrdersInDay.reduce((sum, order) => sum + Math.max(Number(order?.total_cost || 0), 0), 0);
+    const orderProfit = validOrdersInDay.reduce((sum, order) => {
+        const fallback = Math.max(Number(order?.total_amount || 0), 0) - Math.max(Number(order?.total_cost || 0), 0);
+        const value = Number(order?.net_profit);
+        return sum + (Number.isFinite(value) ? value : fallback);
+    }, 0);
+    const paidOrderAmount = validOrdersInDay
+        .filter(order => String(order?.payment_status || '').toLowerCase() === 'paid')
+        .reduce((sum, order) => sum + Math.max(Number(order?.total_amount || 0), 0), 0);
+    const receivableAmount = validOrdersInDay
+        .filter(order => String(order?.payment_status || '').toLowerCase() !== 'paid')
+        .reduce((sum, order) => sum + Math.max(Number(order?.total_amount || 0), 0), 0);
+
+    const incomeAmount = financesInDay
+        .filter(finance => String(finance?.type || '').toLowerCase() === 'income')
+        .reduce((sum, finance) => sum + Math.abs(Number(finance?.amount || 0)), 0);
+    const expenseAmount = financesInDay
+        .filter(finance => String(finance?.type || '').toLowerCase() === 'expense')
+        .reduce((sum, finance) => sum + Math.abs(Number(finance?.amount || 0)), 0);
+    const netCashflow = incomeAmount - expenseAmount;
+
+    const itemRows = await loadDashboardOrderItems(validOrdersInDay);
+    const topProductMap = new Map();
+    itemRows.forEach(item => {
+        const productName = String(item?.product_name || `商品#${item?.product_id || '-'}`);
+        const quantity = Math.max(Number(item?.quantity || 0), 0);
+        const revenue = Math.max(Number(item?.unit_price || 0), 0) * quantity;
+        if (!topProductMap.has(productName)) {
+            topProductMap.set(productName, { productName, quantity: 0, revenue: 0 });
+        }
+        const target = topProductMap.get(productName);
+        target.quantity += quantity;
+        target.revenue += revenue;
+    });
+
+    const topProducts = Array.from(topProductMap.values())
+        .sort((left, right) => {
+            const qtyDiff = Number(right.quantity || 0) - Number(left.quantity || 0);
+            if (qtyDiff !== 0) return qtyDiff;
+            return Number(right.revenue || 0) - Number(left.revenue || 0);
+        })
+        .slice(0, 10);
+
+    const headers = ['分组', '项目', '值', '说明'];
+    const rows = [
+        ['日报', '日期', dateText, '自动经营日报'],
+        ['订单', '订单总数', String(ordersInDay.length), '包含当日全部订单'],
+        ['订单', '有效订单', String(validOrdersInDay.length), '排除取消与退款'],
+        ['订单', '销售额', orderAmount.toFixed(2), '有效订单总金额'],
+        ['订单', '销售成本', orderCost.toFixed(2), '有效订单总成本'],
+        ['订单', '订单毛利', orderProfit.toFixed(2), '销售额-销售成本'],
+        ['订单', '已回款订单金额', paidOrderAmount.toFixed(2), '支付状态为已支付'],
+        ['订单', '待回款订单金额', receivableAmount.toFixed(2), '未支付订单金额'],
+        ['财务', '收入流水', incomeAmount.toFixed(2), '按财务流水当日收入统计'],
+        ['财务', '支出流水', expenseAmount.toFixed(2), '按财务流水当日支出统计'],
+        ['财务', '净现金流', netCashflow.toFixed(2), '收入-支出']
+    ];
+
+    validOrdersInDay.slice(0, 20).forEach(order => {
+        const customer = customerMap.get(String(order?.customer_id || '')) || null;
+        rows.push([
+            '订单明细',
+            String(order?.order_number || `订单#${order?.id || '-'}`),
+            Number(order?.total_amount || 0).toFixed(2),
+            `客户:${customer?.name || '-'} 状态:${order?.status || '-'} 支付:${order?.payment_status || '-'}`
+        ]);
+    });
+
+    topProducts.forEach(item => {
+        rows.push([
+            '商品TOP',
+            item.productName,
+            Number(item.revenue || 0).toFixed(2),
+            `销量:${Number(item.quantity || 0)}`
+        ]);
+    });
+
+    const fileName = `经营日报-${dateText}-${formatFileTimestamp()}.csv`;
+    downloadCsvFile(fileName, headers, rows);
+
+    if (typeof showToast === 'function') {
+        showToast(`已导出 ${dateText} 经营日报`, 'success');
     }
 }
 

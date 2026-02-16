@@ -2180,6 +2180,17 @@ function calculateOrderTotal() {
     refreshOrderRiskPreview();
 }
 
+async function openOrderFromRiskLedger(orderId) {
+    const normalizedId = normalizeEntityId(orderId);
+    if (!normalizedId) {
+        return;
+    }
+    if (typeof switchTab === 'function') {
+        switchTab('orders');
+    }
+    await editOrder(normalizedId);
+}
+
 async function editOrder(orderId) {
     if (window.ERP && typeof ERP.loadProducts === 'function' && (!Array.isArray(ERP.state.products) || ERP.state.products.length === 0)) {
         await ERP.loadProducts({ lite: true, forceRefresh: true });
@@ -5772,10 +5783,11 @@ function renderDashboardRiskApprovals() {
         const reasonText = String(item.approvalReason || '').trim() || '未填写审批原因';
         const reasonColor = item.approvalReason ? '#262626' : '#cf1322';
         const orderDateText = item.orderDate instanceof Date ? item.orderDate.toLocaleDateString() : '-';
+        const safeOrderId = escapeHtmlText(String(item.id || ''));
         return `
             <div style="padding:8px 0;border-bottom:1px dashed #f0f0f0;">
                 <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
-                    <span style="font-size:12px;color:#262626;">${index + 1}. ${escapeHtmlText(item.orderNumber)} / ${escapeHtmlText(item.customerName)}</span>
+                    <span style="font-size:12px;color:#262626;">${index + 1}. <a href="javascript:void(0)" onclick="openOrderFromRiskLedger('${safeOrderId}')" style="color:#1677ff;">${escapeHtmlText(item.orderNumber)}</a> / ${escapeHtmlText(item.customerName)}</span>
                     <span style="font-size:12px;color:${rankColor};">风险${item.riskRank}级</span>
                 </div>
                 <div style="font-size:12px;color:#8c8c8c;margin-top:2px;">

@@ -187,16 +187,13 @@ const ERP = {
         }
 
         try {
-            const query = supabaseClient
-                .from('erp_customers')
-                .select('*')
-                .eq('user_id', userData.user.id);
-
-            // 轻量模式只加载ID和名称
+            // 轻量模式只加载必要字段
             const selectFields = lite ? 'id, name, status' : '*';
 
-            const { data, error } = await query
+            const { data, error } = await supabaseClient
+                .from('erp_customers')
                 .select(selectFields)
+                .eq('user_id', userData.user.id)
                 .order('created_at', { ascending: false });
 
             if (error) {
@@ -213,23 +210,34 @@ const ERP = {
         }
     },
 
-    async loadProducts(lite = false) {
+    async loadProducts(options = false) {
+        let lite = false;
+        let forceRefresh = false;
+
+        if (typeof options === 'object' && options !== null) {
+            lite = !!options.lite;
+            forceRefresh = !!options.forceRefresh;
+        } else {
+            lite = options === true;
+        }
+
+        if (forceRefresh) {
+            this.state.loaded.products = false;
+        }
+
         // 如果已加载且不是强制刷新，直接返回缓存
-        if (this.state.loaded.products && !lite) {
+        if (this.state.loaded.products && !lite && !forceRefresh) {
             return this.state.products;
         }
 
         try {
-            const query = supabaseClient
-                .from('erp_products')
-                .select('*')
-                .eq('user_id', userData.user.id);
-
             // 轻量模式只加载必要字段
             const selectFields = lite ? 'id, name, sku, category, unit, price, cost, stock_quantity, min_stock, status' : '*';
 
-            const { data, error } = await query
+            const { data, error } = await supabaseClient
+                .from('erp_products')
                 .select(selectFields)
+                .eq('user_id', userData.user.id)
                 .order('created_at', { ascending: false });
 
             if (error) {
@@ -1124,19 +1132,126 @@ const ERP = {
     },
 
     async deleteOrder(orderId) {
+        const restoredStocks = [];
+
+        const rollbackRestoredStocks = async () => {
+            for (const item of restoredStocks) {
+                try {
+                    await this.updateStock(
+                        item.product_id,
+                        -item.quantity,
+                        'sale',
+                        orderId,
+                        '删除订单失败，自动回滚库存'
+                    );
+                } catch (rollbackError) {
+                    console.error('[ERP] 回滚库存失败:', rollbackError);
+                }
+            }
+        };
+
         try {
-            const { error } = await supabaseClient
+            let orderDetail = this.state.orders.find(order => this.isSameId(order.id, orderId)) || null;
+            if (!orderDetail || !Array.isArray(orderDetail.items)) {
+                orderDetail = await this.loadOrderDetail(orderId);
+            }
+
+            let orderItems = Array.isArray(orderDetail?.items) ? orderDetail.items : [];
+            if (orderItems.length === 0) {
+                const { data: detailItems, error: detailItemsError } = await supabaseClient
+                    .from('erp_order_items')
+                    .select('product_id, quantity')
+                    .eq('order_id', orderId);
+
+                if (detailItemsError) {
+                    throw detailItemsError;
+                }
+                orderItems = detailItems || [];
+            }
+
+            for (const item of orderItems) {
+                const productId = item?.product_id;
+                const quantity = Number(item?.quantity);
+                if (!productId || !Number.isFinite(quantity) || quantity <= 0) {
+                    continue;
+                }
+
+                const restored = await this.updateStock(
+                    productId,
+                    quantity,
+                    'sale_reversal',
+                    orderId,
+                    '删除订单回补库存'
+                );
+
+                if (!restored) {
+                    await rollbackRestoredStocks();
+                    throw new Error('订单删除失败：库存回补失败，请稍后重试');
+                }
+
+                restoredStocks.push({ product_id: productId, quantity });
+            }
+
+            const { error: financeRefError } = await supabaseClient
+                .from('erp_finances')
+                .delete()
+                .eq('user_id', userData.user.id)
+                .eq('reference_id', orderId);
+
+            if (financeRefError) {
+                await rollbackRestoredStocks();
+                throw financeRefError;
+            }
+
+            const { error: financeOrderError } = await supabaseClient
+                .from('erp_finances')
+                .delete()
+                .eq('user_id', userData.user.id)
+                .eq('order_id', orderId);
+
+            if (financeOrderError && financeOrderError.code !== '42703') {
+                await rollbackRestoredStocks();
+                throw financeOrderError;
+            }
+
+            let { error: orderDeleteError } = await supabaseClient
                 .from('erp_orders')
                 .delete()
                 .eq('id', orderId)
                 .eq('user_id', userData.user.id);
 
-            if (error) {
-                throw error;
+            if (orderDeleteError && (orderDeleteError.code === '23503' || String(orderDeleteError.message || '').toLowerCase().includes('foreign key'))) {
+                const { error: itemDeleteError } = await supabaseClient
+                    .from('erp_order_items')
+                    .delete()
+                    .eq('order_id', orderId);
+
+                if (itemDeleteError) {
+                    await rollbackRestoredStocks();
+                    throw itemDeleteError;
+                }
+
+                const retryResult = await supabaseClient
+                    .from('erp_orders')
+                    .delete()
+                    .eq('id', orderId)
+                    .eq('user_id', userData.user.id);
+                orderDeleteError = retryResult.error;
             }
 
-            // 更新本地状态
+            if (orderDeleteError) {
+                await rollbackRestoredStocks();
+                throw orderDeleteError;
+            }
+
             this.state.orders = this.state.orders.filter(o => !this.isSameId(o.id, orderId));
+            this.state.loaded.orders = false;
+            this.state.loaded.finances = false;
+            this.state.loaded.products = false;
+
+            this.emitEvent('erpOrderChanged', { orderId, action: 'deleted' });
+            this.emitEvent('erpFinanceChanged', { orderId, action: 'deleted' });
+            this.emitEvent('erpInventoryChanged', { orderId, action: 'order-deleted' });
 
             if (typeof showToast === 'function') {
                 showToast('订单删除成功', 'success');
@@ -1168,8 +1283,11 @@ const ERP = {
                 throw productError;
             }
 
-            const currentQuantity = product.stock_quantity;
-            const newQuantity = currentQuantity + quantityChange;
+            const currentQuantity = Number(product.stock_quantity);
+            const safeCurrentQuantity = Number.isFinite(currentQuantity) ? currentQuantity : 0;
+            const parsedChange = Number(quantityChange);
+            const safeQuantityChange = Number.isFinite(parsedChange) ? parsedChange : 0;
+            const newQuantity = safeCurrentQuantity + safeQuantityChange;
 
             // 更新产品库存
             const { error: updateError } = await supabaseClient
@@ -1188,7 +1306,7 @@ const ERP = {
                 .insert([{
                     user_id: userData.user.id,
                     product_id: productId,
-                    quantity_change: quantityChange,
+                    quantity_change: safeQuantityChange,
                     current_quantity: newQuantity,
                     type: type,
                     reference_id: referenceId,
@@ -1279,19 +1397,33 @@ const ERP = {
 
     async addFinanceRecord(financeData) {
         try {
-            const { data, error } = await supabaseClient
+            const insertPayload = {
+                user_id: userData.user.id,
+                type: financeData.type, // income, expense
+                category: financeData.category || '',
+                amount: parseFloat(financeData.amount),
+                description: financeData.description || '',
+                reference_id: financeData.reference_id || null,
+                order_id: financeData.order_id || null,
+                transaction_date: financeData.transaction_date || new Date().toISOString()
+            };
+
+            let { data, error } = await supabaseClient
                 .from('erp_finances')
-                .insert([{
-                    user_id: userData.user.id,
-                    type: financeData.type, // income, expense
-                    category: financeData.category || '',
-                    amount: parseFloat(financeData.amount),
-                    description: financeData.description || '',
-                    reference_id: financeData.reference_id || null,
-                    transaction_date: financeData.transaction_date || new Date().toISOString()
-                }])
+                .insert([insertPayload])
                 .select()
                 .single();
+
+            if (error && error.code === '42703') {
+                const { order_id, ...fallbackPayload } = insertPayload;
+                const retry = await supabaseClient
+                    .from('erp_finances')
+                    .insert([fallbackPayload])
+                    .select()
+                    .single();
+                data = retry.data;
+                error = retry.error;
+            }
 
             if (error) {
                 throw error;

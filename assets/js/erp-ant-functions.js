@@ -6,6 +6,16 @@
 // ==================== 登录状态检查 ====================
 let erpRealtimeSyncTimer = null;
 let erpRealtimeSyncInProgress = false;
+const ERP_VERBOSE_LOG = typeof window !== 'undefined' && window.__DEBUG_MODE__ === true;
+
+function erpDebugLog(level, ...args) {
+    if (!ERP_VERBOSE_LOG) {
+        return;
+    }
+
+    const logger = console[level] || console.log;
+    logger(...args);
+}
 
 function isInventoryRiskProduct(product) {
     const parsedStock = Number(product?.stock_quantity);
@@ -138,6 +148,13 @@ async function checkLoginStatus() {
                 if (typeof userData !== 'undefined') {
                     userData.isLoggedIn = true;
                     userData.user = session.user;
+                    if (typeof userData.loadConfig === 'function') {
+                        try {
+                            await userData.loadConfig(true);
+                        } catch (loadConfigError) {
+                            console.error('[ERP Ant] 会话恢复后加载用户配置失败:', loadConfigError);
+                        }
+                    }
                 }
                 showERPContent();
                 if (typeof ERP !== 'undefined' && ERP.init) {
@@ -147,7 +164,7 @@ async function checkLoginStatus() {
             }
         }
     } catch (error) {
-        console.warn('[ERP Ant] checkLoginStatus 获取会话失败:', error?.message || error);
+        console.error('[ERP Ant] checkLoginStatus 获取会话失败:', error?.message || error);
     }
 
     showNotLoggedIn();
@@ -175,14 +192,14 @@ function showERPContent() {
 
 function showCustomerProfile(customerId) {
     if (!window.ERP || !Array.isArray(ERP.state.customers)) {
-        console.warn('[ERP Debug] showCustomerProfile: ERP state unavailable');
+        console.error('[ERP] 客户档案打开失败：ERP状态不可用');
         return;
     }
 
     const normalizedCustomerId = normalizeEntityId(customerId);
     const customer = ERP.state.customers.find(item => isSameEntityId(item.id, normalizedCustomerId));
 
-    console.info('[ERP Debug] customer profile click', {
+    erpDebugLog('info', '[ERP Debug] customer profile click', {
         rawCustomerId: customerId,
         normalizedCustomerId,
         customersCount: ERP.state.customers.length,
@@ -261,14 +278,14 @@ function handleCustomerProfileLink(event, customerId) {
 
     const normalizedCustomerId = normalizeEntityId(customerId);
 
-    console.info('[ERP Debug] handleCustomerProfileLink', {
+    erpDebugLog('info', '[ERP Debug] handleCustomerProfileLink', {
         rawCustomerId: customerId,
         normalizedCustomerId,
         href: event?.currentTarget?.getAttribute?.('href') || null
     });
 
     if (normalizedCustomerId === null) {
-        console.warn('[ERP Debug] customerId is empty');
+        console.error('[ERP] 客户档案打开失败：客户ID为空');
         return false;
     }
 
@@ -307,7 +324,7 @@ function updateStatistics(data) {
     const finalLowStock = Number.isFinite(stats.products.lowStock) ? stats.products.lowStock : inventoryRisk;
     renderLowStockSummary(diagnostics, finalLowStock);
 
-    console.info('[ERP Debug] low stock statistics', {
+    erpDebugLog('info', '[ERP Debug] low stock statistics', {
         statsLowStock: stats.products.lowStock,
         inventoryRisk,
         finalLowStock,
@@ -332,9 +349,13 @@ function updateStatistics(data) {
 
 // ==================== 单位转换 ====================
 function printERPDiagnostics() {
+    if (!ERP_VERBOSE_LOG) {
+        return;
+    }
+
     try {
         const inventory = getERPInventoryDiagnostics();
-        console.info('[ERP Debug] Diagnostics Snapshot', {
+        erpDebugLog('info', '[ERP Debug] Diagnostics Snapshot', {
             location: window.location.href,
             isLoggedIn: !!(window.userData && userData.isLoggedIn),
             customersCount: (window.ERP && ERP.state?.customers?.length) || 0,
@@ -349,28 +370,30 @@ function printERPDiagnostics() {
     }
 }
 
-async function refreshLowStockFromLatestData(reason = 'manual') {
-    if (!window.ERP || typeof ERP.loadProducts !== 'function') {
+async function refreshLowStockFromLatestData(reason = 'manual', options = {}) {
+    if (!window.ERP) {
         return;
     }
 
     try {
-        const latestProducts = await ERP.loadProducts(true);
-        if (Array.isArray(latestProducts)) {
-            ERP.state.products = latestProducts;
+        const forceReload = options === true || (typeof options === 'object' && options !== null && options.forceReload === true);
+        if (forceReload && typeof ERP.loadProducts === 'function') {
+            const latestProducts = await ERP.loadProducts({ lite: true, forceRefresh: true });
+            if (Array.isArray(latestProducts)) {
+                ERP.state.products = latestProducts;
+            }
         }
 
         const diagnostics = getERPInventoryDiagnostics();
         renderLowStockSummary(diagnostics, diagnostics.lowStockCount);
 
-        console.info('[ERP Debug] low stock refreshed', {
+        erpDebugLog('info', '[ERP Debug] low stock refreshed', {
             reason,
             lowStockCount: diagnostics.lowStockCount,
             productsCount: diagnostics.rows.length
         });
-        console.table(diagnostics.rows);
     } catch (error) {
-        console.warn('[ERP Debug] refreshLowStockFromLatestData failed', error?.message || error);
+        console.error('[ERP] 刷新库存预警失败:', error?.message || error);
     }
 }
 
@@ -382,7 +405,7 @@ async function syncERPRealtimeData() {
     erpRealtimeSyncInProgress = true;
     try {
         await Promise.all([
-            ERP.loadProducts(true),
+            ERP.loadProducts({ lite: true, forceRefresh: true }),
             ERP.loadOrders(true),
             ERP.loadFinances(true)
         ]);
@@ -393,7 +416,7 @@ async function syncERPRealtimeData() {
             renderHeaderNotices();
         }
     } catch (error) {
-        console.warn('[ERP Ant] 实时同步失败:', error?.message || error);
+        console.error('[ERP Ant] 实时同步失败:', error?.message || error);
     } finally {
         erpRealtimeSyncInProgress = false;
     }
@@ -1599,6 +1622,8 @@ document.addEventListener('DOMContentLoaded', function () {
         handleCustomerProfileLink(event, customerId);
     });
 
-    window.printERPDiagnostics = printERPDiagnostics;
-    setTimeout(printERPDiagnostics, 1200);
+    if (ERP_VERBOSE_LOG) {
+        window.printERPDiagnostics = printERPDiagnostics;
+        setTimeout(printERPDiagnostics, 1200);
+    }
 });

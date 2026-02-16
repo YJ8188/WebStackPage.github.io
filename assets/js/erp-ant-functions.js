@@ -650,6 +650,8 @@ function updateStatistics(data) {
     renderDashboardCustomerRfm();
     renderDashboardSupplierPerformance();
     renderDashboardProcurementCycle();
+    renderDashboardSupplierReconciliation();
+    renderDashboardRestockRecommendations();
 }
 
 // ==================== 单位转换 ====================
@@ -4787,6 +4789,276 @@ async function renderDashboardProcurementCycle() {
             ${bar('15天以上转化', stats.bucket.d15p, '#f5222d')}
             <div style="margin-top:8px;font-size:12px;color:#8c8c8c;">滞销采购样本（30天未售）</div>
             ${staleHtml || '<div style="font-size:12px;color:#8c8c8c;">暂无明显滞销采购</div>'}
+        </div>
+    `;
+}
+
+function calculateSupplierReconciliationStats(purchaseRows = []) {
+    const monthMap = new Map();
+    const supplierMonthMap = new Map();
+    const currentMonthKey = getCurrentYearMonthText();
+
+    (Array.isArray(purchaseRows) ? purchaseRows : []).forEach(row => {
+        const date = row?.purchaseDate instanceof Date ? row.purchaseDate : null;
+        if (!date) {
+            return;
+        }
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        if (!monthMap.has(monthKey)) {
+            monthMap.set(monthKey, {
+                monthKey,
+                amount: 0,
+                paidAmount: 0,
+                payableAmount: 0,
+                count: 0
+            });
+        }
+        const monthTarget = monthMap.get(monthKey);
+        monthTarget.amount += Math.max(Number(row?.amount || 0), 0);
+        monthTarget.paidAmount += Math.max(Number(row?.paidAmount || 0), 0);
+        monthTarget.payableAmount += Math.max(Number(row?.payableAmount || 0), 0);
+        monthTarget.count += 1;
+
+        const supplier = String(row?.supplier || '').trim() || '未填写供应商';
+        const supplierMonthKey = `${monthKey}|${supplier}`;
+        if (!supplierMonthMap.has(supplierMonthKey)) {
+            supplierMonthMap.set(supplierMonthKey, {
+                monthKey,
+                supplier,
+                amount: 0,
+                paidAmount: 0,
+                payableAmount: 0,
+                count: 0
+            });
+        }
+        const supplierTarget = supplierMonthMap.get(supplierMonthKey);
+        supplierTarget.amount += Math.max(Number(row?.amount || 0), 0);
+        supplierTarget.paidAmount += Math.max(Number(row?.paidAmount || 0), 0);
+        supplierTarget.payableAmount += Math.max(Number(row?.payableAmount || 0), 0);
+        supplierTarget.count += 1;
+    });
+
+    const monthlyRows = Array.from(monthMap.values()).sort((left, right) => String(right.monthKey).localeCompare(String(left.monthKey)));
+    const currentMonth = monthlyRows.find(item => item.monthKey === currentMonthKey) || {
+        monthKey: currentMonthKey,
+        amount: 0,
+        paidAmount: 0,
+        payableAmount: 0,
+        count: 0
+    };
+    const topSuppliersCurrentMonth = Array.from(supplierMonthMap.values())
+        .filter(item => item.monthKey === currentMonthKey)
+        .sort((left, right) => {
+            const payableDiff = Number(right.payableAmount || 0) - Number(left.payableAmount || 0);
+            if (payableDiff !== 0) return payableDiff;
+            return Number(right.amount || 0) - Number(left.amount || 0);
+        })
+        .slice(0, 6);
+
+    return {
+        currentMonthKey,
+        currentMonth,
+        monthlyRows: monthlyRows.slice(0, 6),
+        topSuppliersCurrentMonth
+    };
+}
+
+async function renderDashboardSupplierReconciliation() {
+    const container = document.getElementById('dashboardSupplierReconciliation');
+    if (!container || !window.ERP) {
+        return;
+    }
+
+    const products = Array.isArray(ERP.state?.products) ? ERP.state.products : [];
+    const productMap = new Map(products.map(item => [String(item?.id), item]));
+    const purchaseLogs = await ensureDashboardPurchaseRecords(300);
+    const purchaseRows = purchaseLogs.map(record => parsePurchaseRecordForDashboard(record, productMap));
+    const stats = calculateSupplierReconciliationStats(purchaseRows);
+
+    const monthRowsHtml = stats.monthlyRows.map(item => {
+        const payRate = item.amount > 0 ? (item.paidAmount / item.amount) : 1;
+        return `
+            <div style="padding:6px 0;border-bottom:1px dashed #f0f0f0;font-size:12px;">
+                <div style="display:flex;justify-content:space-between;gap:8px;">
+                    <span style="color:#262626;">${item.monthKey}</span>
+                    <span style="color:#595959;">${item.count} 批次</span>
+                </div>
+                <div style="color:#8c8c8c;margin-top:2px;">
+                    应付 ${formatCurrency(item.amount)} / 已付 ${formatCurrency(item.paidAmount)} / 待付 ${formatCurrency(item.payableAmount)} / 付款率 ${(payRate * 100).toFixed(1)}%
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    const supplierRowsHtml = stats.topSuppliersCurrentMonth.map(item => `
+        <div style="padding:6px 0;border-bottom:1px dashed #f0f0f0;font-size:12px;">
+            <div style="display:flex;justify-content:space-between;gap:8px;">
+                <span style="color:#262626;">${escapeHtmlText(item.supplier)}</span>
+                <span style="color:#d46b08;">待付 ${formatCurrency(item.payableAmount)}</span>
+            </div>
+            <div style="color:#8c8c8c;margin-top:2px;">
+                本月采购 ${formatCurrency(item.amount)} / 已付 ${formatCurrency(item.paidAmount)} / ${item.count} 批次
+            </div>
+        </div>
+    `).join('');
+
+    container.innerHTML = `
+        <div style="flex:1;min-width:320px;padding:12px 14px;border:1px solid #ffd8bf;border-radius:8px;background:#fff2e8;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div style="font-size:14px;font-weight:600;color:#ad4e00;">供应商对账中心</div>
+                <div style="font-size:12px;color:#8c8c8c;">当前月 ${stats.currentMonthKey}</div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;margin-bottom:8px;">
+                <span class="ant-tag" style="margin:0;">本月采购 ${formatCurrency(stats.currentMonth.amount)}</span>
+                <span class="ant-tag" style="margin:0;">本月已付 ${formatCurrency(stats.currentMonth.paidAmount)}</span>
+                <span class="ant-tag" style="margin:0;">本月待付 ${formatCurrency(stats.currentMonth.payableAmount)}</span>
+            </div>
+            <div style="font-size:12px;color:#8c8c8c;margin-bottom:4px;">最近月份对账</div>
+            ${monthRowsHtml || '<div style="font-size:12px;color:#8c8c8c;">暂无采购对账数据</div>'}
+            <div style="font-size:12px;color:#8c8c8c;margin-top:8px;margin-bottom:4px;">本月待付供应商TOP</div>
+            ${supplierRowsHtml || '<div style="font-size:12px;color:#8c8c8c;">本月暂无供应商待付数据</div>'}
+        </div>
+    `;
+}
+
+function calculateRestockRecommendations(products = [], orders = [], itemRows = []) {
+    const safeProducts = Array.isArray(products) ? products : [];
+    const safeOrders = Array.isArray(orders) ? orders : [];
+    const safeItems = Array.isArray(itemRows) ? itemRows : [];
+    const now = new Date();
+    const cutoffTimestamp = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30).getTime();
+
+    const orderTimeMap = new Map();
+    safeOrders.forEach(order => {
+        const orderDate = parseFinanceDate(order?.order_date);
+        if (orderDate instanceof Date) {
+            orderTimeMap.set(String(order?.id), orderDate.getTime());
+        }
+    });
+
+    const recentSalesQtyMap = new Map();
+    safeItems.forEach(item => {
+        const orderId = String(item?.order_id || '');
+        const orderTs = orderTimeMap.get(orderId);
+        if (!Number.isFinite(orderTs) || orderTs < cutoffTimestamp) {
+            return;
+        }
+        const productId = String(item?.product_id || '');
+        if (!productId) {
+            return;
+        }
+        const quantity = Math.max(Number(item?.quantity || 0), 0);
+        if (!Number.isFinite(quantity) || quantity <= 0) {
+            return;
+        }
+        recentSalesQtyMap.set(productId, (recentSalesQtyMap.get(productId) || 0) + quantity);
+    });
+
+    const rows = safeProducts.map(product => {
+        const productId = String(product?.id || '');
+        const stock = Math.max(Number(product?.stock_quantity || 0), 0);
+        const minStock = Math.max(Number(product?.min_stock || 0), 0);
+        const sold30 = Math.max(Number(recentSalesQtyMap.get(productId) || 0), 0);
+        const dailySales = sold30 / 30;
+        const coverDays = dailySales > 0 ? (stock / dailySales) : Number.POSITIVE_INFINITY;
+        const targetStock = Math.ceil(Math.max(minStock * 2, dailySales * 14, minStock > 0 ? minStock : 0));
+        const recommendQty = Math.max(targetStock - stock, 0);
+
+        let riskLevel = 0;
+        let reason = '';
+        if (stock <= 0) {
+            riskLevel = 4;
+            reason = '已缺货';
+        } else if (minStock > 0 && stock <= minStock) {
+            riskLevel = 3;
+            reason = '低于预警值';
+        } else if (dailySales > 0 && coverDays < 7) {
+            riskLevel = 2;
+            reason = '7天内缺货风险';
+        } else if (dailySales > 0 && coverDays < 14) {
+            riskLevel = 1;
+            reason = '建议补货';
+        }
+
+        return {
+            productId,
+            productName: product?.name || `商品#${productId || '-'}`,
+            stock,
+            minStock,
+            sold30,
+            dailySales,
+            coverDays,
+            targetStock,
+            recommendQty,
+            riskLevel,
+            reason
+        };
+    }).filter(item => item.riskLevel > 0 || item.recommendQty > 0);
+
+    rows.sort((left, right) => {
+        const riskDiff = Number(right.riskLevel || 0) - Number(left.riskLevel || 0);
+        if (riskDiff !== 0) return riskDiff;
+        const qtyDiff = Number(right.recommendQty || 0) - Number(left.recommendQty || 0);
+        if (qtyDiff !== 0) return qtyDiff;
+        return Number(right.sold30 || 0) - Number(left.sold30 || 0);
+    });
+
+    const summary = {
+        urgent: rows.filter(item => item.riskLevel >= 3).length,
+        warning: rows.filter(item => item.riskLevel === 2).length,
+        suggest: rows.filter(item => item.riskLevel === 1).length,
+        totalRecommendQty: rows.reduce((sum, item) => sum + Number(item.recommendQty || 0), 0)
+    };
+
+    return {
+        summary,
+        rows: rows.slice(0, 12)
+    };
+}
+
+async function renderDashboardRestockRecommendations() {
+    const container = document.getElementById('dashboardRestockRecommendations');
+    if (!container || !window.ERP) {
+        return;
+    }
+
+    const products = Array.isArray(ERP.state?.products) ? ERP.state.products : [];
+    const orders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
+    const validOrders = orders.filter(order => {
+        const status = normalizeOrderStatusValue(order?.status || '');
+        return status !== 'cancelled' && status !== 'refunded';
+    });
+    const itemRows = await loadDashboardOrderItems(validOrders);
+    const stats = calculateRestockRecommendations(products, validOrders, itemRows);
+
+    const rowsHtml = stats.rows.slice(0, 8).map((item, index) => {
+        const levelColor = item.riskLevel >= 3 ? '#cf1322' : (item.riskLevel === 2 ? '#d46b08' : '#1677ff');
+        const coverText = Number.isFinite(item.coverDays) ? `${item.coverDays.toFixed(1)}天` : '∞';
+        return `
+            <div style="padding:6px 0;border-bottom:1px dashed #f0f0f0;">
+                <div style="display:flex;justify-content:space-between;gap:8px;">
+                    <span style="font-size:12px;color:#262626;">${index + 1}. ${escapeHtmlText(item.productName)}</span>
+                    <span style="font-size:12px;color:${levelColor};">${item.reason}</span>
+                </div>
+                <div style="font-size:12px;color:#8c8c8c;margin-top:2px;">
+                    库存 ${item.stock}（预警 ${item.minStock}）/ 近30天销量 ${item.sold30} / 可售 ${coverText} / 建议补货 ${item.recommendQty}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <div style="flex:1;min-width:320px;padding:12px 14px;border:1px solid #ffccc7;border-radius:8px;background:#fff1f0;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div style="font-size:14px;font-weight:600;color:#cf1322;">智能补货建议</div>
+                <div style="font-size:12px;color:#8c8c8c;">建议总量 ${stats.summary.totalRecommendQty}</div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;margin-bottom:8px;">
+                <span class="ant-tag" style="margin:0;">紧急/低预警 ${stats.summary.urgent}</span>
+                <span class="ant-tag" style="margin:0;">7天风险 ${stats.summary.warning}</span>
+                <span class="ant-tag" style="margin:0;">建议补货 ${stats.summary.suggest}</span>
+            </div>
+            ${rowsHtml || '<div style="font-size:12px;color:#8c8c8c;">当前暂无补货建议</div>'}
         </div>
     `;
 }

@@ -652,6 +652,7 @@ function updateStatistics(data) {
     renderDashboardProcurementCycle();
     renderDashboardSupplierReconciliation();
     renderDashboardRestockRecommendations();
+    renderDashboardInventoryCapital();
     renderDashboardGrossMarginAlerts();
     renderDashboardRiskApprovals();
 }
@@ -5439,6 +5440,108 @@ async function renderDashboardRestockRecommendations() {
                 <span class="ant-tag" style="margin:0;">建议补货 ${stats.summary.suggest}</span>
             </div>
             ${rowsHtml || '<div style="font-size:12px;color:#8c8c8c;">当前暂无补货建议</div>'}
+        </div>
+    `;
+}
+
+async function renderDashboardInventoryCapital() {
+    const container = document.getElementById('dashboardInventoryCapital');
+    if (!container || !window.ERP) {
+        return;
+    }
+
+    const products = Array.isArray(ERP.state?.products) ? ERP.state.products : [];
+    const orders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
+    const validOrders = orders.filter(order => {
+        const status = normalizeOrderStatusValue(order?.status || '');
+        return status !== 'cancelled' && status !== 'refunded';
+    });
+
+    const itemRows = await loadDashboardOrderItems(validOrders);
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const recentOrderSet = new Set(
+        validOrders
+            .filter(order => {
+                const date = parseERPDate(order?.order_date || null);
+                return date && date >= thirtyDaysAgo;
+            })
+            .map(order => String(order?.id || ''))
+    );
+
+    const soldQtyMap = new Map();
+    (Array.isArray(itemRows) ? itemRows : []).forEach(item => {
+        if (!recentOrderSet.has(String(item?.order_id || ''))) {
+            return;
+        }
+        const productId = String(item?.product_id || '');
+        const quantity = Math.max(Number(item?.quantity || 0), 0);
+        if (!productId || quantity <= 0) {
+            return;
+        }
+        soldQtyMap.set(productId, (soldQtyMap.get(productId) || 0) + quantity);
+    });
+
+    const rows = products.map(product => {
+        const productId = String(product?.id || '');
+        const stock = Math.max(Number(product?.stock_quantity ?? product?.stock ?? 0), 0);
+        const unitCost = Math.max(Number(product?.cost_price ?? 0), 0);
+        const stockValue = stock * unitCost;
+        const soldQty30 = Math.max(Number(soldQtyMap.get(productId) || 0), 0);
+        const avgDailySales = soldQty30 > 0 ? (soldQty30 / 30) : 0;
+        const turnoverDays = avgDailySales > 0 ? (stock / avgDailySales) : null;
+        const riskLevel = turnoverDays === null
+            ? (stock > 0 ? 3 : 0)
+            : (turnoverDays > 120 ? 3 : (turnoverDays > 60 ? 2 : 1));
+        return {
+            name: product?.name || `商品#${productId || '-'}`,
+            stock,
+            unitCost,
+            stockValue,
+            soldQty30,
+            turnoverDays,
+            riskLevel
+        };
+    }).filter(item => item.stock > 0 || item.stockValue > 0);
+
+    rows.sort((left, right) => {
+        const valueDiff = Number(right.stockValue || 0) - Number(left.stockValue || 0);
+        if (valueDiff !== 0) return valueDiff;
+        return Number(right.stock || 0) - Number(left.stock || 0);
+    });
+
+    const totalCapital = rows.reduce((sum, item) => sum + Number(item.stockValue || 0), 0);
+    const highRiskCount = rows.filter(item => Number(item.riskLevel || 0) >= 3).length;
+    const slowTurnoverCount = rows.filter(item => Number(item.riskLevel || 0) === 2).length;
+
+    const rowsHtml = rows.slice(0, 8).map((item, index) => {
+        const turnoverText = item.turnoverDays === null ? '暂无近30天销量' : `${item.turnoverDays.toFixed(1)} 天`;
+        const levelColor = item.riskLevel >= 3 ? '#cf1322' : (item.riskLevel === 2 ? '#d46b08' : '#1677ff');
+        return `
+            <div style="padding:6px 0;border-bottom:1px dashed #f0f0f0;">
+                <div style="display:flex;justify-content:space-between;gap:8px;">
+                    <span style="font-size:12px;color:#262626;">${index + 1}. ${escapeHtmlText(item.name)}</span>
+                    <span style="font-size:12px;color:${levelColor};">周转 ${turnoverText}</span>
+                </div>
+                <div style="font-size:12px;color:#8c8c8c;margin-top:2px;">
+                    库存 ${item.stock} / 单位成本 ${formatCurrency(item.unitCost)} / 资金占用 ${formatCurrency(item.stockValue)} / 30天销量 ${item.soldQty30}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <div style="flex:1;min-width:320px;padding:12px 14px;border:1px solid #d9f7be;border-radius:8px;background:#f6ffed;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div style="font-size:14px;font-weight:600;color:#389e0d;">库存资金占用与周转</div>
+                <div style="font-size:12px;color:#8c8c8c;">库存资金 ${formatCurrency(totalCapital)}</div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;margin-bottom:8px;">
+                <span class="ant-tag" style="margin:0;">高风险 ${highRiskCount}</span>
+                <span class="ant-tag" style="margin:0;">慢周转 ${slowTurnoverCount}</span>
+                <span class="ant-tag" style="margin:0;">商品 ${rows.length}</span>
+            </div>
+            ${rowsHtml || '<div style="font-size:12px;color:#8c8c8c;">暂无库存数据</div>'}
         </div>
     `;
 }

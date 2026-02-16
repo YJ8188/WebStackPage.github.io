@@ -3236,20 +3236,20 @@ function renderPurchaseRecords(records = []) {
         const approvalActions = approvalStatus === 'pending'
             ? (canApprovePurchase
                 ? `
-                    <button class="ant-btn" style="height:24px;line-height:22px;padding:0 8px;font-size:12px;color:#237804;border-color:#b7eb8f;margin-right:6px;"
+                    <button class="ant-btn erp-btn-compact erp-btn-success"
                         onclick='setPurchaseApprovalStatus(${JSON.stringify(record?.id)}, "approved")'>通过</button>
-                    <button class="ant-btn" style="height:24px;line-height:22px;padding:0 8px;font-size:12px;color:#cf1322;border-color:#ffa39e;"
+                    <button class="ant-btn erp-btn-compact erp-btn-danger"
                         onclick='setPurchaseApprovalStatus(${JSON.stringify(record?.id)}, "rejected")'>驳回</button>
                 `
                 : `<span style="font-size:12px;color:#8c8c8c;">仅管理员可审批</span>`)
             : (canApprovePurchase
                 ? `
-                    <button class="ant-btn" style="height:24px;line-height:22px;padding:0 8px;font-size:12px;color:#d46b08;border-color:#ffd591;"
+                    <button class="ant-btn erp-btn-compact erp-btn-warning"
                         onclick='setPurchaseApprovalStatus(${JSON.stringify(record?.id)}, "pending")'>改待审</button>
                 `
                 : `<span style="font-size:12px;color:#8c8c8c;">仅管理员可改审</span>`);
         const extraAction = `
-            <button class="ant-btn" style="height:24px;line-height:22px;padding:0 8px;font-size:12px;color:#531dab;border-color:#d3adf7;margin-top:4px;"
+            <button class="ant-btn erp-btn-compact erp-btn-purple"
                 onclick='showPurchaseApprovalLog(${JSON.stringify(record?.id)})'>日志</button>
         `;
 
@@ -3269,7 +3269,7 @@ function renderPurchaseRecords(records = []) {
                     >${escapeHtmlText(approvalText)}</span>
                 </td>
                 <td title="${escapeHtmlText(noteText)}">${escapeHtmlText(noteText)}</td>
-                <td>${approvalActions}${extraAction}</td>
+                <td><div class="erp-row-actions">${approvalActions}${extraAction}</div></td>
             </tr>
         `;
     }).join('');
@@ -7017,25 +7017,25 @@ function getFinanceActionButtons(finance) {
     const financeId = finance?.id;
 
     if (isReceivableFinanceRecord(finance) && linkedOrderId !== null) {
-        buttons.push(`<button class="ant-btn" onclick='markReceivableAsPaid(${JSON.stringify(linkedOrderId)})' style="color:#0958d9; border-color:#91caff; margin-right:8px;">回款</button>`);
+        buttons.push(`<button class="ant-btn erp-btn-compact erp-btn-info" onclick='markReceivableAsPaid(${JSON.stringify(linkedOrderId)})'>回款</button>`);
     }
 
     if (isPayableFinanceRecord(finance)) {
         const blockedByRejected = String(finance?.description || '').includes('已驳回冲销');
         if (blockedByRejected) {
-            buttons.push(`<button class="ant-btn" disabled style="color:#8c8c8c;border-color:#d9d9d9;margin-right:8px;cursor:not-allowed;">已驳回</button>`);
+            buttons.push(`<button class="ant-btn erp-btn-compact" disabled style="color:#8c8c8c;border-color:#d9d9d9;cursor:not-allowed;">已驳回</button>`);
         } else {
-            buttons.push(`<button class="ant-btn" onclick='markPayableAsPaid(${JSON.stringify(finance?.id)})' style="color:#237804; border-color:#b7eb8f; margin-right:8px;">结清</button>`);
+            buttons.push(`<button class="ant-btn erp-btn-compact erp-btn-success" onclick='markPayableAsPaid(${JSON.stringify(finance?.id)})'>结清</button>`);
         }
-        buttons.push(`<button class="ant-btn" onclick='showPayablePaymentHistory(${JSON.stringify(financeId)})' style="color:#531dab; border-color:#d3adf7; margin-right:8px;">付款记录</button>`);
+        buttons.push(`<button class="ant-btn erp-btn-compact erp-btn-purple" onclick='showPayablePaymentHistory(${JSON.stringify(financeId)})'>付款记录</button>`);
     }
 
     if (!isPayableFinanceRecord(finance) && isPurchasePaymentRecord(finance)) {
-        buttons.push(`<button class="ant-btn" onclick='showPayablePaymentHistory(${JSON.stringify(financeId)})' style="color:#531dab; border-color:#d3adf7; margin-right:8px;">付款记录</button>`);
+        buttons.push(`<button class="ant-btn erp-btn-compact erp-btn-purple" onclick='showPayablePaymentHistory(${JSON.stringify(financeId)})'>付款记录</button>`);
     }
 
-    buttons.push(`<button class="ant-btn" onclick='deleteFinance(${JSON.stringify(finance?.id)})' style="color:#ff4d4f; border-color:#ff4d4f;">删除</button>`);
-    return buttons.join('');
+    buttons.push(`<button class="ant-btn erp-btn-compact erp-btn-danger" onclick='deleteFinance(${JSON.stringify(finance?.id)})'>删除</button>`);
+    return `<div class="erp-row-actions">${buttons.join('')}</div>`;
 }
 
 function exportFinanceCsvByCurrentView() {

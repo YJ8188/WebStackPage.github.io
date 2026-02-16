@@ -736,6 +736,26 @@ select.ant-select option {
     list-style: none;
 }
 
+.erp-header-filter-bar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.erp-header-filter-btn {
+    height: 26px;
+    line-height: 24px;
+    padding: 0 10px;
+    font-size: 12px;
+}
+
+.erp-header-filter-btn.is-active {
+    color: #1677ff;
+    border-color: #91caff;
+    background: #e6f4ff;
+}
+
 .erp-header-panel-item {
     display: flex;
     align-items: flex-start;
@@ -750,6 +770,25 @@ select.ant-select option {
 
 .erp-header-panel-item:last-child {
     margin-bottom: 0;
+}
+
+.erp-header-panel-item.is-read .erp-header-panel-title,
+.erp-header-panel-item.is-read .erp-header-panel-subtitle {
+    color: #94a3b8;
+}
+
+.erp-header-panel-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.erp-header-panel-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+    min-width: 84px;
 }
 
 .erp-header-panel-title {
@@ -778,4 +817,47 @@ select.ant-select option {
     outline: none;
     border-color: #93c5fd;
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.erp-row-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.erp-row-actions .ant-btn {
+    margin: 0 !important;
+}
+
+.erp-btn-danger {
+    color: #ff4d4f;
+    border-color: #ff4d4f;
+}
+
+.erp-btn-info {
+    color: #0958d9;
+    border-color: #91caff;
+}
+
+.erp-btn-success {
+    color: #237804;
+    border-color: #b7eb8f;
+}
+
+.erp-btn-purple {
+    color: #531dab;
+    border-color: #d3adf7;
+}
+
+.erp-btn-warning {
+    color: #d46b08;
+    border-color: #ffd591;
+}
+
+.erp-btn-compact {
+    height: 24px;
+    line-height: 22px;
+    padding: 0 8px;
+    font-size: 12px;
 }

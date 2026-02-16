@@ -968,8 +968,10 @@
                                 查询轨迹
                             </button>
                         </div>
-                        <input type="text" id="orderTrackingParam" class="ant-input" placeholder="选填：顺丰填手机号后4位，其他快递留空" maxlength="32" autocomplete="off" style="margin-top:8px;">
-                        <div id="orderTrackingParamHint" class="order-logistics-param-hint">提示：仅个别快递需要校验参数，不填也可正常查询。</div>
+                        <div id="orderTrackingParamGroup" style="display:none;">
+                            <input type="text" id="orderTrackingParam" class="ant-input" placeholder="顺丰：请输入收件人手机号后4位" maxlength="32" autocomplete="off" style="margin-top:8px; width:100%;">
+                            <div id="orderTrackingParamHint" class="order-logistics-param-hint">提示：顺丰常需校验参数（手机号后4位），填后查询更稳定。</div>
+                        </div>
                         <div id="orderLogisticsCarrierCard" class="order-logistics-carrier is-empty">
                             <div class="order-logistics-carrier-logo-wrap">
                                 <img id="orderLogisticsCarrierLogo" class="order-logistics-carrier-logo" alt="快递公司logo">

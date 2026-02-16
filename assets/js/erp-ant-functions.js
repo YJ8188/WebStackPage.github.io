@@ -985,9 +985,10 @@ function getOrderShippingCompanyFromForm() {
 }
 
 function updateOrderTrackingParamHint() {
+    const trackingParamGroup = document.getElementById('orderTrackingParamGroup');
     const trackingParamInput = document.getElementById('orderTrackingParam');
     const trackingParamHint = document.getElementById('orderTrackingParamHint');
-    if (!trackingParamInput || !trackingParamHint) {
+    if (!trackingParamGroup || !trackingParamInput || !trackingParamHint) {
         return;
     }
 
@@ -996,19 +997,14 @@ function updateOrderTrackingParamHint() {
     const isSfExpress = ['顺丰', '顺丰快递', '顺丰速运'].includes(companyText);
 
     if (isSfExpress) {
+        trackingParamGroup.style.display = '';
         trackingParamInput.placeholder = '顺丰：请输入收件人手机号后4位';
         trackingParamHint.textContent = '提示：顺丰常需校验参数（手机号后4位），填后查询更稳定。';
         return;
     }
 
-    if (!companyText) {
-        trackingParamInput.placeholder = '选填：先选择快递公司';
-        trackingParamHint.textContent = '提示：先选快递公司；多数公司不需要填写该参数。';
-        return;
-    }
-
-    trackingParamInput.placeholder = '选填：一般无需填写，留空即可';
-    trackingParamHint.textContent = '提示：当前快递通常可直接查询，校验参数可留空。';
+    trackingParamGroup.style.display = 'none';
+    trackingParamInput.value = '';
 }
 
 async function requestOrderLogistics(trackingNumber, shippingCompany = '', options = {}) {

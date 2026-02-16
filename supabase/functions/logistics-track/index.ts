@@ -119,40 +119,31 @@ function countryCodeToText(code: string): string {
   return map[normalized] || normalized || "未知";
 }
 
-function extractDomain(value: string): string {
-  const text = String(value || "").trim();
-  if (!text) {
+function normalizeCarrierKey(rawCarrier: unknown): string {
+  if (rawCarrier === null || rawCarrier === undefined) {
     return "";
   }
 
-  try {
-    const url = new URL(text);
-    return url.hostname || "";
-  } catch (_) {
-    return "";
+  if (typeof rawCarrier === "number" || typeof rawCarrier === "string") {
+    return String(rawCarrier).trim();
   }
+
+  if (typeof rawCarrier === "object") {
+    const carrierObj = rawCarrier as Record<string, unknown>;
+    const candidate = carrierObj.key ?? carrierObj.id ?? carrierObj.carrier_key ?? carrierObj.carrierId;
+    return String(candidate ?? "").trim();
+  }
+
+  return "";
 }
 
-function buildProviderLogo(homepage: string, providerName: string): { logoUrl: string; logoFallbackUrl: string } {
-  const homeDomain = extractDomain(homepage);
-  const fallbackDomainMap: Record<string, string> = {
-    "申通快递": "www.sto.cn",
-    "中通快递": "www.zto.com",
-    "圆通速递": "www.yto.net.cn",
-    "韵达速递": "www.yundaex.com",
-    "顺丰速运": "www.sf-express.com",
-    "京东物流": "www.jdl.com",
-    "USPS": "www.usps.com",
-  };
-
-  const domain = homeDomain || fallbackDomainMap[String(providerName || "").trim()] || "";
-  if (!domain) {
-    return { logoUrl: "", logoFallbackUrl: "" };
-  }
+function buildProviderLogo(rawCarrier: unknown): { logoUrl: string; logoFallbackUrl: string } {
+  const carrierKey = normalizeCarrierKey(rawCarrier);
+  const normalizedKey = /^\d+$/.test(carrierKey) ? carrierKey : "0";
 
   return {
-    logoUrl: `https://${domain}/favicon.ico`,
-    logoFallbackUrl: `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`,
+    logoUrl: `https://res.17track.net/asset/carrier/logo/34x34/${normalizedKey}.png`,
+    logoFallbackUrl: "https://res.17track.net/asset/carrier/logo/34x34/0.png",
   };
 }
 
@@ -322,7 +313,7 @@ serve(async (req) => {
     const providerCountryText = countryCodeToText(providerCountryCode);
     const providerPhone = String(firstProvider.tel || "").trim();
     const providerHomepage = String(firstProvider.homepage || "").trim();
-    const providerLogo = buildProviderLogo(providerHomepage, providerName);
+    const providerLogo = buildProviderLogo(first.carrier ?? firstProvider?.["key"] ?? null);
 
     const timeline = normalizeTimeline(trackInfo);
     const latestStatusCode = String(latestStatus.status || "");

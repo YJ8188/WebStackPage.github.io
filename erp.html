@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="assets/css/fonts/fontawesome/css/font-awesome.min.css">
 
     <!-- Ant Design Style Clone -->
-    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260216-42">
+    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260216-43">
 
     <script>
         (function () {
@@ -371,6 +371,7 @@
                                     </table>
                                 </div>
                             </div>
+                            <div id="customersPager"></div>
                         </div>
                     </div>
 
@@ -412,6 +413,7 @@
                                     </table>
                                 </div>
                             </div>
+                            <div id="productsPager"></div>
                         </div>
                     </div>
 
@@ -479,6 +481,7 @@
                                     </table>
                                 </div>
                             </div>
+                            <div id="ordersPager"></div>
                         </div>
                     </div>
 
@@ -523,6 +526,7 @@
                                     </table>
                                 </div>
                             </div>
+                            <div id="inventoryPager"></div>
 
                             <div class="ant-table-wrapper" style="margin-top: 16px;">
                                 <div style="font-weight: 500; margin-bottom: 8px; color: #262626;">采购入库记录</div>
@@ -546,6 +550,7 @@
                                         <tbody class="ant-table-tbody" id="purchaseRecordsTableBody"></tbody>
                                     </table>
                                 </div>
+                                <div id="purchaseRecordsPager" style="margin-top:10px;"></div>
                             </div>
                         </div>
                     </div>
@@ -683,6 +688,7 @@
                                     </table>
                                 </div>
                             </div>
+                            <div id="financesPager"></div>
                         </div>
                     </div>
                 </div>
@@ -1200,7 +1206,7 @@
     <script src="assets/js/supabase-config.js?v=20260212-14"></script>
     <script src="assets/js/user-data.js?v=20260212-14"></script>
     <script src="assets/js/erp.js?v=20260216-33"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260216-42"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260216-43"></script>
     <script src="assets/js/pwa-register.js?v=20260216-1" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->
@@ -1338,6 +1344,13 @@
             
 
             const data = customers || (window.ERP && ERP.state.customers) || [];
+            if (typeof cacheTableRenderRows === 'function') {
+                cacheTableRenderRows('customers', data);
+            }
+            const pageData = (typeof getPaginatedRows === 'function')
+                ? getPaginatedRows('customers', data)
+                : { rows: data };
+            const visibleRows = Array.isArray(pageData.rows) ? pageData.rows : data;
             
             
 
@@ -1351,11 +1364,13 @@
 
             if (data.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px; color:#999;">暂无数据</td></tr>';
-                
+                if (typeof renderTablePagination === 'function') {
+                    renderTablePagination('customers', 'customersPager', pageData);
+                }
                 return;
             }
 
-            const html = data.map(customer => `
+            const html = visibleRows.map(customer => `
                 <tr>
                     <td><a href="#" class="customer-profile-link" data-customer-profile-id="${String(customer.id).replace(/\"/g, '&quot;')}" onclick="return handleCustomerProfileLink(event, ${JSON.stringify(customer.id)})" style="font-weight:500;">${customer.name}</a></td>
                     <td>${customer.contact_person || '-'}</td>
@@ -1374,6 +1389,9 @@
             `).join('');
 
             tbody.innerHTML = html;
+            if (typeof renderTablePagination === 'function') {
+                renderTablePagination('customers', 'customersPager', pageData);
+            }
             
         }
 
@@ -1382,16 +1400,26 @@
             
             
             const data = products || (window.ERP && ERP.state.products) || [];
+            if (typeof cacheTableRenderRows === 'function') {
+                cacheTableRenderRows('products', data);
+            }
+            const pageData = (typeof getPaginatedRows === 'function')
+                ? getPaginatedRows('products', data)
+                : { rows: data };
+            const visibleRows = Array.isArray(pageData.rows) ? pageData.rows : data;
             
             const tbody = document.getElementById('productsTableBody');
             if (!tbody) return;
 
             if (data.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px; color:#999;">暂无数据</td></tr>';
+                if (typeof renderTablePagination === 'function') {
+                    renderTablePagination('products', 'productsPager', pageData);
+                }
                 return;
             }
 
-            tbody.innerHTML = data.map(product => `
+            tbody.innerHTML = visibleRows.map(product => `
                 <tr>
                     <td><strong>${product.name}</strong></td>
                     <td>${product.sku || '-'}</td>
@@ -1408,6 +1436,9 @@
                     </td>
                 </tr>
             `).join('');
+            if (typeof renderTablePagination === 'function') {
+                renderTablePagination('products', 'productsPager', pageData);
+            }
         }
 
         // --- Render Orders ---
@@ -1415,16 +1446,26 @@
             
             
             const data = orders || (window.ERP && ERP.state.orders) || [];
+            if (typeof cacheTableRenderRows === 'function') {
+                cacheTableRenderRows('orders', data);
+            }
+            const pageData = (typeof getPaginatedRows === 'function')
+                ? getPaginatedRows('orders', data)
+                : { rows: data };
+            const visibleRows = Array.isArray(pageData.rows) ? pageData.rows : data;
             
             const tbody = document.getElementById('ordersTableBody');
             if (!tbody) return;
 
             if (data.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px; color:#999;">暂无数据</td></tr>';
+                if (typeof renderTablePagination === 'function') {
+                    renderTablePagination('orders', 'ordersPager', pageData);
+                }
                 return;
             }
 
-            tbody.innerHTML = data.map(order => {
+            tbody.innerHTML = visibleRows.map(order => {
                 const customer = ERP.state.customers.find(c => String(c.id) === String(order.customer_id));
                 const hasRiskApproval = String(order?.notes || '').includes('[风控审批]');
                 const shippingInfo = [];
@@ -1458,6 +1499,9 @@
                     </td>
                 </tr>
             `}).join('');
+            if (typeof renderTablePagination === 'function') {
+                renderTablePagination('orders', 'ordersPager', pageData);
+            }
         }
 
         // --- Render Inventory ---
@@ -1466,16 +1510,26 @@
             
             // Reuse product data but show focused columns
             const data = products || (window.ERP && ERP.state.products) || [];
+            if (typeof cacheTableRenderRows === 'function') {
+                cacheTableRenderRows('inventory', data);
+            }
+            const pageData = (typeof getPaginatedRows === 'function')
+                ? getPaginatedRows('inventory', data)
+                : { rows: data };
+            const visibleRows = Array.isArray(pageData.rows) ? pageData.rows : data;
             
             const tbody = document.getElementById('inventoryTableBody');
             if (!tbody) return;
 
             if (data.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px; color:#999;">暂无数据</td></tr>';
+                if (typeof renderTablePagination === 'function') {
+                    renderTablePagination('inventory', 'inventoryPager', pageData);
+                }
                 return;
             }
 
-            tbody.innerHTML = data.map(product => `
+            tbody.innerHTML = visibleRows.map(product => `
                 <tr>
                     <td>${product.name}</td>
                     <td>${product.sku || '-'}</td>
@@ -1501,6 +1555,9 @@
                     </td>
                 </tr>
             `).join('');
+            if (typeof renderTablePagination === 'function') {
+                renderTablePagination('inventory', 'inventoryPager', pageData);
+            }
         }
 
         // --- Render Finances ---
@@ -1520,6 +1577,12 @@
 
             if (data.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#999;">暂无数据</td></tr>';
+                if (typeof cacheTableRenderRows === 'function') {
+                    cacheTableRenderRows('finances', []);
+                }
+                if (typeof renderTablePagination === 'function') {
+                    renderTablePagination('finances', 'financesPager', { total: 0 });
+                }
                 return;
             }
 
@@ -1536,7 +1599,7 @@
                 return Number.isFinite(timestamp) ? timestamp : 0;
             };
 
-            const sortedData = [...data].sort((left, right) => {
+            const sortedSourceData = [...data].sort((left, right) => {
                 const timeDiff = getTimeValue(right.transaction_date) - getTimeValue(left.transaction_date);
                 if (timeDiff !== 0) return timeDiff;
 
@@ -1556,6 +1619,14 @@
 
                 return String(right.id || '').localeCompare(String(left.id || ''));
             });
+
+            if (typeof cacheTableRenderRows === 'function') {
+                cacheTableRenderRows('finances', sortedSourceData);
+            }
+            const pageData = (typeof getPaginatedRows === 'function')
+                ? getPaginatedRows('finances', sortedSourceData)
+                : { rows: sortedSourceData };
+            const sortedData = Array.isArray(pageData.rows) ? pageData.rows : sortedSourceData;
 
             tbody.innerHTML = sortedData.map(f => `
                 <tr>
@@ -1588,6 +1659,9 @@
                     </td>
                 </tr>
             `).join('');
+            if (typeof renderTablePagination === 'function') {
+                renderTablePagination('finances', 'financesPager', pageData);
+            }
         }
 
         // Helper: Unit Text

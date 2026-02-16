@@ -69,6 +69,22 @@ const financeViewState = {
     currentRows: [],
     source: 'all'
 };
+const tablePaginationState = {
+    customers: { page: 1, pageSize: 10 },
+    products: { page: 1, pageSize: 10 },
+    orders: { page: 1, pageSize: 10 },
+    inventory: { page: 1, pageSize: 10 },
+    finances: { page: 1, pageSize: 10 },
+    purchaseRecords: { page: 1, pageSize: 10 }
+};
+const tableRenderCacheState = {
+    customers: [],
+    products: [],
+    orders: [],
+    inventory: [],
+    finances: [],
+    purchaseRecords: []
+};
 const dashboardItemCacheState = {
     orderIdsKey: '',
     rows: [],
@@ -105,6 +121,156 @@ function resetDashboardItemCache() {
     dashboardPurchaseCacheState.rows = [];
     dashboardPurchaseCacheState.loadedAt = 0;
     dashboardPurchaseCacheState.pendingPromise = null;
+}
+
+function cacheTableRenderRows(moduleKey, rows = []) {
+    if (!Object.prototype.hasOwnProperty.call(tableRenderCacheState, moduleKey)) {
+        return;
+    }
+    tableRenderCacheState[moduleKey] = Array.isArray(rows) ? [...rows] : [];
+}
+
+function getCachedTableRenderRows(moduleKey) {
+    if (!Object.prototype.hasOwnProperty.call(tableRenderCacheState, moduleKey)) {
+        return [];
+    }
+    return Array.isArray(tableRenderCacheState[moduleKey]) ? [...tableRenderCacheState[moduleKey]] : [];
+}
+
+function ensureTablePaginationModuleState(moduleKey) {
+    if (!Object.prototype.hasOwnProperty.call(tablePaginationState, moduleKey)) {
+        tablePaginationState[moduleKey] = { page: 1, pageSize: 10 };
+    }
+    const state = tablePaginationState[moduleKey];
+    const safePageSize = Math.max(5, parseInt(state.pageSize, 10) || 10);
+    const safePage = Math.max(1, parseInt(state.page, 10) || 1);
+    state.pageSize = safePageSize;
+    state.page = safePage;
+    return state;
+}
+
+function getPaginatedRows(moduleKey, rows = []) {
+    const sourceRows = Array.isArray(rows) ? rows : [];
+    const state = ensureTablePaginationModuleState(moduleKey);
+    const total = sourceRows.length;
+    const totalPages = Math.max(1, Math.ceil(total / state.pageSize));
+    if (state.page > totalPages) {
+        state.page = totalPages;
+    }
+    const startIndex = (state.page - 1) * state.pageSize;
+    const pagedRows = sourceRows.slice(startIndex, startIndex + state.pageSize);
+    return {
+        rows: pagedRows,
+        total,
+        page: state.page,
+        pageSize: state.pageSize,
+        totalPages,
+        from: total === 0 ? 0 : startIndex + 1,
+        to: Math.min(startIndex + state.pageSize, total)
+    };
+}
+
+function buildPaginationPageList(currentPage, totalPages) {
+    const pages = [];
+    if (totalPages <= 7) {
+        for (let page = 1; page <= totalPages; page += 1) {
+            pages.push(page);
+        }
+        return pages;
+    }
+
+    pages.push(1);
+    const left = Math.max(2, currentPage - 1);
+    const right = Math.min(totalPages - 1, currentPage + 1);
+
+    if (left > 2) {
+        pages.push('ellipsis-left');
+    }
+    for (let page = left; page <= right; page += 1) {
+        pages.push(page);
+    }
+    if (right < totalPages - 1) {
+        pages.push('ellipsis-right');
+    }
+    pages.push(totalPages);
+    return pages;
+}
+
+function renderTablePagination(moduleKey, containerId, pageData) {
+    const container = document.getElementById(containerId);
+    if (!container) {
+        return;
+    }
+
+    const data = pageData || getPaginatedRows(moduleKey, getCachedTableRenderRows(moduleKey));
+    if (!data || data.total <= 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    const pageList = buildPaginationPageList(data.page, data.totalPages);
+    container.innerHTML = `
+        <div class="erp-table-pagination">
+            <div class="erp-table-pagination-info">共 ${data.total} 条，当前 ${data.from}-${data.to}</div>
+            <div class="erp-table-pagination-actions">
+                <button class="ant-btn erp-pagination-btn" type="button" ${data.page <= 1 ? 'disabled' : ''}
+                    onclick="setTablePaginationPage('${moduleKey}', ${data.page - 1})">上一页</button>
+                ${pageList.map(item => {
+                    if (typeof item !== 'number') {
+                        return '<span class="erp-pagination-ellipsis">...</span>';
+                    }
+                    return `<button class="ant-btn erp-pagination-btn ${item === data.page ? 'is-active' : ''}" type="button"
+                        onclick="setTablePaginationPage('${moduleKey}', ${item})">${item}</button>`;
+                }).join('')}
+                <button class="ant-btn erp-pagination-btn" type="button" ${data.page >= data.totalPages ? 'disabled' : ''}
+                    onclick="setTablePaginationPage('${moduleKey}', ${data.page + 1})">下一页</button>
+                <select class="ant-select erp-pagination-size" onchange="setTablePaginationSize('${moduleKey}', this.value)">
+                    ${[10, 20, 50].map(size => `<option value="${size}" ${size === data.pageSize ? 'selected' : ''}>${size}/页</option>`).join('')}
+                </select>
+            </div>
+        </div>
+    `;
+}
+
+function rerenderByPaginationModule(moduleKey) {
+    const rows = getCachedTableRenderRows(moduleKey);
+    switch (moduleKey) {
+        case 'customers':
+            if (typeof renderCustomers === 'function') renderCustomers(rows);
+            break;
+        case 'products':
+            if (typeof renderProducts === 'function') renderProducts(rows);
+            break;
+        case 'orders':
+            if (typeof renderOrders === 'function') renderOrders(rows);
+            break;
+        case 'inventory':
+            if (typeof renderInventory === 'function') renderInventory(rows);
+            break;
+        case 'finances':
+            if (typeof renderFinances === 'function') renderFinances(rows);
+            break;
+        case 'purchaseRecords':
+            if (typeof renderPurchaseRecords === 'function') renderPurchaseRecords(rows);
+            break;
+        default:
+            break;
+    }
+}
+
+function setTablePaginationPage(moduleKey, page) {
+    const state = ensureTablePaginationModuleState(moduleKey);
+    const safePage = Math.max(1, parseInt(page, 10) || 1);
+    state.page = safePage;
+    rerenderByPaginationModule(moduleKey);
+}
+
+function setTablePaginationSize(moduleKey, pageSize) {
+    const state = ensureTablePaginationModuleState(moduleKey);
+    const safeSize = Math.max(5, parseInt(pageSize, 10) || 10);
+    state.pageSize = safeSize;
+    state.page = 1;
+    rerenderByPaginationModule(moduleKey);
 }
 
 function escapeCsvCell(value) {
@@ -3190,8 +3356,12 @@ function renderPurchaseRecords(records = []) {
     }
 
     const rows = Array.isArray(records) ? records : [];
+    cacheTableRenderRows('purchaseRecords', rows);
+    const pageData = getPaginatedRows('purchaseRecords', rows);
+    const visibleRows = pageData.rows;
     if (rows.length === 0) {
         tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:16px;color:#999;">暂无采购记录</td></tr>';
+        renderTablePagination('purchaseRecords', 'purchaseRecordsPager', pageData);
         return;
     }
 
@@ -3199,7 +3369,7 @@ function renderPurchaseRecords(records = []) {
     const productMap = new Map(products.map(item => [String(item?.id), item]));
     const canApprovePurchase = isCurrentUserPurchaseApprover();
 
-    tbody.innerHTML = rows.map(record => {
+    tbody.innerHTML = visibleRows.map(record => {
         const meta = parsePurchaseMetaFromNotes(record?.notes);
         const productFromState = productMap.get(String(record?.product_id));
         const purchaseOrderNo = String(meta['采购单号'] || (record?.id ? `CG-LOG-${record.id}` : '-')).trim() || '-';
@@ -3273,6 +3443,7 @@ function renderPurchaseRecords(records = []) {
             </tr>
         `;
     }).join('');
+    renderTablePagination('purchaseRecords', 'purchaseRecordsPager', pageData);
 }
 
 async function setPurchaseApprovalStatus(logId, approvalStatus = 'approved') {

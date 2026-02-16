@@ -58,6 +58,10 @@ let bulkCompleteSignedOrdersInProgress = false;
 const purchaseLogState = {
     records: []
 };
+const financeViewState = {
+    currentRows: [],
+    source: 'all'
+};
 
 function escapeCsvCell(value) {
     const text = String(value ?? '');
@@ -92,6 +96,11 @@ function formatFileTimestamp(date = new Date()) {
     const minute = String(d.getMinutes()).padStart(2, '0');
     const second = String(d.getSeconds()).padStart(2, '0');
     return `${year}${month}${day}-${hour}${minute}${second}`;
+}
+
+function syncFinanceViewRows(rows = [], source = 'all') {
+    financeViewState.currentRows = Array.isArray(rows) ? [...rows] : [];
+    financeViewState.source = source;
 }
 
 function parsePurchaseMetaFromNotes(notes) {
@@ -1553,6 +1562,7 @@ async function saveOrder() {
 
                 if (ERP.config.currentModule === 'finance') {
                     const finances = await ERP.loadFinances(true);
+                    syncFinanceViewRows(finances, 'all');
                     renderFinances(finances);
                 }
                 
@@ -1572,6 +1582,7 @@ async function saveOrder() {
 
             if (ERP.config.currentModule === 'finance') {
                 const finances = await ERP.loadFinances(true);
+                syncFinanceViewRows(finances, 'all');
                 renderFinances(finances);
             }
             
@@ -2172,6 +2183,7 @@ async function bulkCompleteSignedOrders() {
         ]);
         searchOrders();
         if (typeof renderFinances === 'function') {
+            syncFinanceViewRows(ERP.state.finances, 'all');
             renderFinances(ERP.state.finances);
         }
         updateStatistics();
@@ -2233,6 +2245,7 @@ async function updateOrderStatusByAction(orderId, targetStatus, actionLabel = '�
 
         searchOrders();
         if (typeof renderFinances === 'function') {
+            syncFinanceViewRows(ERP.state.finances, 'all');
             renderFinances(ERP.state.finances);
         }
         updateStatistics();
@@ -2592,6 +2605,7 @@ async function saveFinance() {
             // 重新加载数据并更新显示
             const finances = await ERP.loadFinances(true);
             erpDebugLog('info', '[ERP Ant] 重新加载财务数据条数: ', finances.length);
+            syncFinanceViewRows(finances, 'all');
             renderFinances(finances);
             updateStatistics();
             
@@ -2606,6 +2620,7 @@ async function saveFinance() {
         }
         // 重新加载数据
         const finances = await ERP.loadFinances(true);
+        syncFinanceViewRows(finances, 'all');
         renderFinances(finances);
         updateStatistics();
     } finally {
@@ -2636,6 +2651,7 @@ async function deleteFinance(financeId) {
             // 检查 renderFinances 函数是否存在
             if (typeof renderFinances === 'function') {
                 erpDebugLog('info', '[ERP Ant] renderFinances 函数存在，正在调用...');
+                syncFinanceViewRows(finances, 'all');
                 renderFinances(finances);
                 erpDebugLog('info', '[ERP Ant] renderFinances 调用完成');
             } else {
@@ -2764,6 +2780,7 @@ function applyFinanceFilters() {
         return keywordMatch && startMatch && endMatch;
     });
 
+    syncFinanceViewRows(filtered, rangePreset === 'all' && !keyword ? 'all' : 'filtered');
     renderFinances(filtered);
     renderFinanceAgingSummary();
 }
@@ -2829,6 +2846,7 @@ function initFinanceFilters() {
         endInput.disabled = true;
     }
 
+    syncFinanceViewRows(Array.isArray(ERP.state?.finances) ? ERP.state.finances : [], 'all');
     applyFinanceFilters();
 }
 
@@ -3146,6 +3164,7 @@ async function markReceivableAsPaid(orderId) {
         searchOrders();
     }
     if (typeof renderFinances === 'function') {
+        syncFinanceViewRows(ERP.state.finances, 'all');
         renderFinances(ERP.state.finances);
     }
     updateStatistics();
@@ -3164,7 +3183,18 @@ async function markPayableAsPaid(financeId) {
     }
 
     const amount = Math.abs(Number(current?.amount || 0));
-    const confirmText = `确认将该应付账款结清吗？\n金额：${formatCurrency(amount)}`;
+    const amountInput = prompt(`请输入本次付款金额（最多 ${amount.toFixed(2)}）`, amount.toFixed(2));
+    if (amountInput === null) {
+        return;
+    }
+    const settleAmount = Number(String(amountInput).trim());
+    if (!Number.isFinite(settleAmount) || settleAmount <= 0) {
+        alert('付款金额无效，请输入大于 0 的数字');
+        return;
+    }
+    const finalSettleAmount = Math.min(settleAmount, amount);
+    const remainingAmount = Math.max(amount - finalSettleAmount, 0);
+    const confirmText = `确认本次付款吗？\n应付总额：${formatCurrency(amount)}\n本次付款：${formatCurrency(finalSettleAmount)}\n付款后剩余：${formatCurrency(remainingAmount)}`;
     if (!confirm(confirmText)) {
         return;
     }
@@ -3172,7 +3202,8 @@ async function markPayableAsPaid(financeId) {
     const note = prompt('可选：填写结清备注（可留空）', '') || '';
     const result = await ERP.settlePayableFinance(financeId, {
         settleDate: new Date().toISOString(),
-        note
+        note,
+        paidAmount: finalSettleAmount
     });
 
     if (!result) {
@@ -3181,6 +3212,7 @@ async function markPayableAsPaid(financeId) {
 
     const finances = await ERP.loadFinances(true);
     if (typeof renderFinances === 'function') {
+        syncFinanceViewRows(finances, 'all');
         renderFinances(finances);
     }
     updateStatistics();
@@ -3200,6 +3232,56 @@ function getFinanceActionButtons(finance) {
 
     buttons.push(`<button class="ant-btn" onclick='deleteFinance(${JSON.stringify(finance?.id)})' style="color:#ff4d4f; border-color:#ff4d4f;">删除</button>`);
     return buttons.join('');
+}
+
+function exportFinanceCsvByCurrentView() {
+    if (!window.ERP) {
+        alert('ERP 尚未初始化');
+        return;
+    }
+
+    const rows = Array.isArray(financeViewState.currentRows) && financeViewState.currentRows.length > 0
+        ? financeViewState.currentRows
+        : (Array.isArray(ERP.state?.finances) ? ERP.state.finances : []);
+
+    if (!rows.length) {
+        if (typeof showToast === 'function') {
+            showToast('当前没有可导出的财务数据', 'info');
+        }
+        return;
+    }
+
+    const orders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
+    const customers = Array.isArray(ERP.state?.customers) ? ERP.state.customers : [];
+    const orderMap = new Map(orders.map(item => [String(item?.id), item]));
+    const customerMap = new Map(customers.map(item => [String(item?.id), item]));
+
+    const headers = ['类型', '分类', '金额', '关联订单号', '客户', '描述', '交易时间'];
+    const exportRows = rows.map(item => {
+        const typeText = item?.type === 'income' ? '收入' : (item?.type === 'expense' ? '支出' : '系统');
+        const orderId = resolveFinanceOrderId(item);
+        const order = orderId !== null ? orderMap.get(String(orderId)) : null;
+        const customer = order ? customerMap.get(String(order.customer_id)) : null;
+        const orderNumber = order?.order_number || (orderId !== null ? `订单#${orderId}` : '-');
+        const customerName = customer?.name || '-';
+        const date = parseFinanceDate(item?.transaction_date);
+
+        return [
+            typeText,
+            item?.category || '-',
+            Number(item?.amount || 0).toFixed(2),
+            orderNumber,
+            customerName,
+            item?.description || '-',
+            date ? date.toLocaleString('zh-CN') : (item?.transaction_date || '-')
+        ];
+    });
+
+    const fileName = `财务明细-${financeViewState.source || 'all'}-${formatFileTimestamp()}.csv`;
+    downloadCsvFile(fileName, headers, exportRows);
+    if (typeof showToast === 'function') {
+        showToast(`已导出 ${exportRows.length} 条财务记录`, 'success');
+    }
 }
 
 function downloadJsonFile(fileName, data) {
@@ -3434,6 +3516,7 @@ async function importERPBackupFromFile(event) {
             populateInventoryProducts();
         }
         if (typeof renderFinances === 'function') {
+            syncFinanceViewRows(ERP.state.finances, 'all');
             renderFinances(ERP.state.finances);
         }
         updateStatistics();
@@ -3508,6 +3591,7 @@ if (typeof window !== 'undefined') {
             populateInventoryProducts();
         }
         if (typeof renderFinances === 'function') {
+            syncFinanceViewRows(event.detail.finances, 'all');
             renderFinances(event.detail.finances);
         }
         loadPurchaseRecords();
@@ -3521,6 +3605,7 @@ if (typeof window !== 'undefined') {
 
         const finances = await ERP.loadFinances(true);
         if (typeof renderFinances === 'function') {
+            syncFinanceViewRows(finances, 'all');
             renderFinances(finances);
         }
         updateStatistics();

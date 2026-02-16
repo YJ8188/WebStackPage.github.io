@@ -2471,26 +2471,77 @@ const ERP = {
             const settleDate = options?.settleDate || new Date().toISOString();
             const settleNote = String(options?.note || '').trim();
             const payableAmount = Math.abs(parseFloat(before.amount) || 0);
+            const requestedPaidAmount = Number(options?.paidAmount);
+            const settleAmount = Number.isFinite(requestedPaidAmount) && requestedPaidAmount > 0
+                ? Math.min(requestedPaidAmount, payableAmount)
+                : payableAmount;
+            const remainingAmount = Math.max(payableAmount - settleAmount, 0);
             const beforeDescription = String(before.description || '').trim();
-            const settleDescription = [
-                beforeDescription || '采购应付账款结清',
-                settleNote ? `结清备注：${settleNote}` : '',
-                `结清时间：${settleDate}`
-            ].filter(Boolean).join('；');
+            if (settleAmount <= 0) {
+                throw new Error('本次付款金额必须大于 0');
+            }
 
-            const { data, error } = await supabaseClient
-                .from('erp_finances')
-                .update({
-                    type: 'expense',
-                    category: '采购付款',
-                    amount: payableAmount,
-                    description: settleDescription,
-                    transaction_date: settleDate
-                })
-                .eq('id', financeId)
-                .eq('user_id', userData.user.id)
-                .select()
-                .single();
+            let data = null;
+            let error = null;
+            let paymentRecord = null;
+
+            if (remainingAmount <= 0.000001) {
+                const settleDescription = [
+                    beforeDescription || '采购应付账款结清',
+                    settleNote ? `结清备注：${settleNote}` : '',
+                    `结清时间：${settleDate}`
+                ].filter(Boolean).join('；');
+
+                const response = await supabaseClient
+                    .from('erp_finances')
+                    .update({
+                        type: 'expense',
+                        category: '采购付款',
+                        amount: payableAmount,
+                        description: settleDescription,
+                        transaction_date: settleDate
+                    })
+                    .eq('id', financeId)
+                    .eq('user_id', userData.user.id)
+                    .select()
+                    .single();
+                data = response.data;
+                error = response.error;
+            } else {
+                const payableDescription = [
+                    beforeDescription || '采购应付账款',
+                    `已付：${settleAmount.toFixed(2)}`,
+                    `剩余：${remainingAmount.toFixed(2)}`,
+                    settleNote ? `备注：${settleNote}` : ''
+                ].filter(Boolean).join('；');
+
+                const updateResponse = await supabaseClient
+                    .from('erp_finances')
+                    .update({
+                        type: 'system',
+                        category: '应付账款',
+                        amount: remainingAmount,
+                        description: payableDescription
+                    })
+                    .eq('id', financeId)
+                    .eq('user_id', userData.user.id)
+                    .select()
+                    .single();
+                data = updateResponse.data;
+                error = updateResponse.error;
+
+                if (!error) {
+                    paymentRecord = await this.addFinanceRecord({
+                        type: 'expense',
+                        category: '采购付款',
+                        amount: settleAmount,
+                        description: `${beforeDescription || '应付账款付款'}（本次付款）${settleNote ? `，备注：${settleNote}` : ''}`,
+                        reference_id: before.reference_id || null,
+                        order_id: before.order_id || null,
+                        transaction_date: settleDate
+                    });
+                }
+            }
 
             if (error) {
                 throw error;
@@ -2501,7 +2552,11 @@ const ERP = {
                 this.state.finances[index] = data;
             }
 
-            this.emitEvent('erpFinanceChanged', { financeId, action: 'payable-settled', record: data });
+            this.emitEvent('erpFinanceChanged', {
+                financeId,
+                action: remainingAmount > 0 ? 'payable-partial-settled' : 'payable-settled',
+                record: data
+            });
             this.logAudit({
                 module: 'finance',
                 action: 'settle_payable',
@@ -2510,12 +2565,20 @@ const ERP = {
                 entityName: '采购付款',
                 details: {
                     before,
-                    after: data
+                    after: data,
+                    settle_amount: settleAmount,
+                    remaining_amount: remainingAmount,
+                    payment_record_id: paymentRecord?.id || null
                 }
             });
 
             if (typeof showToast === 'function') {
-                showToast('应付账款已结清', 'success');
+                showToast(
+                    remainingAmount > 0
+                        ? `应付已付款 ${settleAmount.toFixed(2)}，剩余 ${remainingAmount.toFixed(2)}`
+                        : '应付账款已结清',
+                    'success'
+                );
             }
 
             return data;

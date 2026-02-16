@@ -7,6 +7,9 @@
 - 账号系统：Supabase Auth 登录/注册/会话
 - 轻量 ERP：客户、产品、订单、库存、财务
 - 数据同步：同一账号下，网页端与 ERP 数据使用同一 Supabase 库
+- PWA 离线能力：支持安装到桌面、页面资源缓存、离线兜底页
+- 自动校验：GitHub Actions 在 `master` Push/PR 自动执行语法检查
+- ERP 审计日志：关键操作自动记录（客户/产品/订单/库存/财务）
 
 ## 技术栈
 - HTML5 / CSS3 / JavaScript (ES6+)
@@ -22,6 +25,10 @@
 ├── erp-ant.html
 ├── about.html
 ├── 404.html
+├── manifest.webmanifest
+├── sw.js
+├── offline.html
+├── .github/workflows/ci.yml
 ├── assets/
 │   ├── css/
 │   ├── js/
@@ -85,6 +92,26 @@ tools\card-manager\build_erp_exe.bat
 python -m http.server 8000
 ```
 打开：`http://localhost:8000`
+
+## PWA（离线与安装）
+- 已启用文件：`manifest.webmanifest`、`sw.js`、`assets/js/pwa-register.js`
+- 离线时自动展示：`offline.html`
+- 首页/登录/ERP 等关键页面已注入 PWA 注册脚本
+- 首次更新缓存后建议 `Ctrl + F5` 强刷一次
+
+## CI 自动检查（GitHub Actions）
+- 工作流文件：`.github/workflows/ci.yml`
+- 触发条件：`master` 分支 Push、PR
+- 检查内容：
+  - `assets/js/**/*.js` 语法检查（`node --check`）
+  - `tools/**/*.py` 语法检查（`python -m py_compile`）
+  - 关键页面与 PWA 文件存在性校验
+
+## ERP 审计日志说明
+- 关键操作已接入审计写入：客户/产品/订单/库存/财务
+- 审计写入为“非阻塞”模式：即使审计失败，也不会阻断业务操作
+- 若数据库暂无 `erp_audit_logs` 表，系统会自动降级关闭审计写入并继续运行
+- 建议在 Supabase 创建 `erp_audit_logs` 表以启用完整追踪
 
 ## Supabase 配置
 编辑：`assets/js/supabase-config.js`

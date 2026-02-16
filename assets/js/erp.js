@@ -15,7 +15,8 @@ const ERP = {
 
     runtime: {
         initPromise: null,
-        initializedUserId: null
+        initializedUserId: null,
+        auditLogDisabled: false
     },
 
     // ==================== 工具函数 ====================
@@ -45,6 +46,124 @@ const ERP = {
             return false;
         }
         return String(left) === String(right);
+    },
+
+    sanitizeAuditData(value) {
+        try {
+            if (value === null || value === undefined) {
+                return {};
+            }
+
+            if (typeof value === 'string') {
+                return { message: value };
+            }
+
+            return JSON.parse(JSON.stringify(value));
+        } catch (error) {
+            return {
+                fallback: String(value),
+                sanitizeError: String(error?.message || error)
+            };
+        }
+    },
+
+    isAuditTableMissingError(error) {
+        const message = String(error?.message || '').toLowerCase();
+        return error?.code === '42P01'
+            || (message.includes('relation') && message.includes('erp_audit_logs') && message.includes('does not exist'));
+    },
+
+    isAuditColumnMissingError(error) {
+        const message = String(error?.message || '').toLowerCase();
+        return error?.code === '42703'
+            || (message.includes('column') && message.includes('does not exist'));
+    },
+
+    logAudit(payload) {
+        this.addAuditLog(payload).catch((error) => {
+            console.error('[ERP审计] 异步写入失败:', error);
+        });
+    },
+
+    async addAuditLog(payload = {}) {
+        if (this.runtime.auditLogDisabled) {
+            return false;
+        }
+
+        if (!userData?.isLoggedIn || !userData?.user?.id || !window.supabaseClient) {
+            return false;
+        }
+
+        const now = new Date().toISOString();
+        const moduleName = String(payload.module || 'system');
+        const action = String(payload.action || 'unknown');
+        const entityType = String(payload.entityType || moduleName);
+        const entityId = payload.entityId ?? null;
+        const entityName = String(payload.entityName || '');
+        const details = this.sanitizeAuditData(payload.details);
+        const description = String(
+            payload.description
+            || `${moduleName} ${action}${entityName ? `: ${entityName}` : (entityId !== null ? `#${entityId}` : '')}`
+        );
+
+        const basePayload = {
+            user_id: userData.user.id,
+            module: moduleName,
+            action,
+            entity_type: entityType,
+            entity_id: entityId === null ? null : String(entityId),
+            entity_name: entityName,
+            description,
+            details,
+            created_at: now
+        };
+
+        const candidates = [
+            basePayload,
+            { ...basePayload, details: JSON.stringify(details) },
+            { ...basePayload, entity_name: undefined, details: undefined },
+            {
+                user_id: userData.user.id,
+                module: moduleName,
+                action,
+                description,
+                created_at: now
+            },
+            {
+                user_id: userData.user.id,
+                action,
+                description
+            }
+        ];
+
+        for (const rawCandidate of candidates) {
+            const candidate = Object.fromEntries(
+                Object.entries(rawCandidate).filter(([, value]) => value !== undefined)
+            );
+
+            const { error } = await supabaseClient
+                .from('erp_audit_logs')
+                .insert([candidate]);
+
+            if (!error) {
+                return true;
+            }
+
+            if (this.isAuditTableMissingError(error)) {
+                this.runtime.auditLogDisabled = true;
+                console.warn('[ERP审计] 未检测到 erp_audit_logs 表，已自动关闭审计写入');
+                return false;
+            }
+
+            if (this.isAuditColumnMissingError(error)) {
+                continue;
+            }
+
+            console.error('[ERP审计] 写入失败:', error);
+            return false;
+        }
+
+        return false;
     },
 
     // ==================== 状态 ====================
@@ -388,6 +507,14 @@ const ERP = {
             }
 
             this.state.customers.unshift(data);
+            this.logAudit({
+                module: 'customers',
+                action: 'create',
+                entityType: 'customer',
+                entityId: data.id,
+                entityName: data.name,
+                details: { after: data }
+            });
 
             if (typeof showToast === 'function') {
                 showToast('客户添加成功', 'success');
@@ -406,6 +533,7 @@ const ERP = {
 
     async updateCustomer(customerId, customerData) {
         try {
+            const before = this.state.customers.find(c => this.isSameId(c.id, customerId)) || null;
             const { data, error } = await supabaseClient
                 .from('erp_customers')
                 .update({
@@ -431,6 +559,17 @@ const ERP = {
             if (index !== -1) {
                 this.state.customers[index] = data;
             }
+            this.logAudit({
+                module: 'customers',
+                action: 'update',
+                entityType: 'customer',
+                entityId: customerId,
+                entityName: data?.name || before?.name || '',
+                details: {
+                    before,
+                    after: data
+                }
+            });
 
             if (typeof showToast === 'function') {
                 showToast('客户更新成功', 'success');
@@ -449,6 +588,7 @@ const ERP = {
 
     async deleteCustomer(customerId) {
         try {
+            const removedCustomer = this.state.customers.find(c => this.isSameId(c.id, customerId)) || null;
             const { error } = await supabaseClient
                 .from('erp_customers')
                 .delete()
@@ -461,6 +601,14 @@ const ERP = {
 
             // 更新本地状态
             this.state.customers = this.state.customers.filter(c => !this.isSameId(c.id, customerId));
+            this.logAudit({
+                module: 'customers',
+                action: 'delete',
+                entityType: 'customer',
+                entityId: customerId,
+                entityName: removedCustomer?.name || '',
+                details: { before: removedCustomer }
+            });
 
             if (typeof showToast === 'function') {
                 showToast('客户删除成功', 'success');
@@ -523,6 +671,14 @@ const ERP = {
             }
 
             this.state.products.unshift(data);
+            this.logAudit({
+                module: 'products',
+                action: 'create',
+                entityType: 'product',
+                entityId: data.id,
+                entityName: data.name,
+                details: { after: data }
+            });
 
             if (typeof showToast === 'function') {
                 showToast('产品添加成功', 'success');
@@ -541,6 +697,7 @@ const ERP = {
 
     async updateProduct(productId, productData) {
         try {
+            const before = this.state.products.find(p => this.isSameId(p.id, productId)) || null;
             const { data, error } = await supabaseClient
                 .from('erp_products')
                 .update({
@@ -569,6 +726,17 @@ const ERP = {
             if (index !== -1) {
                 this.state.products[index] = data;
             }
+            this.logAudit({
+                module: 'products',
+                action: 'update',
+                entityType: 'product',
+                entityId: productId,
+                entityName: data?.name || before?.name || '',
+                details: {
+                    before,
+                    after: data
+                }
+            });
 
             if (typeof showToast === 'function') {
                 showToast('产品更新成功', 'success');
@@ -587,6 +755,7 @@ const ERP = {
 
     async deleteProduct(productId) {
         try {
+            const removedProduct = this.state.products.find(p => this.isSameId(p.id, productId)) || null;
             const { error } = await supabaseClient
                 .from('erp_products')
                 .delete()
@@ -599,6 +768,14 @@ const ERP = {
 
             // 更新本地状态
             this.state.products = this.state.products.filter(p => !this.isSameId(p.id, productId));
+            this.logAudit({
+                module: 'products',
+                action: 'delete',
+                entityType: 'product',
+                entityId: productId,
+                entityName: removedProduct?.name || '',
+                details: { before: removedProduct }
+            });
 
             if (typeof showToast === 'function') {
                 showToast('产品删除成功', 'success');
@@ -768,6 +945,26 @@ const ERP = {
             order.items = itemsData;
             this.state.orders.unshift(order);
             this.state.loaded.finances = false;
+            this.logAudit({
+                module: 'orders',
+                action: 'create',
+                entityType: 'order',
+                entityId: order.id,
+                entityName: order.order_number || '',
+                details: {
+                    after: {
+                        id: order.id,
+                        order_number: order.order_number,
+                        customer_id: order.customer_id,
+                        total_amount: order.total_amount,
+                        total_cost: order.total_cost,
+                        net_profit: order.net_profit,
+                        status: order.status,
+                        payment_status: order.payment_status,
+                        items_count: orderItems.length
+                    }
+                }
+            });
 
             if (typeof showToast === 'function') {
                 showToast('订单创建成功', 'success');
@@ -786,6 +983,7 @@ const ERP = {
 
     async updateOrderStatus(orderId, status, paymentStatus = null) {
         try {
+            const before = this.state.orders.find(o => this.isSameId(o.id, orderId)) || null;
             const updateData = {
                 status: status
             };
@@ -811,6 +1009,23 @@ const ERP = {
             if (index !== -1) {
                 this.state.orders[index] = { ...this.state.orders[index], ...data };
             }
+            this.logAudit({
+                module: 'orders',
+                action: 'update_status',
+                entityType: 'order',
+                entityId: orderId,
+                entityName: data?.order_number || before?.order_number || '',
+                details: {
+                    before: {
+                        status: before?.status,
+                        payment_status: before?.payment_status
+                    },
+                    after: {
+                        status: data?.status,
+                        payment_status: data?.payment_status
+                    }
+                }
+            });
 
             if (typeof showToast === 'function') {
                 showToast('订单状态更新成功', 'success');
@@ -923,6 +1138,26 @@ const ERP = {
             order.items = itemsData;
             this.state.orders.unshift(order);
             this.emitEvent('erpOrderChanged', { orderId: order.id, action: 'created' });
+            this.logAudit({
+                module: 'orders',
+                action: 'create',
+                entityType: 'order',
+                entityId: order.id,
+                entityName: order.order_number || '',
+                details: {
+                    after: {
+                        id: order.id,
+                        order_number: order.order_number,
+                        customer_id: order.customer_id,
+                        total_amount: order.total_amount,
+                        total_cost: order.total_cost,
+                        net_profit: order.net_profit,
+                        status: order.status,
+                        payment_status: order.payment_status,
+                        items_count: orderItems.length
+                    }
+                }
+            });
 
             // 库存/财务后处理改为异步执行，完成后会通过事件刷新页面
             this.postProcessOrder(order, orderData.items, {
@@ -1074,6 +1309,7 @@ const ERP = {
     async updateOrder(orderId, orderData) {
         try {
             const localOrder = this.state.orders.find(o => this.isSameId(o.id, orderId)) || {};
+            const before = this.sanitizeAuditData(localOrder);
             const orderNumber = localOrder.order_number || `订单#${orderId}`;
             const totalCost = parseFloat(localOrder.total_cost || 0);
             const manualTotalAmount = parseFloat(orderData.total_amount);
@@ -1113,6 +1349,27 @@ const ERP = {
             }
 
             await this.syncOrderFinanceRecords(orderId, orderNumber, totalAmount, totalCost, netProfit);
+            this.logAudit({
+                module: 'orders',
+                action: 'update',
+                entityType: 'order',
+                entityId: orderId,
+                entityName: data?.order_number || orderNumber,
+                details: {
+                    before,
+                    after: {
+                        id: data?.id || orderId,
+                        order_number: data?.order_number || orderNumber,
+                        customer_id: data?.customer_id,
+                        total_amount: data?.total_amount,
+                        total_cost: data?.total_cost,
+                        net_profit: data?.net_profit,
+                        status: data?.status,
+                        payment_status: data?.payment_status,
+                        notes: data?.notes || ''
+                    }
+                }
+            });
 
             if (typeof showToast === 'function') {
                 showToast('订单更新成功', 'success');
@@ -1248,6 +1505,24 @@ const ERP = {
             this.state.loaded.orders = false;
             this.state.loaded.finances = false;
             this.state.loaded.products = false;
+            this.logAudit({
+                module: 'orders',
+                action: 'delete',
+                entityType: 'order',
+                entityId: orderId,
+                entityName: orderDetail?.order_number || '',
+                details: {
+                    before: {
+                        id: orderDetail?.id || orderId,
+                        order_number: orderDetail?.order_number || '',
+                        customer_id: orderDetail?.customer_id || null,
+                        total_amount: orderDetail?.total_amount || 0,
+                        total_cost: orderDetail?.total_cost || 0,
+                        net_profit: orderDetail?.net_profit || 0,
+                        items_count: Array.isArray(orderItems) ? orderItems.length : 0
+                    }
+                }
+            });
 
             this.emitEvent('erpOrderChanged', { orderId, action: 'deleted' });
             this.emitEvent('erpFinanceChanged', { orderId, action: 'deleted' });
@@ -1274,7 +1549,7 @@ const ERP = {
             // 获取当前库存
             const { data: product, error: productError } = await supabaseClient
                 .from('erp_products')
-                .select('stock_quantity')
+                .select('id, name, stock_quantity')
                 .eq('id', productId)
                 .eq('user_id', userData.user.id)
                 .single();
@@ -1329,6 +1604,21 @@ const ERP = {
                 currentQuantity: newQuantity,
                 type,
                 referenceId
+            });
+            this.logAudit({
+                module: 'inventory',
+                action: 'adjust',
+                entityType: 'product',
+                entityId: productId,
+                entityName: this.state.products.find(p => this.isSameId(p.id, productId))?.name || product?.name || '',
+                details: {
+                    type,
+                    quantity_change: safeQuantityChange,
+                    previous_quantity: safeCurrentQuantity,
+                    current_quantity: newQuantity,
+                    reference_id: referenceId,
+                    notes: notes || ''
+                }
             });
 
             return true;
@@ -1431,6 +1721,24 @@ const ERP = {
 
             this.state.finances.unshift(data);
             this.emitEvent('erpFinanceChanged', { record: data, action: 'created' });
+            this.logAudit({
+                module: 'finance',
+                action: 'create',
+                entityType: 'finance',
+                entityId: data?.id || null,
+                entityName: data?.category || '',
+                details: {
+                    after: {
+                        id: data?.id || null,
+                        type: data?.type || financeData?.type || '',
+                        category: data?.category || financeData?.category || '',
+                        amount: data?.amount || financeData?.amount || 0,
+                        reference_id: data?.reference_id || financeData?.reference_id || null,
+                        order_id: data?.order_id || financeData?.order_id || null,
+                        description: data?.description || financeData?.description || ''
+                    }
+                }
+            });
 
             return data;
 
@@ -1608,6 +1916,7 @@ const ERP = {
 
     async deleteFinance(financeId) {
         try {
+            const removedFinance = this.state.finances.find(f => this.isSameId(f.id, financeId)) || null;
             const { error } = await supabaseClient
                 .from('erp_finances')
                 .delete()
@@ -1620,6 +1929,16 @@ const ERP = {
 
             // 更新本地状态
             this.state.finances = this.state.finances.filter(f => !this.isSameId(f.id, financeId));
+            this.logAudit({
+                module: 'finance',
+                action: 'delete',
+                entityType: 'finance',
+                entityId: financeId,
+                entityName: removedFinance?.category || '',
+                details: {
+                    before: removedFinance
+                }
+            });
 
             if (typeof showToast === 'function') {
                 showToast('财务记录删除成功', 'success');

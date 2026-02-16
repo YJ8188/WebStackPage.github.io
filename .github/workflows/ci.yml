@@ -1,0 +1,52 @@
+name: webstack-ci
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  syntax-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Check JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do
+            echo "node --check $file"
+            node --check "$file"
+          done < <(find assets/js -type f -name "*.js" -print0)
+
+      - name: Check key web files
+        shell: bash
+        run: |
+          test -f index.html
+          test -f login.html
+          test -f erp-ant.html
+          test -f sw.js
+          test -f manifest.webmanifest
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check Python syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do
+            echo "python -m py_compile $file"
+            python -m py_compile "$file"
+          done < <(find tools -type f -name "*.py" -print0)

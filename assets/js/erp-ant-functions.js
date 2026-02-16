@@ -72,13 +72,17 @@ const financeViewState = {
 const dashboardItemCacheState = {
     orderIdsKey: '',
     rows: [],
-    loadedAt: 0
+    loadedAt: 0,
+    pendingKey: '',
+    pendingPromise: null
 };
 
 function resetDashboardItemCache() {
     dashboardItemCacheState.orderIdsKey = '';
     dashboardItemCacheState.rows = [];
     dashboardItemCacheState.loadedAt = 0;
+    dashboardItemCacheState.pendingKey = '';
+    dashboardItemCacheState.pendingPromise = null;
 }
 
 function escapeCsvCell(value) {
@@ -618,6 +622,8 @@ function updateStatistics(data) {
     renderDashboardCustomerInsights();
     renderDashboardCustomerRiskAlerts();
     renderDashboardTopProducts();
+    renderDashboardProfitProducts();
+    renderDashboardCustomerLifecycle();
 }
 
 // ==================== 单位转换 ====================
@@ -3642,40 +3648,60 @@ async function loadDashboardOrderItems(orderRows = []) {
         return dashboardItemCacheState.rows;
     }
 
-    try {
-        if (window.supabaseClient && typeof window.supabaseClient.from === 'function') {
-            const { data, error } = await window.supabaseClient
-                .from('erp_order_items')
-                .select('order_id, product_id, product_name, quantity, unit_price')
-                .in('order_id', orderIds);
-            if (error) {
-                throw error;
-            }
-            const rows = Array.isArray(data) ? data : [];
-            dashboardItemCacheState.orderIdsKey = key;
-            dashboardItemCacheState.rows = rows;
-            dashboardItemCacheState.loadedAt = now;
-            return rows;
-        }
-    } catch (error) {
-        console.error('[ERP] 首页热销商品明细加载失败:', error?.message || error);
+    if (dashboardItemCacheState.pendingPromise && dashboardItemCacheState.pendingKey === key) {
+        return dashboardItemCacheState.pendingPromise;
     }
 
-    const fallbackRows = orders.flatMap(order => {
-        const items = Array.isArray(order?.items) ? order.items : [];
-        return items.map(item => ({
-            order_id: order?.id,
-            product_id: item?.product_id,
-            product_name: item?.product_name,
-            quantity: item?.quantity,
-            unit_price: item?.unit_price || item?.price
-        }));
-    });
+    const fetchPromise = (async () => {
+        try {
+            if (window.supabaseClient && typeof window.supabaseClient.from === 'function') {
+                const { data, error } = await window.supabaseClient
+                    .from('erp_order_items')
+                    .select('order_id, product_id, product_name, quantity, unit_price, unit_cost, total_cost, net_profit')
+                    .in('order_id', orderIds);
+                if (error) {
+                    throw error;
+                }
+                const rows = Array.isArray(data) ? data : [];
+                dashboardItemCacheState.orderIdsKey = key;
+                dashboardItemCacheState.rows = rows;
+                dashboardItemCacheState.loadedAt = now;
+                return rows;
+            }
+        } catch (error) {
+            console.error('[ERP] 首页商品明细加载失败:', error?.message || error);
+        }
 
-    dashboardItemCacheState.orderIdsKey = key;
-    dashboardItemCacheState.rows = fallbackRows;
-    dashboardItemCacheState.loadedAt = now;
-    return fallbackRows;
+        const fallbackRows = orders.flatMap(order => {
+            const items = Array.isArray(order?.items) ? order.items : [];
+            return items.map(item => ({
+                order_id: order?.id,
+                product_id: item?.product_id,
+                product_name: item?.product_name,
+                quantity: item?.quantity,
+                unit_price: item?.unit_price || item?.price,
+                unit_cost: item?.unit_cost,
+                total_cost: item?.total_cost,
+                net_profit: item?.net_profit
+            }));
+        });
+
+        dashboardItemCacheState.orderIdsKey = key;
+        dashboardItemCacheState.rows = fallbackRows;
+        dashboardItemCacheState.loadedAt = now;
+        return fallbackRows;
+    })();
+
+    dashboardItemCacheState.pendingKey = key;
+    dashboardItemCacheState.pendingPromise = fetchPromise;
+    try {
+        return await fetchPromise;
+    } finally {
+        if (dashboardItemCacheState.pendingPromise === fetchPromise) {
+            dashboardItemCacheState.pendingPromise = null;
+            dashboardItemCacheState.pendingKey = '';
+        }
+    }
 }
 
 async function renderDashboardTopProducts() {
@@ -3746,6 +3772,225 @@ async function renderDashboardTopProducts() {
                 <div style="font-size:12px;color:#8c8c8c;">有效订单 ${validOrders.length} 笔</div>
             </div>
             ${rankRowsHtml || '<div style="font-size:12px;color:#8c8c8c;">暂无订单商品数据</div>'}
+        </div>
+    `;
+}
+
+function buildProductProfitRanking(itemRows = [], products = []) {
+    const productMap = new Map((Array.isArray(products) ? products : []).map(item => [String(item?.id), item]));
+    const summaryMap = new Map();
+
+    (Array.isArray(itemRows) ? itemRows : []).forEach(item => {
+        const quantity = Number(item?.quantity || 0);
+        if (!Number.isFinite(quantity) || quantity <= 0) {
+            return;
+        }
+        const productIdText = String(item?.product_id || '');
+        const product = productMap.get(productIdText) || null;
+        const productName = item?.product_name || product?.name || `商品#${productIdText || '-'}`;
+        const unitPrice = Math.max(Number(item?.unit_price || product?.price || 0), 0);
+        const revenue = unitPrice * quantity;
+        const fallbackCost = Math.max(Number(item?.unit_cost || product?.cost || 0), 0) * quantity;
+        const totalCost = Number.isFinite(Number(item?.total_cost)) ? Number(item.total_cost) : fallbackCost;
+        const netProfit = Number.isFinite(Number(item?.net_profit))
+            ? Number(item.net_profit)
+            : (revenue - totalCost);
+        const key = productIdText || productName;
+
+        if (!summaryMap.has(key)) {
+            summaryMap.set(key, {
+                productId: productIdText || null,
+                productName,
+                quantity: 0,
+                revenue: 0,
+                cost: 0,
+                profit: 0
+            });
+        }
+
+        const target = summaryMap.get(key);
+        target.quantity += quantity;
+        target.revenue += revenue;
+        target.cost += totalCost;
+        target.profit += netProfit;
+    });
+
+    return Array.from(summaryMap.values())
+        .sort((left, right) => {
+            const profitDiff = right.profit - left.profit;
+            if (profitDiff !== 0) return profitDiff;
+            return right.revenue - left.revenue;
+        });
+}
+
+async function renderDashboardProfitProducts() {
+    const container = document.getElementById('dashboardProfitProducts');
+    if (!container || !window.ERP) {
+        return;
+    }
+
+    const orders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
+    const products = Array.isArray(ERP.state?.products) ? ERP.state.products : [];
+    const validOrders = orders.filter(order => {
+        const status = String(order?.status || '').toLowerCase();
+        return status !== 'cancelled' && status !== 'refunded';
+    });
+
+    container.innerHTML = `
+        <div style="flex:1;min-width:320px;padding:12px 14px;border:1px solid #f0f0f0;border-radius:8px;background:#fff;">
+            <div style="font-size:14px;font-weight:600;color:#262626;margin-bottom:8px;">商品利润排行</div>
+            <div style="font-size:12px;color:#8c8c8c;">加载中...</div>
+        </div>
+    `;
+
+    const itemRows = await loadDashboardOrderItems(validOrders);
+    const ranking = buildProductProfitRanking(itemRows, products).slice(0, 8);
+    const totalProfit = ranking.reduce((sum, item) => sum + Number(item?.profit || 0), 0);
+
+    const rowsHtml = ranking.map((item, index) => {
+        const margin = item.revenue > 0 ? ((item.profit / item.revenue) * 100) : 0;
+        const positive = item.profit >= 0;
+        return `
+            <div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed #f0f0f0;">
+                <div style="font-size:12px;color:#262626;">${index + 1}. ${item.productName}</div>
+                <div style="text-align:right;font-size:12px;color:${positive ? '#237804' : '#d46b08'};">
+                    <div>利润 ${formatCurrency(item.profit)}</div>
+                    <div style="color:#8c8c8c;">毛利率 ${margin.toFixed(1)}%</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <div style="flex:1;min-width:320px;padding:12px 14px;border:1px solid #d9f7be;border-radius:8px;background:#f6ffed;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div style="font-size:14px;font-weight:600;color:#237804;">商品利润排行</div>
+                <div style="font-size:12px;color:#8c8c8c;">TOP利润 ${formatCurrency(totalProfit)}</div>
+            </div>
+            ${rowsHtml || '<div style="font-size:12px;color:#8c8c8c;">暂无可计算利润数据</div>'}
+        </div>
+    `;
+}
+
+function calculateCustomerLifecycleStats() {
+    const orders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
+    const customers = Array.isArray(ERP.state?.customers) ? ERP.state.customers : [];
+    const customerMap = new Map(customers.map(item => [String(item?.id), item]));
+    const profileMap = new Map();
+
+    orders.forEach(order => {
+        const status = String(order?.status || '').toLowerCase();
+        if (status === 'cancelled' || status === 'refunded') {
+            return;
+        }
+        const customerId = order?.customer_id;
+        if (customerId === null || customerId === undefined || String(customerId).trim() === '') {
+            return;
+        }
+        const key = String(customerId);
+        if (!profileMap.has(key)) {
+            const customer = customerMap.get(key) || null;
+            profileMap.set(key, {
+                customerId: key,
+                customerName: customer?.name || '-',
+                firstDate: null,
+                lastDate: null,
+                orderCount: 0,
+                totalAmount: 0
+            });
+        }
+
+        const profile = profileMap.get(key);
+        const date = parseFinanceDate(order?.order_date);
+        if (date && (!profile.firstDate || date.getTime() < profile.firstDate.getTime())) {
+            profile.firstDate = date;
+        }
+        if (date && (!profile.lastDate || date.getTime() > profile.lastDate.getTime())) {
+            profile.lastDate = date;
+        }
+        profile.orderCount += 1;
+        profile.totalAmount += Math.max(Number(order?.total_amount || 0), 0);
+    });
+
+    const rows = Array.from(profileMap.values()).map(item => {
+        const firstDays = item.firstDate ? getAgingDays(item.firstDate.toISOString()) : null;
+        const lastDays = item.lastDate ? getAgingDays(item.lastDate.toISOString()) : null;
+        let stage = '观察';
+        if (Number.isFinite(firstDays) && firstDays <= 30 && item.orderCount <= 2) {
+            stage = '新客';
+        } else if (Number.isFinite(lastDays) && lastDays <= 30) {
+            stage = '活跃';
+        } else if (Number.isFinite(lastDays) && lastDays > 30) {
+            stage = '沉睡';
+        }
+        return {
+            ...item,
+            firstDays,
+            lastDays,
+            stage
+        };
+    });
+
+    const summary = {
+        totalCustomers: rows.length,
+        newCustomers: rows.filter(item => item.stage === '新客').length,
+        activeCustomers: rows.filter(item => item.stage === '活跃').length,
+        sleepingCustomers: rows.filter(item => item.stage === '沉睡').length
+    };
+
+    return {
+        summary,
+        rows: rows.sort((left, right) => {
+            const leftTime = left.lastDate ? left.lastDate.getTime() : 0;
+            const rightTime = right.lastDate ? right.lastDate.getTime() : 0;
+            if (rightTime !== leftTime) return rightTime - leftTime;
+            return Number(right.totalAmount || 0) - Number(left.totalAmount || 0);
+        })
+    };
+}
+
+function renderDashboardCustomerLifecycle() {
+    const container = document.getElementById('dashboardCustomerLifecycle');
+    if (!container || !window.ERP) {
+        return;
+    }
+
+    const lifecycle = calculateCustomerLifecycleStats();
+    const formatDateText = date => {
+        if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+            return '-';
+        }
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    };
+
+    const rowsHtml = lifecycle.rows
+        .slice(0, 8)
+        .map(item => `
+            <div style="padding:6px 0;border-bottom:1px dashed #f0f0f0;">
+                <div style="display:flex;justify-content:space-between;gap:10px;">
+                    <div style="font-size:12px;color:#262626;">${item.customerName}</div>
+                    <div style="font-size:12px;color:${item.stage === '沉睡' ? '#d46b08' : '#1677ff'};">${item.stage}</div>
+                </div>
+                <div style="font-size:12px;color:#8c8c8c;margin-top:2px;">
+                    首单 ${formatDateText(item.firstDate)} → 最近 ${formatDateText(item.lastDate)}（${Number.isFinite(item.lastDays) ? `${item.lastDays}天前` : '-'}）
+                </div>
+                <div style="font-size:12px;color:#595959;">累计 ${item.orderCount} 单 / ${formatCurrency(item.totalAmount)}</div>
+            </div>
+        `)
+        .join('');
+
+    container.innerHTML = `
+        <div style="flex:1;min-width:320px;padding:12px 14px;border:1px solid #d6e4ff;border-radius:8px;background:#f0f5ff;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div style="font-size:14px;font-weight:600;color:#1d39c4;">客户生命周期</div>
+                <div style="font-size:12px;color:#8c8c8c;">客户 ${lifecycle.summary.totalCustomers} 人</div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;margin-bottom:8px;">
+                <span class="ant-tag" style="margin:0;">新客 ${lifecycle.summary.newCustomers}</span>
+                <span class="ant-tag" style="margin:0;">活跃 ${lifecycle.summary.activeCustomers}</span>
+                <span class="ant-tag" style="margin:0;">沉睡 ${lifecycle.summary.sleepingCustomers}</span>
+            </div>
+            ${rowsHtml || '<div style="font-size:12px;color:#8c8c8c;">暂无客户生命周期数据</div>'}
         </div>
     `;
 }

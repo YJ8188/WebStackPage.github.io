@@ -1934,6 +1934,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const trackingInput = document.getElementById('orderTrackingNumber');
     if (trackingInput) {
         trackingInput.addEventListener('input', function () {
+            renderOrderLogisticsCarrierCard(null);
             setOrderLogisticsStatus('填写快递单号后可查询实时轨迹');
             renderOrderLogisticsTimeline([]);
         });
@@ -1943,6 +1944,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (shippingCompanySelect) {
         shippingCompanySelect.addEventListener('change', function () {
             updateOrderTrackingParamHint();
+            renderOrderLogisticsCarrierCard(null);
             setOrderLogisticsStatus('快递公司已变化，请重新查询轨迹');
             renderOrderLogisticsTimeline([]);
         });
@@ -1952,6 +1954,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (otherShippingCompany) {
         otherShippingCompany.addEventListener('input', function () {
             updateOrderTrackingParamHint();
+            renderOrderLogisticsCarrierCard(null);
             setOrderLogisticsStatus('快递公司已变化，请重新查询轨迹');
             renderOrderLogisticsTimeline([]);
         });
@@ -1960,6 +1963,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const trackingParamInput = document.getElementById('orderTrackingParam');
     if (trackingParamInput) {
         trackingParamInput.addEventListener('input', function () {
+            renderOrderLogisticsCarrierCard(null);
             setOrderLogisticsStatus('校验参数已变化，请重新查询轨迹');
             renderOrderLogisticsTimeline([]);
         });

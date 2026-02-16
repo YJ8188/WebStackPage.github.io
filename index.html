@@ -6836,7 +6836,7 @@
             });
         }
 
-        function renderFavorites(useLocalStorageOnly = false) {
+        async function renderFavorites(useLocalStorageOnly = false) {
             console.log('[收藏] renderFavorites 被调用, useLocalStorageOnly:', useLocalStorageOnly);
             const container = document.getElementById('my-favorites-list');
             if (!container) {
@@ -6851,7 +6851,14 @@
 
             // 如果已登录且不强制使用 localStorage，从数据库加载收藏
             if (userData.isLoggedIn && !useLocalStorageOnly) {
-                const cloudFavs = normalizeFavorites(userData?.config?.favorites);
+                let cloudFavs = normalizeFavorites(userData?.config?.favorites);
+                if (cloudFavs.length === 0 && typeof userData.loadFavorites === 'function') {
+                    try {
+                        cloudFavs = normalizeFavorites(await userData.loadFavorites());
+                    } catch (error) {
+                        console.error('[收藏] 远程加载收藏失败:', error);
+                    }
+                }
                 console.log('[收藏] 已登录，配置中的收藏数:', cloudFavs.length);
 
                 if (cloudFavs.length > 0) {

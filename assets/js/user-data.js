@@ -776,18 +776,26 @@ const userData = {
                     const { data, error } = await this.withTimeout(
                         client
                             .from('user_config')
-                            .select('reminders, updated_at')
+                            .select('id, reminders, updated_at, created_at')
                             .eq('user_id', this.user.id)
                             .order('updated_at', { ascending: false })
-                            .limit(1),
+                            .limit(20),
                         15000,
                         '加载提醒超时'
                     );
 
-                    if (!error && Array.isArray(data) && data.length > 0 && Array.isArray(data[0].reminders)) {
-                        this.config.reminders = data[0].reminders;
-                        this.saveCachedAccountConfig(this.config);
-                        return this.config.reminders;
+                    if (!error && Array.isArray(data) && data.length > 0) {
+                        const sortedRows = this.getSortedConfigRecords(data);
+                        const reminderRow = sortedRows.find(item => Array.isArray(item?.reminders) && item.reminders.length > 0)
+                            || sortedRows.find(item => Array.isArray(item?.reminders))
+                            || null;
+
+                        if (reminderRow && Array.isArray(reminderRow.reminders)) {
+                            this.config.reminders = reminderRow.reminders;
+                            this.saveCachedAccountConfig(this.config);
+                            this.saveConfigSnapshot(this.config);
+                            return this.config.reminders;
+                        }
                     }
                 } catch (error) {
                     console.error('[UserData] 远程加载提醒失败:', error);
@@ -940,6 +948,38 @@ const userData = {
         if (this.isLoggedIn) {
             if (Array.isArray(this.config.favorites) && this.config.favorites.length > 0) {
                 return this.config.favorites;
+            }
+
+            const client = this.getAuthClient();
+            if (client && this.user?.id) {
+                try {
+                    const { data, error } = await this.withTimeout(
+                        client
+                            .from('user_config')
+                            .select('id, favorites, updated_at, created_at')
+                            .eq('user_id', this.user.id)
+                            .order('updated_at', { ascending: false })
+                            .limit(20),
+                        15000,
+                        '加载收藏超时'
+                    );
+
+                    if (!error && Array.isArray(data) && data.length > 0) {
+                        const sortedRows = this.getSortedConfigRecords(data);
+                        const favoriteRow = sortedRows.find(item => Array.isArray(item?.favorites) && item.favorites.length > 0)
+                            || sortedRows.find(item => Array.isArray(item?.favorites))
+                            || null;
+
+                        if (favoriteRow && Array.isArray(favoriteRow.favorites)) {
+                            this.config.favorites = favoriteRow.favorites;
+                            this.saveCachedAccountConfig(this.config);
+                            this.saveConfigSnapshot(this.config);
+                            return this.config.favorites;
+                        }
+                    }
+                } catch (error) {
+                    console.error('[UserData] 远程加载收藏失败:', error);
+                }
             }
 
             const snapshotFavorites = this.recoverArrayFromSnapshots('favorites');

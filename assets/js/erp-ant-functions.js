@@ -909,6 +909,16 @@ function showOrderModal(order = null) {
             itemsContainer.innerHTML = '';
             const detailItems = Array.isArray(order.items) ? order.items : [];
             detailItems.forEach(detail => {
+                const normalizedProductId = normalizeEntityId(detail.product_id);
+                const matchedProduct = (ERP.state.products || []).find(p => isSameEntityId(p.id, normalizedProductId));
+                const fallbackName = detail.product_name || matchedProduct?.name || `商品#${detail.product_id || '-'}`;
+                const fallbackPriceNumber = parseFloat(detail.unit_price ?? matchedProduct?.price ?? 0);
+                const fallbackPrice = Number.isFinite(fallbackPriceNumber) ? fallbackPriceNumber : 0;
+                const hasCurrentOption = (ERP.state.products || []).some(p => isSameEntityId(p.id, normalizedProductId));
+                const fallbackOption = (!hasCurrentOption && normalizedProductId !== null)
+                    ? `<option value="${normalizedProductId}" data-name="${fallbackName}" data-price="${fallbackPrice.toFixed(2)}" selected>${fallbackName} - ¥${fallbackPrice.toFixed(2)}</option>`
+                    : '';
+
                 const row = document.createElement('div');
                 row.className = 'order-item';
                 row.style.cssText = 'border: 1px dashed #d9d9d9; padding: 10px; margin-bottom: 8px; background: #fff;';
@@ -916,6 +926,7 @@ function showOrderModal(order = null) {
                     <div style="margin-bottom:8px;">
                         <select class="ant-select product-select" style="width:100%;" onchange="updateOrderItemTotal(this)">
                             <option value="">选择产品</option>
+                            ${fallbackOption}
                             ${ERP.state.products.map(p => `<option value="${p.id}" data-name="${p.name}" data-price="${p.price}">${p.name} - ¥${p.price}</option>`).join('')}
                         </select>
                     </div>
@@ -1141,9 +1152,13 @@ function calculateOrderTotal() {
 }
 
 async function editOrder(orderId) {
+    if (window.ERP && typeof ERP.loadProducts === 'function' && (!Array.isArray(ERP.state.products) || ERP.state.products.length === 0)) {
+        await ERP.loadProducts({ lite: true, forceRefresh: true });
+    }
+
     let order = ERP.state.orders.find(o => isSameEntityId(o.id, orderId));
 
-    const hasDetailItems = !!(order && Array.isArray(order.items));
+    const hasDetailItems = !!(order && Array.isArray(order.items) && order.items.length > 0);
     if (!hasDetailItems && window.ERP && typeof ERP.loadOrderDetail === 'function') {
         const detail = await ERP.loadOrderDetail(normalizeEntityId(orderId));
         if (detail) {

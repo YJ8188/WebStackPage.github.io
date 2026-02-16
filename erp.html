@@ -553,6 +553,10 @@
                                     <option value="7">趋势7天</option>
                                     <option value="30" selected>趋势30天</option>
                                 </select>
+                                <select id="financeMonthlyRange" class="ant-select" onchange="renderFinanceMonthlyProfitChart()">
+                                    <option value="6" selected>利润6个月</option>
+                                    <option value="12">利润12个月</option>
+                                </select>
                                 <button class="ant-btn" onclick="exportFinanceCsvByCurrentView()">
                                     <i class="fa fa-file-excel-o"></i> 导出Excel(CSV)
                                 </button>
@@ -585,6 +589,9 @@
                                 style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom: 16px;"></div>
 
                             <div id="financeTrendSummary" class="ant-row"
+                                style="margin-bottom: 16px;"></div>
+
+                            <div id="financeMonthlyProfitChart" class="ant-row"
                                 style="margin-bottom: 16px;"></div>
 
                             <div class="ant-table-wrapper">
@@ -686,6 +693,20 @@
             <div class="modal-body" id="orderApprovalHistoryBody"></div>
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="hideOrderApprovalHistoryModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="payablePaymentHistoryModal" class="modal-overlay"
+        onclick="if(event.target===this) hidePayablePaymentHistoryModal()">
+        <div class="modal" style="max-width: 920px; width: 96%;">
+            <div class="modal-header">
+                <h3 id="payablePaymentHistoryTitle">采购付款记录</h3>
+                <button class="btn-close" onclick="hidePayablePaymentHistoryModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="payablePaymentHistoryBody"></div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="hidePayablePaymentHistoryModal()">关闭</button>
             </div>
         </div>
     </div>
@@ -1080,8 +1101,8 @@
     <script src="assets/js/supabase.min.js"></script>
     <script src="assets/js/supabase-config.js?v=20260212-14"></script>
     <script src="assets/js/user-data.js?v=20260212-14"></script>
-    <script src="assets/js/erp.js?v=20260216-27"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260216-17"></script>
+    <script src="assets/js/erp.js?v=20260216-28"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260216-18"></script>
     <script src="assets/js/pwa-register.js?v=20260216-1" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->
@@ -1638,6 +1659,9 @@
             }
             if (typeof renderFinanceTrendSummary === 'function') {
                 renderFinanceTrendSummary(data);
+            }
+            if (typeof renderFinanceMonthlyProfitChart === 'function') {
+                renderFinanceMonthlyProfitChart(data);
             }
         }
 

@@ -54,6 +54,12 @@ const orderApprovalHistoryState = {
     errorMessage: ''
 };
 
+const payablePaymentHistoryState = {
+    financeId: null,
+    finance: null,
+    rows: []
+};
+
 let bulkCompleteSignedOrdersInProgress = false;
 const purchaseLogState = {
     records: []
@@ -131,6 +137,27 @@ function formatCurrency(value) {
         return '¥0.00';
     }
     return `¥${amount.toFixed(2)}`;
+}
+
+function getFinanceReferenceMeta(finance) {
+    const rawReferenceId = finance?.reference_id;
+    const rawOrderId = finance?.order_id;
+    const hasReference = rawReferenceId !== null && rawReferenceId !== undefined && String(rawReferenceId).trim() !== '';
+    const hasOrder = rawOrderId !== null && rawOrderId !== undefined && String(rawOrderId).trim() !== '';
+
+    return {
+        referenceId: hasReference ? String(rawReferenceId) : null,
+        orderId: hasOrder ? String(rawOrderId) : null
+    };
+}
+
+function isPurchasePaymentRecord(finance) {
+    const type = String(finance?.type || '').toLowerCase();
+    const category = String(finance?.category || '');
+    if (type !== 'expense') {
+        return false;
+    }
+    return category.includes('采购付款') && Number(finance?.amount || 0) > 0;
 }
 
 const ERP_SYSTEM_FINANCE_CATEGORIES = ['销售订单', '销售成本', '利润', '利润(系统)', '应付账款', '采购付款', '回款确认'];
@@ -503,6 +530,7 @@ function updateStatistics(data) {
     renderOrderWorkflowSummary(currentOrders, getFilteredOrdersForView());
     renderFinanceAgingSummary();
     renderFinanceTrendSummary();
+    renderFinanceMonthlyProfitChart();
 }
 
 // ==================== 单位转换 ====================
@@ -1967,6 +1995,138 @@ function hideOrderApprovalHistoryModal() {
     orderApprovalHistoryState.errorMessage = '';
 }
 
+function hidePayablePaymentHistoryModal() {
+    const modal = document.getElementById('payablePaymentHistoryModal');
+    if (!modal) {
+        return;
+    }
+    modal.classList.remove('active');
+    modal.style.display = '';
+}
+
+function openPayablePaymentHistoryModal() {
+    const modal = document.getElementById('payablePaymentHistoryModal');
+    if (!modal) {
+        return;
+    }
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+}
+
+function collectRelatedFinanceRows(targetFinance) {
+    const sourceRows = Array.isArray(ERP.state?.finances) ? ERP.state.finances : [];
+    const targetMeta = getFinanceReferenceMeta(targetFinance);
+    const targetRef = targetMeta.referenceId;
+    const targetOrder = targetMeta.orderId;
+
+    return sourceRows.filter(item => {
+        const meta = getFinanceReferenceMeta(item);
+        const sameReference = targetRef && meta.referenceId && meta.referenceId === targetRef;
+        const sameOrder = targetOrder && meta.orderId && meta.orderId === targetOrder;
+        return !!(sameReference || sameOrder);
+    });
+}
+
+function renderPayablePaymentHistoryModal(finance, paymentRows, relatedRows) {
+    const titleEl = document.getElementById('payablePaymentHistoryTitle');
+    const bodyEl = document.getElementById('payablePaymentHistoryBody');
+    if (!bodyEl) {
+        return;
+    }
+
+    const target = finance || {};
+    const rows = Array.isArray(paymentRows) ? paymentRows : [];
+    const related = Array.isArray(relatedRows) ? relatedRows : [];
+    const totalPaid = rows.reduce((sum, item) => sum + Math.abs(Number(item?.amount || 0)), 0);
+    const remainingPayable = related.find(item => String(item?.category || '').includes('应付账款'));
+    const remainingAmount = remainingPayable ? Math.abs(Number(remainingPayable?.amount || 0)) : 0;
+    const meta = getFinanceReferenceMeta(target);
+    const financeLabel = meta.referenceId ? `参考ID: ${meta.referenceId}` : (meta.orderId ? `订单ID: ${meta.orderId}` : `记录ID: ${target?.id || '-'}`);
+
+    if (titleEl) {
+        titleEl.textContent = `采购付款记录 - ${financeLabel}`;
+    }
+
+    const rowsHtml = rows.length > 0
+        ? rows
+            .sort((left, right) => {
+                const l = parseFinanceDate(left?.transaction_date)?.getTime() || 0;
+                const r = parseFinanceDate(right?.transaction_date)?.getTime() || 0;
+                return r - l;
+            })
+            .map(item => {
+                const date = parseFinanceDate(item?.transaction_date);
+                return `
+                    <tr>
+                        <td>${date ? date.toLocaleString('zh-CN') : '-'}</td>
+                        <td>${formatCurrency(Math.abs(Number(item?.amount || 0)))}</td>
+                        <td>${escapeHtmlText(item?.description || '-')}</td>
+                        <td>${item?.id || '-'}</td>
+                    </tr>
+                `;
+            }).join('')
+        : '<tr><td colspan="4" style="text-align:center;color:#999;padding:16px;">暂无付款记录</td></tr>';
+
+    bodyEl.innerHTML = `
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
+            <div style="padding:10px 12px;border:1px solid #d6e4ff;border-radius:8px;background:#f0f5ff;min-width:180px;">
+                <div style="font-size:12px;color:#8c8c8c;">累计已付款</div>
+                <div style="font-size:18px;font-weight:600;color:#1d39c4;">${formatCurrency(totalPaid)}</div>
+            </div>
+            <div style="padding:10px 12px;border:1px solid #ffd6e7;border-radius:8px;background:#fff1f8;min-width:180px;">
+                <div style="font-size:12px;color:#8c8c8c;">当前剩余应付</div>
+                <div style="font-size:18px;font-weight:600;color:#cf1322;">${formatCurrency(remainingAmount)}</div>
+            </div>
+        </div>
+        <div class="ant-table-wrapper">
+            <div class="ant-table">
+                <table>
+                    <thead class="ant-table-thead">
+                        <tr>
+                            <th>付款时间</th>
+                            <th>付款金额</th>
+                            <th>描述</th>
+                            <th>记录ID</th>
+                        </tr>
+                    </thead>
+                    <tbody class="ant-table-tbody">${rowsHtml}</tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+async function showPayablePaymentHistory(financeId) {
+    const normalizedId = normalizeEntityId(financeId);
+    if (normalizedId === null) {
+        alert('记录标识无效');
+        return;
+    }
+
+    if (!window.ERP) {
+        alert('ERP 尚未初始化');
+        return;
+    }
+
+    await ERP.loadFinances(true);
+
+    const targetFinance = (ERP.state?.finances || []).find(item => isSameEntityId(item?.id, normalizedId));
+    if (!targetFinance) {
+        alert('未找到财务记录，请刷新后重试');
+        return;
+    }
+
+    const relatedRows = collectRelatedFinanceRows(targetFinance);
+    const paymentRows = relatedRows.filter(isPurchasePaymentRecord);
+
+    payablePaymentHistoryState.financeId = normalizedId;
+    payablePaymentHistoryState.finance = targetFinance;
+    payablePaymentHistoryState.rows = paymentRows;
+
+    openPayablePaymentHistoryModal();
+    renderPayablePaymentHistoryModal(targetFinance, paymentRows, relatedRows);
+}
+
 function openOrderApprovalHistoryModal() {
     const modal = document.getElementById('orderApprovalHistoryModal');
     if (!modal) {
@@ -3075,6 +3235,91 @@ function renderFinanceTrendSummary(finances = null) {
     `;
 }
 
+function buildMonthlyProfitRows(finances, months = 6) {
+    const safeMonths = Math.max(3, parseInt(months, 10) || 6);
+    const now = new Date();
+    const monthRows = [];
+    const monthMap = new Map();
+
+    for (let offset = safeMonths - 1; offset >= 0; offset -= 1) {
+        const date = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        const row = {
+            key,
+            label: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`,
+            income: 0,
+            expense: 0,
+            net: 0
+        };
+        monthRows.push(row);
+        monthMap.set(key, row);
+    }
+
+    (Array.isArray(finances) ? finances : []).forEach(item => {
+        const date = parseFinanceDate(item?.transaction_date);
+        if (!date) {
+            return;
+        }
+        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        const row = monthMap.get(key);
+        if (!row) {
+            return;
+        }
+
+        const amount = Math.abs(Number(item?.amount || 0));
+        if (!Number.isFinite(amount)) {
+            return;
+        }
+
+        const type = String(item?.type || '');
+        if (type === 'income') {
+            row.income += amount;
+        } else if (type === 'expense') {
+            row.expense += amount;
+        }
+        row.net = row.income - row.expense;
+    });
+
+    return monthRows;
+}
+
+function renderFinanceMonthlyProfitChart(finances = null) {
+    const container = document.getElementById('financeMonthlyProfitChart');
+    if (!container) {
+        return;
+    }
+
+    const source = Array.isArray(finances) ? finances : (Array.isArray(ERP.state?.finances) ? ERP.state.finances : []);
+    const monthRange = Math.max(3, parseInt(document.getElementById('financeMonthlyRange')?.value || '6', 10));
+    const rows = buildMonthlyProfitRows(source, monthRange);
+    const maxNet = Math.max(1, ...rows.map(item => Math.abs(item.net)));
+
+    const rowsHtml = rows.map(item => {
+        const ratio = Math.round((Math.abs(item.net) / maxNet) * 100);
+        const netPositive = item.net >= 0;
+        const barColor = netPositive ? '#1677ff' : '#fa8c16';
+        return `
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                <div style="width:72px;color:#595959;font-size:12px;">${item.label}</div>
+                <div style="flex:1;height:10px;background:#f5f5f5;border-radius:999px;overflow:hidden;">
+                    <div style="height:10px;background:${barColor};width:${ratio}%;min-width:${Math.abs(item.net) > 0 ? '12px' : '0'};"></div>
+                </div>
+                <div style="width:120px;text-align:right;font-size:12px;color:${netPositive ? '#1677ff' : '#d46b08'};">
+                    ${netPositive ? '+' : '-'}${formatCurrency(Math.abs(item.net))}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <div style="padding:10px;border:1px solid #f0f0f0;border-radius:8px;background:#fff;">
+            <div style="font-size:13px;font-weight:500;color:#262626;margin-bottom:8px;">月度利润图（近${monthRange}个月）</div>
+            ${rowsHtml || '<div style="font-size:12px;color:#999;">暂无数据</div>'}
+            <div style="margin-top:8px;font-size:12px;color:#8c8c8c;">蓝色为正利润，橙色为负利润（按收入-支出）</div>
+        </div>
+    `;
+}
+
 function resolveFinanceOrderId(finance) {
     const rawOrderId = finance?.order_id ?? finance?.reference_id;
     if (rawOrderId === null || rawOrderId === undefined || rawOrderId === '') {
@@ -3221,6 +3466,7 @@ async function markPayableAsPaid(financeId) {
 function getFinanceActionButtons(finance) {
     const buttons = [];
     const linkedOrderId = resolveFinanceOrderId(finance);
+    const financeId = finance?.id;
 
     if (isReceivableFinanceRecord(finance) && linkedOrderId !== null) {
         buttons.push(`<button class="ant-btn" onclick='markReceivableAsPaid(${JSON.stringify(linkedOrderId)})' style="color:#0958d9; border-color:#91caff; margin-right:8px;">回款</button>`);
@@ -3228,6 +3474,11 @@ function getFinanceActionButtons(finance) {
 
     if (isPayableFinanceRecord(finance)) {
         buttons.push(`<button class="ant-btn" onclick='markPayableAsPaid(${JSON.stringify(finance?.id)})' style="color:#237804; border-color:#b7eb8f; margin-right:8px;">结清</button>`);
+        buttons.push(`<button class="ant-btn" onclick='showPayablePaymentHistory(${JSON.stringify(financeId)})' style="color:#531dab; border-color:#d3adf7; margin-right:8px;">付款记录</button>`);
+    }
+
+    if (!isPayableFinanceRecord(finance) && isPurchasePaymentRecord(finance)) {
+        buttons.push(`<button class="ant-btn" onclick='showPayablePaymentHistory(${JSON.stringify(financeId)})' style="color:#531dab; border-color:#d3adf7; margin-right:8px;">付款记录</button>`);
     }
 
     buttons.push(`<button class="ant-btn" onclick='deleteFinance(${JSON.stringify(finance?.id)})' style="color:#ff4d4f; border-color:#ff4d4f;">删除</button>`);

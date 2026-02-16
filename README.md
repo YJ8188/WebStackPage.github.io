@@ -113,6 +113,36 @@ python -m http.server 8000
 - 若数据库暂无 `erp_audit_logs` 表，系统会自动降级关闭审计写入并继续运行
 - 建议在 Supabase 创建 `erp_audit_logs` 表以启用完整追踪
 
+## 物流轨迹（17TRACK）
+- ERP 订单弹窗已支持“查询轨迹”，展示最新状态与时间线
+- 前端通过 Supabase Edge Function 代理 17TRACK，避免在网页暴露 API Key
+
+### 1）部署 Edge Function
+```bash
+supabase functions deploy logistics-track
+```
+
+### 2）配置 17TRACK Key（服务端）
+```bash
+supabase secrets set TRACK17_API_KEY=你的17TRACK_API_KEY
+```
+
+### 3）本地联调（可选）
+```bash
+supabase functions serve logistics-track --env-file .env.local
+```
+
+`.env.local` 示例：
+```env
+TRACK17_API_KEY=你的17TRACK_API_KEY
+```
+
+### 4）使用方式
+- ERP → 订单管理 → 详情（编辑订单）  
+- 填写快递公司与单号，点击“查询轨迹”  
+- 若提示需要校验参数（如部分顺丰单号），填写“手机号后4位”再查询  
+- 系统会显示最新物流状态与轨迹时间线
+
 ## Supabase 配置
 编辑：`assets/js/supabase-config.js`
 ```js

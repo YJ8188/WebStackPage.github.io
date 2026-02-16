@@ -98,6 +98,59 @@
             font-size: 12px;
             color: #64748b;
         }
+
+        .order-logistics-toolbar {
+            display: flex;
+            gap: 8px;
+        }
+
+        .order-logistics-status {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .order-logistics-status.error {
+            color: #cf1322;
+        }
+
+        .order-logistics-timeline {
+            margin-top: 10px;
+            max-height: 220px;
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #fafafa;
+            padding: 8px 10px;
+        }
+
+        .order-logistics-item {
+            border-bottom: 1px dashed #e2e8f0;
+            padding: 8px 0;
+        }
+
+        .order-logistics-item:last-child {
+            border-bottom: none;
+        }
+
+        .order-logistics-time {
+            color: #334155;
+            font-size: 12px;
+            margin-bottom: 2px;
+        }
+
+        .order-logistics-main {
+            color: #0f172a;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .order-logistics-empty {
+            color: #94a3b8;
+            font-size: 12px;
+            padding: 6px 0;
+            text-align: center;
+        }
     </style>
 </head>
 
@@ -790,7 +843,17 @@
 
                     <div class="form-group">
                         <label>快递单号</label>
-                        <input type="text" id="orderTrackingNumber" class="ant-input" placeholder="请输入快递单号">
+                        <div class="order-logistics-toolbar">
+                            <input type="text" id="orderTrackingNumber" class="ant-input" placeholder="请输入快递单号" style="flex:1;">
+                            <button type="button" id="orderTrackingQueryBtn" class="ant-btn" onclick="queryOrderLogisticsByForm()" style="white-space:nowrap;">
+                                查询轨迹
+                            </button>
+                        </div>
+                        <input type="text" id="orderTrackingParam" class="ant-input" placeholder="可选：顺丰可填写收件人手机号后4位" style="margin-top:8px;">
+                        <div id="orderLogisticsStatus" class="order-logistics-status">填写快递单号后可查询实时轨迹</div>
+                        <div id="orderLogisticsTimeline" class="order-logistics-timeline">
+                            <div class="order-logistics-empty">暂无物流轨迹</div>
+                        </div>
                     </div>
 
                     <div class="form-group">
@@ -966,7 +1029,7 @@
     <script src="assets/js/supabase-config.js?v=20260212-14"></script>
     <script src="assets/js/user-data.js?v=20260214-20"></script>
     <script src="assets/js/erp.js?v=20260214-17"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260214-17"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260216-2"></script>
     <script src="assets/js/pwa-register.js?v=20260216-1" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->

@@ -845,6 +845,176 @@ function searchProducts() {
 }
 
 // ==================== 订单管理 ====================
+const ERP_LOGISTICS_STATE = {
+    cache: new Map()
+};
+
+function normalizeTrackingNumber(rawValue) {
+    return String(rawValue || '').trim().replace(/\s+/g, '');
+}
+
+function escapeHtmlText(rawValue) {
+    return String(rawValue ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function setOrderLogisticsStatus(message, isError = false) {
+    const statusEl = document.getElementById('orderLogisticsStatus');
+    if (!statusEl) {
+        return;
+    }
+    statusEl.textContent = message || '';
+    statusEl.classList.toggle('error', !!isError);
+}
+
+function renderOrderLogisticsTimeline(events = []) {
+    const timelineEl = document.getElementById('orderLogisticsTimeline');
+    if (!timelineEl) {
+        return;
+    }
+
+    if (!Array.isArray(events) || events.length === 0) {
+        timelineEl.innerHTML = '<div class="order-logistics-empty">暂无物流轨迹</div>';
+        return;
+    }
+
+    timelineEl.innerHTML = events.map(event => {
+        const timeText = escapeHtmlText(event?.time || '-');
+        const statusText = escapeHtmlText(event?.status || '状态更新');
+        const descText = escapeHtmlText(event?.description || '');
+        const locationText = escapeHtmlText(event?.location || '');
+        const pieces = [statusText, descText, locationText].filter(Boolean);
+        return `
+            <div class="order-logistics-item">
+                <div class="order-logistics-time">${timeText}</div>
+                <div class="order-logistics-main">${pieces.join(' ｜ ') || '状态更新'}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+function resetOrderLogisticsPanel() {
+    setOrderLogisticsStatus('填写快递单号后可查询实时轨迹');
+    renderOrderLogisticsTimeline([]);
+}
+
+function getOrderShippingCompanyFromForm() {
+    const companySelect = document.getElementById('orderShippingCompany');
+    const otherInput = document.getElementById('orderOtherShippingCompany');
+    if (!companySelect) {
+        return '';
+    }
+    if (companySelect.value === '其他') {
+        return String(otherInput?.value || '').trim();
+    }
+    return String(companySelect.value || '').trim();
+}
+
+async function requestOrderLogistics(trackingNumber, shippingCompany = '', options = {}) {
+    const normalizedTracking = normalizeTrackingNumber(trackingNumber);
+    const normalizedCompany = String(shippingCompany || '').trim();
+    const normalizedParam = String(options?.param || '').trim();
+    const forceRefresh = options?.forceRefresh === true;
+    const cacheKey = `${normalizedTracking}|${normalizedCompany}|${normalizedParam}`;
+
+    if (!forceRefresh && ERP_LOGISTICS_STATE.cache.has(cacheKey)) {
+        return ERP_LOGISTICS_STATE.cache.get(cacheKey);
+    }
+
+    if (!window.supabaseClient || !window.supabaseClient.functions || typeof window.supabaseClient.functions.invoke !== 'function') {
+        throw new Error('未检测到 Supabase Functions 客户端，请刷新页面后重试');
+    }
+
+    const { data, error } = await window.supabaseClient.functions.invoke('logistics-track', {
+        body: {
+            trackingNumber: normalizedTracking,
+            shippingCompany: normalizedCompany,
+            param: normalizedParam
+        }
+    });
+
+    if (error) {
+        throw new Error(error?.message || '物流查询服务调用失败');
+    }
+
+    if (!data || data.ok !== true) {
+        throw new Error(data?.message || '物流查询失败');
+    }
+
+    ERP_LOGISTICS_STATE.cache.set(cacheKey, data);
+    return data;
+}
+
+async function queryOrderLogisticsByForm(options = {}) {
+    const trackingInput = document.getElementById('orderTrackingNumber');
+    const trackingParamInput = document.getElementById('orderTrackingParam');
+    const queryBtn = document.getElementById('orderTrackingQueryBtn');
+    const shippingInfoEl = document.getElementById('orderShippingInfo');
+
+    if (!trackingInput) {
+        return;
+    }
+
+    const trackingNumber = normalizeTrackingNumber(trackingInput.value);
+    const silentWhenEmpty = options?.silentWhenEmpty === true;
+    const forceRefresh = options?.forceRefresh === true;
+    const silentError = options?.silentError === true;
+
+    if (!trackingNumber) {
+        resetOrderLogisticsPanel();
+        if (!silentWhenEmpty && typeof showToast === 'function') {
+            showToast('请先填写快递单号', 'warning');
+        }
+        return;
+    }
+
+    const shippingCompany = getOrderShippingCompanyFromForm();
+    const trackingParam = String(trackingParamInput?.value || '').trim();
+    const originalBtnText = queryBtn ? queryBtn.textContent : '';
+
+    if (queryBtn) {
+        queryBtn.disabled = true;
+        queryBtn.textContent = '查询中...';
+    }
+    setOrderLogisticsStatus('正在查询物流轨迹...');
+
+    try {
+        const result = await requestOrderLogistics(trackingNumber, shippingCompany, { forceRefresh, param: trackingParam });
+        const timeline = Array.isArray(result.timeline) ? result.timeline : [];
+        renderOrderLogisticsTimeline(timeline);
+
+        const latestStatusText = String(result.latestStatusText || result.latestStatusCode || '已同步');
+        const providerText = String(result.providerName || '17TRACK');
+        setOrderLogisticsStatus(`最新状态：${latestStatusText}（${providerText}）`);
+
+        const latestEvent = result.latestEvent || timeline[0] || null;
+        if (shippingInfoEl && latestEvent) {
+            const latestPieces = [latestEvent.status, latestEvent.description, latestEvent.location].filter(Boolean);
+            shippingInfoEl.value = latestPieces.join(' | ');
+        }
+    } catch (error) {
+        const message = String(error?.message || error || '物流查询失败');
+        setOrderLogisticsStatus(`物流查询失败：${message}`, true);
+        renderOrderLogisticsTimeline([]);
+        if (!silentError && typeof showToast === 'function') {
+            showToast(`物流查询失败：${message}`, 'error');
+        }
+    } finally {
+        if (queryBtn) {
+            queryBtn.disabled = false;
+            queryBtn.textContent = originalBtnText || '查询轨迹';
+        }
+    }
+}
+
+if (typeof window !== 'undefined') {
+    window.queryOrderLogisticsByForm = queryOrderLogisticsByForm;
+}
+
 function showOrderModal(order = null) {
     const modal = document.getElementById('orderModal');
     if (!modal) {
@@ -883,6 +1053,11 @@ function showOrderModal(order = null) {
         const shippingCompany = order.shipping_company || '';
         document.getElementById('orderShippingCompany').value = shippingCompany;
         document.getElementById('orderTrackingNumber').value = order.tracking_number || '';
+        const trackingParamInput = document.getElementById('orderTrackingParam');
+        if (trackingParamInput) {
+            trackingParamInput.value = '';
+        }
+        document.getElementById('orderShippingInfo').value = order.shipping_info || order.shippingInfo || '';
 
         // 发货状态
         const shippingStatusSelect = document.getElementById('orderShippingStatus');
@@ -958,6 +1133,19 @@ function showOrderModal(order = null) {
         document.getElementById('orderShippingStatus').value = 'not_shipped';
         document.getElementById('otherShippingCompanyGroup').style.display = 'none';
         document.getElementById('orderOtherShippingCompany').value = '';
+        const trackingParamInput = document.getElementById('orderTrackingParam');
+        if (trackingParamInput) {
+            trackingParamInput.value = '';
+        }
+        document.getElementById('orderShippingInfo').value = '';
+    }
+
+    resetOrderLogisticsPanel();
+    const trackingNumber = normalizeTrackingNumber(document.getElementById('orderTrackingNumber')?.value);
+    if (trackingNumber) {
+        setTimeout(() => {
+            queryOrderLogisticsByForm({ silentWhenEmpty: true, forceRefresh: true, silentError: true });
+        }, 80);
     }
 
     modal.classList.add('active');
@@ -1638,5 +1826,37 @@ document.addEventListener('DOMContentLoaded', function () {
     if (ERP_VERBOSE_LOG) {
         window.printERPDiagnostics = printERPDiagnostics;
         setTimeout(printERPDiagnostics, 1200);
+    }
+
+    const trackingInput = document.getElementById('orderTrackingNumber');
+    if (trackingInput) {
+        trackingInput.addEventListener('input', function () {
+            setOrderLogisticsStatus('填写快递单号后可查询实时轨迹');
+            renderOrderLogisticsTimeline([]);
+        });
+    }
+
+    const shippingCompanySelect = document.getElementById('orderShippingCompany');
+    if (shippingCompanySelect) {
+        shippingCompanySelect.addEventListener('change', function () {
+            setOrderLogisticsStatus('快递公司已变化，请重新查询轨迹');
+            renderOrderLogisticsTimeline([]);
+        });
+    }
+
+    const otherShippingCompany = document.getElementById('orderOtherShippingCompany');
+    if (otherShippingCompany) {
+        otherShippingCompany.addEventListener('input', function () {
+            setOrderLogisticsStatus('快递公司已变化，请重新查询轨迹');
+            renderOrderLogisticsTimeline([]);
+        });
+    }
+
+    const trackingParamInput = document.getElementById('orderTrackingParam');
+    if (trackingParamInput) {
+        trackingParamInput.addEventListener('input', function () {
+            setOrderLogisticsStatus('校验参数已变化，请重新查询轨迹');
+            renderOrderLogisticsTimeline([]);
+        });
     }
 });

@@ -212,6 +212,7 @@ function onFinanceChartScopeChange() {
     renderFinanceTrendSummary();
     renderFinanceMonthlyProfitChart();
     renderFinanceCashflowOverview();
+    renderFinanceRiskAlerts();
 }
 
 function onFinanceReportMonthChange() {
@@ -600,6 +601,8 @@ function updateStatistics(data) {
     renderFinanceTrendSummary();
     renderFinanceMonthlyProfitChart();
     renderFinanceCashflowOverview();
+    renderFinanceRiskAlerts();
+    renderDashboardBusinessCards();
 }
 
 // ==================== 单位转换 ====================
@@ -3124,6 +3127,187 @@ function initFinanceFilters() {
 
     syncFinanceViewRows(Array.isArray(ERP.state?.finances) ? ERP.state.finances : [], 'all');
     applyFinanceFilters();
+}
+
+function calculateFinanceRiskAlerts(options = {}) {
+    const overdueDays = Math.max(1, parseInt(options.overdueDays ?? 30, 10));
+    const orders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
+    const finances = Array.isArray(ERP.state?.finances) ? ERP.state.finances : [];
+    const customers = Array.isArray(ERP.state?.customers) ? ERP.state.customers : [];
+    const customerMap = new Map(customers.map(item => [String(item?.id), item]));
+
+    const overdueReceivableRows = orders
+        .map(order => {
+            const paymentStatus = String(order?.payment_status || 'unpaid').toLowerCase();
+            const orderStatus = String(order?.status || '').toLowerCase();
+            if (paymentStatus === 'paid' || orderStatus === 'cancelled' || orderStatus === 'refunded') {
+                return null;
+            }
+
+            const amount = Number(order?.total_amount || 0);
+            const days = getAgingDays(order?.order_date);
+            if (!Number.isFinite(amount) || amount <= 0 || !Number.isFinite(days) || days <= overdueDays) {
+                return null;
+            }
+
+            const customer = customerMap.get(String(order?.customer_id || '')) || null;
+            return {
+                id: order?.id,
+                orderNumber: order?.order_number || `订单#${order?.id || '-'}`,
+                customerName: customer?.name || '-',
+                amount,
+                days
+            };
+        })
+        .filter(Boolean)
+        .sort((left, right) => right.days - left.days);
+
+    const overduePayableRows = finances
+        .map(finance => {
+            const category = String(finance?.category || '');
+            if (!category.includes('应付账款')) {
+                return null;
+            }
+
+            const amount = Math.abs(Number(finance?.amount || 0));
+            const days = getAgingDays(finance?.transaction_date);
+            if (!Number.isFinite(amount) || amount <= 0 || !Number.isFinite(days) || days <= overdueDays) {
+                return null;
+            }
+
+            const orderId = resolveFinanceOrderId(finance);
+            const order = orderId !== null
+                ? orders.find(item => String(item?.id) === String(orderId))
+                : null;
+            const customer = order ? customerMap.get(String(order?.customer_id || '')) : null;
+            return {
+                id: finance?.id,
+                orderId,
+                orderNumber: order?.order_number || (orderId !== null ? `订单#${orderId}` : '-'),
+                customerName: customer?.name || '-',
+                amount,
+                days
+            };
+        })
+        .filter(Boolean)
+        .sort((left, right) => right.days - left.days);
+
+    const overdueReceivableAmount = overdueReceivableRows.reduce((sum, item) => sum + item.amount, 0);
+    const overduePayableAmount = overduePayableRows.reduce((sum, item) => sum + item.amount, 0);
+
+    return {
+        overdueDays,
+        overdueReceivableRows,
+        overduePayableRows,
+        overdueReceivableCount: overdueReceivableRows.length,
+        overduePayableCount: overduePayableRows.length,
+        overdueReceivableAmount,
+        overduePayableAmount,
+        totalOverdueCount: overdueReceivableRows.length + overduePayableRows.length,
+        totalOverdueAmount: overdueReceivableAmount + overduePayableAmount
+    };
+}
+
+function renderFinanceRiskAlerts() {
+    const container = document.getElementById('financeRiskAlerts');
+    if (!container || !window.ERP) {
+        return;
+    }
+
+    const risk = calculateFinanceRiskAlerts({ overdueDays: 30 });
+    const overdueDaysText = `超过${risk.overdueDays}天`;
+
+    const renderList = (rows, emptyText, tone = 'normal') => {
+        const amountColor = tone === 'danger' ? '#cf1322' : '#ad6800';
+        if (!rows.length) {
+            return `<div style="font-size:12px;color:#8c8c8c;">${emptyText}</div>`;
+        }
+        return rows.slice(0, 6).map(item => `
+            <div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed #f0f0f0;">
+                <div style="font-size:12px;color:#262626;">
+                    <div>${item.orderNumber} / ${item.customerName}</div>
+                    <div style="color:#8c8c8c;">账龄 ${item.days} 天</div>
+                </div>
+                <div style="font-size:12px;font-weight:600;color:${amountColor};">${formatCurrency(item.amount)}</div>
+            </div>
+        `).join('');
+    };
+
+    container.innerHTML = `
+        <div style="flex:1;min-width:280px;padding:12px 14px;border:1px solid #ffd6e7;border-radius:8px;background:#fff1f8;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div style="font-size:14px;font-weight:600;color:#cf1322;">逾期应收预警（${overdueDaysText}）</div>
+                <div style="font-size:12px;color:#cf1322;">${risk.overdueReceivableCount} 笔 / ${formatCurrency(risk.overdueReceivableAmount)}</div>
+            </div>
+            ${renderList(risk.overdueReceivableRows, '暂无逾期应收订单', 'danger')}
+        </div>
+        <div style="flex:1;min-width:280px;padding:12px 14px;border:1px solid #ffe7ba;border-radius:8px;background:#fff7e6;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div style="font-size:14px;font-weight:600;color:#ad6800;">逾期应付预警（${overdueDaysText}）</div>
+                <div style="font-size:12px;color:#ad6800;">${risk.overduePayableCount} 笔 / ${formatCurrency(risk.overduePayableAmount)}</div>
+            </div>
+            ${renderList(risk.overduePayableRows, '暂无逾期应付记录', 'warning')}
+        </div>
+    `;
+}
+
+function renderDashboardBusinessCards() {
+    const container = document.getElementById('dashboardBusinessCards');
+    if (!container || !window.ERP) {
+        return;
+    }
+
+    const orders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
+    const finances = Array.isArray(ERP.state?.finances) ? ERP.state.finances : [];
+    const diagnostics = getERPInventoryDiagnostics();
+    const risk = calculateFinanceRiskAlerts({ overdueDays: 30 });
+    const today = new Date();
+    const todayDateString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+    const isSameDay = value => {
+        const date = parseFinanceDate(value);
+        if (!date) {
+            return false;
+        }
+        const dateText = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        return dateText === todayDateString;
+    };
+
+    const todayOrdersCount = orders.filter(order => isSameDay(order?.order_date)).length;
+    const todayReceivedAmount = finances
+        .filter(finance => String(finance?.type || '').toLowerCase() === 'income')
+        .filter(finance => String(finance?.category || '').includes('回款确认'))
+        .filter(finance => isSameDay(finance?.transaction_date))
+        .reduce((sum, finance) => sum + Math.abs(Number(finance?.amount || 0)), 0);
+
+    const pendingReceivableAmount = orders
+        .filter(order => {
+            const paymentStatus = String(order?.payment_status || 'unpaid').toLowerCase();
+            const status = String(order?.status || '').toLowerCase();
+            return paymentStatus !== 'paid' && status !== 'cancelled' && status !== 'refunded';
+        })
+        .reduce((sum, order) => sum + Math.max(Number(order?.total_amount || 0), 0), 0);
+
+    const pendingPayableAmount = finances
+        .filter(finance => String(finance?.category || '').includes('应付账款'))
+        .reduce((sum, finance) => sum + Math.abs(Number(finance?.amount || 0)), 0);
+
+    const card = (title, value, subtitle, color = '#1677ff', bg = '#f0f5ff', border = '#adc6ff') => `
+        <div style="flex:1;min-width:180px;padding:10px 12px;border:1px solid ${border};border-radius:8px;background:${bg};">
+            <div style="font-size:12px;color:#8c8c8c;">${title}</div>
+            <div style="font-size:20px;font-weight:600;color:${color};margin-top:4px;">${value}</div>
+            <div style="font-size:12px;color:#8c8c8c;margin-top:2px;">${subtitle}</div>
+        </div>
+    `;
+
+    container.innerHTML = `
+        ${card('今日订单', `${todayOrdersCount} 笔`, '按下单日期统计', '#1d39c4', '#f0f5ff', '#adc6ff')}
+        ${card('今日回款', formatCurrency(todayReceivedAmount), '仅统计回款确认', '#08979c', '#e6fffb', '#87e8de')}
+        ${card('待回款', formatCurrency(pendingReceivableAmount), '未支付订单合计', '#cf1322', '#fff1f0', '#ffccc7')}
+        ${card('待付款', formatCurrency(pendingPayableAmount), '应付账款余额', '#ad6800', '#fff7e6', '#ffe7ba')}
+        ${card('库存预警', `${diagnostics.lowStockCount}/${diagnostics.rows.length}`, '库存 ≤ 商品预警值', '#7a3d00', '#fff7e6', '#ffd591')}
+        ${card('逾期预警', `${risk.totalOverdueCount} 笔`, `超过30天，总额 ${formatCurrency(risk.totalOverdueAmount)}`, '#722ed1', '#f9f0ff', '#d3adf7')}
+    `;
 }
 
 function createAgingBucket() {

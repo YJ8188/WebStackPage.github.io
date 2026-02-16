@@ -1740,64 +1740,165 @@ async function deleteFinance(financeId) {
 }
 
 function searchFinances() {
-    const keyword = document.getElementById('financeSearch').value.toLowerCase();
-    const filtered = ERP.state.finances.filter(finance =>
-        finance.description.toLowerCase().includes(keyword) ||
-        (finance.category && finance.category.toLowerCase().includes(keyword))
-    );
-    renderFinances(filtered);
+    applyFinanceFilters();
 }
 
 function filterFinancesByMonth() {
-    const monthFilter = document.getElementById('financeMonth').value;
-    const yearFilter = document.getElementById('financeYear').value;
+    applyFinanceFilters();
+}
 
-    let filtered = ERP.state.finances;
-
-    if (yearFilter || monthFilter) {
-        filtered = filtered.filter(finance => {
-            const date = new Date(finance.transaction_date);
-            const financeYear = date.getFullYear().toString();
-            const financeMonth = (date.getMonth() + 1).toString();
-
-            const yearMatch = !yearFilter || financeYear === yearFilter;
-            const monthMatch = !monthFilter || financeMonth === monthFilter;
-
-            return yearMatch && monthMatch;
-        });
+function parseFinanceDate(value) {
+    const raw = String(value || '').trim();
+    if (!raw) {
+        return null;
     }
+
+    const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T');
+    const date = new Date(normalized);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getFinanceRangeFromPreset(preset) {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+    switch (preset) {
+        case 'yesterday': {
+            const start = new Date(todayStart);
+            start.setDate(start.getDate() - 1);
+            const end = new Date(todayEnd);
+            end.setDate(end.getDate() - 1);
+            return { start, end };
+        }
+        case 'last7': {
+            const start = new Date(todayStart);
+            start.setDate(start.getDate() - 6);
+            return { start, end: todayEnd };
+        }
+        case 'last30': {
+            const start = new Date(todayStart);
+            start.setDate(start.getDate() - 29);
+            return { start, end: todayEnd };
+        }
+        case 'thisMonth': {
+            const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+            return { start, end: todayEnd };
+        }
+        default:
+            return { start: null, end: null };
+    }
+}
+
+function applyFinanceFilters() {
+    const keyword = String(document.getElementById('financeSearch')?.value || '').trim().toLowerCase();
+    const rangePreset = String(document.getElementById('financeDateRange')?.value || 'all');
+    const customStart = String(document.getElementById('financeDateStart')?.value || '').trim();
+    const customEnd = String(document.getElementById('financeDateEnd')?.value || '').trim();
+
+    let startDate = null;
+    let endDate = null;
+
+    if (rangePreset === 'custom') {
+        if (customStart) {
+            startDate = new Date(`${customStart}T00:00:00`);
+        }
+        if (customEnd) {
+            endDate = new Date(`${customEnd}T23:59:59.999`);
+        }
+    } else {
+        const range = getFinanceRangeFromPreset(rangePreset);
+        startDate = range.start;
+        endDate = range.end;
+    }
+
+    const filtered = (ERP.state.finances || []).filter(finance => {
+        const targetDate = parseFinanceDate(finance?.transaction_date);
+        if ((startDate || endDate) && !targetDate) {
+            return false;
+        }
+
+        const keywordSource = [
+            finance?.description,
+            finance?.category,
+            finance?.reference_id,
+            finance?.order_id
+        ]
+            .map(item => String(item || '').toLowerCase())
+            .join(' ');
+
+        const keywordMatch = !keyword || keywordSource.includes(keyword);
+        const startMatch = !startDate || targetDate >= startDate;
+        const endMatch = !endDate || targetDate <= endDate;
+
+        return keywordMatch && startMatch && endMatch;
+    });
 
     renderFinances(filtered);
 }
 
-function initFinanceFilters() {
-    const monthSelect = document.getElementById('financeMonth');
-    const yearSelect = document.getElementById('financeYear');
-    if (!monthSelect || !yearSelect) return;
-
-    const currentYear = new Date().getFullYear();
-    const currentMonth = new Date().getMonth() + 1;
-
-    for (let year = currentYear; year >= currentYear - 5; year--) {
-        const option = document.createElement('option');
-        option.value = year;
-        option.textContent = year + '年';
-        if (year === currentYear) {
-            option.selected = true;
-        }
-        yearSelect.appendChild(option);
+function onFinanceDateRangeChange() {
+    const rangePreset = String(document.getElementById('financeDateRange')?.value || 'all');
+    const startInput = document.getElementById('financeDateStart');
+    const endInput = document.getElementById('financeDateEnd');
+    if (!startInput || !endInput) {
+        return;
     }
 
-    const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
-    months.forEach((month, index) => {
-        const option = document.createElement('option');
-        option.value = index + 1;
-        option.textContent = month;
-        if (index + 1 === currentMonth) {
-            option.selected = true;
-        }
-        monthSelect.appendChild(option);
-    });
+    const isCustom = rangePreset === 'custom';
+    startInput.disabled = !isCustom;
+    endInput.disabled = !isCustom;
+
+    if (!isCustom) {
+        startInput.value = '';
+        endInput.value = '';
+    }
+
+    applyFinanceFilters();
+}
+
+function resetFinanceFilters() {
+    const rangeSelect = document.getElementById('financeDateRange');
+    const startInput = document.getElementById('financeDateStart');
+    const endInput = document.getElementById('financeDateEnd');
+    const searchInput = document.getElementById('financeSearch');
+
+    if (rangeSelect) {
+        rangeSelect.value = 'all';
+    }
+    if (startInput) {
+        startInput.value = '';
+        startInput.disabled = true;
+    }
+    if (endInput) {
+        endInput.value = '';
+        endInput.disabled = true;
+    }
+    if (searchInput) {
+        searchInput.value = '';
+    }
+
+    applyFinanceFilters();
+}
+
+function initFinanceFilters() {
+    const rangeSelect = document.getElementById('financeDateRange');
+    const startInput = document.getElementById('financeDateStart');
+    const endInput = document.getElementById('financeDateEnd');
+
+    if (rangeSelect) {
+        rangeSelect.value = 'all';
+    }
+    if (startInput) {
+        startInput.value = '';
+        startInput.disabled = true;
+    }
+    if (endInput) {
+        endInput.value = '';
+        endInput.disabled = true;
+    }
+
+    applyFinanceFilters();
 }
 
 // ==================== 状态文本转换 ====================

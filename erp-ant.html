@@ -637,21 +637,31 @@
                             <div class="table-page-search-wrapper">
                                 <div class="search-form">
                                     <div class="search-item">
-                                        <label class="search-label">月份:</label>
-                                        <select id="financeMonth" class="ant-select" onchange="filterFinancesByMonth()">
-                                            <option value="">所有月份</option>
+                                        <label class="search-label">日期:</label>
+                                        <select id="financeDateRange" class="ant-select" onchange="onFinanceDateRangeChange()">
+                                            <option value="all">全部</option>
+                                            <option value="yesterday">昨天</option>
+                                            <option value="last7">近7天</option>
+                                            <option value="last30">近30天</option>
+                                            <option value="thisMonth">本月</option>
+                                            <option value="custom">自定义</option>
                                         </select>
                                     </div>
                                     <div class="search-item">
-                                        <label class="search-label">年份:</label>
-                                        <select id="financeYear" class="ant-select" onchange="filterFinancesByMonth()">
-                                            <option value="">所有年份</option>
-                                        </select>
+                                        <label class="search-label">开始:</label>
+                                        <input type="date" id="financeDateStart" class="ant-input" onchange="searchFinances()" disabled>
+                                    </div>
+                                    <div class="search-item">
+                                        <label class="search-label">结束:</label>
+                                        <input type="date" id="financeDateEnd" class="ant-input" onchange="searchFinances()" disabled>
                                     </div>
                                     <div class="search-item">
                                         <label class="search-label">搜索:</label>
-                                        <input type="text" id="financeSearch" class="ant-input" placeholder="描述/分类"
+                                        <input type="text" id="financeSearch" class="ant-input" placeholder="订单号/描述/分类"
                                             oninput="searchFinances()">
+                                    </div>
+                                    <div class="search-item">
+                                        <button class="ant-btn" type="button" onclick="resetFinanceFilters()">重置筛选</button>
                                     </div>
                                 </div>
                             </div>

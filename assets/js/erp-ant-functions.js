@@ -1482,6 +1482,213 @@ if (typeof window !== 'undefined') {
     window.queryOrderLogisticsByForm = queryOrderLogisticsByForm;
 }
 
+const ORDER_RISK_RULES = {
+    highAmount: 20000,
+    highDiscountRate: 0.3,
+    lowMarginRate: 0.12,
+    lowMarginAmountFloor: 8000
+};
+
+function getOrderRiskProductMap() {
+    const products = Array.isArray(ERP.state?.products) ? ERP.state.products : [];
+    return new Map(products.map(item => [String(item?.id), item]));
+}
+
+function buildOrderRiskAnalysis(orderItems = [], manualTotalAmount = 0) {
+    const safeItems = Array.isArray(orderItems) ? orderItems : [];
+    const productMap = getOrderRiskProductMap();
+    const summary = {
+        itemCount: safeItems.length,
+        suggestedTotal: 0,
+        effectiveTotal: 0,
+        totalCost: 0,
+        grossProfit: 0,
+        grossMargin: 0,
+        heavyDiscountItems: [],
+        alerts: [],
+        riskRank: 0,
+        needsSecondConfirm: false
+    };
+
+    const resolveItemValue = (item, keyA, keyB = null) => {
+        if (item == null || typeof item !== 'object') {
+            return undefined;
+        }
+        if (Object.prototype.hasOwnProperty.call(item, keyA)) {
+            return item[keyA];
+        }
+        if (keyB && Object.prototype.hasOwnProperty.call(item, keyB)) {
+            return item[keyB];
+        }
+        return undefined;
+    };
+
+    safeItems.forEach(item => {
+        const rawProductId = resolveItemValue(item, 'product_id', 'productId');
+        const productId = rawProductId === null || rawProductId === undefined ? '' : String(rawProductId);
+        const product = productMap.get(productId) || null;
+        const quantity = Math.max(Number(resolveItemValue(item, 'quantity')) || 0, 0);
+        const unitPrice = Math.max(Number(resolveItemValue(item, 'unit_price', 'unitPrice')) || 0, 0);
+        const listPrice = Math.max(Number(product?.price || unitPrice || 0), 0);
+        const unitCost = Math.max(Number(product?.cost || resolveItemValue(item, 'unit_cost', 'unitCost') || 0), 0);
+        const lineRevenue = quantity * unitPrice;
+        const lineCost = quantity * unitCost;
+        const discountRate = listPrice > 0 ? Math.max((listPrice - unitPrice) / listPrice, 0) : 0;
+
+        summary.suggestedTotal += lineRevenue;
+        summary.totalCost += lineCost;
+
+        if (discountRate >= ORDER_RISK_RULES.highDiscountRate) {
+            summary.heavyDiscountItems.push({
+                productName: String(resolveItemValue(item, 'product_name', 'productName') || product?.name || `商品#${productId || '-'}`),
+                discountRate,
+                unitPrice,
+                listPrice
+            });
+        }
+    });
+
+    const parsedManualTotal = Number(manualTotalAmount);
+    const hasManualTotal = Number.isFinite(parsedManualTotal) && parsedManualTotal > 0;
+    summary.effectiveTotal = hasManualTotal ? parsedManualTotal : summary.suggestedTotal;
+    summary.grossProfit = summary.effectiveTotal - summary.totalCost;
+    summary.grossMargin = summary.effectiveTotal > 0 ? (summary.grossProfit / summary.effectiveTotal) : 0;
+
+    if (summary.effectiveTotal >= ORDER_RISK_RULES.highAmount) {
+        summary.alerts.push({
+            rank: 2,
+            title: '超金额订单',
+            detail: `订单金额 ${formatCurrency(summary.effectiveTotal)}，超过阈值 ${formatCurrency(ORDER_RISK_RULES.highAmount)}`
+        });
+    }
+
+    if (summary.heavyDiscountItems.length > 0) {
+        const topDiscount = summary.heavyDiscountItems
+            .slice()
+            .sort((left, right) => Number(right.discountRate || 0) - Number(left.discountRate || 0))[0];
+        summary.alerts.push({
+            rank: 2,
+            title: '超折扣风险',
+            detail: `${topDiscount?.productName || '商品'} 折扣 ${((topDiscount?.discountRate || 0) * 100).toFixed(1)}%，超过 ${ORDER_RISK_RULES.highDiscountRate * 100}%`
+        });
+    }
+
+    if (summary.grossProfit < 0) {
+        summary.alerts.push({
+            rank: 3,
+            title: '异常毛利',
+            detail: `订单毛利为负值 ${formatCurrency(summary.grossProfit)}`
+        });
+    } else if (
+        summary.effectiveTotal >= ORDER_RISK_RULES.lowMarginAmountFloor
+        && summary.grossMargin < ORDER_RISK_RULES.lowMarginRate
+    ) {
+        summary.alerts.push({
+            rank: 2,
+            title: '低毛利风险',
+            detail: `毛利率 ${(summary.grossMargin * 100).toFixed(1)}%，低于 ${(ORDER_RISK_RULES.lowMarginRate * 100).toFixed(1)}%`
+        });
+    }
+
+    summary.riskRank = summary.alerts.reduce((maxRank, alert) => Math.max(maxRank, Number(alert?.rank || 0)), 0);
+    summary.needsSecondConfirm = summary.alerts.length > 0;
+    return summary;
+}
+
+function renderOrderRiskPanel(analysis = null) {
+    const panel = document.getElementById('orderRiskPanel');
+    if (!panel) {
+        return;
+    }
+
+    const safeAnalysis = analysis || {
+        itemCount: 0,
+        suggestedTotal: 0,
+        effectiveTotal: 0,
+        totalCost: 0,
+        grossProfit: 0,
+        grossMargin: 0,
+        alerts: [],
+        riskRank: 0
+    };
+
+    if (!safeAnalysis.itemCount) {
+        panel.style.display = 'block';
+        panel.style.borderColor = '#d9d9d9';
+        panel.style.background = '#fafafa';
+        panel.innerHTML = '<div style="font-size:12px;color:#8c8c8c;">风控提示：添加商品后自动分析超金额、超折扣、异常毛利。</div>';
+        return;
+    }
+
+    const tone = safeAnalysis.riskRank >= 3
+        ? { border: '#ff7875', bg: '#fff1f0', title: '#cf1322' }
+        : (safeAnalysis.riskRank >= 2
+            ? { border: '#ffd591', bg: '#fff7e6', title: '#d46b08' }
+            : { border: '#b7eb8f', bg: '#f6ffed', title: '#237804' });
+
+    const alertHtml = (Array.isArray(safeAnalysis.alerts) ? safeAnalysis.alerts : []).map(alert => `
+        <div style="font-size:12px;color:${tone.title};margin-top:4px;">• ${alert.title}：${alert.detail}</div>
+    `).join('');
+
+    panel.style.display = 'block';
+    panel.style.borderColor = tone.border;
+    panel.style.background = tone.bg;
+    panel.innerHTML = `
+        <div style="font-size:12px;color:#595959;">建议价 ${formatCurrency(safeAnalysis.suggestedTotal)} / 当前总额 ${formatCurrency(safeAnalysis.effectiveTotal)} / 成本 ${formatCurrency(safeAnalysis.totalCost)}</div>
+        <div style="font-size:12px;color:#595959;margin-top:2px;">毛利 ${formatCurrency(safeAnalysis.grossProfit)} / 毛利率 ${(safeAnalysis.grossMargin * 100).toFixed(1)}%</div>
+        ${alertHtml || '<div style="font-size:12px;color:#237804;margin-top:4px;">当前未发现显著风险，可直接保存。</div>'}
+    `;
+}
+
+function refreshOrderRiskPreview() {
+    const orderItems = getOrderItems();
+    const totalAmountInput = document.getElementById('orderTotalAmount');
+    const manualTotal = Number(totalAmountInput?.value || 0);
+    const analysis = buildOrderRiskAnalysis(orderItems.map(item => ({
+        product_id: item.productId,
+        product_name: item.productName,
+        quantity: item.quantity,
+        unit_price: item.unitPrice
+    })), manualTotal);
+    renderOrderRiskPanel(analysis);
+
+    const productMap = getOrderRiskProductMap();
+    const rows = document.querySelectorAll('#orderItems .order-item');
+    rows.forEach(row => {
+        const select = row.querySelector('.product-select');
+        const priceInput = row.querySelector('.item-unit-price');
+        const productId = String(select?.value || '');
+        const product = productMap.get(productId) || null;
+        const listPrice = Math.max(Number(product?.price || select?.selectedOptions?.[0]?.dataset?.price || 0), 0);
+        const unitPrice = Math.max(Number(priceInput?.value || 0), 0);
+        const discountRate = listPrice > 0 ? Math.max((listPrice - unitPrice) / listPrice, 0) : 0;
+        if (discountRate >= ORDER_RISK_RULES.highDiscountRate) {
+            row.style.border = '1px dashed #ff7875';
+            row.style.background = '#fff1f0';
+        } else {
+            row.style.border = '1px dashed #d9d9d9';
+            row.style.background = '#fff';
+        }
+    });
+    return analysis;
+}
+
+function confirmOrderRiskBeforeSave(analysis) {
+    const safeAnalysis = analysis || buildOrderRiskAnalysis([], 0);
+    if (!safeAnalysis.needsSecondConfirm) {
+        return true;
+    }
+
+    const alertLines = safeAnalysis.alerts.map(alert => `- ${alert.title}：${alert.detail}`).join('\n');
+    const message = [
+        '检测到订单风险，请二次确认：',
+        alertLines,
+        `毛利：${formatCurrency(safeAnalysis.grossProfit)}（${(safeAnalysis.grossMargin * 100).toFixed(1)}%）`,
+        '确定继续保存吗？'
+    ].join('\n');
+    return confirm(message);
+}
+
 function showOrderModal(order = null) {
     const modal = document.getElementById('orderModal');
     if (!modal) {
@@ -1604,6 +1811,8 @@ function showOrderModal(order = null) {
         }
     }
 
+    refreshOrderRiskPreview();
+
     resetOrderLogisticsPanel();
     updateOrderTrackingParamHint();
     const trackingNumber = normalizeTrackingNumber(document.getElementById('orderTrackingNumber')?.value);
@@ -1687,6 +1896,12 @@ async function saveOrder() {
         total_amount: totalAmount, // 使用手动输入或自动计算的金额
         items: orderItems
     };
+
+    const riskAnalysis = buildOrderRiskAnalysis(orderItems, totalAmount);
+    renderOrderRiskPanel(riskAnalysis);
+    if (!confirmOrderRiskBeforeSave(riskAnalysis)) {
+        return;
+    }
 
     const saveBtn = document.querySelector('#orderModal .ant-btn-primary');
     const originalText = saveBtn.textContent;
@@ -1804,6 +2019,7 @@ function calculateOrderTotal() {
             showToast(`已计算建议价：¥${suggestedTotal.toFixed(2)}，您可以根据实际情况调整`, 'info');
         }
     }
+    refreshOrderRiskPreview();
 }
 
 async function editOrder(orderId) {
@@ -6380,6 +6596,13 @@ document.addEventListener('DOMContentLoaded', function () {
     const backupInput = document.getElementById('backupImportInput');
     if (backupInput) {
         backupInput.addEventListener('change', importERPBackupFromFile);
+    }
+
+    const orderTotalInput = document.getElementById('orderTotalAmount');
+    if (orderTotalInput) {
+        orderTotalInput.addEventListener('input', function () {
+            refreshOrderRiskPreview();
+        });
     }
 
     document.addEventListener('click', function (event) {

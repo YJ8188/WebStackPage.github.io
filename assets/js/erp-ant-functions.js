@@ -984,6 +984,33 @@ function getOrderShippingCompanyFromForm() {
     return String(companySelect.value || '').trim();
 }
 
+function updateOrderTrackingParamHint() {
+    const trackingParamInput = document.getElementById('orderTrackingParam');
+    const trackingParamHint = document.getElementById('orderTrackingParamHint');
+    if (!trackingParamInput || !trackingParamHint) {
+        return;
+    }
+
+    const shippingCompany = getOrderShippingCompanyFromForm();
+    const companyText = String(shippingCompany || '').trim();
+    const isSfExpress = ['顺丰', '顺丰快递', '顺丰速运'].includes(companyText);
+
+    if (isSfExpress) {
+        trackingParamInput.placeholder = '顺丰：请输入收件人手机号后4位';
+        trackingParamHint.textContent = '提示：顺丰常需校验参数（手机号后4位），填后查询更稳定。';
+        return;
+    }
+
+    if (!companyText) {
+        trackingParamInput.placeholder = '选填：先选择快递公司';
+        trackingParamHint.textContent = '提示：先选快递公司；多数公司不需要填写该参数。';
+        return;
+    }
+
+    trackingParamInput.placeholder = '选填：一般无需填写，留空即可';
+    trackingParamHint.textContent = '提示：当前快递通常可直接查询，校验参数可留空。';
+}
+
 async function requestOrderLogistics(trackingNumber, shippingCompany = '', options = {}) {
     const normalizedTracking = normalizeTrackingNumber(trackingNumber);
     const normalizedCompany = String(shippingCompany || '').trim();
@@ -1220,6 +1247,7 @@ function showOrderModal(order = null) {
     }
 
     resetOrderLogisticsPanel();
+    updateOrderTrackingParamHint();
     const trackingNumber = normalizeTrackingNumber(document.getElementById('orderTrackingNumber')?.value);
     if (trackingNumber) {
         setTimeout(() => {
@@ -1918,6 +1946,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const shippingCompanySelect = document.getElementById('orderShippingCompany');
     if (shippingCompanySelect) {
         shippingCompanySelect.addEventListener('change', function () {
+            updateOrderTrackingParamHint();
             setOrderLogisticsStatus('快递公司已变化，请重新查询轨迹');
             renderOrderLogisticsTimeline([]);
         });
@@ -1926,6 +1955,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const otherShippingCompany = document.getElementById('orderOtherShippingCompany');
     if (otherShippingCompany) {
         otherShippingCompany.addEventListener('input', function () {
+            updateOrderTrackingParamHint();
             setOrderLogisticsStatus('快递公司已变化，请重新查询轨迹');
             renderOrderLogisticsTimeline([]);
         });
@@ -1938,4 +1968,6 @@ document.addEventListener('DOMContentLoaded', function () {
             renderOrderLogisticsTimeline([]);
         });
     }
+
+    updateOrderTrackingParamHint();
 });

@@ -177,6 +177,13 @@
             color: #cf1322;
         }
 
+        .order-logistics-param-hint {
+            margin-top: 6px;
+            color: #94a3b8;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
         .order-logistics-timeline {
             margin-top: 10px;
             max-height: 220px;
@@ -961,7 +968,8 @@
                                 查询轨迹
                             </button>
                         </div>
-                        <input type="text" id="orderTrackingParam" class="ant-input" placeholder="可选：顺丰可填写收件人手机号后4位" style="margin-top:8px;">
+                        <input type="text" id="orderTrackingParam" class="ant-input" placeholder="选填：顺丰填手机号后4位，其他快递留空" maxlength="32" autocomplete="off" style="margin-top:8px;">
+                        <div id="orderTrackingParamHint" class="order-logistics-param-hint">提示：仅个别快递需要校验参数，不填也可正常查询。</div>
                         <div id="orderLogisticsCarrierCard" class="order-logistics-carrier is-empty">
                             <div class="order-logistics-carrier-logo-wrap">
                                 <img id="orderLogisticsCarrierLogo" class="order-logistics-carrier-logo" alt="快递公司logo">

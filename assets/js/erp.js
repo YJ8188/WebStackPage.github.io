@@ -1645,8 +1645,13 @@ const ERP = {
             '已付',
             '待付',
             '审批',
+            '审批人',
             '审批时间',
             '审批备注',
+            '审批日志',
+            '冲销状态',
+            '冲销时间',
+            '冲销备注',
             '时间',
             '备注'
         ];
@@ -1658,6 +1663,108 @@ const ERP = {
             segments.push(`${key}=${String(meta[key]).trim() || '-'}`);
         });
         return segments.join('|');
+    },
+
+    normalizePurchaseApprovalStatus(value = '') {
+        const text = String(value || '').trim().toLowerCase();
+        if (text === 'pending') return 'pending';
+        if (text === 'rejected') return 'rejected';
+        return 'approved';
+    },
+
+    sanitizePurchaseApprovalLogText(value = '') {
+        return String(value || '')
+            .replace(/[@#|]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    },
+
+    parsePurchaseApprovalHistory(raw = '') {
+        const text = String(raw || '').trim();
+        if (!text) {
+            return [];
+        }
+        return text
+            .split('##')
+            .map(chunk => String(chunk || '').trim())
+            .filter(Boolean)
+            .map(chunk => {
+                const [time = '', status = '', operator = '', note = ''] = chunk.split('@');
+                return {
+                    time: String(time || '').trim(),
+                    status: this.normalizePurchaseApprovalStatus(status),
+                    operator: String(operator || '').trim(),
+                    note: String(note || '').trim()
+                };
+            })
+            .filter(item => item.time);
+    },
+
+    stringifyPurchaseApprovalHistory(entries = []) {
+        const safeEntries = (Array.isArray(entries) ? entries : [])
+            .filter(item => item && item.time)
+            .map(item => {
+                const time = this.sanitizePurchaseApprovalLogText(item.time);
+                const status = this.normalizePurchaseApprovalStatus(item.status);
+                const operator = this.sanitizePurchaseApprovalLogText(item.operator || '');
+                const note = this.sanitizePurchaseApprovalLogText(item.note || '');
+                return `${time}@${status}@${operator}@${note}`;
+            });
+        return safeEntries.join('##');
+    },
+
+    async rollbackPurchaseFinanceByOrderNo(purchaseOrderNo = '', productId = null, reasonText = '') {
+        let query = supabaseClient
+            .from('erp_finances')
+            .select('id, user_id, type, category, amount, description, reference_id')
+            .eq('user_id', userData.user.id)
+            .order('transaction_date', { ascending: false })
+            .limit(300);
+
+        const safeOrderNo = String(purchaseOrderNo || '').trim();
+        if (safeOrderNo) {
+            query = query.ilike('description', `%${safeOrderNo}%`);
+        } else if (productId !== null && productId !== undefined && productId !== '') {
+            query = query.eq('reference_id', productId);
+        }
+
+        const { data, error } = await query;
+        if (error) {
+            throw error;
+        }
+
+        const rows = Array.isArray(data) ? data : [];
+        const targets = rows.filter(row => {
+            const category = String(row?.category || '');
+            return category.includes('采购入库') || category.includes('应付账款') || category.includes('采购付款');
+        });
+
+        let changedCount = 0;
+        for (const row of targets) {
+            const currentAmount = Math.abs(Number(row?.amount || 0));
+            if (!Number.isFinite(currentAmount) || currentAmount <= 0) {
+                continue;
+            }
+
+            const description = String(row?.description || '');
+            const suffix = reasonText ? `（已驳回冲销：${reasonText}）` : '（已驳回冲销）';
+            const nextDescription = description.includes('已驳回冲销') ? description : `${description}${suffix}`;
+
+            const { error: updateError } = await supabaseClient
+                .from('erp_finances')
+                .update({
+                    amount: 0,
+                    description: nextDescription
+                })
+                .eq('id', row.id)
+                .eq('user_id', userData.user.id);
+
+            if (!updateError) {
+                changedCount += 1;
+            }
+        }
+
+        return changedCount;
     },
 
     async releaseOrderLockedInventory(orderId, items = [], reason = '订单状态回补库存', releaseType = 'order_release') {
@@ -2233,14 +2340,14 @@ const ERP = {
 
     async updatePurchaseApproval(logId, approvalStatus = 'approved', approvalNote = '') {
         try {
-            const safeStatus = String(approvalStatus || '').trim().toLowerCase();
+            const safeStatus = this.normalizePurchaseApprovalStatus(approvalStatus);
             if (!['pending', 'approved', 'rejected'].includes(safeStatus)) {
                 throw new Error('审批状态无效');
             }
 
             const { data: record, error: loadError } = await supabaseClient
                 .from('erp_inventory_logs')
-                .select('id, user_id, type, notes')
+                .select('id, user_id, type, notes, product_id, quantity_change')
                 .eq('id', logId)
                 .eq('user_id', userData.user.id)
                 .single();
@@ -2253,9 +2360,55 @@ const ERP = {
             }
 
             const meta = this.parsePurchaseMetaFromNotes(record?.notes || '');
+            const previousStatus = this.normalizePurchaseApprovalStatus(meta['审批'] || 'approved');
+            const approvalAt = new Date().toISOString();
+            const operator = String(userData?.user?.email || userData?.user?.id || '未知审批人').trim();
+            const safeApprovalNote = String(approvalNote || '').trim();
+
             meta['审批'] = safeStatus;
-            meta['审批时间'] = new Date().toISOString();
-            meta['审批备注'] = String(approvalNote || '').trim() || (safeStatus === 'approved' ? '手动通过' : (safeStatus === 'rejected' ? '手动驳回' : '待审批'));
+            meta['审批人'] = operator;
+            meta['审批时间'] = approvalAt;
+            meta['审批备注'] = safeApprovalNote || (safeStatus === 'approved' ? '手动通过' : (safeStatus === 'rejected' ? '手动驳回' : '待审批'));
+
+            const history = this.parsePurchaseApprovalHistory(meta['审批日志']);
+            history.push({
+                time: approvalAt,
+                status: safeStatus,
+                operator,
+                note: meta['审批备注']
+            });
+            meta['审批日志'] = this.stringifyPurchaseApprovalHistory(history.slice(-30));
+
+            let stockRollbackDone = false;
+            let financeRollbackCount = 0;
+            if (safeStatus === 'rejected' && String(meta['冲销状态'] || '') !== '已冲销') {
+                const quantity = Math.abs(Number(record?.quantity_change || meta['数量'] || 0));
+                if (Number.isFinite(quantity) && quantity > 0 && record?.product_id) {
+                    const stockResult = await this.updateStock(
+                        record.product_id,
+                        -quantity,
+                        'purchase_reversal',
+                        record.id,
+                        `采购驳回自动冲销${meta['采购单号'] ? `(${meta['采购单号']})` : ''}`
+                    );
+                    if (!stockResult) {
+                        throw new Error('采购驳回库存冲销失败');
+                    }
+                    stockRollbackDone = true;
+                }
+
+                financeRollbackCount = await this.rollbackPurchaseFinanceByOrderNo(
+                    meta['采购单号'] || '',
+                    record?.product_id || null,
+                    meta['审批备注']
+                );
+                meta['冲销状态'] = '已冲销';
+                meta['冲销时间'] = approvalAt;
+                meta['冲销备注'] = meta['审批备注'] || '采购驳回自动冲销';
+            } else if (safeStatus !== 'rejected') {
+                meta['冲销备注'] = meta['冲销备注'] || '-';
+            }
+
             const nextNotes = this.stringifyPurchaseMeta(meta);
 
             const { data, error } = await supabaseClient
@@ -2274,6 +2427,32 @@ const ERP = {
                 type: 'purchase_approval_updated',
                 logId: data?.id || logId,
                 approvalStatus: safeStatus
+            });
+
+            if (financeRollbackCount > 0) {
+                this.state.loaded.finances = false;
+                this.emitEvent('erpFinanceChanged', {
+                    action: 'purchase_rejection_rollback',
+                    logId: data?.id || logId,
+                    rollbackCount: financeRollbackCount
+                });
+            }
+
+            this.logAudit({
+                module: 'inventory',
+                action: 'purchase_approval_update',
+                entityType: 'inventory_log',
+                entityId: data?.id || logId,
+                entityName: meta['采购单号'] || `采购记录#${data?.id || logId}`,
+                description: `采购审批 ${previousStatus} -> ${safeStatus}${operator ? `，审批人：${operator}` : ''}`,
+                details: {
+                    before_status: previousStatus,
+                    after_status: safeStatus,
+                    approval_note: meta['审批备注'],
+                    approval_operator: operator,
+                    stock_rollback_done: stockRollbackDone,
+                    finance_rollback_count: financeRollbackCount
+                }
             });
             return data;
         } catch (error) {

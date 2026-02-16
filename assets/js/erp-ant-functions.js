@@ -3215,10 +3215,23 @@ function renderPurchaseRecords(records = []) {
         const approvalColor = approvalStatus === 'approved' ? '#237804' : (approvalStatus === 'rejected' ? '#cf1322' : '#d46b08');
         const approvalBg = approvalStatus === 'approved' ? '#f6ffed' : (approvalStatus === 'rejected' ? '#fff1f0' : '#fff7e6');
         const approvalBorder = approvalStatus === 'approved' ? '#b7eb8f' : (approvalStatus === 'rejected' ? '#ffa39e' : '#ffd591');
+        const approvalOperator = String(meta['审批人'] || '').trim() || '-';
+        const approvalTimeText = String(meta['审批时间'] || '').trim();
         const approvalNote = String(meta['审批备注'] || '').trim();
         const createdAt = meta['时间'] || record?.created_at || '';
         const noteText = (meta['备注'] && meta['备注'] !== '-') ? meta['备注'] : '-';
         const displayTime = parseFinanceDate(createdAt);
+        const rollbackStatus = String(meta['冲销状态'] || '').trim();
+        const rollbackTime = String(meta['冲销时间'] || '').trim();
+        const rollbackNote = String(meta['冲销备注'] || '').trim();
+        const approvalTagTitle = [
+            `审批人：${approvalOperator}`,
+            `审批时间：${approvalTimeText || '-'}`,
+            `审批备注：${approvalNote || '-'}`,
+            rollbackStatus ? `冲销状态：${rollbackStatus}` : '',
+            rollbackTime ? `冲销时间：${rollbackTime}` : '',
+            rollbackNote ? `冲销备注：${rollbackNote}` : ''
+        ].filter(Boolean).join('\n');
         const approvalActions = approvalStatus === 'pending'
             ? `
                 <button class="ant-btn" style="height:24px;line-height:22px;padding:0 8px;font-size:12px;color:#237804;border-color:#b7eb8f;margin-right:6px;"
@@ -3230,6 +3243,10 @@ function renderPurchaseRecords(records = []) {
                 <button class="ant-btn" style="height:24px;line-height:22px;padding:0 8px;font-size:12px;color:#d46b08;border-color:#ffd591;"
                     onclick='setPurchaseApprovalStatus(${JSON.stringify(record?.id)}, "pending")'>改待审</button>
             `;
+        const extraAction = `
+            <button class="ant-btn" style="height:24px;line-height:22px;padding:0 8px;font-size:12px;color:#531dab;border-color:#d3adf7;margin-top:4px;"
+                onclick='showPurchaseApprovalLog(${JSON.stringify(record?.id)})'>日志</button>
+        `;
 
         return `
             <tr>
@@ -3243,11 +3260,11 @@ function renderPurchaseRecords(records = []) {
                 <td>${escapeHtmlText(paymentText)}</td>
                 <td>
                     <span style="display:inline-block;padding:1px 8px;border-radius:999px;border:1px solid ${approvalBorder};background:${approvalBg};color:${approvalColor};font-size:12px;"
-                        title="${escapeHtmlText(approvalNote || '-')}"
+                        title="${escapeHtmlText(approvalTagTitle || '-')}"
                     >${escapeHtmlText(approvalText)}</span>
                 </td>
                 <td title="${escapeHtmlText(noteText)}">${escapeHtmlText(noteText)}</td>
-                <td>${approvalActions}</td>
+                <td>${approvalActions}${extraAction}</td>
             </tr>
         `;
     }).join('');
@@ -3282,6 +3299,43 @@ async function setPurchaseApprovalStatus(logId, approvalStatus = 'approved') {
     if (typeof showToast === 'function') {
         showToast(`采购审批已更新为：${statusText}`, 'success');
     }
+}
+
+function showPurchaseApprovalLog(logId) {
+    const target = (Array.isArray(purchaseLogState.records) ? purchaseLogState.records : [])
+        .find(item => String(item?.id) === String(logId));
+    if (!target) {
+        alert('未找到采购记录，请刷新后重试');
+        return;
+    }
+
+    const meta = parsePurchaseMetaFromNotes(target?.notes || '');
+    const orderNo = String(meta['采购单号'] || `CG-LOG-${target?.id || '-'}`).trim();
+    const history = parsePurchaseApprovalHistory(meta['审批日志'] || '');
+    const currentStatus = formatPurchaseApprovalStatus(meta['审批'] || 'approved');
+    const operator = String(meta['审批人'] || '').trim() || '-';
+    const approvalTime = String(meta['审批时间'] || '').trim() || '-';
+    const approvalNote = String(meta['审批备注'] || '').trim() || '-';
+    const rollbackStatus = String(meta['冲销状态'] || '').trim() || '-';
+    const rollbackTime = String(meta['冲销时间'] || '').trim() || '-';
+    const rollbackNote = String(meta['冲销备注'] || '').trim() || '-';
+
+    const historyText = history.length
+        ? history.map((item, index) => `${index + 1}. ${item.time} | ${formatPurchaseApprovalStatus(item.status)} | ${item.operator || '-'} | ${item.note || '-'}`).join('\n')
+        : '暂无审批日志';
+
+    alert([
+        `采购单号：${orderNo}`,
+        `当前审批：${currentStatus}`,
+        `审批人：${operator}`,
+        `审批时间：${approvalTime}`,
+        `审批备注：${approvalNote}`,
+        `冲销状态：${rollbackStatus}`,
+        `冲销时间：${rollbackTime}`,
+        `冲销备注：${rollbackNote}`,
+        '--- 审批日志 ---',
+        historyText
+    ].join('\n'));
 }
 
 function searchInventory() {
@@ -4905,6 +4959,27 @@ function formatPurchaseApprovalStatus(status) {
     return '已通过';
 }
 
+function parsePurchaseApprovalHistory(raw = '') {
+    const text = String(raw || '').trim();
+    if (!text) {
+        return [];
+    }
+    return text
+        .split('##')
+        .map(chunk => String(chunk || '').trim())
+        .filter(Boolean)
+        .map(chunk => {
+            const [time = '', status = '', operator = '', note = ''] = chunk.split('@');
+            return {
+                time: String(time || '').trim(),
+                status: normalizePurchaseApprovalStatus(status),
+                operator: String(operator || '').trim(),
+                note: String(note || '').trim()
+            };
+        })
+        .filter(item => item.time);
+}
+
 function parsePurchaseRecordForDashboard(record, productMap = new Map()) {
     const meta = parsePurchaseMetaFromNotes(record?.notes);
     const productFromState = productMap.get(String(record?.product_id || '')) || null;
@@ -4919,8 +4994,13 @@ function parsePurchaseRecordForDashboard(record, productMap = new Map()) {
     const amount = Number.isFinite(amountRaw) ? Math.max(amountRaw, 0) : 0;
     const paymentStatus = normalizePurchasePaymentStatus(meta['付款'] || 'paid');
     const approvalStatus = normalizePurchaseApprovalStatus(meta['审批'] || 'approved');
+    const approvalOperator = String(meta['审批人'] || '').trim();
     const approvalTime = parseFinanceDate(meta['审批时间'] || '');
     const approvalNote = String(meta['审批备注'] || '').trim();
+    const approvalHistoryRaw = String(meta['审批日志'] || '').trim();
+    const rollbackStatus = String(meta['冲销状态'] || '').trim();
+    const rollbackTime = parseFinanceDate(meta['冲销时间'] || '');
+    const rollbackNote = String(meta['冲销备注'] || '').trim();
     const paidAmountRaw = Number(meta['已付']);
     const payableAmountRaw = Number(meta['待付']);
     const paidAmount = Number.isFinite(paidAmountRaw)
@@ -4944,10 +5024,15 @@ function parsePurchaseRecordForDashboard(record, productMap = new Map()) {
         supplier,
         paymentStatus,
         approvalStatus,
+        approvalOperator,
         approvalTime,
         approvalNote,
+        approvalHistoryRaw,
         paidAmount,
         payableAmount,
+        rollbackStatus,
+        rollbackTime,
+        rollbackNote,
         note,
         purchaseDate
     };
@@ -5433,7 +5518,7 @@ async function exportPurchaseDetailsByMonth(monthKey = '') {
         return;
     }
 
-    const headers = ['采购单号', '采购时间', '供应商', '商品', '数量', '单价', '总额', '付款状态', '审批状态', '审批时间', '审批备注', '已付', '待付', '备注'];
+    const headers = ['采购单号', '采购时间', '供应商', '商品', '数量', '单价', '总额', '付款状态', '审批状态', '审批人', '审批时间', '审批备注', '冲销状态', '冲销时间', '冲销备注', '已付', '待付', '备注'];
     const paymentStatusMap = { paid: '已付款', unpaid: '未付款', partial: '部分付款' };
     const exportRows = rows.map(item => [
         item.purchaseOrderNo || '-',
@@ -5445,8 +5530,12 @@ async function exportPurchaseDetailsByMonth(monthKey = '') {
         Number(item.amount || 0).toFixed(2),
         paymentStatusMap[String(item.paymentStatus || '').toLowerCase()] || String(item.paymentStatus || '-'),
         formatPurchaseApprovalStatus(item.approvalStatus),
+        item.approvalOperator || '-',
         item.approvalTime ? item.approvalTime.toLocaleString('zh-CN') : '-',
         item.approvalNote || '-',
+        item.rollbackStatus || '-',
+        item.rollbackTime ? item.rollbackTime.toLocaleString('zh-CN') : '-',
+        item.rollbackNote || '-',
         Number(item.paidAmount || 0).toFixed(2),
         Number(item.payableAmount || 0).toFixed(2),
         item.note || '-'
@@ -5493,9 +5582,9 @@ async function exportSupplierMonthlyStatement() {
     const totalAmount = rows.reduce((sum, item) => sum + Number(item.amount || 0), 0);
     const totalPaid = rows.reduce((sum, item) => sum + Number(item.paidAmount || 0), 0);
     const totalPayable = rows.reduce((sum, item) => sum + Number(item.payableAmount || 0), 0);
-    const headers = ['类型', '月份', '供应商', '采购单号', '采购时间', '商品', '数量', '单价', '采购总额', '审批状态', '审批时间', '审批备注', '已付', '待付', '备注'];
+    const headers = ['类型', '月份', '供应商', '采购单号', '采购时间', '商品', '数量', '单价', '采购总额', '审批状态', '审批人', '审批时间', '审批备注', '冲销状态', '冲销时间', '冲销备注', '已付', '待付', '备注'];
     const exportRows = [
-        ['汇总', monthInput, supplierName, '-', '-', '-', '-', '-', totalAmount.toFixed(2), '-', '-', '-', totalPaid.toFixed(2), totalPayable.toFixed(2), `采购笔数=${rows.length}`],
+        ['汇总', monthInput, supplierName, '-', '-', '-', '-', '-', totalAmount.toFixed(2), '-', '-', '-', '-', '-', '-', '-', totalPaid.toFixed(2), totalPayable.toFixed(2), `采购笔数=${rows.length}`],
         ...rows.map(item => [
             '明细',
             monthInput,
@@ -5507,8 +5596,12 @@ async function exportSupplierMonthlyStatement() {
             Number(item.unitCost || 0).toFixed(2),
             Number(item.amount || 0).toFixed(2),
             formatPurchaseApprovalStatus(item.approvalStatus),
+            item.approvalOperator || '-',
             item.approvalTime ? item.approvalTime.toLocaleString('zh-CN') : '-',
             item.approvalNote || '-',
+            item.rollbackStatus || '-',
+            item.rollbackTime ? item.rollbackTime.toLocaleString('zh-CN') : '-',
+            item.rollbackNote || '-',
             Number(item.paidAmount || 0).toFixed(2),
             Number(item.payableAmount || 0).toFixed(2),
             item.note || '-'
@@ -5570,6 +5663,7 @@ async function exportSupplierMonthlyStatementPdf() {
             <td>${Number(item.amount || 0).toFixed(2)}</td>
             <td>${escapeHtmlText(paymentStatusMap[String(item.paymentStatus || '').toLowerCase()] || '-')}</td>
             <td>${escapeHtmlText(formatPurchaseApprovalStatus(item.approvalStatus))}</td>
+            <td>${escapeHtmlText(item.approvalOperator || '-')}</td>
             <td>${Number(item.paidAmount || 0).toFixed(2)}</td>
             <td>${Number(item.payableAmount || 0).toFixed(2)}</td>
             <td>${escapeHtmlText(item.note || '-')}</td>
@@ -5605,7 +5699,7 @@ async function exportSupplierMonthlyStatementPdf() {
                 <thead>
                     <tr>
                         <th>#</th><th>采购单号</th><th>采购时间</th><th>商品</th><th>数量</th><th>单价</th><th>总额</th>
-                        <th>付款状态</th><th>审批状态</th><th>已付</th><th>待付</th><th>备注</th>
+                        <th>付款状态</th><th>审批状态</th><th>审批人</th><th>已付</th><th>待付</th><th>备注</th>
                     </tr>
                 </thead>
                 <tbody>${tableRows}</tbody>

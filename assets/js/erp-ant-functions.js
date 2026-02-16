@@ -585,6 +585,328 @@ function syncFinanceTableEnhancements(visibleRows = []) {
     applyFinanceColumnVisibilityToTable();
 }
 
+const TABLE_BATCH_CONFIG = {
+    customers: {
+        label: '客户',
+        selectedCountId: 'customersSelectedCount',
+        exportBtnId: 'customersBatchExportBtn',
+        deleteBtnId: 'customersBatchDeleteBtn',
+        headerCheckboxId: 'customersSelectAllCheckbox',
+        panelId: 'customersColumnSettingsPanel',
+        columnDefs: [
+            { key: 'name', label: '客户名称' },
+            { key: 'contact', label: '联系人' },
+            { key: 'phone', label: '电话' },
+            { key: 'email', label: '邮箱' },
+            { key: 'address', label: '地址' },
+            { key: 'notes', label: '备注' },
+            { key: 'status', label: '状态' },
+            { key: 'actions', label: '操作' }
+        ]
+    },
+    orders: {
+        label: '订单',
+        selectedCountId: 'ordersSelectedCount',
+        exportBtnId: 'ordersBatchExportBtn',
+        deleteBtnId: 'ordersBatchDeleteBtn',
+        headerCheckboxId: 'ordersSelectAllCheckbox',
+        panelId: 'ordersColumnSettingsPanel',
+        columnDefs: [
+            { key: 'order_no', label: '订单号' },
+            { key: 'customer', label: '客户' },
+            { key: 'date', label: '订单日期' },
+            { key: 'amount', label: '金额' },
+            { key: 'status', label: '状态' },
+            { key: 'payment', label: '支付' },
+            { key: 'shipping', label: '发货状态' },
+            { key: 'logistics', label: '物流信息' },
+            { key: 'actions', label: '操作' }
+        ]
+    }
+};
+const tableBatchState = {
+    customers: { selectedIds: new Set(), visibleIds: [] },
+    orders: { selectedIds: new Set(), visibleIds: [] }
+};
+const tableColumnVisibilityCache = {};
+
+function normalizeTableRowId(value) {
+    return String(value ?? '').trim();
+}
+
+function getCurrentUserIdentityKey() {
+    return String(window?.userData?.user?.id || window?.userData?.user?.email || 'guest').trim() || 'guest';
+}
+
+function getTableColumnStorageKey(moduleKey) {
+    return `erpTableColumnVisibility_${moduleKey}_${getCurrentUserIdentityKey()}`;
+}
+
+function getTableColumnDefaultVisibility(moduleKey) {
+    const defs = TABLE_BATCH_CONFIG[moduleKey]?.columnDefs || [];
+    return defs.reduce((acc, item) => {
+        acc[item.key] = true;
+        return acc;
+    }, {});
+}
+
+function loadTableColumnVisibility(moduleKey) {
+    const defaults = getTableColumnDefaultVisibility(moduleKey);
+    try {
+        const raw = localStorage.getItem(getTableColumnStorageKey(moduleKey));
+        if (!raw) {
+            return defaults;
+        }
+        const parsed = JSON.parse(raw);
+        const result = { ...defaults };
+        Object.keys(result).forEach(key => {
+            if (Object.prototype.hasOwnProperty.call(parsed, key)) {
+                result[key] = !!parsed[key];
+            }
+        });
+        return result;
+    } catch (error) {
+        return defaults;
+    }
+}
+
+function saveTableColumnVisibility(moduleKey, visibility) {
+    try {
+        localStorage.setItem(getTableColumnStorageKey(moduleKey), JSON.stringify(visibility || {}));
+    } catch (error) {
+        console.error('[ERP Ant] 保存表格列配置失败:', error);
+    }
+}
+
+function getTableColumnVisibility(moduleKey) {
+    if (!tableColumnVisibilityCache[moduleKey]) {
+        tableColumnVisibilityCache[moduleKey] = loadTableColumnVisibility(moduleKey);
+    }
+    return { ...(tableColumnVisibilityCache[moduleKey] || {}) };
+}
+
+function setTableColumnVisibility(moduleKey, columnKey, visible) {
+    if (!TABLE_BATCH_CONFIG[moduleKey]) {
+        return;
+    }
+    if (!tableColumnVisibilityCache[moduleKey]) {
+        tableColumnVisibilityCache[moduleKey] = loadTableColumnVisibility(moduleKey);
+    }
+    tableColumnVisibilityCache[moduleKey][columnKey] = !!visible;
+    saveTableColumnVisibility(moduleKey, tableColumnVisibilityCache[moduleKey]);
+    applyTableColumnVisibility(moduleKey);
+}
+
+function resetTableColumnVisibility(moduleKey) {
+    if (!TABLE_BATCH_CONFIG[moduleKey]) {
+        return;
+    }
+    tableColumnVisibilityCache[moduleKey] = getTableColumnDefaultVisibility(moduleKey);
+    saveTableColumnVisibility(moduleKey, tableColumnVisibilityCache[moduleKey]);
+    renderTableColumnSettingsPanel(moduleKey);
+    applyTableColumnVisibility(moduleKey);
+}
+
+function applyTableColumnVisibility(moduleKey) {
+    const visibility = getTableColumnVisibility(moduleKey);
+    const defs = TABLE_BATCH_CONFIG[moduleKey]?.columnDefs || [];
+    defs.forEach(item => {
+        const visible = visibility[item.key] !== false;
+        document.querySelectorAll(`[data-table-col="${moduleKey}:${item.key}"]`).forEach(cell => {
+            cell.style.display = visible ? '' : 'none';
+        });
+        document.querySelectorAll(`[data-table-cell="${moduleKey}:${item.key}"]`).forEach(cell => {
+            cell.style.display = visible ? '' : 'none';
+        });
+    });
+}
+
+function renderTableColumnSettingsPanel(moduleKey) {
+    const config = TABLE_BATCH_CONFIG[moduleKey];
+    if (!config) {
+        return;
+    }
+    const panel = document.getElementById(config.panelId);
+    if (!panel) {
+        return;
+    }
+
+    const visibility = getTableColumnVisibility(moduleKey);
+    panel.innerHTML = `
+        <p class="erp-inline-settings-title">${config.label}列显示设置</p>
+        <div class="erp-inline-settings-list">
+            ${config.columnDefs.map(item => `
+                <label class="erp-inline-settings-item">
+                    <input type="checkbox" ${visibility[item.key] !== false ? 'checked' : ''}
+                        onchange="setTableColumnVisibility('${moduleKey}', '${item.key}', this.checked)">
+                    <span>${item.label}</span>
+                </label>
+            `).join('')}
+            <button class="ant-btn erp-btn-compact" type="button" onclick="resetTableColumnVisibility('${moduleKey}')">恢复默认</button>
+        </div>
+    `;
+}
+
+function toggleModuleColumnSettings(moduleKey, forceVisible = null) {
+    const config = TABLE_BATCH_CONFIG[moduleKey];
+    if (!config) {
+        return;
+    }
+    const panel = document.getElementById(config.panelId);
+    if (!panel) {
+        return;
+    }
+    const shouldShow = typeof forceVisible === 'boolean'
+        ? forceVisible
+        : panel.classList.contains('hidden');
+    panel.classList.toggle('hidden', !shouldShow);
+    if (shouldShow) {
+        renderTableColumnSettingsPanel(moduleKey);
+        applyTableColumnVisibility(moduleKey);
+    }
+}
+
+function getAllRowsByModuleKey(moduleKey) {
+    switch (moduleKey) {
+        case 'customers':
+            return Array.isArray(window?.ERP?.state?.customers) ? window.ERP.state.customers : [];
+        case 'orders':
+            return Array.isArray(window?.ERP?.state?.orders) ? window.ERP.state.orders : [];
+        default:
+            return [];
+    }
+}
+
+function syncModuleSelectionVisibleRows(moduleKey, rows = []) {
+    const state = tableBatchState[moduleKey];
+    if (!state) {
+        return;
+    }
+    state.visibleIds = (Array.isArray(rows) ? rows : [])
+        .map(item => normalizeTableRowId(item?.id))
+        .filter(Boolean);
+}
+
+function pruneModuleSelectionByAllRows(moduleKey) {
+    const state = tableBatchState[moduleKey];
+    if (!state) {
+        return;
+    }
+    const allRows = getAllRowsByModuleKey(moduleKey);
+    const allIds = new Set(allRows.map(item => normalizeTableRowId(item?.id)).filter(Boolean));
+    Array.from(state.selectedIds).forEach(id => {
+        if (!allIds.has(id)) {
+            state.selectedIds.delete(id);
+        }
+    });
+}
+
+function isModuleRowSelected(moduleKey, rowId) {
+    const state = tableBatchState[moduleKey];
+    if (!state) {
+        return false;
+    }
+    const id = normalizeTableRowId(rowId);
+    return id ? state.selectedIds.has(id) : false;
+}
+
+function renderModuleHeaderCheckboxState(moduleKey) {
+    const config = TABLE_BATCH_CONFIG[moduleKey];
+    const state = tableBatchState[moduleKey];
+    if (!config || !state) {
+        return;
+    }
+    const checkbox = document.getElementById(config.headerCheckboxId);
+    if (!checkbox) {
+        return;
+    }
+    const visibleIds = state.visibleIds || [];
+    const selectedVisible = visibleIds.filter(id => state.selectedIds.has(id)).length;
+    checkbox.checked = visibleIds.length > 0 && selectedVisible === visibleIds.length;
+    checkbox.indeterminate = selectedVisible > 0 && selectedVisible < visibleIds.length;
+}
+
+function updateModuleBatchActionState(moduleKey) {
+    const config = TABLE_BATCH_CONFIG[moduleKey];
+    const state = tableBatchState[moduleKey];
+    if (!config || !state) {
+        return;
+    }
+    const selectedCount = state.selectedIds.size;
+    const deleteBtn = document.getElementById(config.deleteBtnId);
+    const exportBtn = document.getElementById(config.exportBtnId);
+    const textEl = document.getElementById(config.selectedCountId);
+
+    if (deleteBtn) {
+        deleteBtn.disabled = selectedCount === 0;
+    }
+    if (exportBtn) {
+        exportBtn.disabled = selectedCount === 0;
+    }
+    if (textEl) {
+        textEl.textContent = `已选 ${selectedCount} 条`;
+    }
+}
+
+function onModuleRowCheckedChange(moduleKey, rowId, checked) {
+    const state = tableBatchState[moduleKey];
+    if (!state) {
+        return;
+    }
+    const id = normalizeTableRowId(rowId);
+    if (!id) {
+        return;
+    }
+    if (checked) {
+        state.selectedIds.add(id);
+    } else {
+        state.selectedIds.delete(id);
+    }
+    renderModuleHeaderCheckboxState(moduleKey);
+    updateModuleBatchActionState(moduleKey);
+}
+
+function onModuleSelectAllVisible(moduleKey, checked) {
+    const state = tableBatchState[moduleKey];
+    if (!state) {
+        return;
+    }
+    const shouldCheck = !!checked;
+    (state.visibleIds || []).forEach(id => {
+        if (shouldCheck) {
+            state.selectedIds.add(id);
+        } else {
+            state.selectedIds.delete(id);
+        }
+    });
+    document.querySelectorAll(`.erp-table-row-checkbox[data-module="${moduleKey}"]`).forEach(checkbox => {
+        checkbox.checked = shouldCheck;
+    });
+    renderModuleHeaderCheckboxState(moduleKey);
+    updateModuleBatchActionState(moduleKey);
+}
+
+function getSelectedRowsByModule(moduleKey) {
+    const state = tableBatchState[moduleKey];
+    if (!state) {
+        return [];
+    }
+    const allRows = getAllRowsByModuleKey(moduleKey);
+    return allRows.filter(item => state.selectedIds.has(normalizeTableRowId(item?.id)));
+}
+
+function syncModuleTableEnhancements(moduleKey, visibleRows = []) {
+    if (!TABLE_BATCH_CONFIG[moduleKey]) {
+        return;
+    }
+    syncModuleSelectionVisibleRows(moduleKey, visibleRows);
+    pruneModuleSelectionByAllRows(moduleKey);
+    renderModuleHeaderCheckboxState(moduleKey);
+    updateModuleBatchActionState(moduleKey);
+    renderTableColumnSettingsPanel(moduleKey);
+    applyTableColumnVisibility(moduleKey);
+}
+
 function escapeCsvCell(value) {
     const text = String(value ?? '');
     return `"${text.replace(/"/g, '""')}"`;
@@ -2731,6 +3053,139 @@ async function deleteOrder(orderId) {
             searchOrders();
         }
         updateStatistics();
+    }
+}
+
+function batchExportSelectedOrders() {
+    const rows = getSelectedRowsByModule('orders');
+    if (!rows.length) {
+        if (typeof showToast === 'function') {
+            showToast('请先勾选要导出的订单', 'info');
+        }
+        return;
+    }
+
+    const customers = Array.isArray(ERP.state?.customers) ? ERP.state.customers : [];
+    const customerMap = new Map(customers.map(item => [String(item?.id), item]));
+    const headers = ['订单号', '客户', '订单日期', '金额', '状态', '支付状态', '发货状态', '物流公司', '运单号', '备注'];
+    const exportRows = rows.map(order => {
+        const customer = customerMap.get(String(order?.customer_id || ''));
+        return [
+            order?.order_number || `订单#${order?.id || '-'}`,
+            customer?.name || '-',
+            order?.order_date || '-',
+            Number(order?.total_amount || 0).toFixed(2),
+            getOrderStatusText(order?.status),
+            getPaymentStatusText(order?.payment_status),
+            getShippingStatusText(order?.shipping_status),
+            order?.shipping_company || '-',
+            order?.tracking_number || '-',
+            order?.notes || '-'
+        ];
+    });
+
+    downloadCsvFile(`订单已选记录-${formatFileTimestamp()}.csv`, headers, exportRows);
+    if (typeof showToast === 'function') {
+        showToast(`已导出 ${exportRows.length} 条订单记录`, 'success');
+    }
+}
+
+async function batchDeleteSelectedOrders() {
+    const rows = getSelectedRowsByModule('orders');
+    if (!rows.length) {
+        if (typeof showToast === 'function') {
+            showToast('请先勾选要删除的订单', 'info');
+        }
+        return;
+    }
+
+    const shouldDelete = window.confirm(`确认删除选中的 ${rows.length} 条订单吗？该操作会同步影响财务记录。`);
+    if (!shouldDelete) {
+        return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+    for (const row of rows) {
+        try {
+            await ERP.deleteOrder(row.id);
+            tableBatchState.orders.selectedIds.delete(normalizeTableRowId(row.id));
+            successCount += 1;
+        } catch (error) {
+            failCount += 1;
+            console.error('[ERP Ant] 批量删除订单失败:', error);
+        }
+    }
+
+    await Promise.all([
+        ERP.loadOrders(true),
+        ERP.loadFinances(true)
+    ]);
+    searchOrders();
+    applyFinanceFilters();
+    updateStatistics();
+    if (typeof showToast === 'function') {
+        showToast(`批量删除订单完成：成功 ${successCount}，失败 ${failCount}`, failCount > 0 ? 'warning' : 'success');
+    }
+}
+
+function batchExportSelectedCustomers() {
+    const rows = getSelectedRowsByModule('customers');
+    if (!rows.length) {
+        if (typeof showToast === 'function') {
+            showToast('请先勾选要导出的客户', 'info');
+        }
+        return;
+    }
+
+    const headers = ['客户名称', '联系人', '电话', '邮箱', '地址', '备注', '状态'];
+    const exportRows = rows.map(item => [
+        item?.name || '-',
+        item?.contact_person || '-',
+        item?.phone || '-',
+        item?.email || '-',
+        item?.address || '-',
+        item?.notes || '-',
+        item?.status === 'active' ? '活跃' : '停用'
+    ]);
+    downloadCsvFile(`客户已选记录-${formatFileTimestamp()}.csv`, headers, exportRows);
+    if (typeof showToast === 'function') {
+        showToast(`已导出 ${exportRows.length} 条客户记录`, 'success');
+    }
+}
+
+async function batchDeleteSelectedCustomers() {
+    const rows = getSelectedRowsByModule('customers');
+    if (!rows.length) {
+        if (typeof showToast === 'function') {
+            showToast('请先勾选要删除的客户', 'info');
+        }
+        return;
+    }
+
+    const shouldDelete = window.confirm(`确认删除选中的 ${rows.length} 条客户记录吗？`);
+    if (!shouldDelete) {
+        return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+    for (const row of rows) {
+        try {
+            await ERP.deleteCustomer(row.id);
+            tableBatchState.customers.selectedIds.delete(normalizeTableRowId(row.id));
+            successCount += 1;
+        } catch (error) {
+            failCount += 1;
+            console.error('[ERP Ant] 批量删除客户失败:', error);
+        }
+    }
+
+    await ERP.loadCustomers({ forceRefresh: true });
+    searchCustomers();
+    updateStatistics();
+    if (typeof showToast === 'function') {
+        showToast(`批量删除客户完成：成功 ${successCount}，失败 ${failCount}`, failCount > 0 ? 'warning' : 'success');
     }
 }
 

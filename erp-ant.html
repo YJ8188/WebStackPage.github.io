@@ -584,9 +584,17 @@
                                 </div>
                             </div>
 
+                            <div id="orderWorkflowSummary" style="margin: 10px 0 14px;"></div>
+
                             <div class="table-operator">
                                 <button class="ant-btn ant-btn-primary" onclick="showOrderModal()">
                                     <i class="fa fa-plus"></i> 创建订单
+                                </button>
+                                <button class="ant-btn" onclick="exportOrdersCsv()" style="margin-left:8px; color:#1677ff; border-color:#91caff;">
+                                    <i class="fa fa-download"></i> 导出当前列表
+                                </button>
+                                <button class="ant-btn" onclick="bulkCompleteSignedOrders()" style="margin-left:8px; color:#722ed1; border-color:#d3adf7;">
+                                    <i class="fa fa-check-circle"></i> 一键完结已签收
                                 </button>
                             </div>
 
@@ -1201,8 +1209,8 @@
     <script src="assets/js/supabase.min.js"></script>
     <script src="assets/js/supabase-config.js?v=20260212-14"></script>
     <script src="assets/js/user-data.js?v=20260214-20"></script>
-    <script src="assets/js/erp.js?v=20260216-22"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260216-12"></script>
+    <script src="assets/js/erp.js?v=20260216-23"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260216-13"></script>
     <script src="assets/js/pwa-register.js?v=20260216-1" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->

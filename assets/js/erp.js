@@ -1267,6 +1267,22 @@ const ERP = {
                 }
             }
 
+            this.emitEvent('erpOrderChanged', {
+                orderId,
+                action: 'status-updated',
+                fromStatus: beforeStatus,
+                toStatus: afterStatus
+            });
+            if ((afterStatus === 'cancelled' || afterStatus === 'refunded')
+                && !['cancelled', 'refunded'].includes(beforeStatus)) {
+                this.emitEvent('erpInventoryChanged', {
+                    orderId,
+                    action: 'order-status-release',
+                    fromStatus: beforeStatus,
+                    toStatus: afterStatus
+                });
+            }
+
             this.logAudit({
                 module: 'orders',
                 action: 'update_status',
@@ -2411,7 +2427,24 @@ const ERP = {
             }).length;
         };
 
-            const stats = {
+        const orderStatusCounter = this.state.orders.reduce((counter, order) => {
+            const status = this.normalizeOrderStatus(order?.status || 'pending');
+            if (!Object.prototype.hasOwnProperty.call(counter, status)) {
+                counter[status] = 0;
+            }
+            counter[status] += 1;
+            return counter;
+        }, {
+            pending: 0,
+            confirmed: 0,
+            shipped: 0,
+            signed: 0,
+            completed: 0,
+            refunded: 0,
+            cancelled: 0
+        });
+
+        const stats = {
                 customers: {
                     total: this.state.customers.length,
                     active: this.state.customers.filter(c => c.status === 'active').length,
@@ -2434,7 +2467,8 @@ const ERP = {
                         return ['confirmed', 'shipped', 'signed'].includes(status);
                     }).length,
                     completed: this.state.orders.filter(o => o.status === 'completed').length,
-                totalRevenue: this.state.orders
+                    statuses: orderStatusCounter,
+                    totalRevenue: this.state.orders
                     .filter(o => o.status === 'completed')
                     .reduce((sum, o) => sum + parseFloat(o.total_amount), 0)
             },

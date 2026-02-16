@@ -43,6 +43,54 @@ function normalizeEntityId(value) {
     return /^-?\d+$/.test(text) ? Number(text) : text;
 }
 
+const orderApprovalHistoryState = {
+    orderId: null,
+    order: null,
+    records: [],
+    filteredRecords: [],
+    keyword: '',
+    range: 'all',
+    loading: false,
+    errorMessage: ''
+};
+
+let bulkCompleteSignedOrdersInProgress = false;
+
+function escapeCsvCell(value) {
+    const text = String(value ?? '');
+    return `"${text.replace(/"/g, '""')}"`;
+}
+
+function downloadCsvFile(fileName, headers, rows) {
+    const safeHeaders = Array.isArray(headers) ? headers : [];
+    const safeRows = Array.isArray(rows) ? rows : [];
+    const csvLines = [
+        safeHeaders.map(escapeCsvCell).join(','),
+        ...safeRows.map(row => (Array.isArray(row) ? row : []).map(escapeCsvCell).join(','))
+    ];
+    const csvContent = '\uFEFF' + csvLines.join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+function formatFileTimestamp(date = new Date()) {
+    const d = date instanceof Date ? date : new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hour = String(d.getHours()).padStart(2, '0');
+    const minute = String(d.getMinutes()).padStart(2, '0');
+    const second = String(d.getSeconds()).padStart(2, '0');
+    return `${year}${month}${day}-${hour}${minute}${second}`;
+}
+
 function getERPInventoryDiagnostics() {
     const products = (window.ERP && ERP.state && Array.isArray(ERP.state.products)) ? ERP.state.products : [];
     const rows = products.map(product => {
@@ -343,6 +391,9 @@ function updateStatistics(data) {
     
     const statProfit = document.getElementById('statProfit');
     if (statProfit) statProfit.textContent = '¥' + stats.finances.netProfit.toLocaleString();
+
+    const currentOrders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
+    renderOrderWorkflowSummary(currentOrders, getFilteredOrdersForView());
 }
 
 // ==================== 单位转换 ====================
@@ -1397,7 +1448,7 @@ async function saveOrder() {
             
             if (result) {
                 // 直接使用本地状态刷新，避免额外全量查询导致卡顿
-                renderOrders(ERP.state.orders);
+                searchOrders();
                 updateStatistics();
 
                 if (ERP.config.currentModule === 'finance') {
@@ -1416,7 +1467,7 @@ async function saveOrder() {
             hideOrderModal();
             
             // 直接使用本地状态刷新，减少等待
-            renderOrders(ERP.state.orders);
+            searchOrders();
             updateStatistics();
 
             if (ERP.config.currentModule === 'finance') {
@@ -1434,7 +1485,7 @@ async function saveOrder() {
         // 如果是创建订单失败，需要重新加载数据
         if (!orderId) {
             await ERP.loadOrders();
-            renderOrders();
+            searchOrders();
             updateStatistics();
         }
     } finally {
@@ -1533,7 +1584,7 @@ async function deleteOrder(orderId) {
         
         if (typeof renderOrders === 'function') {
             console.info('[ERP Ant] renderOrders 函数存在，正在调用...');
-            renderOrders(orders);
+            searchOrders();
             console.info('[ERP Ant] renderOrders 调用完成');
         } else {
             console.error('[ERP Ant] renderOrders 函数不存在！');
@@ -1553,7 +1604,7 @@ async function deleteOrder(orderId) {
         // 重新加载数据
         const orders = await ERP.loadOrders(true);
         if (typeof renderOrders === 'function') {
-            renderOrders(orders);
+            searchOrders();
         }
         updateStatistics();
     }
@@ -1578,6 +1629,52 @@ function formatOrderApprovalDateTime(value) {
     });
 }
 
+function getApprovalRangeStartTimestamp(range) {
+    const normalizedRange = String(range || 'all').toLowerCase();
+    const now = new Date();
+    if (normalizedRange === 'today') {
+        return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    }
+    if (normalizedRange === '7') {
+        return now.getTime() - (7 * 24 * 60 * 60 * 1000);
+    }
+    if (normalizedRange === '30') {
+        return now.getTime() - (30 * 24 * 60 * 60 * 1000);
+    }
+    return null;
+}
+
+function filterOrderApprovalHistoryRecords(records, keyword, range) {
+    const keywordText = String(keyword || '').trim().toLowerCase();
+    const rangeStart = getApprovalRangeStartTimestamp(range);
+
+    return (Array.isArray(records) ? records : []).filter(record => {
+        const searchableText = [
+            record?.actionText,
+            record?.fromStatusText,
+            record?.toStatusText,
+            record?.operator,
+            record?.remark,
+            record?.description
+        ].map(item => String(item || '').toLowerCase()).join(' ');
+
+        const matchKeyword = !keywordText || searchableText.includes(keywordText);
+        if (!matchKeyword) {
+            return false;
+        }
+
+        if (rangeStart === null) {
+            return true;
+        }
+
+        const createdAt = new Date(record?.createdAt || '').getTime();
+        if (!Number.isFinite(createdAt)) {
+            return false;
+        }
+        return createdAt >= rangeStart;
+    });
+}
+
 function renderOrderApprovalHistoryModal(order, records = [], options = {}) {
     const body = document.getElementById('orderApprovalHistoryBody');
     const title = document.getElementById('orderApprovalHistoryTitle');
@@ -1590,28 +1687,46 @@ function renderOrderApprovalHistoryModal(order, records = [], options = {}) {
     const orderNumber = order?.order_number || `订单#${order?.id || '-'}`;
     title.textContent = `审批记录 · ${orderNumber}`;
 
-    if (loading) {
+    if (Array.isArray(records)) {
+        orderApprovalHistoryState.records = records;
+    }
+
+    if (typeof options.keyword === 'string') {
+        orderApprovalHistoryState.keyword = options.keyword;
+    }
+    if (typeof options.range === 'string') {
+        orderApprovalHistoryState.range = options.range;
+    }
+    if (Object.prototype.hasOwnProperty.call(options, 'loading')) {
+        orderApprovalHistoryState.loading = loading;
+    }
+    if (Object.prototype.hasOwnProperty.call(options, 'errorMessage')) {
+        orderApprovalHistoryState.errorMessage = errorMessage;
+    }
+
+    if (loading || orderApprovalHistoryState.loading) {
         body.innerHTML = '<div style="padding:16px 0;color:#64748b;">审批记录加载中...</div>';
         return;
     }
 
-    if (errorMessage) {
-        body.innerHTML = `<div style="padding:16px 0;color:#cf1322;">${errorMessage}</div>`;
+    if (errorMessage || orderApprovalHistoryState.errorMessage) {
+        body.innerHTML = `<div style="padding:16px 0;color:#cf1322;">${escapeHtmlText(errorMessage || orderApprovalHistoryState.errorMessage)}</div>`;
         return;
     }
 
-    if (!Array.isArray(records) || records.length === 0) {
-        body.innerHTML = '<div style="padding:16px 0;color:#64748b;">暂无审批记录</div>';
-        return;
-    }
+    const keyword = String(orderApprovalHistoryState.keyword || '').trim();
+    const range = String(orderApprovalHistoryState.range || 'all').trim().toLowerCase();
+    const filteredRecords = filterOrderApprovalHistoryRecords(orderApprovalHistoryState.records, keyword, range);
+    orderApprovalHistoryState.filteredRecords = filteredRecords;
 
-    const rows = records.map((item, index) => {
+    const rows = filteredRecords.map((item, index) => {
         const indexText = String(index + 1).padStart(2, '0');
-        const operatorText = item?.operator ? String(item.operator) : '系统';
-        const remarkText = item?.remark ? String(item.remark) : '-';
-        const fromText = item?.fromStatusText || '-';
-        const toText = item?.toStatusText || '-';
-        const actionText = item?.actionText || '状态变更';
+        const operatorText = item?.operator ? escapeHtmlText(item.operator) : '系统';
+        const remarkText = item?.remark ? escapeHtmlText(item.remark) : '-';
+        const fromText = escapeHtmlText(item?.fromStatusText || '-');
+        const toText = escapeHtmlText(item?.toStatusText || '-');
+        const actionText = escapeHtmlText(item?.actionText || '状态变更');
+        const timeText = escapeHtmlText(formatOrderApprovalDateTime(item?.createdAt));
         return `
             <tr>
                 <td>${indexText}</td>
@@ -1619,35 +1734,115 @@ function renderOrderApprovalHistoryModal(order, records = [], options = {}) {
                 <td>${fromText} → ${toText}</td>
                 <td>${operatorText}</td>
                 <td title="${remarkText}">${remarkText}</td>
-                <td>${formatOrderApprovalDateTime(item?.createdAt)}</td>
+                <td>${timeText}</td>
             </tr>
         `;
     }).join('');
 
+    const tableContent = filteredRecords.length > 0
+        ? `
+            <div class="ant-table-wrapper">
+                <div class="ant-table">
+                    <table>
+                        <thead class="ant-table-thead">
+                            <tr>
+                                <th>#</th>
+                                <th>动作</th>
+                                <th>状态流转</th>
+                                <th>操作人</th>
+                                <th>备注</th>
+                                <th>时间</th>
+                            </tr>
+                        </thead>
+                        <tbody class="ant-table-tbody">
+                            ${rows}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `
+        : '<div style="padding:16px 0;color:#64748b;">当前筛选条件下暂无审批记录</div>';
+
     body.innerHTML = `
-        <div style="margin-bottom:12px;color:#64748b;font-size:12px;">
-            共 ${records.length} 条审批记录
-        </div>
-        <div class="ant-table-wrapper">
-            <div class="ant-table">
-                <table>
-                    <thead class="ant-table-thead">
-                        <tr>
-                            <th>#</th>
-                            <th>动作</th>
-                            <th>状态流转</th>
-                            <th>操作人</th>
-                            <th>备注</th>
-                            <th>时间</th>
-                        </tr>
-                    </thead>
-                    <tbody class="ant-table-tbody">
-                        ${rows}
-                    </tbody>
-                </table>
+        <div class="search-form" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+            <div class="search-item">
+                <label class="search-label">筛选关键词:</label>
+                <input type="text" id="orderApprovalHistorySearch" class="ant-input" style="min-width:220px;"
+                    placeholder="动作/状态/操作人/备注"
+                    value="${escapeHtmlText(keyword)}"
+                    oninput="onOrderApprovalHistoryFilterChange()">
+            </div>
+            <div class="search-item">
+                <label class="search-label">时间范围:</label>
+                <select id="orderApprovalHistoryRange" class="ant-select" onchange="onOrderApprovalHistoryFilterChange()">
+                    <option value="all" ${range === 'all' ? 'selected' : ''}>全部</option>
+                    <option value="today" ${range === 'today' ? 'selected' : ''}>今天</option>
+                    <option value="7" ${range === '7' ? 'selected' : ''}>近7天</option>
+                    <option value="30" ${range === '30' ? 'selected' : ''}>近30天</option>
+                </select>
+            </div>
+            <div class="search-item">
+                <button class="ant-btn ant-btn-primary" onclick="onOrderApprovalHistoryFilterChange()">筛选</button>
+                <button class="ant-btn" onclick="resetOrderApprovalHistoryFilters()" style="margin-left:8px;">重置</button>
+            </div>
+            <div class="search-item">
+                <button class="ant-btn" onclick="exportOrderApprovalHistoryCsv()" style="color:#1677ff;border-color:#91caff;">
+                    导出审批CSV
+                </button>
             </div>
         </div>
+        <div style="margin-bottom:12px;color:#64748b;font-size:12px;">
+            共 ${orderApprovalHistoryState.records.length} 条记录，当前显示 ${filteredRecords.length} 条
+        </div>
+        ${tableContent}
     `;
+}
+
+function onOrderApprovalHistoryFilterChange() {
+    const keywordInput = document.getElementById('orderApprovalHistorySearch');
+    const rangeSelect = document.getElementById('orderApprovalHistoryRange');
+    orderApprovalHistoryState.keyword = String(keywordInput?.value || '').trim();
+    orderApprovalHistoryState.range = String(rangeSelect?.value || 'all').trim().toLowerCase();
+    renderOrderApprovalHistoryModal(orderApprovalHistoryState.order, orderApprovalHistoryState.records, {
+        loading: false,
+        errorMessage: ''
+    });
+}
+
+function resetOrderApprovalHistoryFilters() {
+    orderApprovalHistoryState.keyword = '';
+    orderApprovalHistoryState.range = 'all';
+    renderOrderApprovalHistoryModal(orderApprovalHistoryState.order, orderApprovalHistoryState.records, {
+        loading: false,
+        errorMessage: ''
+    });
+}
+
+function exportOrderApprovalHistoryCsv() {
+    const order = orderApprovalHistoryState.order;
+    const records = Array.isArray(orderApprovalHistoryState.filteredRecords) ? orderApprovalHistoryState.filteredRecords : [];
+    if (records.length === 0) {
+        if (typeof showToast === 'function') {
+            showToast('当前没有可导出的审批记录', 'warning');
+        }
+        return;
+    }
+
+    const orderNumber = order?.order_number || `订单_${order?.id || 'unknown'}`;
+    const headers = ['订单号', '动作', '状态流转', '操作人', '备注', '时间'];
+    const rows = records.map(item => [
+        orderNumber,
+        item?.actionText || '',
+        `${item?.fromStatusText || '-'} -> ${item?.toStatusText || '-'}`,
+        item?.operator || '系统',
+        item?.remark || '',
+        formatOrderApprovalDateTime(item?.createdAt)
+    ]);
+    downloadCsvFile(`审批记录-${orderNumber}-${formatFileTimestamp()}.csv`, headers, rows);
+
+    if (typeof showToast === 'function') {
+        showToast(`已导出 ${rows.length} 条审批记录`, 'success');
+    }
 }
 
 function hideOrderApprovalHistoryModal() {
@@ -1657,6 +1852,8 @@ function hideOrderApprovalHistoryModal() {
     }
     modal.classList.remove('active');
     modal.style.display = '';
+    orderApprovalHistoryState.loading = false;
+    orderApprovalHistoryState.errorMessage = '';
 }
 
 function openOrderApprovalHistoryModal() {
@@ -1677,20 +1874,32 @@ async function showOrderApprovalHistory(orderId) {
         return;
     }
     const order = (ERP.state.orders || []).find(item => isSameEntityId(item?.id, normalizedOrderId));
+    orderApprovalHistoryState.orderId = normalizedOrderId;
+    orderApprovalHistoryState.order = order || null;
+    orderApprovalHistoryState.records = [];
+    orderApprovalHistoryState.filteredRecords = [];
+    orderApprovalHistoryState.keyword = '';
+    orderApprovalHistoryState.range = 'all';
+    orderApprovalHistoryState.loading = true;
+    orderApprovalHistoryState.errorMessage = '';
 
     openOrderApprovalHistoryModal();
-    renderOrderApprovalHistoryModal(order, [], { loading: true });
+    renderOrderApprovalHistoryModal(orderApprovalHistoryState.order, [], { loading: true, errorMessage: '' });
 
     try {
         if (!window.ERP || typeof ERP.loadOrderApprovalLogs !== 'function') {
             throw new Error('审批记录模块未初始化，请刷新后重试');
         }
 
-        const records = await ERP.loadOrderApprovalLogs(normalizedOrderId, 60);
-        renderOrderApprovalHistoryModal(order, records);
+        const records = await ERP.loadOrderApprovalLogs(normalizedOrderId, 200);
+        orderApprovalHistoryState.loading = false;
+        orderApprovalHistoryState.errorMessage = '';
+        renderOrderApprovalHistoryModal(orderApprovalHistoryState.order, records, { loading: false, errorMessage: '' });
     } catch (error) {
         console.error('[ERP Ant] 加载审批记录失败:', error);
-        renderOrderApprovalHistoryModal(order, [], { errorMessage: `审批记录加载失败：${error?.message || '未知错误'}` });
+        orderApprovalHistoryState.loading = false;
+        orderApprovalHistoryState.errorMessage = `审批记录加载失败：${error?.message || '未知错误'}`;
+        renderOrderApprovalHistoryModal(orderApprovalHistoryState.order, [], { loading: false, errorMessage: orderApprovalHistoryState.errorMessage });
     }
 }
 
@@ -1722,6 +1931,157 @@ function filterOrdersBySearchAndStatus(orders) {
 
         return matchKeyword && matchStatus;
     });
+}
+
+function getOrderStatusCountMap(orders) {
+    const counters = {
+        pending: 0,
+        confirmed: 0,
+        shipped: 0,
+        signed: 0,
+        completed: 0,
+        refunded: 0,
+        cancelled: 0
+    };
+
+    (Array.isArray(orders) ? orders : []).forEach(order => {
+        const status = normalizeOrderStatusValue(order?.status || 'pending');
+        if (Object.prototype.hasOwnProperty.call(counters, status)) {
+            counters[status] += 1;
+        }
+    });
+    return counters;
+}
+
+function renderOrderWorkflowSummary(allOrders = [], visibleOrders = []) {
+    const summaryEl = document.getElementById('orderWorkflowSummary');
+    if (!summaryEl) {
+        return;
+    }
+
+    const allRows = Array.isArray(allOrders) ? allOrders : [];
+    const visibleRows = Array.isArray(visibleOrders) ? visibleOrders : [];
+    const allStats = getOrderStatusCountMap(allRows);
+    const visibleStats = getOrderStatusCountMap(visibleRows);
+
+    summaryEl.innerHTML = `
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+            <span class="ant-tag">筛选结果：${visibleRows.length}/${allRows.length}</span>
+            <span class="ant-tag">待审批 ${visibleStats.pending}（总${allStats.pending}）</span>
+            <span class="ant-tag">待发货 ${visibleStats.confirmed}（总${allStats.confirmed}）</span>
+            <span class="ant-tag">在途 ${visibleStats.shipped + visibleStats.signed}（总${allStats.shipped + allStats.signed}）</span>
+            <span class="ant-tag">已完成 ${visibleStats.completed}（总${allStats.completed}）</span>
+            <span class="ant-tag">已退款 ${visibleStats.refunded}（总${allStats.refunded}）</span>
+            <span class="ant-tag">已取消 ${visibleStats.cancelled}（总${allStats.cancelled}）</span>
+        </div>
+    `;
+}
+
+function getFilteredOrdersForView() {
+    const sourceOrders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
+    return filterOrdersBySearchAndStatus(sourceOrders);
+}
+
+function exportOrdersCsv() {
+    const filtered = getFilteredOrdersForView();
+    if (!Array.isArray(filtered) || filtered.length === 0) {
+        if (typeof showToast === 'function') {
+            showToast('当前筛选无订单可导出', 'warning');
+        }
+        return;
+    }
+
+    const customers = Array.isArray(ERP.state?.customers) ? ERP.state.customers : [];
+    const headers = ['订单号', '客户', '订单日期', '订单状态', '支付状态', '发货状态', '金额', '快递公司', '快递单号', '备注'];
+    const rows = filtered.map(order => {
+        const customer = customers.find(item => isSameEntityId(item?.id, order?.customer_id));
+        const orderDate = order?.order_date ? new Date(order.order_date).toLocaleDateString('zh-CN') : '';
+        return [
+            order?.order_number || `订单#${order?.id || ''}`,
+            customer?.name || order?.customer_name || '',
+            orderDate,
+            getOrderStatusText(order?.status || 'pending'),
+            getPaymentStatusText(order?.payment_status || 'unpaid'),
+            getShippingStatusText(order?.shipping_status || 'not_shipped'),
+            Number.isFinite(parseFloat(order?.total_amount)) ? parseFloat(order.total_amount).toFixed(2) : '0.00',
+            order?.shipping_company || '',
+            order?.tracking_number || '',
+            order?.notes || ''
+        ];
+    });
+
+    downloadCsvFile(`订单列表-${formatFileTimestamp()}.csv`, headers, rows);
+
+    if (typeof showToast === 'function') {
+        showToast(`已导出 ${rows.length} 条订单`, 'success');
+    }
+}
+
+async function bulkCompleteSignedOrders() {
+    if (bulkCompleteSignedOrdersInProgress) {
+        if (typeof showToast === 'function') {
+            showToast('批量完结正在执行，请稍候', 'warning');
+        }
+        return;
+    }
+
+    const candidates = getFilteredOrdersForView().filter(order => normalizeOrderStatusValue(order?.status) === 'signed');
+    if (candidates.length === 0) {
+        if (typeof showToast === 'function') {
+            showToast('当前筛选中没有“已签收”订单', 'info');
+        }
+        return;
+    }
+
+    if (!confirm(`确认将 ${candidates.length} 笔“已签收”订单批量完结为“已完成”吗？`)) {
+        return;
+    }
+
+    bulkCompleteSignedOrdersInProgress = true;
+    let successCount = 0;
+    let failCount = 0;
+
+    try {
+        for (const order of candidates) {
+            try {
+                const updated = await ERP.updateOrderStatus(
+                    normalizeEntityId(order.id),
+                    'completed',
+                    null,
+                    {
+                        action_label: '批量完结',
+                        remark: '批量完结已签收订单',
+                        operator: String(userData?.user?.email || userData?.user?.id || '').trim(),
+                        source: 'erp-bulk-action'
+                    }
+                );
+                if (updated) {
+                    successCount += 1;
+                } else {
+                    failCount += 1;
+                }
+            } catch (error) {
+                console.error('[ERP Ant] 批量完结单笔失败:', error);
+                failCount += 1;
+            }
+        }
+
+        await Promise.all([
+            ERP.loadOrders(true),
+            ERP.loadFinances(true)
+        ]);
+        searchOrders();
+        if (typeof renderFinances === 'function') {
+            renderFinances(ERP.state.finances);
+        }
+        updateStatistics();
+
+        if (typeof showToast === 'function') {
+            showToast(`批量完结完成：成功 ${successCount}，失败 ${failCount}`, failCount > 0 ? 'warning' : 'success');
+        }
+    } finally {
+        bulkCompleteSignedOrdersInProgress = false;
+    }
 }
 
 async function updateOrderStatusByAction(orderId, targetStatus, actionLabel = '状态更新') {
@@ -1821,8 +2181,9 @@ function resetOrderFilters() {
 
 function searchOrders() {
     const sourceOrders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
-    const filtered = filterOrdersBySearchAndStatus(sourceOrders);
+    const filtered = getFilteredOrdersForView();
     renderOrders(filtered);
+    renderOrderWorkflowSummary(sourceOrders, filtered);
 }
 
 // ==================== 库存管理 ====================
@@ -2267,7 +2628,7 @@ if (typeof window !== 'undefined') {
             renderProducts(event.detail.products);
         }
         if (typeof renderOrders === 'function') {
-            renderOrders(event.detail.orders);
+            searchOrders();
         }
         if (typeof renderInventory === 'function') {
             renderInventory(event.detail.products);
@@ -2310,10 +2671,18 @@ if (typeof window !== 'undefined') {
         }
 
         ERP.state.loaded.orders = false;
-        const orders = await ERP.loadOrders(true);
-        if (typeof renderOrders === 'function') {
-            renderOrders(orders);
+        await ERP.loadOrders(true);
+        searchOrders();
+        updateStatistics();
+    });
+
+    window.addEventListener('erpOrderChanged', async function () {
+        if (typeof ERP === 'undefined') {
+            return;
         }
+
+        await ERP.loadOrders(true);
+        searchOrders();
         updateStatistics();
     });
 

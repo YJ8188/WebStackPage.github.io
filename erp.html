@@ -557,6 +557,10 @@
                                     <option value="6" selected>利润6个月</option>
                                     <option value="12">利润12个月</option>
                                 </select>
+                                <select id="financeChartScope" class="ant-select" onchange="onFinanceChartScopeChange()">
+                                    <option value="all" selected>图表范围: 全部</option>
+                                    <option value="filtered">图表范围: 当前筛选</option>
+                                </select>
                                 <button class="ant-btn" onclick="exportFinanceCsvByCurrentView()">
                                     <i class="fa fa-file-excel-o"></i> 导出Excel(CSV)
                                 </button>
@@ -706,6 +710,7 @@
             </div>
             <div class="modal-body" id="payablePaymentHistoryBody"></div>
             <div class="modal-footer">
+                <button class="ant-btn" onclick="exportPayablePaymentHistoryCsv()">导出付款CSV</button>
                 <button class="btn-secondary" onclick="hidePayablePaymentHistoryModal()">关闭</button>
             </div>
         </div>
@@ -1101,8 +1106,8 @@
     <script src="assets/js/supabase.min.js"></script>
     <script src="assets/js/supabase-config.js?v=20260212-14"></script>
     <script src="assets/js/user-data.js?v=20260212-14"></script>
-    <script src="assets/js/erp.js?v=20260216-28"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260216-18"></script>
+    <script src="assets/js/erp.js?v=20260216-29"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260216-19"></script>
     <script src="assets/js/pwa-register.js?v=20260216-1" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->

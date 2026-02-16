@@ -57,7 +57,8 @@ const orderApprovalHistoryState = {
 const payablePaymentHistoryState = {
     financeId: null,
     finance: null,
-    rows: []
+    rows: [],
+    relatedRows: []
 };
 
 let bulkCompleteSignedOrdersInProgress = false;
@@ -149,6 +150,28 @@ function getFinanceReferenceMeta(finance) {
         referenceId: hasReference ? String(rawReferenceId) : null,
         orderId: hasOrder ? String(rawOrderId) : null
     };
+}
+
+function getFinanceChartSourceRows(preferredRows = null) {
+    const scopeValue = String(document.getElementById('financeChartScope')?.value || 'all').toLowerCase();
+    const allRows = Array.isArray(ERP.state?.finances) ? ERP.state.finances : [];
+
+    if (scopeValue === 'filtered') {
+        if (Array.isArray(preferredRows)) {
+            return preferredRows;
+        }
+        if (Array.isArray(financeViewState.currentRows) && financeViewState.currentRows.length > 0) {
+            return financeViewState.currentRows;
+        }
+        return allRows;
+    }
+
+    return allRows;
+}
+
+function onFinanceChartScopeChange() {
+    renderFinanceTrendSummary();
+    renderFinanceMonthlyProfitChart();
 }
 
 function isPurchasePaymentRecord(finance) {
@@ -2002,6 +2025,10 @@ function hidePayablePaymentHistoryModal() {
     }
     modal.classList.remove('active');
     modal.style.display = '';
+    payablePaymentHistoryState.financeId = null;
+    payablePaymentHistoryState.finance = null;
+    payablePaymentHistoryState.rows = [];
+    payablePaymentHistoryState.relatedRows = [];
 }
 
 function openPayablePaymentHistoryModal() {
@@ -2122,9 +2149,48 @@ async function showPayablePaymentHistory(financeId) {
     payablePaymentHistoryState.financeId = normalizedId;
     payablePaymentHistoryState.finance = targetFinance;
     payablePaymentHistoryState.rows = paymentRows;
+    payablePaymentHistoryState.relatedRows = relatedRows;
 
     openPayablePaymentHistoryModal();
     renderPayablePaymentHistoryModal(targetFinance, paymentRows, relatedRows);
+}
+
+function exportPayablePaymentHistoryCsv() {
+    const rows = Array.isArray(payablePaymentHistoryState.rows) ? payablePaymentHistoryState.rows : [];
+    if (!rows.length) {
+        if (typeof showToast === 'function') {
+            showToast('当前没有可导出的付款记录', 'warning');
+        }
+        return;
+    }
+
+    const targetFinance = payablePaymentHistoryState.finance || {};
+    const meta = getFinanceReferenceMeta(targetFinance);
+    const label = meta.referenceId || meta.orderId || targetFinance?.id || 'unknown';
+    const headers = ['付款时间', '付款金额', '类型', '分类', '描述', '记录ID'];
+    const exportRows = rows
+        .slice()
+        .sort((left, right) => {
+            const l = parseFinanceDate(left?.transaction_date)?.getTime() || 0;
+            const r = parseFinanceDate(right?.transaction_date)?.getTime() || 0;
+            return r - l;
+        })
+        .map(item => {
+            const date = parseFinanceDate(item?.transaction_date);
+            return [
+                date ? date.toLocaleString('zh-CN') : (item?.transaction_date || '-'),
+                Number(item?.amount || 0).toFixed(2),
+                item?.type === 'income' ? '收入' : (item?.type === 'expense' ? '支出' : '系统'),
+                item?.category || '-',
+                item?.description || '-',
+                item?.id || '-'
+            ];
+        });
+
+    downloadCsvFile(`采购付款记录-${label}-${formatFileTimestamp()}.csv`, headers, exportRows);
+    if (typeof showToast === 'function') {
+        showToast(`已导出 ${exportRows.length} 条付款记录`, 'success');
+    }
 }
 
 function openOrderApprovalHistoryModal() {
@@ -3167,7 +3233,9 @@ function renderFinanceTrendSummary(finances = null) {
         return;
     }
 
-    const source = Array.isArray(finances) ? finances : (Array.isArray(ERP.state?.finances) ? ERP.state.finances : []);
+    const source = getFinanceChartSourceRows(finances);
+    const scopeValue = String(document.getElementById('financeChartScope')?.value || 'all').toLowerCase();
+    const scopeText = scopeValue === 'filtered' ? '当前筛选' : '全部数据';
     const selectedRange = Math.max(1, parseInt(document.getElementById('financeTrendRange')?.value || '30', 10));
     const rows30 = buildFinanceTrendRows(source, 30);
     const rows7 = rows30.slice(-7);
@@ -3229,7 +3297,7 @@ function renderFinanceTrendSummary(finances = null) {
             </div>
         </div>
         <div style="margin-top:10px;padding:10px;border:1px solid #f0f0f0;border-radius:8px;background:#fff;">
-            <div style="font-size:13px;font-weight:500;color:#262626;margin-bottom:8px;">近${selectedRange}天收支趋势（粉=收入，绿=支出）</div>
+            <div style="font-size:13px;font-weight:500;color:#262626;margin-bottom:8px;">近${selectedRange}天收支趋势（${scopeText}，粉=收入，绿=支出）</div>
             ${barsHtml || '<div style="font-size:12px;color:#999;">暂无数据</div>'}
         </div>
     `;
@@ -3289,7 +3357,9 @@ function renderFinanceMonthlyProfitChart(finances = null) {
         return;
     }
 
-    const source = Array.isArray(finances) ? finances : (Array.isArray(ERP.state?.finances) ? ERP.state.finances : []);
+    const source = getFinanceChartSourceRows(finances);
+    const scopeValue = String(document.getElementById('financeChartScope')?.value || 'all').toLowerCase();
+    const scopeText = scopeValue === 'filtered' ? '当前筛选' : '全部数据';
     const monthRange = Math.max(3, parseInt(document.getElementById('financeMonthlyRange')?.value || '6', 10));
     const rows = buildMonthlyProfitRows(source, monthRange);
     const maxNet = Math.max(1, ...rows.map(item => Math.abs(item.net)));
@@ -3313,7 +3383,7 @@ function renderFinanceMonthlyProfitChart(finances = null) {
 
     container.innerHTML = `
         <div style="padding:10px;border:1px solid #f0f0f0;border-radius:8px;background:#fff;">
-            <div style="font-size:13px;font-weight:500;color:#262626;margin-bottom:8px;">月度利润图（近${monthRange}个月）</div>
+            <div style="font-size:13px;font-weight:500;color:#262626;margin-bottom:8px;">月度利润图（近${monthRange}个月，${scopeText}）</div>
             ${rowsHtml || '<div style="font-size:12px;color:#999;">暂无数据</div>'}
             <div style="margin-top:8px;font-size:12px;color:#8c8c8c;">蓝色为正利润，橙色为负利润（按收入-支出）</div>
         </div>

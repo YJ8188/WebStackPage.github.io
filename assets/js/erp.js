@@ -1037,6 +1037,7 @@ const ERP = {
     async updateOrderStatus(orderId, status, paymentStatus = null) {
         try {
             const before = this.state.orders.find(o => this.isSameId(o.id, orderId)) || null;
+            const beforeStatus = this.normalizeOrderStatus(before?.status || 'pending');
             const nextStatus = this.ensureOrderStatusTransition(before?.status || 'pending', status);
             const updateData = {
                 status: nextStatus
@@ -1063,6 +1064,25 @@ const ERP = {
             if (index !== -1) {
                 this.state.orders[index] = { ...this.state.orders[index], ...data };
             }
+
+            const afterStatus = this.normalizeOrderStatus(data?.status || nextStatus);
+            if ((afterStatus === 'cancelled' || afterStatus === 'refunded')
+                && !['cancelled', 'refunded'].includes(beforeStatus)) {
+                try {
+                    await this.releaseOrderLockedInventory(
+                        orderId,
+                        [],
+                        afterStatus === 'cancelled' ? '订单取消回补库存' : '订单退款回补库存',
+                        'order_release'
+                    );
+                } catch (inventoryReleaseError) {
+                    console.error('[ERP] 订单状态更新后库存回补失败:', inventoryReleaseError);
+                    if (typeof showToast === 'function') {
+                        showToast('状态已更新，但库存回补失败，请稍后重试', 'warning');
+                    }
+                }
+            }
+
             this.logAudit({
                 module: 'orders',
                 action: 'update_status',
@@ -1290,6 +1310,122 @@ const ERP = {
         };
     },
 
+    buildOrderItemQuantityMap(items = []) {
+        const quantityMap = new Map();
+        (items || []).forEach(item => {
+            const productId = item?.product_id;
+            const quantity = Number(item?.quantity);
+            if (!productId || !Number.isFinite(quantity) || quantity <= 0) {
+                return;
+            }
+            const key = String(productId);
+            quantityMap.set(key, (quantityMap.get(key) || 0) + quantity);
+        });
+        return quantityMap;
+    },
+
+    async resolveOrderItemsForInventory(orderId, fallbackItems = []) {
+        if (Array.isArray(fallbackItems) && fallbackItems.length > 0) {
+            return fallbackItems;
+        }
+
+        const localOrder = this.state.orders.find(order => this.isSameId(order.id, orderId));
+        if (localOrder && Array.isArray(localOrder.items) && localOrder.items.length > 0) {
+            return localOrder.items;
+        }
+
+        const { data, error } = await supabaseClient
+            .from('erp_order_items')
+            .select('product_id, quantity')
+            .eq('order_id', orderId);
+
+        if (error) {
+            throw error;
+        }
+
+        return data || [];
+    },
+
+    async getOrderInventoryLogSummary(orderId) {
+        const lockTypes = new Set(['order_lock', 'sale']);
+        const releaseTypes = new Set(['order_release', 'sale_reversal', 'order_unlock']);
+
+        const { data, error } = await supabaseClient
+            .from('erp_inventory_logs')
+            .select('product_id, quantity_change, type')
+            .eq('user_id', userData.user.id)
+            .eq('reference_id', orderId);
+
+        if (error) {
+            throw error;
+        }
+
+        const summaryMap = new Map();
+        (data || []).forEach(log => {
+            const productId = log?.product_id;
+            if (!productId) {
+                return;
+            }
+
+            const key = String(productId);
+            const current = summaryMap.get(key) || { locked: 0, released: 0 };
+            const quantityChange = Number(log?.quantity_change);
+            const safeChange = Number.isFinite(quantityChange) ? quantityChange : 0;
+            const type = String(log?.type || '');
+
+            if (lockTypes.has(type) && safeChange < 0) {
+                current.locked += Math.abs(safeChange);
+            } else if (releaseTypes.has(type) && safeChange > 0) {
+                current.released += safeChange;
+            }
+
+            summaryMap.set(key, current);
+        });
+
+        return summaryMap;
+    },
+
+    async releaseOrderLockedInventory(orderId, items = [], reason = '订单状态回补库存', releaseType = 'order_release') {
+        const resolvedItems = await this.resolveOrderItemsForInventory(orderId, items);
+        const expectedMap = this.buildOrderItemQuantityMap(resolvedItems);
+        if (expectedMap.size === 0) {
+            return { changed: false, releasedQuantity: 0, releasedItems: [] };
+        }
+
+        const summaryMap = await this.getOrderInventoryLogSummary(orderId);
+        let changed = false;
+        let releasedQuantity = 0;
+        const releasedItems = [];
+
+        for (const [productId, expectedQuantity] of expectedMap.entries()) {
+            const summary = summaryMap.get(productId) || { locked: 0, released: 0 };
+            const remainingLocked = Math.max(0, Number(summary.locked || 0) - Number(summary.released || 0));
+            const quantityToRelease = Math.min(expectedQuantity, remainingLocked);
+
+            if (!Number.isFinite(quantityToRelease) || quantityToRelease <= 0) {
+                continue;
+            }
+
+            const released = await this.updateStock(
+                productId,
+                quantityToRelease,
+                releaseType,
+                orderId,
+                reason
+            );
+
+            if (!released) {
+                throw new Error('订单库存回补失败，请稍后重试');
+            }
+
+            changed = true;
+            releasedQuantity += quantityToRelease;
+            releasedItems.push({ product_id: productId, quantity: quantityToRelease });
+        }
+
+        return { changed, releasedQuantity, releasedItems };
+    },
+
     async postProcessOrder(order, items, summary, context = {}) {
         const { orderNumber, totalAmount, totalCost, netProfit } = summary;
         const { incomeDescription, costDescription, profitDescription } = this.buildOrderFinanceDescriptions(
@@ -1310,7 +1446,13 @@ const ERP = {
             if (!item.product_id) {
                 return Promise.resolve();
             }
-            return this.updateStock(item.product_id, -item.quantity, 'sale', order.id);
+            return this.updateStock(
+                item.product_id,
+                -item.quantity,
+                'order_lock',
+                order.id,
+                `订单${orderNumber}创建锁定库存`
+            );
         }));
         stockChanged = stockResults.some(Boolean);
 
@@ -1368,6 +1510,7 @@ const ERP = {
     async updateOrder(orderId, orderData) {
         try {
             const localOrder = this.state.orders.find(o => this.isSameId(o.id, orderId)) || {};
+            const beforeStatus = this.normalizeOrderStatus(localOrder?.status || 'pending');
             const before = this.sanitizeAuditData(localOrder);
             const orderNumber = localOrder.order_number || `订单#${orderId}`;
             const nextStatus = this.ensureOrderStatusTransition(localOrder?.status || 'pending', orderData.status || 'pending');
@@ -1406,6 +1549,24 @@ const ERP = {
             const index = this.state.orders.findIndex(o => this.isSameId(o.id, orderId));
             if (index !== -1) {
                 this.state.orders[index] = { ...this.state.orders[index], ...data };
+            }
+
+            const afterStatus = this.normalizeOrderStatus(data?.status || nextStatus);
+            if ((afterStatus === 'cancelled' || afterStatus === 'refunded')
+                && !['cancelled', 'refunded'].includes(beforeStatus)) {
+                try {
+                    await this.releaseOrderLockedInventory(
+                        orderId,
+                        orderData.items || [],
+                        afterStatus === 'cancelled' ? '订单取消回补库存' : '订单退款回补库存',
+                        'order_release'
+                    );
+                } catch (inventoryReleaseError) {
+                    console.error('[ERP] 订单更新后库存回补失败:', inventoryReleaseError);
+                    if (typeof showToast === 'function') {
+                        showToast('订单状态已更新，但库存回补失败，请稍后重试', 'warning');
+                    }
+                }
             }
 
             const orderIndex = this.state.orders.findIndex(o => this.isSameId(o.id, orderId));
@@ -1458,20 +1619,25 @@ const ERP = {
     },
 
     async deleteOrder(orderId) {
-        const restoredStocks = [];
-
-        const rollbackRestoredStocks = async () => {
-            for (const item of restoredStocks) {
+        let releaseResult = { releasedItems: [] };
+        const rollbackReleasedStocks = async () => {
+            const releasedItems = Array.isArray(releaseResult?.releasedItems) ? releaseResult.releasedItems : [];
+            for (const item of releasedItems) {
                 try {
+                    const productId = item?.product_id;
+                    const quantity = Number(item?.quantity);
+                    if (!productId || !Number.isFinite(quantity) || quantity <= 0) {
+                        continue;
+                    }
                     await this.updateStock(
-                        item.product_id,
-                        -item.quantity,
-                        'sale',
+                        productId,
+                        -quantity,
+                        'order_lock',
                         orderId,
-                        '删除订单失败，自动回滚库存'
+                        '删除订单失败，回滚库存回补'
                     );
                 } catch (rollbackError) {
-                    console.error('[ERP] 回滚库存失败:', rollbackError);
+                    console.error('[ERP] 回滚库存回补失败:', rollbackError);
                 }
             }
         };
@@ -1495,28 +1661,12 @@ const ERP = {
                 orderItems = detailItems || [];
             }
 
-            for (const item of orderItems) {
-                const productId = item?.product_id;
-                const quantity = Number(item?.quantity);
-                if (!productId || !Number.isFinite(quantity) || quantity <= 0) {
-                    continue;
-                }
-
-                const restored = await this.updateStock(
-                    productId,
-                    quantity,
-                    'sale_reversal',
-                    orderId,
-                    '删除订单回补库存'
-                );
-
-                if (!restored) {
-                    await rollbackRestoredStocks();
-                    throw new Error('订单删除失败：库存回补失败，请稍后重试');
-                }
-
-                restoredStocks.push({ product_id: productId, quantity });
-            }
+            releaseResult = await this.releaseOrderLockedInventory(
+                orderId,
+                orderItems,
+                '删除订单回补库存',
+                'sale_reversal'
+            );
 
             const { error: financeRefError } = await supabaseClient
                 .from('erp_finances')
@@ -1525,7 +1675,7 @@ const ERP = {
                 .eq('reference_id', orderId);
 
             if (financeRefError) {
-                await rollbackRestoredStocks();
+                await rollbackReleasedStocks();
                 throw financeRefError;
             }
 
@@ -1536,7 +1686,7 @@ const ERP = {
                 .eq('order_id', orderId);
 
             if (financeOrderError && financeOrderError.code !== '42703') {
-                await rollbackRestoredStocks();
+                await rollbackReleasedStocks();
                 throw financeOrderError;
             }
 
@@ -1553,7 +1703,7 @@ const ERP = {
                     .eq('order_id', orderId);
 
                 if (itemDeleteError) {
-                    await rollbackRestoredStocks();
+                    await rollbackReleasedStocks();
                     throw itemDeleteError;
                 }
 
@@ -1566,7 +1716,7 @@ const ERP = {
             }
 
             if (orderDeleteError) {
-                await rollbackRestoredStocks();
+                await rollbackReleasedStocks();
                 throw orderDeleteError;
             }
 
@@ -1588,7 +1738,8 @@ const ERP = {
                         total_amount: orderDetail?.total_amount || 0,
                         total_cost: orderDetail?.total_cost || 0,
                         net_profit: orderDetail?.net_profit || 0,
-                        items_count: Array.isArray(orderItems) ? orderItems.length : 0
+                        items_count: Array.isArray(orderItems) ? orderItems.length : 0,
+                        inventory_released_quantity: releaseResult?.releasedQuantity || 0
                     }
                 }
             });
@@ -1632,6 +1783,12 @@ const ERP = {
             const parsedChange = Number(quantityChange);
             const safeQuantityChange = Number.isFinite(parsedChange) ? parsedChange : 0;
             const newQuantity = safeCurrentQuantity + safeQuantityChange;
+            const normalizedType = String(type || '').trim();
+            const isLockOperation = ['order_lock', 'sale'].includes(normalizedType);
+
+            if (isLockOperation && newQuantity < 0) {
+                throw new Error(`库存不足：商品「${product.name || productId}」当前库存 ${safeCurrentQuantity}，锁定需求 ${Math.abs(safeQuantityChange)}`);
+            }
 
             // 更新产品库存
             const { error: updateError } = await supabaseClient

@@ -423,6 +423,19 @@ select.ant-select option {
     max-width: 100%;
 }
 
+.erp-table-scroll {
+    overflow: auto;
+    max-height: 520px;
+    border: 1px solid #f0f0f0;
+    border-radius: 8px;
+}
+
+.erp-table-scroll .ant-table-thead>tr>th {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+}
+
 .ant-table {
     box-sizing: border-box;
     margin: 0;
@@ -494,12 +507,55 @@ select.ant-select option {
         flex: 0 0 50%;
         max-width: 50%;
     }
+
+    .erp-table-scroll {
+        max-height: 380px;
+    }
+
+    .ant-table-thead>tr>th,
+    .ant-table-tbody>tr>td {
+        padding: 10px 10px;
+        font-size: 12px;
+    }
+
+    .erp-row-actions {
+        gap: 6px;
+    }
+
+    .erp-row-actions .ant-btn {
+        min-width: 48px;
+        height: 24px;
+        line-height: 22px;
+        padding: 0 6px;
+        font-size: 12px;
+    }
+
+    .erp-table-pagination {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .table-operator {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .table-operator .ant-btn,
+    .table-operator .ant-select,
+    .table-operator .ant-input {
+        margin-right: 0;
+    }
 }
 
 @media (max-width: 576px) {
     .ant-col {
         flex: 0 0 100%;
         max-width: 100%;
+    }
+
+    .erp-table-scroll {
+        max-height: 340px;
     }
 }
 

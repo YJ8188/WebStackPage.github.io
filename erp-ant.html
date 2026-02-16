@@ -628,9 +628,57 @@
                                         </select>
                                     </div>
                                     <div class="search-item">
+                                        <label class="search-label">支付状态:</label>
+                                        <select id="orderPaymentFilter" class="ant-select" onchange="searchOrders()">
+                                            <option value="all">全部支付</option>
+                                            <option value="paid">已支付</option>
+                                            <option value="partial">部分支付</option>
+                                            <option value="unpaid">未支付</option>
+                                            <option value="refunded">已退款</option>
+                                        </select>
+                                    </div>
+                                    <div class="search-item">
+                                        <label class="search-label">发货状态:</label>
+                                        <select id="orderShippingFilter" class="ant-select" onchange="searchOrders()">
+                                            <option value="all">全部发货</option>
+                                            <option value="not_shipped">未发货</option>
+                                            <option value="partially_shipped">部分发货</option>
+                                            <option value="shipped">已发货</option>
+                                            <option value="signed">已签收</option>
+                                            <option value="returned">已退回</option>
+                                        </select>
+                                    </div>
+                                    <div class="search-item">
+                                        <label class="search-label">日期:</label>
+                                        <select id="orderDateRange" class="ant-select" onchange="onOrderDateRangeChange()">
+                                            <option value="all">全部</option>
+                                            <option value="yesterday">昨天</option>
+                                            <option value="last7">近7天</option>
+                                            <option value="last30">近30天</option>
+                                            <option value="thisMonth">本月</option>
+                                            <option value="custom">自定义</option>
+                                        </select>
+                                    </div>
+                                    <div class="search-item">
+                                        <label class="search-label">开始:</label>
+                                        <input type="date" id="orderDateStart" class="ant-input" onchange="searchOrders()" disabled>
+                                    </div>
+                                    <div class="search-item">
+                                        <label class="search-label">结束:</label>
+                                        <input type="date" id="orderDateEnd" class="ant-input" onchange="searchOrders()" disabled>
+                                    </div>
+                                    <div class="search-item">
                                         <button class="ant-btn ant-btn-primary" onclick="searchOrders()">查询</button>
                                         <button class="ant-btn" onclick="resetOrderFilters()" style="margin-left:8px;">重置</button>
                                     </div>
+                                </div>
+                                <div class="erp-finance-quick-range">
+                                    <button type="button" class="ant-btn erp-finance-quick-btn" data-order-range-btn="all" onclick="setOrderDateRangePreset('all')">全部</button>
+                                    <button type="button" class="ant-btn erp-finance-quick-btn" data-order-range-btn="yesterday" onclick="setOrderDateRangePreset('yesterday')">昨天</button>
+                                    <button type="button" class="ant-btn erp-finance-quick-btn" data-order-range-btn="last7" onclick="setOrderDateRangePreset('last7')">近7天</button>
+                                    <button type="button" class="ant-btn erp-finance-quick-btn" data-order-range-btn="last30" onclick="setOrderDateRangePreset('last30')">近30天</button>
+                                    <button type="button" class="ant-btn erp-finance-quick-btn" data-order-range-btn="thisMonth" onclick="setOrderDateRangePreset('thisMonth')">本月</button>
+                                    <button type="button" class="ant-btn erp-finance-quick-btn" data-order-range-btn="custom" onclick="setOrderDateRangePreset('custom')">自定义</button>
                                 </div>
                             </div>
 
@@ -1449,7 +1497,7 @@
     <script src="assets/js/supabase-config.js?v=20260212-14"></script>
     <script src="assets/js/user-data.js?v=20260214-20"></script>
     <script src="assets/js/erp.js?v=20260216-33"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260216-45"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260216-46"></script>
     <script src="assets/js/pwa-register.js?v=20260216-1" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->

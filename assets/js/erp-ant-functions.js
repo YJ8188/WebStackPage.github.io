@@ -3667,9 +3667,152 @@ function getOrderStatusFilterValue() {
     return String(statusSelect?.value || 'all').trim().toLowerCase();
 }
 
+function getOrderPaymentFilterValue() {
+    const paymentSelect = document.getElementById('orderPaymentFilter');
+    return String(paymentSelect?.value || 'all').trim().toLowerCase();
+}
+
+function getOrderShippingFilterValue() {
+    const shippingSelect = document.getElementById('orderShippingFilter');
+    return String(shippingSelect?.value || 'all').trim().toLowerCase();
+}
+
+function getOrderDateRangePresetValue() {
+    const rangeSelect = document.getElementById('orderDateRange');
+    return String(rangeSelect?.value || 'all').trim();
+}
+
+function getOrderRangeFromPreset(preset = 'all') {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+    switch (preset) {
+        case 'yesterday': {
+            const start = new Date(todayStart);
+            start.setDate(start.getDate() - 1);
+            const end = new Date(todayEnd);
+            end.setDate(end.getDate() - 1);
+            return { start, end };
+        }
+        case 'last7': {
+            const start = new Date(todayStart);
+            start.setDate(start.getDate() - 6);
+            return { start, end: todayEnd };
+        }
+        case 'last30': {
+            const start = new Date(todayStart);
+            start.setDate(start.getDate() - 29);
+            return { start, end: todayEnd };
+        }
+        case 'thisMonth': {
+            const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+            return { start, end: todayEnd };
+        }
+        default:
+            return { start: null, end: null };
+    }
+}
+
+function parseOrderDateForFilter(value) {
+    if (!value) {
+        return null;
+    }
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+        return null;
+    }
+    return parsed;
+}
+
+function getOrderDateRangeFilterBounds() {
+    const rangePreset = getOrderDateRangePresetValue();
+    const customStart = String(document.getElementById('orderDateStart')?.value || '').trim();
+    const customEnd = String(document.getElementById('orderDateEnd')?.value || '').trim();
+
+    if (rangePreset === 'custom') {
+        return {
+            start: customStart ? new Date(`${customStart}T00:00:00`) : null,
+            end: customEnd ? new Date(`${customEnd}T23:59:59.999`) : null
+        };
+    }
+    return getOrderRangeFromPreset(rangePreset);
+}
+
+function updateOrderQuickRangeButtons() {
+    const rangePreset = getOrderDateRangePresetValue();
+    const buttons = document.querySelectorAll('[data-order-range-btn]');
+    buttons.forEach(button => {
+        const buttonPreset = String(button.getAttribute('data-order-range-btn') || '').trim();
+        button.classList.toggle('is-active', buttonPreset === rangePreset);
+    });
+}
+
+function setOrderDateRangePreset(preset = 'all') {
+    const rangeSelect = document.getElementById('orderDateRange');
+    if (rangeSelect) {
+        rangeSelect.value = String(preset || 'all');
+    }
+    onOrderDateRangeChange();
+}
+
+function onOrderDateRangeChange() {
+    const rangePreset = getOrderDateRangePresetValue();
+    const startInput = document.getElementById('orderDateStart');
+    const endInput = document.getElementById('orderDateEnd');
+    const isCustom = rangePreset === 'custom';
+
+    if (startInput) {
+        startInput.disabled = !isCustom;
+        if (!isCustom) {
+            startInput.value = '';
+        }
+    }
+    if (endInput) {
+        endInput.disabled = !isCustom;
+        if (!isCustom) {
+            endInput.value = '';
+        }
+    }
+
+    updateOrderQuickRangeButtons();
+    searchOrders();
+}
+
+function initOrderFilters() {
+    const rangeSelect = document.getElementById('orderDateRange');
+    const startInput = document.getElementById('orderDateStart');
+    const endInput = document.getElementById('orderDateEnd');
+    const paymentSelect = document.getElementById('orderPaymentFilter');
+    const shippingSelect = document.getElementById('orderShippingFilter');
+
+    if (rangeSelect) {
+        rangeSelect.value = 'all';
+    }
+    if (startInput) {
+        startInput.value = '';
+        startInput.disabled = true;
+    }
+    if (endInput) {
+        endInput.value = '';
+        endInput.disabled = true;
+    }
+    if (paymentSelect) {
+        paymentSelect.value = 'all';
+    }
+    if (shippingSelect) {
+        shippingSelect.value = 'all';
+    }
+
+    updateOrderQuickRangeButtons();
+}
+
 function filterOrdersBySearchAndStatus(orders) {
     const keyword = getOrderSearchKeyword();
     const statusFilter = getOrderStatusFilterValue();
+    const paymentFilter = getOrderPaymentFilterValue();
+    const shippingFilter = getOrderShippingFilterValue();
+    const { start: orderDateStart, end: orderDateEnd } = getOrderDateRangeFilterBounds();
     const customers = Array.isArray(ERP.state?.customers) ? ERP.state.customers : [];
 
     return (Array.isArray(orders) ? orders : []).filter(order => {
@@ -3677,13 +3820,21 @@ function filterOrdersBySearchAndStatus(orders) {
         const customer = customers.find(item => isSameEntityId(item?.id, order?.customer_id));
         const customerName = String(customer?.name || order?.customer_name || '').toLowerCase();
         const normalizedStatus = normalizeOrderStatusValue(order?.status || 'pending');
+        const paymentStatus = String(order?.payment_status || 'unpaid').trim().toLowerCase();
+        const shippingStatus = String(order?.shipping_status || 'not_shipped').trim().toLowerCase();
+        const orderDate = parseOrderDateForFilter(order?.order_date);
 
         const matchKeyword = !keyword
             || orderNumber.includes(keyword)
             || customerName.includes(keyword);
         const matchStatus = statusFilter === 'all' || normalizedStatus === statusFilter;
+        const matchPayment = paymentFilter === 'all' || paymentStatus === paymentFilter;
+        const matchShipping = shippingFilter === 'all' || shippingStatus === shippingFilter;
+        const matchDateStart = !orderDateStart || (orderDate && orderDate >= orderDateStart);
+        const matchDateEnd = !orderDateEnd || (orderDate && orderDate <= orderDateEnd);
+        const matchDate = matchDateStart && matchDateEnd;
 
-        return matchKeyword && matchStatus;
+        return matchKeyword && matchStatus && matchPayment && matchShipping && matchDate;
     });
 }
 
@@ -3926,13 +4077,25 @@ function getOrderQuickActions(order) {
 function resetOrderFilters() {
     const keywordInput = document.getElementById('orderSearch');
     const statusSelect = document.getElementById('orderStatusFilter');
+    const paymentSelect = document.getElementById('orderPaymentFilter');
+    const shippingSelect = document.getElementById('orderShippingFilter');
+    const rangeSelect = document.getElementById('orderDateRange');
     if (keywordInput) {
         keywordInput.value = '';
     }
     if (statusSelect) {
         statusSelect.value = 'all';
     }
-    searchOrders();
+    if (paymentSelect) {
+        paymentSelect.value = 'all';
+    }
+    if (shippingSelect) {
+        shippingSelect.value = 'all';
+    }
+    if (rangeSelect) {
+        rangeSelect.value = 'all';
+    }
+    onOrderDateRangeChange();
 }
 
 function searchOrders() {
@@ -8602,6 +8765,7 @@ if (typeof window !== 'undefined') {
 
 document.addEventListener('DOMContentLoaded', function () {
     initFinanceFilters();
+    initOrderFilters();
     setTimeout(() => refreshLowStockFromLatestData('dom-ready'), 1200);
     setTimeout(() => loadPurchaseRecords(), 1600);
 

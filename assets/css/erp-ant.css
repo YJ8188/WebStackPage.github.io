@@ -822,12 +822,20 @@ select.ant-select option {
 .erp-row-actions {
     display: inline-flex;
     align-items: center;
+    justify-content: flex-start;
     gap: 8px;
     flex-wrap: wrap;
 }
 
 .erp-row-actions .ant-btn {
     margin: 0 !important;
+    min-width: 56px;
+}
+
+.erp-action-cell {
+    width: 1%;
+    white-space: nowrap;
+    vertical-align: middle;
 }
 
 .erp-btn-danger {
@@ -853,6 +861,21 @@ select.ant-select option {
 .erp-btn-warning {
     color: #d46b08;
     border-color: #ffd591;
+}
+
+.erp-btn-teal {
+    color: #13c2c2;
+    border-color: #87e8de;
+}
+
+.erp-btn-blue {
+    color: #1890ff;
+    border-color: #91d5ff;
+}
+
+.erp-btn-violet {
+    color: #722ed1;
+    border-color: #d3adf7;
 }
 
 .erp-btn-compact {

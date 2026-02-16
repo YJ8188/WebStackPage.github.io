@@ -2971,19 +2971,19 @@ function getOrderQuickActions(order) {
     const status = normalizeOrderStatusValue(order?.status || 'pending');
     const orderIdLiteral = JSON.stringify(order?.id);
     const buttons = [
-        `<button class="ant-btn" onclick="showOrderApprovalHistory(${orderIdLiteral})" style="color:#13c2c2; border-color:#87e8de;">审批记录</button>`
+        `<button class="ant-btn erp-btn-teal" onclick="showOrderApprovalHistory(${orderIdLiteral})">审批记录</button>`
     ];
 
     if (status === 'pending') {
         buttons.push(
-            `<button class="ant-btn" onclick="updateOrderStatusByAction(${orderIdLiteral}, 'confirmed', '订单审批通过')" style="color:#1890ff; border-color:#91d5ff;">审批通过</button>`,
-            `<button class="ant-btn" onclick="updateOrderStatusByAction(${orderIdLiteral}, 'cancelled', '订单审批驳回')" style="color:#cf1322; border-color:#ffccc7;">驳回</button>`
+            `<button class="ant-btn erp-btn-blue" onclick="updateOrderStatusByAction(${orderIdLiteral}, 'confirmed', '订单审批通过')">审批通过</button>`,
+            `<button class="ant-btn erp-btn-danger" onclick="updateOrderStatusByAction(${orderIdLiteral}, 'cancelled', '订单审批驳回')">驳回</button>`
         );
     }
 
     if (status === 'shipped' || status === 'signed') {
         buttons.push(
-            `<button class="ant-btn" onclick="updateOrderStatusByAction(${orderIdLiteral}, 'refunded', '退款审批')" style="color:#722ed1; border-color:#d3adf7;">退款审批</button>`
+            `<button class="ant-btn erp-btn-violet" onclick="updateOrderStatusByAction(${orderIdLiteral}, 'refunded', '退款审批')">退款审批</button>`
         );
     }
 
@@ -3269,7 +3269,7 @@ function renderPurchaseRecords(records = []) {
                     >${escapeHtmlText(approvalText)}</span>
                 </td>
                 <td title="${escapeHtmlText(noteText)}">${escapeHtmlText(noteText)}</td>
-                <td><div class="erp-row-actions">${approvalActions}${extraAction}</div></td>
+                <td class="erp-action-cell"><div class="erp-row-actions">${approvalActions}${extraAction}</div></td>
             </tr>
         `;
     }).join('');

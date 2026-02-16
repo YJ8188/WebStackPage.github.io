@@ -273,6 +273,318 @@ function setTablePaginationSize(moduleKey, pageSize) {
     rerenderByPaginationModule(moduleKey);
 }
 
+const financeSelectionState = {
+    selectedIds: new Set(),
+    visibleIds: []
+};
+let financeColumnVisibilityState = null;
+const FINANCE_COLUMN_DEFINITIONS = [
+    { key: 'type', label: '类型' },
+    { key: 'category', label: '分类' },
+    { key: 'amount', label: '金额' },
+    { key: 'order', label: '关联订单' },
+    { key: 'description', label: '描述' },
+    { key: 'date', label: '交易时间' },
+    { key: 'actions', label: '操作' }
+];
+const FINANCE_COLUMN_DEFAULT_VISIBILITY = FINANCE_COLUMN_DEFINITIONS.reduce((acc, item) => {
+    acc[item.key] = true;
+    return acc;
+}, {});
+
+function normalizeFinanceRowId(value) {
+    const raw = String(value ?? '').trim();
+    return raw;
+}
+
+function getFinanceColumnVisibilityStorageKey() {
+    const userId = String(window?.userData?.user?.id || window?.userData?.user?.email || 'guest').trim() || 'guest';
+    return `erpFinanceColumnVisibility_${userId}`;
+}
+
+function loadFinanceColumnVisibility() {
+    try {
+        const raw = localStorage.getItem(getFinanceColumnVisibilityStorageKey());
+        if (!raw) {
+            return { ...FINANCE_COLUMN_DEFAULT_VISIBILITY };
+        }
+        const parsed = JSON.parse(raw);
+        const result = { ...FINANCE_COLUMN_DEFAULT_VISIBILITY };
+        FINANCE_COLUMN_DEFINITIONS.forEach(item => {
+            if (Object.prototype.hasOwnProperty.call(parsed, item.key)) {
+                result[item.key] = !!parsed[item.key];
+            }
+        });
+        return result;
+    } catch (error) {
+        return { ...FINANCE_COLUMN_DEFAULT_VISIBILITY };
+    }
+}
+
+function saveFinanceColumnVisibility(visibility) {
+    try {
+        localStorage.setItem(getFinanceColumnVisibilityStorageKey(), JSON.stringify(visibility || {}));
+    } catch (error) {
+        console.error('[ERP Ant] 保存财务列配置失败:', error);
+    }
+}
+
+function getFinanceColumnVisibility() {
+    if (!financeColumnVisibilityState) {
+        financeColumnVisibilityState = loadFinanceColumnVisibility();
+    }
+    return { ...financeColumnVisibilityState };
+}
+
+function setFinanceColumnVisibility(columnKey, visible) {
+    if (!financeColumnVisibilityState) {
+        financeColumnVisibilityState = loadFinanceColumnVisibility();
+    }
+    financeColumnVisibilityState[columnKey] = !!visible;
+    saveFinanceColumnVisibility(financeColumnVisibilityState);
+    applyFinanceColumnVisibilityToTable();
+}
+
+function resetFinanceColumnVisibility() {
+    financeColumnVisibilityState = { ...FINANCE_COLUMN_DEFAULT_VISIBILITY };
+    saveFinanceColumnVisibility(financeColumnVisibilityState);
+    renderFinanceColumnSettingsPanel();
+    applyFinanceColumnVisibilityToTable();
+}
+
+function applyFinanceColumnVisibilityToTable() {
+    const visibility = getFinanceColumnVisibility();
+    FINANCE_COLUMN_DEFINITIONS.forEach(item => {
+        const visible = visibility[item.key] !== false;
+        document.querySelectorAll(`[data-finance-col="${item.key}"]`).forEach(cell => {
+            cell.style.display = visible ? '' : 'none';
+        });
+        document.querySelectorAll(`[data-finance-cell="${item.key}"]`).forEach(cell => {
+            cell.style.display = visible ? '' : 'none';
+        });
+    });
+}
+
+function renderFinanceColumnSettingsPanel() {
+    const panel = document.getElementById('financeColumnSettingsPanel');
+    if (!panel) {
+        return;
+    }
+
+    const visibility = getFinanceColumnVisibility();
+    panel.innerHTML = `
+        <p class="erp-inline-settings-title">财务列显示设置</p>
+        <div class="erp-inline-settings-list">
+            ${FINANCE_COLUMN_DEFINITIONS.map(item => `
+                <label class="erp-inline-settings-item">
+                    <input type="checkbox" ${visibility[item.key] !== false ? 'checked' : ''}
+                        onchange="setFinanceColumnVisibility('${item.key}', this.checked)">
+                    <span>${item.label}</span>
+                </label>
+            `).join('')}
+            <button class="ant-btn erp-btn-compact" type="button" onclick="resetFinanceColumnVisibility()">恢复默认</button>
+        </div>
+    `;
+}
+
+function toggleFinanceColumnSettings(forceVisible = null) {
+    const panel = document.getElementById('financeColumnSettingsPanel');
+    if (!panel) {
+        return;
+    }
+    const shouldShow = typeof forceVisible === 'boolean'
+        ? forceVisible
+        : panel.classList.contains('hidden');
+    panel.classList.toggle('hidden', !shouldShow);
+    if (shouldShow) {
+        renderFinanceColumnSettingsPanel();
+        applyFinanceColumnVisibilityToTable();
+    }
+}
+
+function syncFinanceSelectionVisibleRows(rows = []) {
+    financeSelectionState.visibleIds = (Array.isArray(rows) ? rows : [])
+        .map(item => normalizeFinanceRowId(item?.id))
+        .filter(Boolean);
+}
+
+function pruneFinanceSelectionByAllRows() {
+    const allRows = Array.isArray(window?.ERP?.state?.finances) ? window.ERP.state.finances : [];
+    const allIds = new Set(allRows.map(item => normalizeFinanceRowId(item?.id)).filter(Boolean));
+    Array.from(financeSelectionState.selectedIds).forEach(id => {
+        if (!allIds.has(id)) {
+            financeSelectionState.selectedIds.delete(id);
+        }
+    });
+}
+
+function isFinanceRowSelected(financeId) {
+    const id = normalizeFinanceRowId(financeId);
+    return id ? financeSelectionState.selectedIds.has(id) : false;
+}
+
+function renderFinanceHeaderCheckboxState() {
+    const checkbox = document.getElementById('financeSelectAllCheckbox');
+    if (!checkbox) {
+        return;
+    }
+    const visibleIds = financeSelectionState.visibleIds || [];
+    const selectedVisible = visibleIds.filter(id => financeSelectionState.selectedIds.has(id)).length;
+    checkbox.checked = visibleIds.length > 0 && selectedVisible === visibleIds.length;
+    checkbox.indeterminate = selectedVisible > 0 && selectedVisible < visibleIds.length;
+}
+
+function updateFinanceBatchActionState() {
+    const selectedCount = financeSelectionState.selectedIds.size;
+    const deleteBtn = document.getElementById('financeBatchDeleteBtn');
+    const exportBtn = document.getElementById('financeBatchExportBtn');
+    const textEl = document.getElementById('financeSelectedCount');
+    if (deleteBtn) {
+        deleteBtn.disabled = selectedCount === 0;
+    }
+    if (exportBtn) {
+        exportBtn.disabled = selectedCount === 0;
+    }
+    if (textEl) {
+        textEl.textContent = `已选 ${selectedCount} 条`;
+    }
+}
+
+function onFinanceRowCheckedChange(financeId, checked) {
+    const id = normalizeFinanceRowId(financeId);
+    if (!id) {
+        return;
+    }
+    if (checked) {
+        financeSelectionState.selectedIds.add(id);
+    } else {
+        financeSelectionState.selectedIds.delete(id);
+    }
+    renderFinanceHeaderCheckboxState();
+    updateFinanceBatchActionState();
+}
+
+function onFinanceSelectAllVisible(checked) {
+    const shouldCheck = !!checked;
+    (financeSelectionState.visibleIds || []).forEach(id => {
+        if (shouldCheck) {
+            financeSelectionState.selectedIds.add(id);
+        } else {
+            financeSelectionState.selectedIds.delete(id);
+        }
+    });
+    document.querySelectorAll('.erp-finance-row-checkbox').forEach(checkbox => {
+        checkbox.checked = shouldCheck;
+    });
+    renderFinanceHeaderCheckboxState();
+    updateFinanceBatchActionState();
+}
+
+function getSelectedFinanceRows() {
+    const selectedIds = financeSelectionState.selectedIds;
+    const rows = Array.isArray(window?.ERP?.state?.finances) ? window.ERP.state.finances : [];
+    return rows.filter(item => selectedIds.has(normalizeFinanceRowId(item?.id)));
+}
+
+function exportFinanceRowsCsv(rows = [], fileLabel = '已选财务') {
+    const exportRowsSource = Array.isArray(rows) ? rows : [];
+    if (!exportRowsSource.length) {
+        if (typeof showToast === 'function') {
+            showToast('当前没有可导出的财务数据', 'info');
+        }
+        return;
+    }
+
+    const orders = Array.isArray(window?.ERP?.state?.orders) ? window.ERP.state.orders : [];
+    const customers = Array.isArray(window?.ERP?.state?.customers) ? window.ERP.state.customers : [];
+    const orderMap = new Map(orders.map(item => [String(item?.id), item]));
+    const customerMap = new Map(customers.map(item => [String(item?.id), item]));
+    const headers = ['类型', '分类', '金额', '关联订单号', '客户', '描述', '交易时间'];
+    const exportRows = exportRowsSource.map(item => {
+        const typeText = item?.type === 'income' ? '收入' : (item?.type === 'expense' ? '支出' : '系统');
+        const orderId = resolveFinanceOrderId(item);
+        const order = orderId !== null ? orderMap.get(String(orderId)) : null;
+        const customer = order ? customerMap.get(String(order.customer_id)) : null;
+        const orderNumber = order?.order_number || (orderId !== null ? `订单#${orderId}` : '-');
+        const customerName = customer?.name || '-';
+        const date = parseFinanceDate(item?.transaction_date);
+
+        return [
+            typeText,
+            item?.category || '-',
+            Number(item?.amount || 0).toFixed(2),
+            orderNumber,
+            customerName,
+            item?.description || '-',
+            date ? date.toLocaleString('zh-CN') : (item?.transaction_date || '-')
+        ];
+    });
+
+    const fileName = `${fileLabel}-${formatFileTimestamp()}.csv`;
+    downloadCsvFile(fileName, headers, exportRows);
+    if (typeof showToast === 'function') {
+        showToast(`已导出 ${exportRows.length} 条财务记录`, 'success');
+    }
+}
+
+function batchExportSelectedFinances() {
+    const rows = getSelectedFinanceRows();
+    exportFinanceRowsCsv(rows, '财务已选记录');
+}
+
+async function batchDeleteSelectedFinances() {
+    const rows = getSelectedFinanceRows();
+    if (!rows.length) {
+        if (typeof showToast === 'function') {
+            showToast('请先勾选要删除的财务记录', 'info');
+        }
+        return;
+    }
+
+    const shouldDelete = window.confirm(`确认删除选中的 ${rows.length} 条财务记录吗？`);
+    if (!shouldDelete) {
+        return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+    for (const row of rows) {
+        try {
+            await ERP.deleteFinance(row.id);
+            financeSelectionState.selectedIds.delete(normalizeFinanceRowId(row.id));
+            successCount += 1;
+        } catch (error) {
+            failCount += 1;
+            console.error('[ERP Ant] 批量删除财务记录失败:', error);
+        }
+    }
+
+    const finances = await ERP.loadFinances(true);
+    if (typeof applyFinanceFilters === 'function') {
+        applyFinanceFilters();
+    } else {
+        if (typeof syncFinanceViewRows === 'function') {
+            syncFinanceViewRows(finances, 'all');
+        }
+        if (typeof renderFinances === 'function') {
+            renderFinances(finances);
+        }
+    }
+    updateStatistics();
+    if (typeof showToast === 'function') {
+        showToast(`批量删除完成：成功 ${successCount}，失败 ${failCount}`, failCount > 0 ? 'warning' : 'success');
+    }
+}
+
+function syncFinanceTableEnhancements(visibleRows = []) {
+    syncFinanceSelectionVisibleRows(visibleRows);
+    pruneFinanceSelectionByAllRows();
+    renderFinanceHeaderCheckboxState();
+    updateFinanceBatchActionState();
+    renderFinanceColumnSettingsPanel();
+    applyFinanceColumnVisibilityToTable();
+}
+
 function escapeCsvCell(value) {
     const text = String(value ?? '');
     return `"${text.replace(/"/g, '""')}"`;

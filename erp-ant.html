@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="assets/css/fonts/fontawesome/css/font-awesome.min.css">
 
     <!-- Ant Design Style Clone -->
-    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260216-44">
+    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260216-45">
 
     <script>
         (function () {
@@ -803,8 +803,19 @@
                                 <button class="ant-btn" onclick="exportMonthlyBusinessReportCsv()">
                                     <i class="fa fa-bar-chart"></i> 导出月度经营报告
                                 </button>
+                                <button class="ant-btn" type="button" onclick="toggleFinanceColumnSettings()">
+                                    <i class="fa fa-columns"></i> 列设置
+                                </button>
+                                <button class="ant-btn" id="financeBatchExportBtn" type="button" onclick="batchExportSelectedFinances()" disabled>
+                                    <i class="fa fa-file-text-o"></i> 导出已选
+                                </button>
+                                <button class="ant-btn erp-btn-danger" id="financeBatchDeleteBtn" type="button" onclick="batchDeleteSelectedFinances()" disabled>
+                                    <i class="fa fa-trash"></i> 删除已选
+                                </button>
+                                <span class="erp-finance-selected-count" id="financeSelectedCount">已选 0 条</span>
                                 <input type="file" id="backupImportInput" accept=".json,application/json" style="display:none;">
                             </div>
+                            <div id="financeColumnSettingsPanel" class="erp-inline-settings hidden"></div>
 
                             <!-- Finance Stats Summary inside Card -->
                             <div id="financeSummary" class="ant-row"
@@ -848,13 +859,16 @@
                                     <table>
                                         <thead class="ant-table-thead">
                                             <tr>
-                                                <th>类型</th>
-                                                <th>分类</th>
-                                                <th>金额</th>
-                                                <th>关联订单</th>
-                                                <th>描述</th>
-                                                <th>交易时间</th>
-                                                <th>操作</th>
+                                                <th class="finance-col-select">
+                                                    <input type="checkbox" id="financeSelectAllCheckbox" onchange="onFinanceSelectAllVisible(this.checked)">
+                                                </th>
+                                                <th data-finance-col="type">类型</th>
+                                                <th data-finance-col="category">分类</th>
+                                                <th data-finance-col="amount">金额</th>
+                                                <th data-finance-col="order">关联订单</th>
+                                                <th data-finance-col="description">描述</th>
+                                                <th data-finance-col="date">交易时间</th>
+                                                <th data-finance-col="actions">操作</th>
                                             </tr>
                                         </thead>
                                         <tbody class="ant-table-tbody" id="financesTableBody"></tbody>
@@ -1405,7 +1419,7 @@
     <script src="assets/js/supabase-config.js?v=20260212-14"></script>
     <script src="assets/js/user-data.js?v=20260214-20"></script>
     <script src="assets/js/erp.js?v=20260216-33"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260216-43"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260216-44"></script>
     <script src="assets/js/pwa-register.js?v=20260216-1" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->
@@ -1775,12 +1789,15 @@
             updateFinanceSummary(data);
 
             if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px; color:#999;">暂无数据</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px; color:#999;">暂无数据</td></tr>';
                 if (typeof cacheTableRenderRows === 'function') {
                     cacheTableRenderRows('finances', []);
                 }
                 if (typeof renderTablePagination === 'function') {
                     renderTablePagination('finances', 'financesPager', { total: 0 });
+                }
+                if (typeof syncFinanceTableEnhancements === 'function') {
+                    syncFinanceTableEnhancements([]);
                 }
                 return;
             }
@@ -1884,14 +1901,21 @@
                 return `${orderNumber} | 客户:${customerName} | 商品:${productsText}`;
             };
 
-            tbody.innerHTML = sortedData.map(f => `
+            tbody.innerHTML = sortedData.map(f => {
+                const financeIdText = String(f?.id ?? '').replace(/"/g, '&quot;');
+                return `
                 <tr>
-                    <td>${f.type === 'income' ? '收入' : (f.type === 'expense' ? '支出' : '系统')}</td>
-                    <td>${f.category || '-'}</td>
-                    <td style="font-weight:bold; color: ${f.type === 'income' ? '#cf1322' : (f.type === 'expense' ? '#3f8600' : '#2563eb')}">${f.type === 'income' ? '+' : (f.type === 'expense' ? '-' : (parseFloat(f.amount) >= 0 ? '+' : '-'))}¥${Math.abs(parseFloat(f.amount)).toFixed(2)}</td>
-                    <td>${resolveFinanceOrderInfo(f)}</td>
-                    <td><span class="erp-cell-ellipsis">${resolveFinanceDescription(f)}</span></td>
-                    <td>${(() => {
+                    <td class="finance-col-select">
+                        <input class="erp-finance-row-checkbox" type="checkbox" data-id="${financeIdText}"
+                            ${isFinanceRowSelected(f?.id) ? 'checked' : ''}
+                            onchange="onFinanceRowCheckedChange(this.getAttribute('data-id'), this.checked)">
+                    </td>
+                    <td data-finance-cell="type">${f.type === 'income' ? '收入' : (f.type === 'expense' ? '支出' : '系统')}</td>
+                    <td data-finance-cell="category">${f.category || '-'}</td>
+                    <td data-finance-cell="amount" style="font-weight:bold; color: ${f.type === 'income' ? '#cf1322' : (f.type === 'expense' ? '#3f8600' : '#2563eb')}">${f.type === 'income' ? '+' : (f.type === 'expense' ? '-' : (parseFloat(f.amount) >= 0 ? '+' : '-'))}¥${Math.abs(parseFloat(f.amount)).toFixed(2)}</td>
+                    <td data-finance-cell="order">${resolveFinanceOrderInfo(f)}</td>
+                    <td data-finance-cell="description"><span class="erp-cell-ellipsis">${resolveFinanceDescription(f)}</span></td>
+                    <td data-finance-cell="date">${(() => {
                         const date = new Date(f.transaction_date);
                         // 如果数据库存储的是本地时间格式，直接使用
                         if (typeof f.transaction_date === 'string' && f.transaction_date.includes(' ')) {
@@ -1908,16 +1932,19 @@
                             timeZone: 'Asia/Shanghai'
                         });
                     })()}</td>
-                    <td class="erp-action-cell">
+                    <td class="erp-action-cell" data-finance-cell="actions">
                         ${typeof getFinanceActionButtons === 'function'
                             ? getFinanceActionButtons(f)
                             : `<div class="erp-row-actions"><button class="ant-btn erp-btn-danger" onclick='deleteFinance(${JSON.stringify(f.id)})'>删除</button></div>`
                         }
                     </td>
                 </tr>
-            `).join('');
+            `;}).join('');
             if (typeof renderTablePagination === 'function') {
                 renderTablePagination('finances', 'financesPager', pageData);
+            }
+            if (typeof syncFinanceTableEnhancements === 'function') {
+                syncFinanceTableEnhancements(sortedData);
             }
         }
 

@@ -83,6 +83,11 @@ const dashboardOrderStatusLogCacheState = {
     pendingKey: '',
     pendingPromise: null
 };
+const dashboardPurchaseCacheState = {
+    rows: [],
+    loadedAt: 0,
+    pendingPromise: null
+};
 
 function resetDashboardItemCache() {
     dashboardItemCacheState.orderIdsKey = '';
@@ -96,6 +101,10 @@ function resetDashboardItemCache() {
     dashboardOrderStatusLogCacheState.loadedAt = 0;
     dashboardOrderStatusLogCacheState.pendingKey = '';
     dashboardOrderStatusLogCacheState.pendingPromise = null;
+
+    dashboardPurchaseCacheState.rows = [];
+    dashboardPurchaseCacheState.loadedAt = 0;
+    dashboardPurchaseCacheState.pendingPromise = null;
 }
 
 function escapeCsvCell(value) {
@@ -639,6 +648,8 @@ function updateStatistics(data) {
     renderDashboardProfitProducts();
     renderDashboardCustomerLifecycle();
     renderDashboardCustomerRfm();
+    renderDashboardSupplierPerformance();
+    renderDashboardProcurementCycle();
 }
 
 // ==================== 单位转换 ====================
@@ -2779,6 +2790,8 @@ async function loadPurchaseRecords(limit = 80) {
 
     const logs = await ERP.loadPurchaseLogs(limit);
     purchaseLogState.records = Array.isArray(logs) ? logs : [];
+    dashboardPurchaseCacheState.rows = [...purchaseLogState.records];
+    dashboardPurchaseCacheState.loadedAt = Date.now();
     renderPurchaseRecords(purchaseLogState.records);
 }
 
@@ -4417,6 +4430,363 @@ function renderDashboardCustomerRfm() {
                 <span class="ant-tag" style="margin:0;">召回 ${rfm.summary.risk}</span>
             </div>
             ${rowsHtml || '<div style="font-size:12px;color:#8c8c8c;">暂无可评分客户</div>'}
+        </div>
+    `;
+}
+
+function normalizePurchasePaymentStatus(value) {
+    const text = String(value || '').trim().toLowerCase();
+    if (text === 'partial' || text === 'partially_paid') return 'partial';
+    if (text === 'unpaid') return 'unpaid';
+    return 'paid';
+}
+
+function parsePurchaseRecordForDashboard(record, productMap = new Map()) {
+    const meta = parsePurchaseMetaFromNotes(record?.notes);
+    const productFromState = productMap.get(String(record?.product_id || '')) || null;
+    const productName = String(meta['商品'] || productFromState?.name || `商品#${record?.product_id || '-'}`);
+    const quantityRaw = Number(meta['数量'] ?? Math.abs(Number(record?.quantity_change || 0)));
+    const quantity = Number.isFinite(quantityRaw) ? Math.abs(quantityRaw) : 0;
+    const unitCostRaw = Number(meta['单价'] ?? 0);
+    const unitCost = Number.isFinite(unitCostRaw) ? Math.max(unitCostRaw, 0) : 0;
+    const amountRaw = Number(meta['总额'] ?? (quantity * unitCost));
+    const amount = Number.isFinite(amountRaw) ? Math.max(amountRaw, 0) : 0;
+    const paymentStatus = normalizePurchasePaymentStatus(meta['付款'] || 'paid');
+    const paidAmountRaw = Number(meta['已付']);
+    const payableAmountRaw = Number(meta['待付']);
+    const paidAmount = Number.isFinite(paidAmountRaw)
+        ? Math.max(paidAmountRaw, 0)
+        : (paymentStatus === 'paid' ? amount : 0);
+    const payableAmount = Number.isFinite(payableAmountRaw)
+        ? Math.max(payableAmountRaw, 0)
+        : Math.max(amount - paidAmount, 0);
+    const supplier = String(meta['供应商'] || '').trim() || '未填写供应商';
+    const purchaseDate = parseFinanceDate(meta['时间'] || record?.created_at || '');
+
+    return {
+        id: record?.id,
+        productId: record?.product_id,
+        productName,
+        quantity,
+        unitCost,
+        amount,
+        supplier,
+        paymentStatus,
+        paidAmount,
+        payableAmount,
+        purchaseDate
+    };
+}
+
+async function ensureDashboardPurchaseRecords(limit = 300) {
+    const cacheFresh = (Date.now() - Number(dashboardPurchaseCacheState.loadedAt || 0)) < 20000;
+    if (Array.isArray(dashboardPurchaseCacheState.rows) && dashboardPurchaseCacheState.rows.length > 0 && cacheFresh) {
+        return dashboardPurchaseCacheState.rows;
+    }
+
+    if (Array.isArray(purchaseLogState.records) && purchaseLogState.records.length > 0) {
+        dashboardPurchaseCacheState.rows = [...purchaseLogState.records];
+        dashboardPurchaseCacheState.loadedAt = Date.now();
+        return dashboardPurchaseCacheState.rows;
+    }
+
+    if (dashboardPurchaseCacheState.pendingPromise) {
+        return dashboardPurchaseCacheState.pendingPromise;
+    }
+
+    if (!window.ERP || typeof ERP.loadPurchaseLogs !== 'function') {
+        return [];
+    }
+
+    const promise = (async () => {
+        try {
+            const logs = await ERP.loadPurchaseLogs(limit);
+            const rows = Array.isArray(logs) ? logs : [];
+            purchaseLogState.records = rows;
+            dashboardPurchaseCacheState.rows = [...rows];
+            dashboardPurchaseCacheState.loadedAt = Date.now();
+            return rows;
+        } catch (error) {
+            console.error('[ERP] 首页采购记录加载失败:', error?.message || error);
+            return [];
+        }
+    })();
+
+    dashboardPurchaseCacheState.pendingPromise = promise;
+    try {
+        return await promise;
+    } finally {
+        if (dashboardPurchaseCacheState.pendingPromise === promise) {
+            dashboardPurchaseCacheState.pendingPromise = null;
+        }
+    }
+}
+
+function calculateSupplierPerformanceStats(purchaseRows = []) {
+    const groupMap = new Map();
+    (Array.isArray(purchaseRows) ? purchaseRows : []).forEach(row => {
+        const supplier = String(row?.supplier || '').trim() || '未填写供应商';
+        if (!groupMap.has(supplier)) {
+            groupMap.set(supplier, {
+                supplier,
+                count: 0,
+                quantity: 0,
+                amount: 0,
+                paidAmount: 0,
+                payableAmount: 0,
+                lastDate: null
+            });
+        }
+        const target = groupMap.get(supplier);
+        target.count += 1;
+        target.quantity += Math.max(Number(row?.quantity || 0), 0);
+        target.amount += Math.max(Number(row?.amount || 0), 0);
+        target.paidAmount += Math.max(Number(row?.paidAmount || 0), 0);
+        target.payableAmount += Math.max(Number(row?.payableAmount || 0), 0);
+        const date = row?.purchaseDate instanceof Date ? row.purchaseDate : null;
+        if (date && (!target.lastDate || date.getTime() > target.lastDate.getTime())) {
+            target.lastDate = date;
+        }
+    });
+
+    const rows = Array.from(groupMap.values()).map(item => {
+        const paidRatio = item.amount > 0 ? (item.paidAmount / item.amount) : 1;
+        const lastDays = item.lastDate ? getAgingDays(item.lastDate.toISOString()) : null;
+        const recencyScore = !Number.isFinite(lastDays)
+            ? 5
+            : (lastDays <= 30 ? 20 : (lastDays <= 60 ? 15 : (lastDays <= 90 ? 10 : 5)));
+        const score = Math.round(
+            Math.min(60, paidRatio * 60)
+            + Math.min(20, item.count * 2)
+            + recencyScore
+        );
+        const grade = score >= 85 ? 'A' : (score >= 70 ? 'B' : (score >= 55 ? 'C' : 'D'));
+        return {
+            ...item,
+            paidRatio,
+            lastDays,
+            score,
+            grade
+        };
+    }).sort((left, right) => {
+        const scoreDiff = Number(right.score || 0) - Number(left.score || 0);
+        if (scoreDiff !== 0) return scoreDiff;
+        return Number(right.amount || 0) - Number(left.amount || 0);
+    });
+
+    const summary = {
+        totalSuppliers: rows.length,
+        gradeA: rows.filter(item => item.grade === 'A').length,
+        gradeB: rows.filter(item => item.grade === 'B').length,
+        gradeCD: rows.filter(item => item.grade === 'C' || item.grade === 'D').length,
+        totalAmount: rows.reduce((sum, item) => sum + Number(item.amount || 0), 0),
+        totalPayable: rows.reduce((sum, item) => sum + Number(item.payableAmount || 0), 0)
+    };
+
+    return { summary, rows };
+}
+
+async function renderDashboardSupplierPerformance() {
+    const container = document.getElementById('dashboardSupplierPerformance');
+    if (!container || !window.ERP) {
+        return;
+    }
+
+    const products = Array.isArray(ERP.state?.products) ? ERP.state.products : [];
+    const productMap = new Map(products.map(item => [String(item?.id), item]));
+    const records = await ensureDashboardPurchaseRecords(300);
+    const parsedRows = records.map(record => parsePurchaseRecordForDashboard(record, productMap));
+    const stats = calculateSupplierPerformanceStats(parsedRows);
+
+    const rowsHtml = stats.rows.slice(0, 8).map((item, index) => `
+        <div style="padding:6px 0;border-bottom:1px dashed #f0f0f0;">
+            <div style="display:flex;justify-content:space-between;gap:10px;">
+                <div style="font-size:12px;color:#262626;">${index + 1}. ${escapeHtmlText(item.supplier)}</div>
+                <div style="font-size:12px;color:${item.grade === 'A' ? '#237804' : (item.grade === 'B' ? '#1677ff' : '#d46b08')};">评分 ${item.score}（${item.grade}）</div>
+            </div>
+            <div style="font-size:12px;color:#8c8c8c;margin-top:2px;">
+                ${item.count} 次采购 / ${formatCurrency(item.amount)} / 待付 ${formatCurrency(item.payableAmount)} / 付款率 ${(item.paidRatio * 100).toFixed(1)}%
+            </div>
+        </div>
+    `).join('');
+
+    container.innerHTML = `
+        <div style="flex:1;min-width:320px;padding:12px 14px;border:1px solid #ffd591;border-radius:8px;background:#fff7e6;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div style="font-size:14px;font-weight:600;color:#d46b08;">供应商绩效评分</div>
+                <div style="font-size:12px;color:#8c8c8c;">供应商 ${stats.summary.totalSuppliers} 家</div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;margin-bottom:8px;">
+                <span class="ant-tag" style="margin:0;">A级 ${stats.summary.gradeA}</span>
+                <span class="ant-tag" style="margin:0;">B级 ${stats.summary.gradeB}</span>
+                <span class="ant-tag" style="margin:0;">C/D级 ${stats.summary.gradeCD}</span>
+                <span class="ant-tag" style="margin:0;">采购额 ${formatCurrency(stats.summary.totalAmount)}</span>
+                <span class="ant-tag" style="margin:0;">待付 ${formatCurrency(stats.summary.totalPayable)}</span>
+            </div>
+            ${rowsHtml || '<div style="font-size:12px;color:#8c8c8c;">暂无供应商采购数据</div>'}
+        </div>
+    `;
+}
+
+function findFirstDateNotBefore(sortedTimestamps = [], targetTimestamp = 0) {
+    let left = 0;
+    let right = sortedTimestamps.length - 1;
+    let ans = -1;
+    while (left <= right) {
+        const mid = Math.floor((left + right) / 2);
+        if (sortedTimestamps[mid] >= targetTimestamp) {
+            ans = mid;
+            right = mid - 1;
+        } else {
+            left = mid + 1;
+        }
+    }
+    return ans;
+}
+
+function calculateProcurementCycleStats(purchaseRows = [], orders = [], itemRows = []) {
+    const orderDateMap = new Map((Array.isArray(orders) ? orders : [])
+        .map(order => [String(order?.id), parseFinanceDate(order?.order_date)]));
+    const salesMap = new Map();
+
+    (Array.isArray(itemRows) ? itemRows : []).forEach(item => {
+        const productKey = String(item?.product_id || '');
+        const orderId = String(item?.order_id || '');
+        const orderDate = orderDateMap.get(orderId);
+        if (!productKey || !(orderDate instanceof Date)) {
+            return;
+        }
+        if (!salesMap.has(productKey)) {
+            salesMap.set(productKey, []);
+        }
+        salesMap.get(productKey).push(orderDate.getTime());
+    });
+
+    salesMap.forEach((timestamps, key) => {
+        timestamps.sort((left, right) => left - right);
+        salesMap.set(key, timestamps);
+    });
+
+    const cycleDays = [];
+    let staleUnsoldCount = 0;
+    const staleRows = [];
+    const bucket = { d3: 0, d7: 0, d15: 0, d15p: 0 };
+
+    (Array.isArray(purchaseRows) ? purchaseRows : []).forEach(row => {
+        const purchaseDate = row?.purchaseDate instanceof Date ? row.purchaseDate : null;
+        const productKey = String(row?.productId || '');
+        if (!purchaseDate || !productKey) {
+            return;
+        }
+
+        const saleTimestamps = salesMap.get(productKey) || [];
+        const purchaseTs = purchaseDate.getTime();
+        const idx = findFirstDateNotBefore(saleTimestamps, purchaseTs);
+        if (idx >= 0) {
+            const diffDays = Math.max(0, Math.floor((saleTimestamps[idx] - purchaseTs) / (24 * 60 * 60 * 1000)));
+            cycleDays.push(diffDays);
+            if (diffDays <= 3) bucket.d3 += 1;
+            else if (diffDays <= 7) bucket.d7 += 1;
+            else if (diffDays <= 15) bucket.d15 += 1;
+            else bucket.d15p += 1;
+            return;
+        }
+
+        const agingDays = getAgingDays(purchaseDate.toISOString());
+        if (Number.isFinite(agingDays) && agingDays > 30) {
+            staleUnsoldCount += 1;
+            staleRows.push({
+                productName: row?.productName || `商品#${row?.productId || '-'}`,
+                supplier: row?.supplier || '未填写供应商',
+                agingDays,
+                amount: Number(row?.amount || 0)
+            });
+        }
+    });
+
+    const sortedDays = cycleDays.slice().sort((left, right) => left - right);
+    const avgDays = sortedDays.length > 0
+        ? (sortedDays.reduce((sum, value) => sum + value, 0) / sortedDays.length)
+        : 0;
+    const medianDays = sortedDays.length > 0
+        ? sortedDays[Math.floor((sortedDays.length - 1) / 2)]
+        : 0;
+
+    staleRows.sort((left, right) => {
+        const dayDiff = Number(right.agingDays || 0) - Number(left.agingDays || 0);
+        if (dayDiff !== 0) return dayDiff;
+        return Number(right.amount || 0) - Number(left.amount || 0);
+    });
+
+    return {
+        analyzedCount: purchaseRows.length,
+        matchedSalesCount: sortedDays.length,
+        avgDays,
+        medianDays,
+        staleUnsoldCount,
+        bucket,
+        staleRows: staleRows.slice(0, 6)
+    };
+}
+
+async function renderDashboardProcurementCycle() {
+    const container = document.getElementById('dashboardProcurementCycle');
+    if (!container || !window.ERP) {
+        return;
+    }
+
+    const orders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
+    const validOrders = orders.filter(order => {
+        const status = normalizeOrderStatusValue(order?.status || '');
+        return status !== 'cancelled' && status !== 'refunded';
+    });
+    const products = Array.isArray(ERP.state?.products) ? ERP.state.products : [];
+    const productMap = new Map(products.map(item => [String(item?.id), item]));
+    const purchaseLogs = await ensureDashboardPurchaseRecords(300);
+    const purchaseRows = purchaseLogs.map(record => parsePurchaseRecordForDashboard(record, productMap));
+    const itemRows = await loadDashboardOrderItems(validOrders);
+    const stats = calculateProcurementCycleStats(purchaseRows, validOrders, itemRows);
+
+    const totalMatched = Math.max(stats.matchedSalesCount, 1);
+    const bar = (label, value, color) => {
+        const width = Math.max(6, Math.round((value / totalMatched) * 100));
+        return `
+            <div style="margin-bottom:6px;">
+                <div style="display:flex;justify-content:space-between;font-size:12px;color:#595959;">
+                    <span>${label}</span>
+                    <span>${value} 批</span>
+                </div>
+                <div style="height:8px;background:#f5f5f5;border-radius:999px;overflow:hidden;margin-top:3px;">
+                    <div style="height:8px;background:${color};width:${width}%;"></div>
+                </div>
+            </div>
+        `;
+    };
+
+    const staleHtml = stats.staleRows.map(item => `
+        <div style="font-size:12px;color:#8c8c8c;padding:4px 0;border-bottom:1px dashed #f0f0f0;">
+            ${escapeHtmlText(item.productName)} / ${escapeHtmlText(item.supplier)} / ${item.agingDays}天未售 / ${formatCurrency(item.amount)}
+        </div>
+    `).join('');
+
+    container.innerHTML = `
+        <div style="flex:1;min-width:320px;padding:12px 14px;border:1px solid #b7eb8f;border-radius:8px;background:#f6ffed;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div style="font-size:14px;font-weight:600;color:#237804;">采购周期时效</div>
+                <div style="font-size:12px;color:#8c8c8c;">分析批次 ${stats.analyzedCount}</div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;margin-bottom:8px;">
+                <span class="ant-tag" style="margin:0;">已匹配销售 ${stats.matchedSalesCount}</span>
+                <span class="ant-tag" style="margin:0;">平均 ${stats.avgDays.toFixed(1)} 天</span>
+                <span class="ant-tag" style="margin:0;">中位 ${stats.medianDays} 天</span>
+                <span class="ant-tag" style="margin:0;">30天未售 ${stats.staleUnsoldCount}</span>
+            </div>
+            ${bar('3天内转化', stats.bucket.d3, '#1677ff')}
+            ${bar('4-7天转化', stats.bucket.d7, '#13c2c2')}
+            ${bar('8-15天转化', stats.bucket.d15, '#faad14')}
+            ${bar('15天以上转化', stats.bucket.d15p, '#f5222d')}
+            <div style="margin-top:8px;font-size:12px;color:#8c8c8c;">滞销采购样本（30天未售）</div>
+            ${staleHtml || '<div style="font-size:12px;color:#8c8c8c;">暂无明显滞销采购</div>'}
         </div>
     `;
 }

@@ -2094,7 +2094,47 @@
                     key: `unpaid_${order.id}`,
                     title: `待回款订单：${order.order_number || `订单#${order.id}`}`,
                     subtitle: `金额 ¥${parseFloat(order.total_amount || 0).toFixed(2)}，状态 ${getOrderStatusText(order.status)}`,
-                    level: 'info'
+                    level: 'info',
+                    action: {
+                        type: 'open_module',
+                        module: 'orders'
+                    }
+                });
+            });
+
+            const purchaseLogs = (typeof purchaseLogState !== 'undefined' && Array.isArray(purchaseLogState.records))
+                ? purchaseLogState.records
+                : [];
+            const pendingPurchaseLogs = purchaseLogs
+                .map(record => {
+                    const meta = (typeof parsePurchaseMetaFromNotes === 'function')
+                        ? parsePurchaseMetaFromNotes(record?.notes)
+                        : {};
+                    const approval = String(meta?.['审批'] || 'approved').trim().toLowerCase();
+                    return {
+                        record,
+                        meta,
+                        approval
+                    };
+                })
+                .filter(item => item.approval === 'pending')
+                .slice(0, 10);
+
+            pendingPurchaseLogs.forEach(item => {
+                const record = item.record || {};
+                const meta = item.meta || {};
+                const purchaseNo = String(meta['采购单号'] || `CG-LOG-${record.id || '-'}`).trim();
+                const supplier = String(meta['供应商'] || '未填写供应商').trim();
+                const amount = Number(meta['总额'] || 0);
+                notices.push({
+                    key: `purchase_pending_${record.id}`,
+                    title: `采购待审批：${purchaseNo}`,
+                    subtitle: `供应商 ${supplier}，金额 ¥${Number.isFinite(amount) ? amount.toFixed(2) : '0.00'}`,
+                    level: 'warning',
+                    action: {
+                        type: 'purchase_approval',
+                        logId: record.id
+                    }
                 });
             });
 
@@ -2110,13 +2150,27 @@
             return notices;
         }
 
-        function renderHeaderNotices() {
+        async function ensureHeaderNoticeData() {
+            try {
+                const hasPurchaseLogs = (typeof purchaseLogState !== 'undefined')
+                    && Array.isArray(purchaseLogState.records)
+                    && purchaseLogState.records.length > 0;
+                if (!hasPurchaseLogs && typeof loadPurchaseRecords === 'function') {
+                    await loadPurchaseRecords(120);
+                }
+            } catch (error) {
+                console.error('[ERP Header] 通知数据预加载失败:', error);
+            }
+        }
+
+        async function renderHeaderNotices() {
             const listEl = document.getElementById('headerNoticeList');
             const badgeEl = document.getElementById('headerNoticeBadge');
             if (!listEl || !badgeEl) {
                 return;
             }
 
+            await ensureHeaderNoticeData();
             const readMap = JSON.parse(localStorage.getItem('erpHeaderNoticeReadMap') || '{}');
             const notices = getHeaderNotices();
 
@@ -2130,7 +2184,10 @@
                         <p class="erp-header-panel-title">${safeText(notice.title)}</p>
                         <p class="erp-header-panel-subtitle">${safeText(notice.subtitle)}</p>
                     </div>
-                    <button class="ant-btn" type="button" onclick="markHeaderNoticeRead('${notice.key}')">已读</button>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        ${notice.action ? `<button class="ant-btn" type="button" onclick="openHeaderNotice('${notice.key}')">处理</button>` : ''}
+                        <button class="ant-btn" type="button" onclick="markHeaderNoticeRead('${notice.key}')">已读</button>
+                    </div>
                 </li>
             `).join('');
         }
@@ -2151,6 +2208,35 @@
             localStorage.setItem('erpHeaderNoticeReadMap', JSON.stringify(readMap));
             renderHeaderNotices();
             showToast('通知已全部标记为已读', 'success');
+        }
+
+        async function openHeaderNotice(key) {
+            const notices = getHeaderNotices();
+            const notice = notices.find(item => item.key === key);
+            if (!notice) {
+                return;
+            }
+
+            markHeaderNoticeRead(key);
+            hideHeaderNoticeModal();
+
+            const action = notice.action || {};
+            if (action.type === 'purchase_approval') {
+                if (typeof openModule === 'function') {
+                    openModule('inventory');
+                }
+                if (typeof loadPurchaseRecords === 'function') {
+                    await loadPurchaseRecords(120);
+                }
+                if (typeof showPurchaseApprovalLog === 'function') {
+                    showPurchaseApprovalLog(action.logId);
+                }
+                return;
+            }
+
+            if (action.type === 'open_module' && action.module && typeof openModule === 'function') {
+                openModule(action.module);
+            }
         }
 
         function showHeaderSearchModal() {

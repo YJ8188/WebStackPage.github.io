@@ -19,6 +19,26 @@ const ERP = {
         auditLogDisabled: false
     },
 
+    orderStatusMeta: {
+        pending: { text: '待处理' },
+        confirmed: { text: '已确认' },
+        shipped: { text: '已发货' },
+        signed: { text: '已签收' },
+        completed: { text: '已完成' },
+        refunded: { text: '已退款' },
+        cancelled: { text: '已取消' }
+    },
+
+    orderStatusTransitions: {
+        pending: ['confirmed', 'cancelled'],
+        confirmed: ['shipped', 'cancelled'],
+        shipped: ['signed', 'refunded'],
+        signed: ['completed', 'refunded'],
+        completed: [],
+        refunded: [],
+        cancelled: []
+    },
+
     // ==================== 工具函数 ====================
     /**
      * 为 Promise 添加超时处理
@@ -39,6 +59,39 @@ const ERP = {
         if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent(name, { detail }));
         }
+    },
+
+    normalizeOrderStatus(status) {
+        const raw = String(status || '').trim().toLowerCase();
+        const legacyMap = {
+            processing: 'confirmed'
+        };
+        const normalized = legacyMap[raw] || raw || 'pending';
+        return Object.prototype.hasOwnProperty.call(this.orderStatusMeta, normalized) ? normalized : 'pending';
+    },
+
+    getOrderAllowedTransitions(currentStatus) {
+        const normalizedCurrent = this.normalizeOrderStatus(currentStatus);
+        return this.orderStatusTransitions[normalizedCurrent] || [];
+    },
+
+    ensureOrderStatusTransition(currentStatus, targetStatus) {
+        const from = this.normalizeOrderStatus(currentStatus);
+        const to = this.normalizeOrderStatus(targetStatus);
+
+        if (from === to) {
+            return to;
+        }
+
+        const allowed = this.getOrderAllowedTransitions(from);
+        if (!allowed.includes(to)) {
+            const fromText = this.orderStatusMeta[from]?.text || from;
+            const toText = this.orderStatusMeta[to]?.text || to;
+            const allowedText = allowed.map(item => this.orderStatusMeta[item]?.text || item).join('、') || '无';
+            throw new Error(`订单状态不允许从「${fromText}」变更为「${toText}」，允许流转：${allowedText}`);
+        }
+
+        return to;
     },
 
     isSameId(left, right) {
@@ -984,8 +1037,9 @@ const ERP = {
     async updateOrderStatus(orderId, status, paymentStatus = null) {
         try {
             const before = this.state.orders.find(o => this.isSameId(o.id, orderId)) || null;
+            const nextStatus = this.ensureOrderStatusTransition(before?.status || 'pending', status);
             const updateData = {
-                status: status
+                status: nextStatus
             };
 
             if (paymentStatus) {
@@ -1078,6 +1132,11 @@ const ERP = {
             // 计算净利润
             const netProfit = totalAmount - totalCost;
 
+            const requestedStatus = this.normalizeOrderStatus(orderData.status || 'pending');
+            if (!['pending', 'confirmed'].includes(requestedStatus)) {
+                throw new Error('新订单初始状态仅支持「待处理」或「已确认」');
+            }
+
             // 创建订单
             const { data: order, error: orderError } = await supabaseClient
                 .from('erp_orders')
@@ -1089,7 +1148,7 @@ const ERP = {
                     total_amount: totalAmount,
                     total_cost: totalCost,
                     net_profit: netProfit,
-                    status: orderData.status || 'pending',
+                    status: requestedStatus,
                     payment_status: orderData.payment_status || 'unpaid',
                     notes: orderData.notes || '',
                     shipping_company: orderData.shipping_company || null,
@@ -1311,6 +1370,7 @@ const ERP = {
             const localOrder = this.state.orders.find(o => this.isSameId(o.id, orderId)) || {};
             const before = this.sanitizeAuditData(localOrder);
             const orderNumber = localOrder.order_number || `订单#${orderId}`;
+            const nextStatus = this.ensureOrderStatusTransition(localOrder?.status || 'pending', orderData.status || 'pending');
             const totalCost = parseFloat(localOrder.total_cost || 0);
             const manualTotalAmount = parseFloat(orderData.total_amount);
             const currentAmount = parseFloat(localOrder.total_amount || 0);
@@ -1323,7 +1383,7 @@ const ERP = {
                 .from('erp_orders')
                 .update({
                     customer_id: orderData.customer_id || null,
-                    status: orderData.status || 'pending',
+                    status: nextStatus,
                     payment_status: orderData.payment_status || 'unpaid',
                     total_amount: totalAmount,
                     total_cost: totalCost,
@@ -1967,11 +2027,11 @@ const ERP = {
             }).length;
         };
 
-        const stats = {
-            customers: {
-                total: this.state.customers.length,
-                active: this.state.customers.filter(c => c.status === 'active').length,
-                inactive: this.state.customers.filter(c => c.status === 'inactive').length
+            const stats = {
+                customers: {
+                    total: this.state.customers.length,
+                    active: this.state.customers.filter(c => c.status === 'active').length,
+                    inactive: this.state.customers.filter(c => c.status === 'inactive').length
             },
             products: {
                 total: this.state.products.length,
@@ -1979,11 +2039,17 @@ const ERP = {
                 lowStock: calculateInventoryRisk(this.state.products),
                 totalValue: this.state.products.reduce((sum, p) => sum + (p.price * p.stock_quantity), 0)
             },
-            orders: {
-                total: this.state.orders.length,
-                pending: this.state.orders.filter(o => o.status === 'pending').length,
-                processing: this.state.orders.filter(o => o.status === 'processing').length,
-                completed: this.state.orders.filter(o => o.status === 'completed').length,
+                orders: {
+                    total: this.state.orders.length,
+                    pending: this.state.orders.filter(o => {
+                        const status = this.normalizeOrderStatus(o.status);
+                        return !['completed', 'refunded', 'cancelled'].includes(status);
+                    }).length,
+                    processing: this.state.orders.filter(o => {
+                        const status = this.normalizeOrderStatus(o.status);
+                        return ['confirmed', 'shipped', 'signed'].includes(status);
+                    }).length,
+                    completed: this.state.orders.filter(o => o.status === 'completed').length,
                 totalRevenue: this.state.orders
                     .filter(o => o.status === 'completed')
                     .reduce((sum, o) => sum + parseFloat(o.total_amount), 0)

@@ -849,6 +849,59 @@ const ERP_LOGISTICS_STATE = {
     cache: new Map()
 };
 
+const ERP_ORDER_STATUS_META = {
+    pending: { text: '待处理' },
+    confirmed: { text: '已确认' },
+    shipped: { text: '已发货' },
+    signed: { text: '已签收' },
+    completed: { text: '已完成' },
+    refunded: { text: '已退款' },
+    cancelled: { text: '已取消' }
+};
+
+const ERP_ORDER_STATUS_TRANSITIONS = {
+    pending: ['confirmed', 'cancelled'],
+    confirmed: ['shipped', 'cancelled'],
+    shipped: ['signed', 'refunded'],
+    signed: ['completed', 'refunded'],
+    completed: [],
+    refunded: [],
+    cancelled: []
+};
+
+function normalizeOrderStatusValue(status) {
+    const raw = String(status || '').trim().toLowerCase();
+    const legacyMap = {
+        processing: 'confirmed'
+    };
+    const normalized = legacyMap[raw] || raw || 'pending';
+    return ERP_ORDER_STATUS_META[normalized] ? normalized : 'pending';
+}
+
+function getOrderStatusTextByValue(status) {
+    const normalized = normalizeOrderStatusValue(status);
+    return ERP_ORDER_STATUS_META[normalized]?.text || '待处理';
+}
+
+function refreshOrderStatusOptions(currentStatus, isCreateMode = false) {
+    const statusSelect = document.getElementById('orderStatus');
+    if (!statusSelect) {
+        return;
+    }
+
+    const normalizedCurrent = normalizeOrderStatusValue(currentStatus);
+    const nextStatuses = ERP_ORDER_STATUS_TRANSITIONS[normalizedCurrent] || [];
+    const optionStatuses = isCreateMode
+        ? ['pending', 'confirmed']
+        : [normalizedCurrent, ...nextStatuses];
+    const uniqueStatuses = [...new Set(optionStatuses)];
+
+    statusSelect.innerHTML = uniqueStatuses.map(status => (
+        `<option value="${status}">${ERP_ORDER_STATUS_META[status]?.text || status}</option>`
+    )).join('');
+    statusSelect.value = normalizedCurrent;
+}
+
 function normalizeTrackingNumber(rawValue) {
     return String(rawValue || '').trim().replace(/\s+/g, '');
 }
@@ -1145,9 +1198,8 @@ function showOrderModal(order = null) {
         customerSelect.value = order.customer_id;
         document.getElementById('orderNotes').value = order.notes || '';
 
-        const statusSelect = document.getElementById('orderStatus');
-        const validStatus = order.status && statusSelect.querySelector(`option[value="${order.status}"]`);
-        statusSelect.value = validStatus ? order.status : 'pending';
+        const currentStatus = normalizeOrderStatusValue(order.status || 'pending');
+        refreshOrderStatusOptions(currentStatus, false);
 
         const paymentStatusSelect = document.getElementById('orderPaymentStatus');
         const validPaymentStatus = order.payment_status && paymentStatusSelect.querySelector(`option[value="${order.payment_status}"]`);
@@ -1229,7 +1281,7 @@ function showOrderModal(order = null) {
         document.getElementById('orderId').value = '';
         document.getElementById('orderItems').innerHTML = '';
         document.getElementById('orderTotalAmount').value = '';
-        document.getElementById('orderStatus').value = 'pending';
+        refreshOrderStatusOptions('pending', true);
         document.getElementById('orderPaymentStatus').value = 'unpaid';
         document.getElementById('orderShippingCompany').value = '';
         document.getElementById('orderTrackingNumber').value = '';
@@ -1903,13 +1955,7 @@ function initFinanceFilters() {
 
 // ==================== 状态文本转换 ====================
 function getOrderStatusText(status) {
-    const statusMap = {
-        'pending': '待处理',
-        'processing': '处理中',
-        'completed': '已完成',
-        'cancelled': '已取消'
-    };
-    return statusMap[status] || status;
+    return getOrderStatusTextByValue(status);
 }
 
 function getPaymentStatusText(status) {

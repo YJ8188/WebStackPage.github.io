@@ -911,8 +911,11 @@
                             <label>状态</label>
                             <select id="orderStatus" class="ant-select" style="width: 100%;">
                                 <option value="pending">待处理</option>
-                                <option value="processing">处理中</option>
+                                <option value="confirmed">已确认</option>
+                                <option value="shipped">已发货</option>
+                                <option value="signed">已签收</option>
                                 <option value="completed">已完成</option>
+                                <option value="refunded">已退款</option>
                                 <option value="cancelled">已取消</option>
                             </select>
                         </div>
@@ -1166,8 +1169,8 @@
     <script src="assets/js/supabase.min.js"></script>
     <script src="assets/js/supabase-config.js?v=20260212-14"></script>
     <script src="assets/js/user-data.js?v=20260214-20"></script>
-    <script src="assets/js/erp.js?v=20260214-17"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260216-7"></script>
+    <script src="assets/js/erp.js?v=20260216-18"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260216-9"></script>
     <script src="assets/js/pwa-register.js?v=20260216-1" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->
@@ -1583,11 +1586,18 @@
         function getOrderStatusText(status) {
             const statusMap = {
                 'pending': '待处理',
-                'processing': '处理中',
+                'confirmed': '已确认',
+                'shipped': '已发货',
+                'signed': '已签收',
                 'completed': '已完成',
+                'refunded': '已退款',
                 'cancelled': '已取消'
             };
-            return statusMap[status] || '待处理';
+            const legacyMap = {
+                'processing': 'confirmed'
+            };
+            const normalized = legacyMap[status] || status;
+            return statusMap[normalized] || '待处理';
         }
 
         // Helper: Payment Status Text
@@ -1657,33 +1667,51 @@
         function getOrderStatusColor(status) {
             const colorMap = {
                 'pending': '#faad14',
-                'processing': '#1890ff',
+                'confirmed': '#1890ff',
+                'shipped': '#13c2c2',
+                'signed': '#52c41a',
                 'completed': '#52c41a',
+                'refunded': '#722ed1',
                 'cancelled': '#999'
             };
-            return colorMap[status] || '#999';
+            const legacyMap = {
+                'processing': 'confirmed'
+            };
+            return colorMap[legacyMap[status] || status] || '#999';
         }
 
         // Helper: Order Status Background
         function getOrderStatusBg(status) {
             const bgMap = {
                 'pending': '#fffbe6',
-                'processing': '#e6f7ff',
+                'confirmed': '#e6f7ff',
+                'shipped': '#e6fffb',
+                'signed': '#f6ffed',
                 'completed': '#f6ffed',
+                'refunded': '#f9f0ff',
                 'cancelled': '#f5f5f5'
             };
-            return bgMap[status] || '#f5f5f5';
+            const legacyMap = {
+                'processing': 'confirmed'
+            };
+            return bgMap[legacyMap[status] || status] || '#f5f5f5';
         }
 
         // Helper: Order Status Border
         function getOrderStatusBorder(status) {
             const borderMap = {
                 'pending': '#ffe58f',
-                'processing': '#91d5ff',
+                'confirmed': '#91d5ff',
+                'shipped': '#87e8de',
+                'signed': '#b7eb8f',
                 'completed': '#b7eb8f',
+                'refunded': '#d3adf7',
                 'cancelled': '#d9d9d9'
             };
-            return borderMap[status] || '#d9d9d9';
+            const legacyMap = {
+                'processing': 'confirmed'
+            };
+            return borderMap[legacyMap[status] || status] || '#d9d9d9';
         }
 
         // Helper: Payment Status Color

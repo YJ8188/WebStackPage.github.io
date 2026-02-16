@@ -653,6 +653,7 @@ function updateStatistics(data) {
     renderDashboardSupplierReconciliation();
     renderDashboardRestockRecommendations();
     renderDashboardGrossMarginAlerts();
+    renderDashboardRiskApprovals();
 }
 
 // ==================== 单位转换 ====================
@@ -5583,6 +5584,118 @@ async function renderDashboardGrossMarginAlerts() {
                 <span class="ant-tag" style="margin:0;">成本缺失 ${stats.summary.missingCostCount}</span>
             </div>
             ${rowsHtml || '<div style="font-size:12px;color:#8c8c8c;">暂无毛利异常订单</div>'}
+        </div>
+    `;
+}
+
+function extractRiskApprovalReasonFromNotes(notes = '') {
+    const text = String(notes || '');
+    const match = text.match(/\[风控审批\]\s*(.*)/);
+    if (!match) {
+        return '';
+    }
+    return String(match[1] || '').trim();
+}
+
+function calculateOrderRiskApprovalLedger(orders = [], customers = []) {
+    const customerMap = new Map(
+        (Array.isArray(customers) ? customers : []).map(item => [String(item?.id || ''), item])
+    );
+
+    const rows = [];
+    (Array.isArray(orders) ? orders : []).forEach(order => {
+        const status = normalizeOrderStatusValue(order?.status || '');
+        if (status === 'cancelled' || status === 'refunded') {
+            return;
+        }
+
+        const orderItems = Array.isArray(order?.items) ? order.items : [];
+        const totalAmount = Number(order?.total_amount || 0);
+        const analysis = buildOrderRiskAnalysis(orderItems, totalAmount);
+        const approvalReason = extractRiskApprovalReasonFromNotes(order?.notes || '');
+        const shouldRecord = analysis.riskRank >= 3 || !!approvalReason;
+        if (!shouldRecord) {
+            return;
+        }
+
+        const alertsText = (analysis.alerts || []).map(alert => String(alert?.title || '')).filter(Boolean).join('、');
+        const customer = customerMap.get(String(order?.customer_id || ''));
+        const orderDate = parseERPDate(order?.order_date || new Date());
+
+        rows.push({
+            id: order?.id,
+            orderNumber: order?.order_number || `订单#${order?.id || '-'}`,
+            customerName: customer?.name || order?.customer_name || '-',
+            orderDate,
+            amount: totalAmount,
+            grossProfit: Number(analysis?.grossProfit || 0),
+            grossMargin: Number(analysis?.grossMargin || 0),
+            riskRank: Number(analysis?.riskRank || 0),
+            approvalReason,
+            alertsText: alertsText || '高风险订单'
+        });
+    });
+
+    rows.sort((left, right) => {
+        const rankDiff = Number(right.riskRank || 0) - Number(left.riskRank || 0);
+        if (rankDiff !== 0) return rankDiff;
+        const rightDate = right.orderDate instanceof Date ? right.orderDate.getTime() : 0;
+        const leftDate = left.orderDate instanceof Date ? left.orderDate.getTime() : 0;
+        return rightDate - leftDate;
+    });
+
+    const missingReasonCount = rows.filter(item => !String(item.approvalReason || '').trim()).length;
+    return {
+        rows,
+        total: rows.length,
+        missingReasonCount,
+        completedReasonCount: rows.length - missingReasonCount
+    };
+}
+
+function renderDashboardRiskApprovals() {
+    const container = document.getElementById('dashboardRiskApprovals');
+    if (!container || !window.ERP) {
+        return;
+    }
+
+    const orders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
+    const customers = Array.isArray(ERP.state?.customers) ? ERP.state.customers : [];
+    const ledger = calculateOrderRiskApprovalLedger(orders, customers);
+
+    const rowsHtml = ledger.rows.slice(0, 10).map((item, index) => {
+        const rankColor = item.riskRank >= 4 ? '#cf1322' : '#d46b08';
+        const marginText = `${(Number(item.grossMargin || 0) * 100).toFixed(1)}%`;
+        const reasonText = String(item.approvalReason || '').trim() || '未填写审批原因';
+        const reasonColor = item.approvalReason ? '#262626' : '#cf1322';
+        const orderDateText = item.orderDate instanceof Date ? item.orderDate.toLocaleDateString() : '-';
+        return `
+            <div style="padding:8px 0;border-bottom:1px dashed #f0f0f0;">
+                <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
+                    <span style="font-size:12px;color:#262626;">${index + 1}. ${escapeHtmlText(item.orderNumber)} / ${escapeHtmlText(item.customerName)}</span>
+                    <span style="font-size:12px;color:${rankColor};">风险${item.riskRank}级</span>
+                </div>
+                <div style="font-size:12px;color:#8c8c8c;margin-top:2px;">
+                    ${orderDateText} · 金额 ${formatCurrency(item.amount)} · 毛利 ${formatCurrency(item.grossProfit)}（${marginText}） · ${escapeHtmlText(item.alertsText)}
+                </div>
+                <div style="font-size:12px;color:${reasonColor};margin-top:2px;">
+                    审批原因：${escapeHtmlText(reasonText)}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <div style="flex:1;min-width:320px;padding:12px 14px;border:1px solid #ffd591;border-radius:8px;background:#fffbe6;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div style="font-size:14px;font-weight:600;color:#ad6800;">风控审批台账</div>
+                <div style="font-size:12px;color:#8c8c8c;">高风险 ${ledger.total} 单</div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;margin-bottom:8px;">
+                <span class="ant-tag" style="margin:0;">已填审批 ${ledger.completedReasonCount}</span>
+                <span class="ant-tag" style="margin:0;color:#cf1322;border-color:#ffa39e;background:#fff1f0;">缺失审批 ${ledger.missingReasonCount}</span>
+            </div>
+            ${rowsHtml || '<div style="font-size:12px;color:#8c8c8c;">暂无高风险订单台账</div>'}
         </div>
     `;
 }

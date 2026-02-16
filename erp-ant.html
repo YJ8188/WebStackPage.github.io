@@ -759,6 +759,9 @@
                             <div id="financeAgingSummary" class="ant-row"
                                 style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom: 16px;"></div>
 
+                            <div id="financeTrendSummary" class="ant-row"
+                                style="margin-bottom: 16px;"></div>
+
                             <div class="ant-table-wrapper">
                                 <div class="ant-table">
                                     <table>
@@ -1279,8 +1282,8 @@
     <script src="assets/js/supabase.min.js"></script>
     <script src="assets/js/supabase-config.js?v=20260212-14"></script>
     <script src="assets/js/user-data.js?v=20260214-20"></script>
-    <script src="assets/js/erp.js?v=20260216-24"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260216-14"></script>
+    <script src="assets/js/erp.js?v=20260216-25"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260216-15"></script>
     <script src="assets/js/pwa-register.js?v=20260216-1" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->
@@ -1709,6 +1712,10 @@
                         });
                     })()}</td>
                     <td>
+                        ${typeof isPayableFinanceRecord === 'function' && isPayableFinanceRecord(f)
+                            ? `<button class="ant-btn" onclick='markPayableAsPaid(${JSON.stringify(f.id)})' style="color:#237804; border-color:#b7eb8f; margin-right:8px;">结清</button>`
+                            : ''
+                        }
                         <button class="ant-btn" onclick='deleteFinance(${JSON.stringify(f.id)})' style="color:#ff4d4f; border-color:#ff4d4f;">删除</button>
                     </td>
                 </tr>
@@ -1911,6 +1918,9 @@
             document.getElementById('netIncome').innerText = '¥' + ((systemProfit !== 0 ? systemProfit : (income - expense)).toFixed(2));
             if (typeof renderFinanceAgingSummary === 'function') {
                 renderFinanceAgingSummary();
+            }
+            if (typeof renderFinanceTrendSummary === 'function') {
+                renderFinanceTrendSummary(data);
             }
         }
 

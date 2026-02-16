@@ -2456,6 +2456,78 @@ const ERP = {
         }
     },
 
+    async settlePayableFinance(financeId, options = {}) {
+        try {
+            const before = this.state.finances.find(item => this.isSameId(item.id, financeId)) || null;
+            if (!before) {
+                throw new Error('未找到应付账款记录');
+            }
+
+            const categoryText = String(before.category || '');
+            if (!categoryText.includes('应付账款')) {
+                throw new Error('该记录不是应付账款，无法结清');
+            }
+
+            const settleDate = options?.settleDate || new Date().toISOString();
+            const settleNote = String(options?.note || '').trim();
+            const payableAmount = Math.abs(parseFloat(before.amount) || 0);
+            const beforeDescription = String(before.description || '').trim();
+            const settleDescription = [
+                beforeDescription || '采购应付账款结清',
+                settleNote ? `结清备注：${settleNote}` : '',
+                `结清时间：${settleDate}`
+            ].filter(Boolean).join('；');
+
+            const { data, error } = await supabaseClient
+                .from('erp_finances')
+                .update({
+                    type: 'expense',
+                    category: '采购付款',
+                    amount: payableAmount,
+                    description: settleDescription,
+                    transaction_date: settleDate
+                })
+                .eq('id', financeId)
+                .eq('user_id', userData.user.id)
+                .select()
+                .single();
+
+            if (error) {
+                throw error;
+            }
+
+            const index = this.state.finances.findIndex(item => this.isSameId(item.id, financeId));
+            if (index >= 0) {
+                this.state.finances[index] = data;
+            }
+
+            this.emitEvent('erpFinanceChanged', { financeId, action: 'payable-settled', record: data });
+            this.logAudit({
+                module: 'finance',
+                action: 'settle_payable',
+                entityType: 'finance',
+                entityId: financeId,
+                entityName: '采购付款',
+                details: {
+                    before,
+                    after: data
+                }
+            });
+
+            if (typeof showToast === 'function') {
+                showToast('应付账款已结清', 'success');
+            }
+
+            return data;
+        } catch (error) {
+            console.error('[ERP] 结清应付账款失败:', error);
+            if (typeof showToast === 'function') {
+                showToast('结清失败: ' + (error?.message || '未知错误'), 'error');
+            }
+            return null;
+        }
+    },
+
     async deleteFinance(financeId) {
         try {
             const removedFinance = this.state.finances.find(f => this.isSameId(f.id, financeId)) || null;

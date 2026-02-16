@@ -493,6 +493,7 @@ function updateStatistics(data) {
     const currentOrders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
     renderOrderWorkflowSummary(currentOrders, getFilteredOrdersForView());
     renderFinanceAgingSummary();
+    renderFinanceTrendSummary();
 }
 
 // ==================== 单位转换 ====================
@@ -2931,6 +2932,163 @@ function renderFinanceAgingSummary() {
         ${renderAgingCard('应收账龄（未回款订单）', receivable, 'normal')}
         ${renderAgingCard('应付账龄（待付款采购）', payable, 'warn')}
     `;
+}
+
+function buildFinanceTrendRows(finances, days = 30) {
+    const safeDays = Math.max(1, parseInt(days, 10) || 30);
+    const now = new Date();
+    const dayRows = [];
+    const dayMap = new Map();
+
+    for (let offset = safeDays - 1; offset >= 0; offset -= 1) {
+        const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset);
+        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        const row = { key, label: `${date.getMonth() + 1}/${date.getDate()}`, income: 0, expense: 0, net: 0 };
+        dayRows.push(row);
+        dayMap.set(key, row);
+    }
+
+    (Array.isArray(finances) ? finances : []).forEach(item => {
+        const date = parseFinanceDate(item?.transaction_date);
+        if (!date) {
+            return;
+        }
+        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        const row = dayMap.get(key);
+        if (!row) {
+            return;
+        }
+
+        const amount = Math.abs(Number(item?.amount || 0));
+        if (!Number.isFinite(amount)) {
+            return;
+        }
+        const type = String(item?.type || '');
+        if (type === 'income') {
+            row.income += amount;
+        } else if (type === 'expense') {
+            row.expense += amount;
+        }
+        row.net = row.income - row.expense;
+    });
+
+    return dayRows;
+}
+
+function calcFinanceSummaryFromRows(rows) {
+    return rows.reduce((acc, row) => {
+        acc.income += Number(row?.income || 0);
+        acc.expense += Number(row?.expense || 0);
+        return acc;
+    }, { income: 0, expense: 0, net: 0 });
+}
+
+function renderFinanceTrendSummary(finances = null) {
+    const container = document.getElementById('financeTrendSummary');
+    if (!container) {
+        return;
+    }
+
+    const source = Array.isArray(finances) ? finances : (Array.isArray(ERP.state?.finances) ? ERP.state.finances : []);
+    const rows30 = buildFinanceTrendRows(source, 30);
+    const rows7 = rows30.slice(-7);
+    const rows1 = rows30.slice(-1);
+
+    const summary1 = calcFinanceSummaryFromRows(rows1);
+    summary1.net = summary1.income - summary1.expense;
+    const summary7 = calcFinanceSummaryFromRows(rows7);
+    summary7.net = summary7.income - summary7.expense;
+    const summary30 = calcFinanceSummaryFromRows(rows30);
+    summary30.net = summary30.income - summary30.expense;
+
+    const maxDaily = Math.max(
+        1,
+        ...rows7.map(row => Math.max(row.income, row.expense))
+    );
+
+    const barsHtml = rows7.map(row => {
+        const incomeWidth = Math.round((row.income / maxDaily) * 100);
+        const expenseWidth = Math.round((row.expense / maxDaily) * 100);
+        return `
+            <div style="margin-bottom:8px;">
+                <div style="display:flex;justify-content:space-between;font-size:12px;color:#595959;">
+                    <span>${row.label}</span>
+                    <span>净额 ${formatCurrency(row.net)}</span>
+                </div>
+                <div style="display:flex;gap:6px;margin-top:4px;">
+                    <div style="height:8px;background:#ffd6e7;border-radius:999px;width:${incomeWidth}%;min-width:${row.income > 0 ? '10px' : '0'};" title="收入 ${formatCurrency(row.income)}"></div>
+                    <div style="height:8px;background:#d9f7be;border-radius:999px;width:${expenseWidth}%;min-width:${row.expense > 0 ? '10px' : '0'};" title="支出 ${formatCurrency(row.expense)}"></div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <div style="display:flex;flex-wrap:wrap;gap:12px;">
+            <div style="flex:1;min-width:180px;padding:10px 12px;border:1px solid #ffd6e7;border-radius:8px;background:#fff1f8;">
+                <div style="font-size:12px;color:#8c8c8c;">今日净额</div>
+                <div style="font-size:18px;font-weight:600;color:#cf1322;">${formatCurrency(summary1.net)}</div>
+                <div style="font-size:12px;color:#8c8c8c;">收 ${formatCurrency(summary1.income)} / 支 ${formatCurrency(summary1.expense)}</div>
+            </div>
+            <div style="flex:1;min-width:180px;padding:10px 12px;border:1px solid #d6e4ff;border-radius:8px;background:#f0f5ff;">
+                <div style="font-size:12px;color:#8c8c8c;">近7天净额</div>
+                <div style="font-size:18px;font-weight:600;color:#1d39c4;">${formatCurrency(summary7.net)}</div>
+                <div style="font-size:12px;color:#8c8c8c;">收 ${formatCurrency(summary7.income)} / 支 ${formatCurrency(summary7.expense)}</div>
+            </div>
+            <div style="flex:1;min-width:180px;padding:10px 12px;border:1px solid #d9f7be;border-radius:8px;background:#f6ffed;">
+                <div style="font-size:12px;color:#8c8c8c;">近30天净额</div>
+                <div style="font-size:18px;font-weight:600;color:#237804;">${formatCurrency(summary30.net)}</div>
+                <div style="font-size:12px;color:#8c8c8c;">收 ${formatCurrency(summary30.income)} / 支 ${formatCurrency(summary30.expense)}</div>
+            </div>
+        </div>
+        <div style="margin-top:10px;padding:10px;border:1px solid #f0f0f0;border-radius:8px;background:#fff;">
+            <div style="font-size:13px;font-weight:500;color:#262626;margin-bottom:8px;">近7天收支趋势（粉=收入，绿=支出）</div>
+            ${barsHtml || '<div style="font-size:12px;color:#999;">暂无数据</div>'}
+        </div>
+    `;
+}
+
+function isPayableFinanceRecord(finance) {
+    const category = String(finance?.category || '');
+    if (!category.includes('应付账款')) {
+        return false;
+    }
+    return Number(finance?.amount || 0) > 0;
+}
+
+async function markPayableAsPaid(financeId) {
+    if (!window.ERP || typeof ERP.settlePayableFinance !== 'function') {
+        alert('当前版本不支持该操作，请刷新后重试');
+        return;
+    }
+
+    const current = (ERP.state?.finances || []).find(item => String(item?.id) === String(financeId)) || null;
+    if (!current) {
+        alert('未找到应付记录，请刷新重试');
+        return;
+    }
+
+    const amount = Math.abs(Number(current?.amount || 0));
+    const confirmText = `确认将该应付账款结清吗？\n金额：${formatCurrency(amount)}`;
+    if (!confirm(confirmText)) {
+        return;
+    }
+
+    const note = prompt('可选：填写结清备注（可留空）', '') || '';
+    const result = await ERP.settlePayableFinance(financeId, {
+        settleDate: new Date().toISOString(),
+        note
+    });
+
+    if (!result) {
+        return;
+    }
+
+    const finances = await ERP.loadFinances(true);
+    if (typeof renderFinances === 'function') {
+        renderFinances(finances);
+    }
+    updateStatistics();
 }
 
 function downloadJsonFile(fileName, data) {

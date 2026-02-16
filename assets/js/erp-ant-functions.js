@@ -969,7 +969,6 @@ async function queryOrderLogisticsByForm(options = {}) {
     const trackingInput = document.getElementById('orderTrackingNumber');
     const trackingParamInput = document.getElementById('orderTrackingParam');
     const queryBtn = document.getElementById('orderTrackingQueryBtn');
-    const shippingInfoEl = document.getElementById('orderShippingInfo');
 
     if (!trackingInput) {
         return;
@@ -1006,12 +1005,6 @@ async function queryOrderLogisticsByForm(options = {}) {
         const latestStatusText = String(result.latestStatusText || result.latestStatusCode || '已同步');
         const providerText = String(result.providerName || '17TRACK');
         setOrderLogisticsStatus(`最新状态：${latestStatusText}（${providerText}）`);
-
-        const latestEvent = result.latestEvent || timeline[0] || null;
-        if (shippingInfoEl && latestEvent) {
-            const latestPieces = [latestEvent.status, latestEvent.description, latestEvent.location].filter(Boolean);
-            shippingInfoEl.value = latestPieces.join(' | ');
-        }
     } catch (error) {
         const message = String(error?.message || error || '物流查询失败');
         setOrderLogisticsStatus(`物流查询失败：${message}`, true);
@@ -1073,7 +1066,6 @@ function showOrderModal(order = null) {
         if (trackingParamInput) {
             trackingParamInput.value = '';
         }
-        document.getElementById('orderShippingInfo').value = order.shipping_info || order.shippingInfo || '';
 
         // 发货状态
         const shippingStatusSelect = document.getElementById('orderShippingStatus');
@@ -1153,7 +1145,6 @@ function showOrderModal(order = null) {
         if (trackingParamInput) {
             trackingParamInput.value = '';
         }
-        document.getElementById('orderShippingInfo').value = '';
     }
 
     resetOrderLogisticsPanel();

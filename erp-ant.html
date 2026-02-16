@@ -702,6 +702,7 @@
                                                 <th>类型</th>
                                                 <th>分类</th>
                                                 <th>金额</th>
+                                                <th>关联订单</th>
                                                 <th>描述</th>
                                                 <th>交易时间</th>
                                                 <th>操作</th>
@@ -1169,8 +1170,8 @@
     <script src="assets/js/supabase.min.js"></script>
     <script src="assets/js/supabase-config.js?v=20260212-14"></script>
     <script src="assets/js/user-data.js?v=20260214-20"></script>
-    <script src="assets/js/erp.js?v=20260216-18"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260216-9"></script>
+    <script src="assets/js/erp.js?v=20260216-19"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260216-10"></script>
     <script src="assets/js/pwa-register.js?v=20260216-1" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->
@@ -1470,7 +1471,7 @@
             updateFinanceSummary(data);
 
             if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#999;">暂无数据</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px; color:#999;">暂无数据</td></tr>';
                 return;
             }
 
@@ -1508,26 +1509,45 @@
                 return String(right.id || '').localeCompare(String(left.id || ''));
             });
 
+            const orders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
+            const customers = Array.isArray(ERP.state?.customers) ? ERP.state.customers : [];
+            const products = Array.isArray(ERP.state?.products) ? ERP.state.products : [];
+            const orderMap = new Map(orders.map(item => [String(item?.id), item]));
+            const customerMap = new Map(customers.map(item => [String(item?.id), item]));
+
+            const resolveFinanceOrderInfo = (finance) => {
+                const linkedOrderId = finance?.order_id || finance?.reference_id;
+                if (!linkedOrderId) {
+                    return '-';
+                }
+
+                const order = orderMap.get(String(linkedOrderId));
+                if (!order) {
+                    return `订单#${linkedOrderId}`;
+                }
+
+                const customer = customerMap.get(String(order.customer_id));
+                const customerName = customer?.name || '未知客户';
+                const orderNumber = order.order_number || `订单#${order.id}`;
+                return `${orderNumber}<br><span style="color:#8c8c8c;">客户：${customerName}</span>`;
+            };
+
             const resolveFinanceDescription = (finance) => {
                 if (finance?.description) {
                     return finance.description;
                 }
 
                 const linkedOrderId = finance?.reference_id || finance?.order_id;
-                if (!linkedOrderId || !window.ERP) {
+                if (!linkedOrderId) {
                     return linkedOrderId ? `关联订单#${linkedOrderId}` : '-';
                 }
 
-                const orders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
-                const customers = Array.isArray(ERP.state?.customers) ? ERP.state.customers : [];
-                const products = Array.isArray(ERP.state?.products) ? ERP.state.products : [];
-
-                const order = orders.find(item => String(item?.id) === String(linkedOrderId));
+                const order = orderMap.get(String(linkedOrderId));
                 if (!order) {
                     return `关联订单#${linkedOrderId}`;
                 }
 
-                const customer = customers.find(item => String(item?.id) === String(order.customer_id));
+                const customer = customerMap.get(String(order.customer_id));
                 const customerName = customer?.name || '未知客户';
                 const orderNumber = order.order_number || `订单#${order.id}`;
 
@@ -1551,6 +1571,7 @@
                     <td>${f.type === 'income' ? '收入' : (f.type === 'expense' ? '支出' : '系统')}</td>
                     <td>${f.category || '-'}</td>
                     <td style="font-weight:bold; color: ${f.type === 'income' ? '#cf1322' : (f.type === 'expense' ? '#3f8600' : '#2563eb')}">${f.type === 'income' ? '+' : (f.type === 'expense' ? '-' : (parseFloat(f.amount) >= 0 ? '+' : '-'))}¥${Math.abs(parseFloat(f.amount)).toFixed(2)}</td>
+                    <td>${resolveFinanceOrderInfo(f)}</td>
                     <td>${resolveFinanceDescription(f)}</td>
                     <td>${(() => {
                         const date = new Date(f.transaction_date);

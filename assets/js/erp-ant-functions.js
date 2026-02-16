@@ -1864,17 +1864,28 @@ function applyFinanceFilters() {
         endDate = range.end;
     }
 
+    const orders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
+    const customers = Array.isArray(ERP.state?.customers) ? ERP.state.customers : [];
+    const orderMap = new Map(orders.map(item => [String(item?.id), item]));
+    const customerMap = new Map(customers.map(item => [String(item?.id), item]));
+
     const filtered = (ERP.state.finances || []).filter(finance => {
         const targetDate = parseFinanceDate(finance?.transaction_date);
         if ((startDate || endDate) && !targetDate) {
             return false;
         }
 
+        const linkedOrderId = finance?.order_id || finance?.reference_id;
+        const linkedOrder = linkedOrderId ? orderMap.get(String(linkedOrderId)) : null;
+        const linkedCustomer = linkedOrder ? customerMap.get(String(linkedOrder.customer_id)) : null;
+
         const keywordSource = [
             finance?.description,
             finance?.category,
             finance?.reference_id,
-            finance?.order_id
+            finance?.order_id,
+            linkedOrder?.order_number,
+            linkedCustomer?.name
         ]
             .map(item => String(item || '').toLowerCase())
             .join(' ');

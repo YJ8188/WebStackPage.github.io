@@ -1408,7 +1408,16 @@ const ERP = {
                 this.state.orders[index] = { ...this.state.orders[index], ...data };
             }
 
-            await this.syncOrderFinanceRecords(orderId, orderNumber, totalAmount, totalCost, netProfit);
+            const orderIndex = this.state.orders.findIndex(o => this.isSameId(o.id, orderId));
+            if (orderIndex !== -1 && Array.isArray(orderData.items) && orderData.items.length > 0) {
+                this.state.orders[orderIndex].items = orderData.items.map(item => ({ ...item }));
+            }
+
+            await this.syncOrderFinanceRecords(orderId, orderNumber, totalAmount, totalCost, netProfit, {
+                customer_id: orderData.customer_id || data?.customer_id || localOrder?.customer_id || null,
+                customer_name: orderData.customer_name || '',
+                items: Array.isArray(orderData.items) ? orderData.items : []
+            });
             this.logAudit({
                 module: 'orders',
                 action: 'update',
@@ -1843,7 +1852,10 @@ const ERP = {
             items,
             totalAmount,
             totalCost,
-            netProfit
+            netProfit,
+            {
+                customerName: String(order?.customer_name || '').trim()
+            }
         );
 
         const { data: existingRows, error } = await supabaseClient
@@ -1889,15 +1901,31 @@ const ERP = {
         }
     },
 
-    async syncOrderFinanceRecords(orderId, orderNumber, totalAmount, totalCost, netProfit) {
+    async syncOrderFinanceRecords(orderId, orderNumber, totalAmount, totalCost, netProfit, context = {}) {
         const localOrder = this.state.orders.find(order => this.isSameId(order.id, orderId)) || {};
+        let customerId = context?.customer_id || localOrder.customer_id || null;
+        let items = Array.isArray(context?.items) && context.items.length > 0
+            ? context.items
+            : (Array.isArray(localOrder.items) ? localOrder.items : []);
+
+        if (items.length === 0 || !customerId) {
+            const detail = await this.loadOrderDetail(orderId);
+            if (detail) {
+                customerId = customerId || detail.customer_id || null;
+                items = items.length > 0 ? items : (Array.isArray(detail.items) ? detail.items : []);
+            }
+        }
+
         const { incomeDescription, costDescription, profitDescription } = this.buildOrderFinanceDescriptions(
             orderNumber,
-            localOrder.customer_id,
-            localOrder.items || [],
+            customerId,
+            items,
             totalAmount,
             totalCost,
-            netProfit
+            netProfit,
+            {
+                customerName: String(context?.customer_name || '').trim()
+            }
         );
 
         const { data: rows, error } = await supabaseClient
@@ -1944,12 +1972,12 @@ const ERP = {
         }
 
         await this.ensureOrderFinanceRecords(
-            { id: orderId, customer_id: localOrder.customer_id },
+            { id: orderId, customer_id: customerId, customer_name: context?.customer_name || '' },
             orderNumber,
             totalAmount,
             totalCost,
             netProfit,
-            localOrder.items || []
+            items
         );
     },
 

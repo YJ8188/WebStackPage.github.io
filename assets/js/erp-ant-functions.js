@@ -76,6 +76,13 @@ const dashboardItemCacheState = {
     pendingKey: '',
     pendingPromise: null
 };
+const dashboardOrderStatusLogCacheState = {
+    orderIdsKey: '',
+    rows: [],
+    loadedAt: 0,
+    pendingKey: '',
+    pendingPromise: null
+};
 
 function resetDashboardItemCache() {
     dashboardItemCacheState.orderIdsKey = '';
@@ -83,6 +90,12 @@ function resetDashboardItemCache() {
     dashboardItemCacheState.loadedAt = 0;
     dashboardItemCacheState.pendingKey = '';
     dashboardItemCacheState.pendingPromise = null;
+
+    dashboardOrderStatusLogCacheState.orderIdsKey = '';
+    dashboardOrderStatusLogCacheState.rows = [];
+    dashboardOrderStatusLogCacheState.loadedAt = 0;
+    dashboardOrderStatusLogCacheState.pendingKey = '';
+    dashboardOrderStatusLogCacheState.pendingPromise = null;
 }
 
 function escapeCsvCell(value) {
@@ -619,11 +632,13 @@ function updateStatistics(data) {
     renderFinanceRiskAlerts();
     renderDashboardBusinessCards();
     renderDashboardSalesFunnel();
+    renderDashboardDeliveryPerformance();
     renderDashboardCustomerInsights();
     renderDashboardCustomerRiskAlerts();
     renderDashboardTopProducts();
     renderDashboardProfitProducts();
     renderDashboardCustomerLifecycle();
+    renderDashboardCustomerRfm();
 }
 
 // ==================== 单位转换 ====================
@@ -3425,6 +3440,274 @@ function renderDashboardSalesFunnel() {
     `;
 }
 
+function parseAuditDetailObject(rawDetails) {
+    if (window.ERP && typeof ERP.parseAuditDetails === 'function') {
+        return ERP.parseAuditDetails(rawDetails);
+    }
+
+    if (rawDetails && typeof rawDetails === 'object') {
+        return rawDetails;
+    }
+
+    if (typeof rawDetails === 'string') {
+        try {
+            return JSON.parse(rawDetails);
+        } catch (error) {
+            return {};
+        }
+    }
+
+    return {};
+}
+
+function normalizeAuditOrderStatus(value) {
+    const raw = String(value || '').trim().toLowerCase();
+    if (!raw) {
+        return '';
+    }
+    if (window.ERP && typeof ERP.normalizeOrderStatus === 'function') {
+        return ERP.normalizeOrderStatus(raw);
+    }
+    return normalizeOrderStatusValue(raw);
+}
+
+async function loadDashboardOrderStatusLogs(orderRows = []) {
+    const orders = Array.isArray(orderRows) ? orderRows : [];
+    const orderIds = orders
+        .map(item => item?.id)
+        .filter(id => id !== null && id !== undefined && String(id).trim() !== '');
+    if (!orderIds.length || !window.supabaseClient || !userData?.user?.id) {
+        dashboardOrderStatusLogCacheState.orderIdsKey = '';
+        dashboardOrderStatusLogCacheState.rows = [];
+        dashboardOrderStatusLogCacheState.loadedAt = Date.now();
+        return [];
+    }
+
+    const key = orderIds.map(id => String(id)).sort().join(',');
+    const now = Date.now();
+    if (
+        dashboardOrderStatusLogCacheState.orderIdsKey === key
+        && Array.isArray(dashboardOrderStatusLogCacheState.rows)
+        && (now - Number(dashboardOrderStatusLogCacheState.loadedAt || 0)) < 20000
+    ) {
+        return dashboardOrderStatusLogCacheState.rows;
+    }
+
+    if (dashboardOrderStatusLogCacheState.pendingPromise && dashboardOrderStatusLogCacheState.pendingKey === key) {
+        return dashboardOrderStatusLogCacheState.pendingPromise;
+    }
+
+    const orderIdSet = new Set(orderIds.map(id => String(id)));
+    const fetchPromise = (async () => {
+        try {
+            const { data, error } = await window.supabaseClient
+                .from('erp_audit_logs')
+                .select('entity_id, details, created_at, action, module, user_id, description')
+                .eq('user_id', userData.user.id)
+                .eq('module', 'orders')
+                .eq('action', 'update_status')
+                .order('created_at', { ascending: true })
+                .limit(1500);
+
+            if (error) {
+                throw error;
+            }
+
+            const rows = (Array.isArray(data) ? data : [])
+                .map(row => {
+                    const details = parseAuditDetailObject(row?.details);
+                    const orderId = row?.entity_id ?? details?.order_id ?? details?.before?.id ?? details?.after?.id ?? null;
+                    if (orderId === null || orderId === undefined || !orderIdSet.has(String(orderId))) {
+                        return null;
+                    }
+
+                    const toStatus = normalizeAuditOrderStatus(details?.after?.status || details?.to_status || row?.to_status || '');
+                    const fromStatus = normalizeAuditOrderStatus(details?.before?.status || details?.from_status || row?.from_status || '');
+                    const createdAt = parseFinanceDate(row?.created_at || row?.updated_at || '');
+                    if (!createdAt || !toStatus) {
+                        return null;
+                    }
+                    return {
+                        orderId: String(orderId),
+                        toStatus,
+                        fromStatus,
+                        createdAt
+                    };
+                })
+                .filter(Boolean);
+
+            dashboardOrderStatusLogCacheState.orderIdsKey = key;
+            dashboardOrderStatusLogCacheState.rows = rows;
+            dashboardOrderStatusLogCacheState.loadedAt = now;
+            return rows;
+        } catch (error) {
+            console.error('[ERP] 首页交付时效日志加载失败:', error?.message || error);
+            dashboardOrderStatusLogCacheState.orderIdsKey = key;
+            dashboardOrderStatusLogCacheState.rows = [];
+            dashboardOrderStatusLogCacheState.loadedAt = now;
+            return [];
+        }
+    })();
+
+    dashboardOrderStatusLogCacheState.pendingKey = key;
+    dashboardOrderStatusLogCacheState.pendingPromise = fetchPromise;
+    try {
+        return await fetchPromise;
+    } finally {
+        if (dashboardOrderStatusLogCacheState.pendingPromise === fetchPromise) {
+            dashboardOrderStatusLogCacheState.pendingPromise = null;
+            dashboardOrderStatusLogCacheState.pendingKey = '';
+        }
+    }
+}
+
+function calculateOrderDeliveryPerformance(orders = [], logs = []) {
+    const validOrders = (Array.isArray(orders) ? orders : []).filter(order => {
+        const status = normalizeOrderStatusValue(order?.status || '');
+        return status !== 'cancelled' && status !== 'refunded';
+    });
+
+    const logMap = new Map();
+    (Array.isArray(logs) ? logs : []).forEach(log => {
+        const key = String(log?.orderId || '');
+        if (!key) {
+            return;
+        }
+        if (!logMap.has(key)) {
+            logMap.set(key, []);
+        }
+        logMap.get(key).push(log);
+    });
+
+    const deliveredDays = [];
+    let inTransitCount = 0;
+    let longTransitCount = 0;
+
+    validOrders.forEach(order => {
+        const orderId = String(order?.id || '');
+        const orderDate = parseFinanceDate(order?.order_date);
+        if (!orderDate) {
+            return;
+        }
+        const status = normalizeOrderStatusValue(order?.status || '');
+        const orderLogs = logMap.get(orderId) || [];
+
+        const signedLog = orderLogs.find(item => item?.toStatus === 'signed')
+            || orderLogs.find(item => item?.toStatus === 'completed');
+
+        if (signedLog && (status === 'signed' || status === 'completed')) {
+            const diffDays = Math.max(0, Math.floor((signedLog.createdAt.getTime() - orderDate.getTime()) / (24 * 60 * 60 * 1000)));
+            deliveredDays.push(diffDays);
+            return;
+        }
+
+        if (status === 'shipped' || status === 'signed') {
+            inTransitCount += 1;
+            const openDays = getAgingDays(order?.order_date);
+            if (Number.isFinite(openDays) && openDays > 5) {
+                longTransitCount += 1;
+            }
+        }
+    });
+
+    const calcAverage = rows => {
+        if (!rows.length) {
+            return 0;
+        }
+        return rows.reduce((sum, value) => sum + value, 0) / rows.length;
+    };
+    const safeDeliveredDays = deliveredDays.slice().sort((left, right) => left - right);
+    const p80Index = safeDeliveredDays.length > 0 ? Math.floor((safeDeliveredDays.length - 1) * 0.8) : 0;
+    const p80Days = safeDeliveredDays.length > 0 ? safeDeliveredDays[p80Index] : 0;
+
+    const bucket = {
+        d1: 0,
+        d3: 0,
+        d7: 0,
+        d7p: 0
+    };
+    safeDeliveredDays.forEach(days => {
+        if (days <= 1) {
+            bucket.d1 += 1;
+        } else if (days <= 3) {
+            bucket.d3 += 1;
+        } else if (days <= 7) {
+            bucket.d7 += 1;
+        } else {
+            bucket.d7p += 1;
+        }
+    });
+
+    const deliveredCount = safeDeliveredDays.length;
+    const onTimeRate = deliveredCount > 0
+        ? (safeDeliveredDays.filter(days => days <= 3).length / deliveredCount)
+        : 0;
+
+    return {
+        orderCount: validOrders.length,
+        deliveredCount,
+        avgDays: calcAverage(safeDeliveredDays),
+        p80Days,
+        onTimeRate,
+        inTransitCount,
+        longTransitCount,
+        bucket
+    };
+}
+
+async function renderDashboardDeliveryPerformance() {
+    const container = document.getElementById('dashboardDeliveryPerformance');
+    if (!container || !window.ERP) {
+        return;
+    }
+
+    const orders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
+    container.innerHTML = `
+        <div style="flex:1;min-width:320px;padding:12px 14px;border:1px solid #f0f0f0;border-radius:8px;background:#fff;">
+            <div style="font-size:14px;font-weight:600;color:#262626;margin-bottom:8px;">订单交付时效</div>
+            <div style="font-size:12px;color:#8c8c8c;">加载中...</div>
+        </div>
+    `;
+
+    const logs = await loadDashboardOrderStatusLogs(orders);
+    const perf = calculateOrderDeliveryPerformance(orders, logs);
+    const totalDelivered = Math.max(perf.deliveredCount, 1);
+    const bar = (label, value, color) => {
+        const width = Math.max(6, Math.round((value / totalDelivered) * 100));
+        return `
+            <div style="margin-bottom:6px;">
+                <div style="display:flex;justify-content:space-between;font-size:12px;color:#595959;">
+                    <span>${label}</span>
+                    <span>${value} 单</span>
+                </div>
+                <div style="height:8px;background:#f5f5f5;border-radius:999px;overflow:hidden;margin-top:3px;">
+                    <div style="height:8px;background:${color};width:${width}%;"></div>
+                </div>
+            </div>
+        `;
+    };
+
+    container.innerHTML = `
+        <div style="flex:1;min-width:320px;padding:12px 14px;border:1px solid #bae0ff;border-radius:8px;background:#f0f5ff;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div style="font-size:14px;font-weight:600;color:#1d39c4;">订单交付时效</div>
+                <div style="font-size:12px;color:#8c8c8c;">可计算签收 ${perf.deliveredCount} 单</div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;margin-bottom:8px;">
+                <span class="ant-tag" style="margin:0;">平均 ${perf.avgDays.toFixed(1)} 天</span>
+                <span class="ant-tag" style="margin:0;">P80 ${perf.p80Days} 天</span>
+                <span class="ant-tag" style="margin:0;">3天内签收率 ${(perf.onTimeRate * 100).toFixed(1)}%</span>
+                <span class="ant-tag" style="margin:0;">在途超5天 ${perf.longTransitCount} 单</span>
+            </div>
+            ${bar('1天内签收', perf.bucket.d1, '#1677ff')}
+            ${bar('2-3天签收', perf.bucket.d3, '#13c2c2')}
+            ${bar('4-7天签收', perf.bucket.d7, '#faad14')}
+            ${bar('7天以上签收', perf.bucket.d7p, '#f5222d')}
+            <div style="margin-top:6px;font-size:12px;color:#8c8c8c;">在途订单 ${perf.inTransitCount} 单；基于订单状态变更日志计算</div>
+        </div>
+    `;
+}
+
 function calculateCustomerSegmentStats() {
     const orders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
     const customers = Array.isArray(ERP.state?.customers) ? ERP.state.customers : [];
@@ -3991,6 +4274,149 @@ function renderDashboardCustomerLifecycle() {
                 <span class="ant-tag" style="margin:0;">沉睡 ${lifecycle.summary.sleepingCustomers}</span>
             </div>
             ${rowsHtml || '<div style="font-size:12px;color:#8c8c8c;">暂无客户生命周期数据</div>'}
+        </div>
+    `;
+}
+
+function getRfmRecencyScore(days) {
+    if (!Number.isFinite(days)) return 1;
+    if (days <= 7) return 5;
+    if (days <= 15) return 4;
+    if (days <= 30) return 3;
+    if (days <= 60) return 2;
+    return 1;
+}
+
+function getRfmFrequencyScore(count) {
+    const value = Number(count || 0);
+    if (value >= 10) return 5;
+    if (value >= 6) return 4;
+    if (value >= 3) return 3;
+    if (value >= 2) return 2;
+    return 1;
+}
+
+function getRfmMonetaryScore(amount) {
+    const value = Number(amount || 0);
+    if (value >= 50000) return 5;
+    if (value >= 20000) return 4;
+    if (value >= 10000) return 3;
+    if (value >= 3000) return 2;
+    return 1;
+}
+
+function getRfmSegmentLabel(totalScore) {
+    if (totalScore >= 13) return '核心价值';
+    if (totalScore >= 10) return '成长维护';
+    if (totalScore >= 7) return '普通维系';
+    return '召回预警';
+}
+
+function calculateCustomerRfmStats() {
+    const orders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
+    const customers = Array.isArray(ERP.state?.customers) ? ERP.state.customers : [];
+    const customerMap = new Map(customers.map(item => [String(item?.id), item]));
+    const profileMap = new Map();
+
+    orders.forEach(order => {
+        const status = normalizeOrderStatusValue(order?.status || '');
+        if (status === 'cancelled' || status === 'refunded') {
+            return;
+        }
+        const customerId = order?.customer_id;
+        if (customerId === null || customerId === undefined || String(customerId).trim() === '') {
+            return;
+        }
+
+        const key = String(customerId);
+        if (!profileMap.has(key)) {
+            const customer = customerMap.get(key) || null;
+            profileMap.set(key, {
+                customerId: key,
+                customerName: customer?.name || '-',
+                frequency: 0,
+                monetary: 0,
+                lastDate: null
+            });
+        }
+
+        const profile = profileMap.get(key);
+        profile.frequency += 1;
+        profile.monetary += Math.max(Number(order?.total_amount || 0), 0);
+        const orderDate = parseFinanceDate(order?.order_date);
+        if (orderDate && (!profile.lastDate || orderDate.getTime() > profile.lastDate.getTime())) {
+            profile.lastDate = orderDate;
+        }
+    });
+
+    const rows = Array.from(profileMap.values()).map(item => {
+        const recencyDays = item.lastDate ? getAgingDays(item.lastDate.toISOString()) : null;
+        const scoreR = getRfmRecencyScore(recencyDays);
+        const scoreF = getRfmFrequencyScore(item.frequency);
+        const scoreM = getRfmMonetaryScore(item.monetary);
+        const totalScore = scoreR + scoreF + scoreM;
+        const segment = getRfmSegmentLabel(totalScore);
+        return {
+            ...item,
+            recencyDays,
+            scoreR,
+            scoreF,
+            scoreM,
+            totalScore,
+            segment
+        };
+    });
+
+    const summary = {
+        totalCustomers: rows.length,
+        highValue: rows.filter(item => item.segment === '核心价值').length,
+        growth: rows.filter(item => item.segment === '成长维护').length,
+        normal: rows.filter(item => item.segment === '普通维系').length,
+        risk: rows.filter(item => item.segment === '召回预警').length
+    };
+
+    return {
+        summary,
+        rows: rows.sort((left, right) => {
+            const scoreDiff = Number(right.totalScore || 0) - Number(left.totalScore || 0);
+            if (scoreDiff !== 0) return scoreDiff;
+            return Number(right.monetary || 0) - Number(left.monetary || 0);
+        })
+    };
+}
+
+function renderDashboardCustomerRfm() {
+    const container = document.getElementById('dashboardCustomerRfm');
+    if (!container || !window.ERP) {
+        return;
+    }
+
+    const rfm = calculateCustomerRfmStats();
+    const rowsHtml = rfm.rows.slice(0, 10).map(item => `
+        <div style="padding:6px 0;border-bottom:1px dashed #f0f0f0;">
+            <div style="display:flex;justify-content:space-between;gap:10px;">
+                <div style="font-size:12px;color:#262626;">${item.customerName}</div>
+                <div style="font-size:12px;color:${item.totalScore >= 13 ? '#237804' : (item.totalScore >= 10 ? '#1677ff' : (item.totalScore >= 7 ? '#d46b08' : '#cf1322'))};">${item.segment}</div>
+            </div>
+            <div style="font-size:12px;color:#8c8c8c;margin-top:2px;">
+                R${item.scoreR} F${item.scoreF} M${item.scoreM} | 最近${Number.isFinite(item.recencyDays) ? `${item.recencyDays}天` : '-'} | ${item.frequency}单 / ${formatCurrency(item.monetary)}
+            </div>
+        </div>
+    `).join('');
+
+    container.innerHTML = `
+        <div style="flex:1;min-width:320px;padding:12px 14px;border:1px solid #efdbff;border-radius:8px;background:#f9f0ff;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div style="font-size:14px;font-weight:600;color:#531dab;">客户RFM评分</div>
+                <div style="font-size:12px;color:#8c8c8c;">客户 ${rfm.summary.totalCustomers} 人</div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;margin-bottom:8px;">
+                <span class="ant-tag" style="margin:0;">核心 ${rfm.summary.highValue}</span>
+                <span class="ant-tag" style="margin:0;">成长 ${rfm.summary.growth}</span>
+                <span class="ant-tag" style="margin:0;">维系 ${rfm.summary.normal}</span>
+                <span class="ant-tag" style="margin:0;">召回 ${rfm.summary.risk}</span>
+            </div>
+            ${rowsHtml || '<div style="font-size:12px;color:#8c8c8c;">暂无可评分客户</div>'}
         </div>
     `;
 }

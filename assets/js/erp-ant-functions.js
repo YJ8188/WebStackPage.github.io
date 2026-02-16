@@ -140,6 +140,45 @@ function formatCurrency(value) {
     return `¥${amount.toFixed(2)}`;
 }
 
+function getCurrentYearMonthText() {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function parseYearMonthValue(rawValue) {
+    const text = String(rawValue || '').trim();
+    const matched = text.match(/^(\d{4})-(\d{2})$/);
+    if (!matched) {
+        const fallback = getCurrentYearMonthText().split('-');
+        return {
+            year: Number(fallback[0]),
+            month: Number(fallback[1]),
+            key: getCurrentYearMonthText()
+        };
+    }
+    const year = Number(matched[1]);
+    const month = Number(matched[2]);
+    return {
+        year,
+        month,
+        key: `${year}-${String(month).padStart(2, '0')}`
+    };
+}
+
+function getSelectedFinanceReportMonth() {
+    const input = document.getElementById('financeReportMonth');
+    const rawValue = input?.value || getCurrentYearMonthText();
+    return parseYearMonthValue(rawValue);
+}
+
+function isDateInYearMonth(dateValue, year, month) {
+    const date = parseFinanceDate(dateValue);
+    if (!date) {
+        return false;
+    }
+    return date.getFullYear() === year && (date.getMonth() + 1) === month;
+}
+
 function getFinanceReferenceMeta(finance) {
     const rawReferenceId = finance?.reference_id;
     const rawOrderId = finance?.order_id;
@@ -171,6 +210,12 @@ function getFinanceChartSourceRows(preferredRows = null) {
 
 function onFinanceChartScopeChange() {
     renderFinanceTrendSummary();
+    renderFinanceMonthlyProfitChart();
+    renderFinanceCashflowOverview();
+}
+
+function onFinanceReportMonthChange() {
+    renderFinanceCashflowOverview();
     renderFinanceMonthlyProfitChart();
 }
 
@@ -554,6 +599,7 @@ function updateStatistics(data) {
     renderFinanceAgingSummary();
     renderFinanceTrendSummary();
     renderFinanceMonthlyProfitChart();
+    renderFinanceCashflowOverview();
 }
 
 // ==================== 单位转换 ====================
@@ -3059,6 +3105,7 @@ function initFinanceFilters() {
     const rangeSelect = document.getElementById('financeDateRange');
     const startInput = document.getElementById('financeDateStart');
     const endInput = document.getElementById('financeDateEnd');
+    const reportMonthInput = document.getElementById('financeReportMonth');
 
     if (rangeSelect) {
         rangeSelect.value = 'all';
@@ -3070,6 +3117,9 @@ function initFinanceFilters() {
     if (endInput) {
         endInput.value = '';
         endInput.disabled = true;
+    }
+    if (reportMonthInput && !reportMonthInput.value) {
+        reportMonthInput.value = getCurrentYearMonthText();
     }
 
     syncFinanceViewRows(Array.isArray(ERP.state?.finances) ? ERP.state.finances : [], 'all');
@@ -3175,6 +3225,74 @@ function renderFinanceAgingSummary() {
     container.innerHTML = `
         ${renderAgingCard('应收账龄（未回款订单）', receivable, 'normal')}
         ${renderAgingCard('应付账龄（待付款采购）', payable, 'warn')}
+    `;
+}
+
+function calculateFinanceCashflowOverview(monthInfo = null) {
+    const targetMonth = monthInfo || getSelectedFinanceReportMonth();
+    const year = targetMonth.year;
+    const month = targetMonth.month;
+    const orders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
+    const finances = Array.isArray(ERP.state?.finances) ? ERP.state.finances : [];
+
+    const ordersInMonth = orders.filter(order => isDateInYearMonth(order?.order_date, year, month));
+    const financesInMonth = finances.filter(finance => isDateInYearMonth(finance?.transaction_date, year, month));
+
+    const monthlyReceivable = ordersInMonth
+        .filter(order => {
+            const paymentStatus = String(order?.payment_status || 'unpaid').toLowerCase();
+            const status = String(order?.status || '').toLowerCase();
+            return paymentStatus !== 'paid' && status !== 'cancelled' && status !== 'refunded';
+        })
+        .reduce((sum, order) => sum + Math.max(Number(order?.total_amount || 0), 0), 0);
+
+    const monthlyReceived = ordersInMonth
+        .filter(order => String(order?.payment_status || '').toLowerCase() === 'paid')
+        .reduce((sum, order) => sum + Math.max(Number(order?.total_amount || 0), 0), 0);
+
+    const monthlyPayable = financesInMonth
+        .filter(finance => String(finance?.category || '').includes('应付账款'))
+        .reduce((sum, finance) => sum + Math.abs(Number(finance?.amount || 0)), 0);
+
+    const monthlyPaid = financesInMonth
+        .filter(finance => String(finance?.category || '').includes('采购付款'))
+        .reduce((sum, finance) => sum + Math.abs(Number(finance?.amount || 0)), 0);
+
+    return {
+        monthKey: targetMonth.key,
+        monthlyReceivable,
+        monthlyPayable,
+        monthlyReceived,
+        monthlyPaid,
+        ordersInMonth,
+        financesInMonth
+    };
+}
+
+function renderFinanceCashflowOverview() {
+    const container = document.getElementById('financeCashflowOverview');
+    if (!container || !window.ERP) {
+        return;
+    }
+
+    const monthInfo = getSelectedFinanceReportMonth();
+    const overview = calculateFinanceCashflowOverview(monthInfo);
+    const monthText = overview.monthKey;
+
+    const card = (title, amount, color, bg, border) => `
+        <div style="flex:1;min-width:180px;padding:10px 12px;border:1px solid ${border};border-radius:8px;background:${bg};">
+            <div style="font-size:12px;color:#8c8c8c;">${monthText} ${title}</div>
+            <div style="font-size:20px;font-weight:600;color:${color};">${formatCurrency(amount)}</div>
+        </div>
+    `;
+
+    container.innerHTML = `
+        <div style="display:flex;flex-wrap:wrap;gap:12px;">
+            ${card('应收', overview.monthlyReceivable, '#1d39c4', '#f0f5ff', '#adc6ff')}
+            ${card('应付', overview.monthlyPayable, '#a8071a', '#fff1f0', '#ffa39e')}
+            ${card('已回款', overview.monthlyReceived, '#08979c', '#e6fffb', '#87e8de')}
+            ${card('已付款', overview.monthlyPaid, '#237804', '#f6ffed', '#b7eb8f')}
+        </div>
     `;
 }
 
@@ -3602,6 +3720,62 @@ function exportFinanceCsvByCurrentView() {
     downloadCsvFile(fileName, headers, exportRows);
     if (typeof showToast === 'function') {
         showToast(`已导出 ${exportRows.length} 条财务记录`, 'success');
+    }
+}
+
+function exportMonthlyBusinessReportCsv() {
+    if (!window.ERP) {
+        alert('ERP 尚未初始化');
+        return;
+    }
+
+    const monthInfo = getSelectedFinanceReportMonth();
+    const overview = calculateFinanceCashflowOverview(monthInfo);
+    const monthKey = overview.monthKey;
+    const financesInMonth = overview.financesInMonth || [];
+    const ordersInMonth = overview.ordersInMonth || [];
+
+    const monthlyIncome = financesInMonth
+        .filter(item => String(item?.type || '').toLowerCase() === 'income')
+        .reduce((sum, item) => sum + Math.abs(Number(item?.amount || 0)), 0);
+    const monthlyExpense = financesInMonth
+        .filter(item => String(item?.type || '').toLowerCase() === 'expense')
+        .reduce((sum, item) => sum + Math.abs(Number(item?.amount || 0)), 0);
+    const monthlyProfit = monthlyIncome - monthlyExpense;
+
+    const headers = ['分组', '项目', '值', '说明'];
+    const rows = [
+        ['汇总', '月份', monthKey, '月度经营报告'],
+        ['汇总', '订单数量', String(ordersInMonth.length), '当月订单数'],
+        ['汇总', '财务记录数', String(financesInMonth.length), '当月财务流水'],
+        ['现金流', '应收', overview.monthlyReceivable.toFixed(2), '当月未回款订单合计'],
+        ['现金流', '应付', overview.monthlyPayable.toFixed(2), '当月应付账款合计'],
+        ['现金流', '已回款', overview.monthlyReceived.toFixed(2), '当月已回款订单合计'],
+        ['现金流', '已付款', overview.monthlyPaid.toFixed(2), '当月采购付款合计'],
+        ['利润', '收入合计', monthlyIncome.toFixed(2), '当月收入流水'],
+        ['利润', '支出合计', monthlyExpense.toFixed(2), '当月支出流水'],
+        ['利润', '净利润', monthlyProfit.toFixed(2), '收入-支出']
+    ];
+
+    const topOrders = ordersInMonth
+        .slice()
+        .sort((left, right) => Number(right?.total_amount || 0) - Number(left?.total_amount || 0))
+        .slice(0, 10);
+
+    topOrders.forEach(order => {
+        rows.push([
+            '订单TOP',
+            String(order?.order_number || `订单#${order?.id || '-'}`),
+            Number(order?.total_amount || 0).toFixed(2),
+            `状态:${order?.status || '-'} 支付:${order?.payment_status || '-'}`
+        ]);
+    });
+
+    const fileName = `月度经营报告-${monthKey}-${formatFileTimestamp()}.csv`;
+    downloadCsvFile(fileName, headers, rows);
+
+    if (typeof showToast === 'function') {
+        showToast(`已导出 ${monthKey} 月度经营报告`, 'success');
     }
 }
 

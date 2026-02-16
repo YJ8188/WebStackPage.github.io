@@ -561,8 +561,12 @@
                                     <option value="all" selected>图表范围: 全部</option>
                                     <option value="filtered">图表范围: 当前筛选</option>
                                 </select>
+                                <input type="month" id="financeReportMonth" class="ant-input" onchange="onFinanceReportMonthChange()" style="width: 150px;">
                                 <button class="ant-btn" onclick="exportFinanceCsvByCurrentView()">
                                     <i class="fa fa-file-excel-o"></i> 导出Excel(CSV)
+                                </button>
+                                <button class="ant-btn" onclick="exportMonthlyBusinessReportCsv()">
+                                    <i class="fa fa-bar-chart"></i> 导出月度经营报告
                                 </button>
                                 <input type="file" id="backupImportInput" accept=".json,application/json" style="display:none;">
                             </div>
@@ -588,6 +592,9 @@
                                     </div>
                                 </div>
                             </div>
+
+                            <div id="financeCashflowOverview" class="ant-row"
+                                style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom: 16px;"></div>
 
                             <div id="financeAgingSummary" class="ant-row"
                                 style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom: 16px;"></div>
@@ -1106,8 +1113,8 @@
     <script src="assets/js/supabase.min.js"></script>
     <script src="assets/js/supabase-config.js?v=20260212-14"></script>
     <script src="assets/js/user-data.js?v=20260212-14"></script>
-    <script src="assets/js/erp.js?v=20260216-29"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260216-19"></script>
+    <script src="assets/js/erp.js?v=20260216-30"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260216-20"></script>
     <script src="assets/js/pwa-register.js?v=20260216-1" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->
@@ -1667,6 +1674,9 @@
             }
             if (typeof renderFinanceMonthlyProfitChart === 'function') {
                 renderFinanceMonthlyProfitChart(data);
+            }
+            if (typeof renderFinanceCashflowOverview === 'function') {
+                renderFinanceCashflowOverview();
             }
         }
 

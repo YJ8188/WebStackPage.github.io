@@ -120,6 +120,30 @@ const ERP = {
         }
     },
 
+    parseAuditDetails(value) {
+        if (value === null || value === undefined) {
+            return {};
+        }
+
+        if (typeof value === 'object') {
+            return this.sanitizeAuditData(value);
+        }
+
+        if (typeof value === 'string') {
+            const trimmed = value.trim();
+            if (!trimmed) {
+                return {};
+            }
+            try {
+                return this.sanitizeAuditData(JSON.parse(trimmed));
+            } catch (error) {
+                return { message: trimmed };
+            }
+        }
+
+        return this.sanitizeAuditData(value);
+    },
+
     isAuditTableMissingError(error) {
         const message = String(error?.message || '').toLowerCase();
         return error?.code === '42P01'
@@ -217,6 +241,164 @@ const ERP = {
         }
 
         return false;
+    },
+
+    async loadOrderApprovalLogs(orderId, limit = 50) {
+        if (!userData?.isLoggedIn || !userData?.user?.id || !window.supabaseClient) {
+            return [];
+        }
+
+        const normalizedOrderId = orderId === null || orderId === undefined ? '' : String(orderId);
+        if (!normalizedOrderId) {
+            return [];
+        }
+        const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200);
+        const currentOrder = this.state.orders.find(order => this.isSameId(order.id, normalizedOrderId));
+        const currentOrderNumber = String(currentOrder?.order_number || '').trim();
+
+        const queryPlans = [
+            {
+                select: 'id,module,action,entity_type,entity_id,entity_name,description,details,created_at,user_id',
+                filters: [
+                    ['user_id', userData.user.id],
+                    ['module', 'orders'],
+                    ['action', 'update_status'],
+                    ['entity_type', 'order'],
+                    ['entity_id', normalizedOrderId]
+                ]
+            },
+            {
+                select: 'id,module,action,entity_type,entity_id,entity_name,description,details,created_at,user_id',
+                filters: [
+                    ['user_id', userData.user.id],
+                    ['module', 'orders'],
+                    ['action', 'update_status']
+                ]
+            },
+            {
+                select: 'id,module,action,entity_id,entity_name,description,details,created_at,user_id',
+                filters: [
+                    ['user_id', userData.user.id],
+                    ['action', 'update_status']
+                ]
+            },
+            {
+                select: 'id,module,action,entity_id,description,details,created_at',
+                filters: [
+                    ['action', 'update_status']
+                ]
+            },
+            {
+                select: '*',
+                filters: [
+                    ['action', 'update_status']
+                ]
+            }
+        ];
+
+        let rows = [];
+        let lastError = null;
+
+        for (const plan of queryPlans) {
+            let query = supabaseClient
+                .from('erp_audit_logs')
+                .select(plan.select)
+                .order('created_at', { ascending: false })
+                .limit(Math.min(safeLimit * 3, 300));
+
+            for (const [field, value] of plan.filters) {
+                query = query.eq(field, value);
+            }
+
+            const { data, error } = await this.withTimeout(query, this.config.requestTimeout);
+            if (!error) {
+                rows = Array.isArray(data) ? data : [];
+                lastError = null;
+                break;
+            }
+
+            if (this.isAuditTableMissingError(error)) {
+                return [];
+            }
+
+            if (this.isAuditColumnMissingError(error)) {
+                lastError = error;
+                continue;
+            }
+
+            lastError = error;
+            continue;
+        }
+
+        if (!rows.length) {
+            if (lastError) {
+                console.warn('[ERP审计] 订单审批记录查询使用了降级策略:', lastError?.message || lastError);
+            }
+            return [];
+        }
+
+        const normalizedRows = rows.map((row, index) => {
+            const details = this.parseAuditDetails(row?.details);
+            const beforeStatus = this.normalizeOrderStatus(details?.before?.status || details?.from_status || row?.from_status || '');
+            const toStatus = this.normalizeOrderStatus(details?.after?.status || details?.to_status || row?.to_status || '');
+            const approvalMeta = this.parseAuditDetails(details?.approval);
+            const actionLabel = String(approvalMeta?.action_label || details?.action_label || '').trim();
+            const remark = String(approvalMeta?.remark || details?.remark || details?.note || '').trim();
+            const operator = String(
+                approvalMeta?.operator
+                || details?.operator
+                || details?.operator_name
+                || row?.operator
+                || row?.user_email
+                || row?.user_id
+                || ''
+            ).trim();
+            const createdAt = row?.created_at || row?.createdAt || row?.updated_at || '';
+            let actionText = actionLabel || '状态变更';
+
+            if (!actionLabel) {
+                if (beforeStatus === 'pending' && toStatus === 'confirmed') {
+                    actionText = '订单审批通过';
+                } else if (beforeStatus === 'pending' && toStatus === 'cancelled') {
+                    actionText = '订单审批驳回';
+                } else if (toStatus === 'refunded') {
+                    actionText = '退款审批';
+                }
+            }
+
+            return {
+                id: row?.id || `approval_${index}`,
+                orderId: row?.entity_id ?? details?.order_id ?? details?.before?.id ?? details?.after?.id ?? null,
+                description: String(row?.description || ''),
+                createdAt,
+                actionText,
+                operator,
+                remark,
+                fromStatus: beforeStatus,
+                toStatus,
+                fromStatusText: this.orderStatusMeta[beforeStatus]?.text || beforeStatus || '-',
+                toStatusText: this.orderStatusMeta[toStatus]?.text || toStatus || '-',
+                details
+            };
+        });
+
+        const filtered = normalizedRows.filter(item => {
+            const matchByEntityId = this.isSameId(item.orderId, normalizedOrderId);
+            const matchByDescriptionHash = !!normalizedOrderId && item.description.includes(`#${normalizedOrderId}`);
+            const matchByOrderNumber = !!currentOrderNumber && item.description.includes(currentOrderNumber);
+            return matchByEntityId || matchByDescriptionHash || matchByOrderNumber;
+        });
+
+        const candidateRows = normalizedOrderId ? filtered : (filtered.length > 0 ? filtered : normalizedRows);
+        const finalRows = candidateRows
+            .sort((left, right) => {
+                const leftTime = new Date(left.createdAt || 0).getTime();
+                const rightTime = new Date(right.createdAt || 0).getTime();
+                return rightTime - leftTime;
+            })
+            .slice(0, safeLimit);
+
+        return finalRows;
     },
 
     // ==================== 状态 ====================
@@ -1034,11 +1216,13 @@ const ERP = {
         }
     },
 
-    async updateOrderStatus(orderId, status, paymentStatus = null) {
+    async updateOrderStatus(orderId, status, paymentStatus = null, auditContext = {}) {
         try {
             const before = this.state.orders.find(o => this.isSameId(o.id, orderId)) || null;
             const beforeStatus = this.normalizeOrderStatus(before?.status || 'pending');
             const nextStatus = this.ensureOrderStatusTransition(before?.status || 'pending', status);
+            const auditMeta = this.sanitizeAuditData(auditContext);
+            const actor = String(userData?.user?.email || userData?.user?.id || '').trim();
             const updateData = {
                 status: nextStatus
             };
@@ -1089,6 +1273,14 @@ const ERP = {
                 entityType: 'order',
                 entityId: orderId,
                 entityName: data?.order_number || before?.order_number || '',
+                description: (() => {
+                    const orderName = data?.order_number || before?.order_number || `订单#${orderId}`;
+                    const fromText = this.orderStatusMeta[beforeStatus]?.text || beforeStatus;
+                    const toText = this.orderStatusMeta[afterStatus]?.text || afterStatus;
+                    const actionLabel = String(auditMeta?.action_label || '').trim() || '订单状态更新';
+                    const remarkText = String(auditMeta?.remark || '').trim();
+                    return `${actionLabel}：${orderName}（${fromText} → ${toText}）${remarkText ? `，备注：${remarkText}` : ''}`;
+                })(),
                 details: {
                     before: {
                         status: before?.status,
@@ -1097,6 +1289,13 @@ const ERP = {
                     after: {
                         status: data?.status,
                         payment_status: data?.payment_status
+                    },
+                    approval: {
+                        action_label: String(auditMeta?.action_label || '').trim(),
+                        remark: String(auditMeta?.remark || '').trim(),
+                        operator: String(auditMeta?.operator || actor).trim(),
+                        source: String(auditMeta?.source || 'erp-ui').trim(),
+                        approved_at: new Date().toISOString()
                     }
                 }
             });

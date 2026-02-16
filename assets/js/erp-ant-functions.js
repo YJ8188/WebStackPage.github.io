@@ -1559,6 +1559,141 @@ async function deleteOrder(orderId) {
     }
 }
 
+function formatOrderApprovalDateTime(value) {
+    if (!value) {
+        return '-';
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return String(value);
+    }
+    return date.toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    });
+}
+
+function renderOrderApprovalHistoryModal(order, records = [], options = {}) {
+    const body = document.getElementById('orderApprovalHistoryBody');
+    const title = document.getElementById('orderApprovalHistoryTitle');
+    if (!body || !title) {
+        return;
+    }
+
+    const loading = !!options.loading;
+    const errorMessage = String(options.errorMessage || '').trim();
+    const orderNumber = order?.order_number || `订单#${order?.id || '-'}`;
+    title.textContent = `审批记录 · ${orderNumber}`;
+
+    if (loading) {
+        body.innerHTML = '<div style="padding:16px 0;color:#64748b;">审批记录加载中...</div>';
+        return;
+    }
+
+    if (errorMessage) {
+        body.innerHTML = `<div style="padding:16px 0;color:#cf1322;">${errorMessage}</div>`;
+        return;
+    }
+
+    if (!Array.isArray(records) || records.length === 0) {
+        body.innerHTML = '<div style="padding:16px 0;color:#64748b;">暂无审批记录</div>';
+        return;
+    }
+
+    const rows = records.map((item, index) => {
+        const indexText = String(index + 1).padStart(2, '0');
+        const operatorText = item?.operator ? String(item.operator) : '系统';
+        const remarkText = item?.remark ? String(item.remark) : '-';
+        const fromText = item?.fromStatusText || '-';
+        const toText = item?.toStatusText || '-';
+        const actionText = item?.actionText || '状态变更';
+        return `
+            <tr>
+                <td>${indexText}</td>
+                <td>${actionText}</td>
+                <td>${fromText} → ${toText}</td>
+                <td>${operatorText}</td>
+                <td title="${remarkText}">${remarkText}</td>
+                <td>${formatOrderApprovalDateTime(item?.createdAt)}</td>
+            </tr>
+        `;
+    }).join('');
+
+    body.innerHTML = `
+        <div style="margin-bottom:12px;color:#64748b;font-size:12px;">
+            共 ${records.length} 条审批记录
+        </div>
+        <div class="ant-table-wrapper">
+            <div class="ant-table">
+                <table>
+                    <thead class="ant-table-thead">
+                        <tr>
+                            <th>#</th>
+                            <th>动作</th>
+                            <th>状态流转</th>
+                            <th>操作人</th>
+                            <th>备注</th>
+                            <th>时间</th>
+                        </tr>
+                    </thead>
+                    <tbody class="ant-table-tbody">
+                        ${rows}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+function hideOrderApprovalHistoryModal() {
+    const modal = document.getElementById('orderApprovalHistoryModal');
+    if (!modal) {
+        return;
+    }
+    modal.classList.remove('active');
+    modal.style.display = '';
+}
+
+function openOrderApprovalHistoryModal() {
+    const modal = document.getElementById('orderApprovalHistoryModal');
+    if (!modal) {
+        return;
+    }
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+}
+
+async function showOrderApprovalHistory(orderId) {
+    const normalizedOrderId = normalizeEntityId(orderId);
+    if (normalizedOrderId === null) {
+        if (typeof showToast === 'function') {
+            showToast('订单标识无效，无法查看审批记录', 'error');
+        }
+        return;
+    }
+    const order = (ERP.state.orders || []).find(item => isSameEntityId(item?.id, normalizedOrderId));
+
+    openOrderApprovalHistoryModal();
+    renderOrderApprovalHistoryModal(order, [], { loading: true });
+
+    try {
+        if (!window.ERP || typeof ERP.loadOrderApprovalLogs !== 'function') {
+            throw new Error('审批记录模块未初始化，请刷新后重试');
+        }
+
+        const records = await ERP.loadOrderApprovalLogs(normalizedOrderId, 60);
+        renderOrderApprovalHistoryModal(order, records);
+    } catch (error) {
+        console.error('[ERP Ant] 加载审批记录失败:', error);
+        renderOrderApprovalHistoryModal(order, [], { errorMessage: `审批记录加载失败：${error?.message || '未知错误'}` });
+    }
+}
+
 function getOrderSearchKeyword() {
     const keywordInput = document.getElementById('orderSearch');
     return String(keywordInput?.value || '').trim().toLowerCase();
@@ -1607,8 +1742,26 @@ async function updateOrderStatusByAction(orderId, targetStatus, actionLabel = '�
         return;
     }
 
+    const approvalRemark = prompt(`请输入【${actionLabel}】备注（可留空）`, '');
+    if (approvalRemark === null) {
+        if (typeof showToast === 'function') {
+            showToast('已取消本次审批操作', 'info');
+        }
+        return;
+    }
+
     try {
-        const updated = await ERP.updateOrderStatus(normalizedOrderId, targetStatus);
+        const updated = await ERP.updateOrderStatus(
+            normalizedOrderId,
+            targetStatus,
+            null,
+            {
+                action_label: actionLabel,
+                remark: String(approvalRemark || '').trim(),
+                operator: String(userData?.user?.email || userData?.user?.id || '').trim(),
+                source: 'erp-approval-action'
+            }
+        );
         if (!updated) {
             throw new Error('状态更新未生效');
         }
@@ -1634,7 +1787,9 @@ async function updateOrderStatusByAction(orderId, targetStatus, actionLabel = '�
 function getOrderQuickActions(order) {
     const status = normalizeOrderStatusValue(order?.status || 'pending');
     const orderIdLiteral = JSON.stringify(order?.id);
-    const buttons = [];
+    const buttons = [
+        `<button class="ant-btn" onclick="showOrderApprovalHistory(${orderIdLiteral})" style="color:#13c2c2; border-color:#87e8de;">审批记录</button>`
+    ];
 
     if (status === 'pending') {
         buttons.push(

@@ -65,6 +65,7 @@ echo Build WebStackERP.exe...
 set BUILD_TAG=%DATE:~0,4%%DATE:~5,2%%DATE:~8,2%_%TIME:~0,2%%TIME:~3,2%%TIME:~6,2%
 set BUILD_TAG=%BUILD_TAG: =0%
 set ERP_OUT=dist\WebStackERP_%BUILD_TAG%
+if not exist "dist" mkdir "dist"
 
 py -3.13 -m PyInstaller --noconfirm --clean --onefile --windowed --name WebStackERP --distpath "%ERP_OUT%" --add-data "workspace_bundle;workspace_bundle" webstack_erp_desktop.py
 if errorlevel 1 (
@@ -73,7 +74,11 @@ if errorlevel 1 (
   exit /b 1
 )
 
+echo Sync latest ERP binary to dist root...
+copy /y "%ERP_OUT%\WebStackERP.exe" "dist\WebStackERP.exe" >nul
+
 echo.
 echo Build complete:
 echo - %~dp0%ERP_OUT%\WebStackERP.exe
+echo - %~dp0dist\WebStackERP.exe
 pause

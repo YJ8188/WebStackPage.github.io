@@ -46,6 +46,7 @@ set BUILD_TAG=%DATE:~0,4%%DATE:~5,2%%DATE:~8,2%_%TIME:~0,2%%TIME:~3,2%%TIME:~6,2
 set BUILD_TAG=%BUILD_TAG: =0%
 
 set MANAGER_OUT=dist\WebStackManager_%BUILD_TAG%
+if not exist "dist" mkdir "dist"
 
 pyinstaller --noconfirm --clean --onefile --windowed --name WebStackManager --distpath "%MANAGER_OUT%" --add-data "workspace_bundle;workspace_bundle" card_manager.py
 if errorlevel 1 (
@@ -54,7 +55,11 @@ if errorlevel 1 (
   exit /b 1
 )
 
+echo Sync latest manager binary to dist root...
+copy /y "%MANAGER_OUT%\WebStackManager.exe" "dist\WebStackManager.exe" >nul
+
 echo.
 echo Build complete:
 echo - %~dp0%MANAGER_OUT%\WebStackManager.exe
+echo - %~dp0dist\WebStackManager.exe
 pause

@@ -1,44 +1,43 @@
-# WebStack Manager（Win EXE）
+# WebStack Card Manager / ERP（Win EXE）
 
-本目录提供一个 Windows 桌面管理器：`WebStackManager.exe`。
+本目录保留两类桌面能力：
 
-它用于可视化管理你的 `index.html` 卡片/导航，并支持一键推送到 GitHub `master` 分支。
+- `WebStackManager.exe`：导航卡片管理与 GitHub 推送
+- `WebStackERP.exe`：ERP 桌面入口
 
-## 功能
+## 当前目录说明
 
-- 卡片管理：新增/编辑/删除/拖拽排序/上移下移/恢复默认排序
-- 导航管理：编辑左侧导航数据（按项目现有结构）
-- 运行模式：支持“在线运行（默认）/本地预览（可选）”
-- 推送：一键提交并推送到目标仓库的 `master`
-- 防串码：可读取/应用 `origin` 地址，避免推错仓库
+- `dist/`
+  - `WebStackManager.exe`
+  - `WebStackERP.exe`
+- `build_exe.bat`：打包 `WebStackManager.exe`
+- `build_erp_exe.bat`：打包 `WebStackERP.exe`
+- `card_manager.py`：Manager 源码入口
+- `webstack_erp_desktop.py`：ERP 桌面入口源码
 
-## 打包 EXE
+## 使用方式
 
-运行：
+### 1) 直接运行现成 EXE
+- `tools/card-manager/dist/WebStackManager.exe`
+- `tools/card-manager/dist/WebStackERP.exe`
 
+### 2) 从源码运行
+```bash
+python tools/card-manager/card_manager.py
+```
+
+### 3) 重新打包 EXE
 ```bat
 tools\card-manager\build_exe.bat
+tools\card-manager\build_erp_exe.bat
 ```
 
-输出（带时间戳目录，避免文件占用导致失败）：
+> `build_erp_exe.bat` 使用 Python 3.13 打包并校验 `pywebview + pythonnet` 依赖。
 
-- `tools/card-manager/dist/WebStackManager_YYYYMMDD_HHMMSS/WebStackManager.exe`
+打包完成后会同时输出两类文件：
+- `dist/WebStackManager.exe`、`dist/WebStackERP.exe`（固定路径，便于直接运行）
+- `dist/WebStackManager_时间戳/...`、`dist/WebStackERP_时间戳/...`（构建归档）
 
-## 打包安装包
-
-需要先安装 Inno Setup 6。
-
-```bat
-tools\card-manager\build_installer.bat
-```
-
-输出：
-
-- `tools/card-manager/dist-installer/WebStackManager-Setup.exe`
-
-## 使用建议（新手友好）
-
-1. 推荐在管理器里点“绑定本地仓库目录”，选择你真实的仓库目录（包含 `.git` 的那个）。
-2. 修改/排序后点“保存”，再点“手动推送 master”。
-3. 如果你发现“推送成功但线上没变化”，通常是推到了别的目录/别的仓库；绑定本地仓库可避免这个问题。
-
+## 维护约定
+- 当前仅保留与 `WebStackManager.exe`、`WebStackERP.exe` 直接相关文件。
+- 已移除安装包链路与历史遗留运行壳相关文件。

@@ -55,6 +55,9 @@ const orderApprovalHistoryState = {
 };
 
 let bulkCompleteSignedOrdersInProgress = false;
+const purchaseLogState = {
+    records: []
+};
 
 function escapeCsvCell(value) {
     const text = String(value ?? '');
@@ -89,6 +92,101 @@ function formatFileTimestamp(date = new Date()) {
     const minute = String(d.getMinutes()).padStart(2, '0');
     const second = String(d.getSeconds()).padStart(2, '0');
     return `${year}${month}${day}-${hour}${minute}${second}`;
+}
+
+function parsePurchaseMetaFromNotes(notes) {
+    const raw = String(notes || '').trim();
+    const result = {};
+    if (!raw || !raw.includes('|')) {
+        return result;
+    }
+
+    raw.split('|').forEach((segment, index) => {
+        if (index === 0 && !segment.includes('=')) {
+            result.tag = segment.trim();
+            return;
+        }
+        const [key, ...valueParts] = segment.split('=');
+        const keyText = String(key || '').trim();
+        if (!keyText) {
+            return;
+        }
+        result[keyText] = valueParts.join('=').trim();
+    });
+    return result;
+}
+
+function formatCurrency(value) {
+    const amount = Number(value);
+    if (!Number.isFinite(amount)) {
+        return '¥0.00';
+    }
+    return `¥${amount.toFixed(2)}`;
+}
+
+const ERP_SYSTEM_FINANCE_CATEGORIES = ['销售订单', '销售成本', '利润', '利润(系统)'];
+
+function normalizeTextKey(value) {
+    return String(value || '').trim().toLowerCase();
+}
+
+function buildCustomerMergeKey(customer) {
+    return [
+        normalizeTextKey(customer?.name),
+        normalizeTextKey(customer?.phone),
+        normalizeTextKey(customer?.email)
+    ].join('|');
+}
+
+function buildProductMergeKey(product) {
+    const sku = normalizeTextKey(product?.sku);
+    const name = normalizeTextKey(product?.name);
+    return sku ? `${sku}|${name}` : name;
+}
+
+function buildFinanceMergeKey(finance) {
+    return [
+        normalizeTextKey(finance?.type),
+        normalizeTextKey(finance?.category),
+        Number(finance?.amount || 0).toFixed(2),
+        normalizeTextKey(finance?.description),
+        normalizeTextKey(finance?.transaction_date)
+    ].join('|');
+}
+
+function isSystemLinkedFinanceCategory(category) {
+    const text = String(category || '').trim();
+    if (!text) {
+        return false;
+    }
+    return ERP_SYSTEM_FINANCE_CATEGORIES.some(item => text.includes(item));
+}
+
+function toDbDateTimeString(inputValue) {
+    const raw = String(inputValue || '').trim();
+    if (!raw) {
+        return new Date().toISOString();
+    }
+
+    if (raw.includes(' ')) {
+        return raw;
+    }
+
+    if (raw.includes('T')) {
+        const date = new Date(raw);
+        if (Number.isNaN(date.getTime())) {
+            return new Date().toISOString();
+        }
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hour = String(date.getHours()).padStart(2, '0');
+        const minute = String(date.getMinutes()).padStart(2, '0');
+        const second = String(date.getSeconds()).padStart(2, '0');
+        return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+    }
+
+    return raw;
 }
 
 function getERPInventoryDiagnostics() {
@@ -394,6 +492,7 @@ function updateStatistics(data) {
 
     const currentOrders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
     renderOrderWorkflowSummary(currentOrders, getFilteredOrdersForView());
+    renderFinanceAgingSummary();
 }
 
 // ==================== 单位转换 ====================
@@ -592,12 +691,12 @@ async function saveCustomer() {
             
             // 保存到数据库
             result = await ERP.addCustomer(customerData);
-            console.info('[ERP Ant] 客户已保存: ', result);
+            erpDebugLog('info', '[ERP Ant] 客户已保存: ', result);
             
             if (result) {
                 // 重新加载数据并更新显示
                 const customers = await ERP.loadCustomers({ forceRefresh: true });
-                console.info('[ERP Ant] 重新加载客户数据条数: ', customers.length);
+                erpDebugLog('info', '[ERP Ant] 重新加载客户数据条数: ', customers.length);
                 renderCustomers(customers);
                 updateStatistics();
                 
@@ -613,7 +712,7 @@ async function saveCustomer() {
             
             // 重新加载数据并更新显示
             const customers = await ERP.loadCustomers({ forceRefresh: true });
-            console.info('[ERP Ant] 重新加载客户数据条数: ', customers.length);
+            erpDebugLog('info', '[ERP Ant] 重新加载客户数据条数: ', customers.length);
             renderCustomers(customers);
             updateStatistics();
             
@@ -658,22 +757,22 @@ async function editCustomer(customerId) {
 }
 
 async function deleteCustomer(customerId) {
-    console.info('[ERP Ant] 删除客户请求: customerId=', customerId);
+    erpDebugLog('info', '[ERP Ant] 删除客户请求: customerId=', customerId);
     if (!confirm('确定要删除这个客户吗？')) {
         return;
     }
 
     try {
-        console.info('[ERP Ant] 删除客户已提交到后端: ', customerId);
+        erpDebugLog('info', '[ERP Ant] 删除客户已提交到后端: ', customerId);
         await ERP.deleteCustomer(customerId);
-        console.info('[ERP Ant] 重新加载客户数据...');
+        erpDebugLog('info', '[ERP Ant] 重新加载客户数据...');
         const customers = await ERP.loadCustomers({ forceRefresh: true });
-        console.info('[ERP Ant] 重新加载客户数据条数: ', customers.length);
+        erpDebugLog('info', '[ERP Ant] 重新加载客户数据条数: ', customers.length);
         
         if (typeof renderCustomers === 'function') {
-            console.info('[ERP Ant] renderCustomers 函数存在，正在调用...');
+            erpDebugLog('info', '[ERP Ant] renderCustomers 函数存在，正在调用...');
             renderCustomers(customers);
-            console.info('[ERP Ant] renderCustomers 调用完成');
+            erpDebugLog('info', '[ERP Ant] renderCustomers 调用完成');
         } else {
             console.error('[ERP Ant] renderCustomers 函数不存在！');
         }
@@ -794,12 +893,12 @@ async function saveProduct() {
             
             // 保存到数据库
             result = await ERP.addProduct(productData);
-            console.info('[ERP Ant] 产品已保存: ', result);
+            erpDebugLog('info', '[ERP Ant] 产品已保存: ', result);
             
             if (result) {
                 // 重新加载数据并更新显示
                 const products = await ERP.loadProducts(true);
-                console.info('[ERP Ant] 重新加载产品数据条数: ', products.length);
+                erpDebugLog('info', '[ERP Ant] 重新加载产品数据条数: ', products.length);
                 renderProducts(products);
                 updateStatistics();
                 
@@ -815,7 +914,7 @@ async function saveProduct() {
             
             // 重新加载数据并更新显示
             const products = await ERP.loadProducts(true);
-            console.info('[ERP Ant] 重新加载产品数据条数: ', products.length);
+            erpDebugLog('info', '[ERP Ant] 重新加载产品数据条数: ', products.length);
             renderProducts(products);
             updateStatistics();
             
@@ -851,16 +950,16 @@ async function deleteProduct(productId) {
     }
 
     try {
-        console.info('[ERP Ant] 删除产品已提交到后端: ', productId);
+        erpDebugLog('info', '[ERP Ant] 删除产品已提交到后端: ', productId);
         await ERP.deleteProduct(productId);
-        console.info('[ERP Ant] 重新加载产品数据...');
+        erpDebugLog('info', '[ERP Ant] 重新加载产品数据...');
         const products = await ERP.loadProducts(true);
-        console.info('[ERP Ant] 重新加载产品数据条数: ', products.length);
+        erpDebugLog('info', '[ERP Ant] 重新加载产品数据条数: ', products.length);
         
         if (typeof renderProducts === 'function') {
-            console.info('[ERP Ant] renderProducts 函数存在，正在调用...');
+            erpDebugLog('info', '[ERP Ant] renderProducts 函数存在，正在调用...');
             renderProducts(products);
-            console.info('[ERP Ant] renderProducts 调用完成');
+            erpDebugLog('info', '[ERP Ant] renderProducts 调用完成');
         } else {
             console.error('[ERP Ant] renderProducts 函数不存在！');
         }
@@ -1444,7 +1543,7 @@ async function saveOrder() {
             
             // 保存到数据库
             result = await ERP.addOrder(orderData);
-            console.info('[ERP Ant] 订单已保存: ', result);
+            erpDebugLog('info', '[ERP Ant] 订单已保存: ', result);
             
             if (result) {
                 // 直接使用本地状态刷新，避免额外全量查询导致卡顿
@@ -1576,16 +1675,16 @@ async function deleteOrder(orderId) {
     }
 
     try {
-        console.info('[ERP Ant] 删除订单已提交到后端: ', orderId);
+        erpDebugLog('info', '[ERP Ant] 删除订单已提交到后端: ', orderId);
         await ERP.deleteOrder(orderId);
-        console.info('[ERP Ant] 重新加载订单数据...');
+        erpDebugLog('info', '[ERP Ant] 重新加载订单数据...');
         const orders = await ERP.loadOrders(true);
-        console.info('[ERP Ant] 重新加载订单数据条数: ', orders.length);
+        erpDebugLog('info', '[ERP Ant] 重新加载订单数据条数: ', orders.length);
         
         if (typeof renderOrders === 'function') {
-            console.info('[ERP Ant] renderOrders 函数存在，正在调用...');
+            erpDebugLog('info', '[ERP Ant] renderOrders 函数存在，正在调用...');
             searchOrders();
-            console.info('[ERP Ant] renderOrders 调用完成');
+            erpDebugLog('info', '[ERP Ant] renderOrders 调用完成');
         } else {
             console.error('[ERP Ant] renderOrders 函数不存在！');
         }
@@ -2194,6 +2293,35 @@ function showInventoryModal() {
         return;
     }
 
+    const quantityInput = document.getElementById('inventoryQuantityChange');
+    const notesInput = document.getElementById('inventoryNotes');
+    const typeInput = document.getElementById('inventoryType');
+    const productInput = document.getElementById('inventoryProduct');
+    const purchaseDateInput = document.getElementById('inventoryPurchaseDate');
+    const paymentStatusInput = document.getElementById('inventoryPaymentStatus');
+    const paidAmountInput = document.getElementById('inventoryPaidAmount');
+    const unitCostInput = document.getElementById('inventoryUnitCost');
+    const supplierInput = document.getElementById('inventorySupplier');
+
+    if (quantityInput) quantityInput.value = '';
+    if (notesInput) notesInput.value = '';
+    if (typeInput) typeInput.value = 'manual';
+    if (productInput) productInput.value = '';
+    if (unitCostInput) unitCostInput.value = '';
+    if (supplierInput) supplierInput.value = '';
+    if (paymentStatusInput) paymentStatusInput.value = 'paid';
+    if (paidAmountInput) paidAmountInput.value = '';
+    if (purchaseDateInput) {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hour = String(now.getHours()).padStart(2, '0');
+        const minute = String(now.getMinutes()).padStart(2, '0');
+        purchaseDateInput.value = `${year}-${month}-${day}T${hour}:${minute}`;
+    }
+
+    toggleInventoryPurchaseFields();
     modal.classList.add('active');
     modal.style.display = 'flex';
 }
@@ -2206,20 +2334,80 @@ function hideInventoryModal() {
 
 function populateInventoryProducts() {
     const productSelect = document.getElementById('inventoryProduct');
+    if (!productSelect) {
+        return;
+    }
     productSelect.innerHTML = '<option value="">请选择产品</option>' +
         ERP.state.products.map(product =>
             `<option value="${product.id}">${product.name} - ${product.sku || ''}</option>`
         ).join('');
 }
 
+function toggleInventoryPurchaseFields() {
+    const typeInput = document.getElementById('inventoryType');
+    const purchaseExtra = document.getElementById('inventoryPurchaseExtra');
+    const paidAmountGroup = document.getElementById('inventoryPaidAmountGroup');
+    const paymentStatusInput = document.getElementById('inventoryPaymentStatus');
+
+    const isPurchase = typeInput?.value === 'purchase';
+    if (purchaseExtra) {
+        purchaseExtra.style.display = isPurchase ? 'block' : 'none';
+    }
+
+    if (!paidAmountGroup || !paymentStatusInput) {
+        return;
+    }
+
+    paidAmountGroup.style.display = (isPurchase && paymentStatusInput.value === 'partial') ? 'block' : 'none';
+}
+
+function showInventoryPurchaseModal(productId = null) {
+    populateInventoryProducts();
+    showInventoryModal();
+    const typeInput = document.getElementById('inventoryType');
+    if (typeInput) {
+        typeInput.value = 'purchase';
+    }
+    if (productId !== null && productId !== undefined) {
+        const productSelect = document.getElementById('inventoryProduct');
+        if (productSelect) {
+            productSelect.value = String(productId);
+        }
+    }
+    toggleInventoryPurchaseFields();
+}
+
+function showInventoryAdjustModalForProduct(productId) {
+    populateInventoryProducts();
+    showInventoryModal();
+    const productSelect = document.getElementById('inventoryProduct');
+    if (productSelect && productId !== null && productId !== undefined) {
+        productSelect.value = String(productId);
+    }
+}
+
 async function saveInventory() {
-    const productId = document.getElementById('inventoryProduct').value;
-    const quantityChange = parseInt(document.getElementById('inventoryQuantityChange').value);
-    const type = document.getElementById('inventoryType').value;
-    const notes = document.getElementById('inventoryNotes').value;
+    const productId = document.getElementById('inventoryProduct')?.value;
+    const quantityChangeRaw = Number(document.getElementById('inventoryQuantityChange')?.value);
+    const type = document.getElementById('inventoryType')?.value || 'manual';
+    const notes = document.getElementById('inventoryNotes')?.value || '';
+    const unitCost = Number(document.getElementById('inventoryUnitCost')?.value || 0);
+    const supplier = String(document.getElementById('inventorySupplier')?.value || '').trim();
+    const paymentStatus = String(document.getElementById('inventoryPaymentStatus')?.value || 'paid');
+    const purchaseDate = toDbDateTimeString(document.getElementById('inventoryPurchaseDate')?.value);
+    const paidAmount = Number(document.getElementById('inventoryPaidAmount')?.value || 0);
+
+    const quantityChange = type === 'purchase'
+        ? Math.abs(quantityChangeRaw)
+        : quantityChangeRaw;
 
     if (!productId || !quantityChange) {
         alert('请选择产品并输入调整数量');
+        return;
+    }
+
+    if (type === 'purchase' && unitCost < 0) {
+        alert('采购单价不能小于 0');
         return;
     }
 
@@ -2228,14 +2416,19 @@ async function saveInventory() {
         hideInventoryModal();
         
         // 保存到数据库
-        const result = await ERP.adjustInventory(productId, quantityChange, type, notes);
-        console.info('[ERP Ant] 库存调整已保存: ', result);
+        const result = await ERP.adjustInventory(productId, quantityChange, type, notes, {
+            unitCost,
+            supplier,
+            paymentStatus,
+            purchaseDate,
+            paidAmount
+        });
         
         if (result) {
             // 重新加载数据并更新显示
             const products = await ERP.loadProducts(true);
-            console.info('[ERP Ant] 重新加载产品数据条数: ', products.length);
             renderInventory(products);
+            await loadPurchaseRecords();
             
             if (typeof showToast === 'function') {
                 showToast('库存调整成功', 'success');
@@ -2250,7 +2443,63 @@ async function saveInventory() {
         // 重新加载数据
         const products = await ERP.loadProducts(true);
         renderInventory(products);
+        await loadPurchaseRecords();
     }
+}
+
+async function loadPurchaseRecords(limit = 80) {
+    if (!window.ERP || typeof ERP.loadPurchaseLogs !== 'function') {
+        return;
+    }
+
+    const logs = await ERP.loadPurchaseLogs(limit);
+    purchaseLogState.records = Array.isArray(logs) ? logs : [];
+    renderPurchaseRecords(purchaseLogState.records);
+}
+
+function renderPurchaseRecords(records = []) {
+    const tbody = document.getElementById('purchaseRecordsTableBody');
+    if (!tbody) {
+        return;
+    }
+
+    const rows = Array.isArray(records) ? records : [];
+    if (rows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:16px;color:#999;">暂无采购记录</td></tr>';
+        return;
+    }
+
+    const products = Array.isArray(ERP.state?.products) ? ERP.state.products : [];
+    const productMap = new Map(products.map(item => [String(item?.id), item]));
+
+    tbody.innerHTML = rows.map(record => {
+        const meta = parsePurchaseMetaFromNotes(record?.notes);
+        const productFromState = productMap.get(String(record?.product_id));
+        const productName = meta['商品'] || productFromState?.name || `商品#${record?.product_id || '-'}`;
+        const quantity = Number(meta['数量'] ?? Math.abs(Number(record?.quantity_change || 0)));
+        const unitCost = Number(meta['单价'] ?? 0);
+        const amount = Number(meta['总额'] ?? (Math.abs(quantity) * Math.max(unitCost, 0)));
+        const supplier = meta['供应商'] || '-';
+        const paymentStatus = String(meta['付款'] || 'paid');
+        const paymentTextMap = { paid: '已付款', unpaid: '未付款', partial: '部分付款' };
+        const paymentText = paymentTextMap[paymentStatus] || paymentStatus;
+        const createdAt = meta['时间'] || record?.created_at || '';
+        const noteText = (meta['备注'] && meta['备注'] !== '-') ? meta['备注'] : '-';
+        const displayTime = parseFinanceDate(createdAt);
+
+        return `
+            <tr>
+                <td>${displayTime ? displayTime.toLocaleString('zh-CN') : '-'}</td>
+                <td>${escapeHtmlText(productName)}</td>
+                <td>${Number.isFinite(quantity) ? quantity : '-'}</td>
+                <td>${formatCurrency(unitCost)}</td>
+                <td>${formatCurrency(amount)}</td>
+                <td>${escapeHtmlText(supplier)}</td>
+                <td>${escapeHtmlText(paymentText)}</td>
+                <td title="${escapeHtmlText(noteText)}">${escapeHtmlText(noteText)}</td>
+            </tr>
+        `;
+    }).join('');
 }
 
 function searchInventory() {
@@ -2309,7 +2558,7 @@ async function saveFinance() {
         const minutes = String(date.getMinutes()).padStart(2, '0');
         const seconds = String(date.getSeconds()).padStart(2, '0');
         transactionDate = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-        console.info('[ERP Ant] 保存的本地时间:', transactionDate);
+        erpDebugLog('info', '[ERP Ant] 保存的本地时间:', transactionDate);
     }
 
     const financeData = {
@@ -2336,12 +2585,12 @@ async function saveFinance() {
         
         // 保存到数据库
         const result = await ERP.addFinance(financeData);
-        console.info('[ERP Ant] 财务记录已保存: ', result);
+        erpDebugLog('info', '[ERP Ant] 财务记录已保存: ', result);
         
         if (result) {
             // 重新加载数据并更新显示
             const finances = await ERP.loadFinances(true);
-            console.info('[ERP Ant] 重新加载财务数据条数: ', finances.length);
+            erpDebugLog('info', '[ERP Ant] 重新加载财务数据条数: ', finances.length);
             renderFinances(finances);
             updateStatistics();
             
@@ -2365,29 +2614,29 @@ async function saveFinance() {
 }
 
 async function deleteFinance(financeId) {
-        console.info('[ERP Ant] 删除财务记录请求: financeId=', financeId);
+        erpDebugLog('info', '[ERP Ant] 删除财务记录请求: financeId=', financeId);
         if (!confirm('确定要删除这条财务记录吗？')) {
             return;
         }
         
         // 防止重复调用
         if (window.deletingFinance) {
-            console.info('[ERP Ant] 删除操作正在进行中，忽略重复调用');
+            erpDebugLog('info', '[ERP Ant] 删除操作正在进行中，忽略重复调用');
             return;
         }
         window.deletingFinance = true;
         try {
             await ERP.deleteFinance(financeId);
-            console.info('[ERP Ant] 删除财务记录已提交到后端: ', financeId);
+            erpDebugLog('info', '[ERP Ant] 删除财务记录已提交到后端: ', financeId);
             const finances = await ERP.loadFinances(true);
-            console.info('[ERP Ant] 重新加载财务数据条数: ', finances.length);
-            console.info('[ERP Ant] 调用 renderFinances 函数，数据: ', finances);
+            erpDebugLog('info', '[ERP Ant] 重新加载财务数据条数: ', finances.length);
+            erpDebugLog('info', '[ERP Ant] 调用 renderFinances 函数，数据: ', finances);
             
             // 检查 renderFinances 函数是否存在
             if (typeof renderFinances === 'function') {
-                console.info('[ERP Ant] renderFinances 函数存在，正在调用...');
+                erpDebugLog('info', '[ERP Ant] renderFinances 函数存在，正在调用...');
                 renderFinances(finances);
-                console.info('[ERP Ant] renderFinances 调用完成');
+                erpDebugLog('info', '[ERP Ant] renderFinances 调用完成');
             } else {
                 console.error('[ERP Ant] renderFinances 函数不存在！');
             }
@@ -2515,6 +2764,7 @@ function applyFinanceFilters() {
     });
 
     renderFinances(filtered);
+    renderFinanceAgingSummary();
 }
 
 function onFinanceDateRangeChange() {
@@ -2581,6 +2831,360 @@ function initFinanceFilters() {
     applyFinanceFilters();
 }
 
+function createAgingBucket() {
+    return {
+        d7: 0,
+        d30: 0,
+        d90: 0,
+        d90p: 0,
+        total: 0
+    };
+}
+
+function getAgingDays(dateValue) {
+    const date = parseFinanceDate(dateValue);
+    if (!date) {
+        return null;
+    }
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+    const targetStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+    const diff = Math.floor((todayStart - targetStart) / (24 * 60 * 60 * 1000));
+    return Math.max(diff, 0);
+}
+
+function addAmountToAgingBucket(bucket, amount, days) {
+    const safeAmount = Number(amount);
+    if (!Number.isFinite(safeAmount) || safeAmount <= 0 || !Number.isFinite(days)) {
+        return;
+    }
+
+    if (days <= 7) {
+        bucket.d7 += safeAmount;
+    } else if (days <= 30) {
+        bucket.d30 += safeAmount;
+    } else if (days <= 90) {
+        bucket.d90 += safeAmount;
+    } else {
+        bucket.d90p += safeAmount;
+    }
+    bucket.total += safeAmount;
+}
+
+function renderAgingCard(title, bucket, tone = 'normal') {
+    const titleColor = tone === 'warn' ? '#a8071a' : '#1d39c4';
+    const borderColor = tone === 'warn' ? '#ffccc7' : '#d6e4ff';
+    const bgColor = tone === 'warn' ? '#fff1f0' : '#f0f5ff';
+
+    return `
+        <div style="flex:1;min-width:280px;padding:12px 14px;border:1px solid ${borderColor};border-radius:8px;background:${bgColor};">
+            <div style="font-size:14px;font-weight:600;color:${titleColor};margin-bottom:8px;">${title}</div>
+            <div style="display:grid;grid-template-columns:repeat(2,minmax(120px,1fr));gap:6px 12px;font-size:12px;color:#555;">
+                <div>0-7天：<strong>${formatCurrency(bucket.d7)}</strong></div>
+                <div>8-30天：<strong>${formatCurrency(bucket.d30)}</strong></div>
+                <div>31-90天：<strong>${formatCurrency(bucket.d90)}</strong></div>
+                <div>90天以上：<strong>${formatCurrency(bucket.d90p)}</strong></div>
+            </div>
+            <div style="margin-top:10px;font-size:13px;color:#262626;">合计：<strong>${formatCurrency(bucket.total)}</strong></div>
+        </div>
+    `;
+}
+
+function renderFinanceAgingSummary() {
+    const container = document.getElementById('financeAgingSummary');
+    if (!container || !window.ERP) {
+        return;
+    }
+
+    const receivable = createAgingBucket();
+    const payable = createAgingBucket();
+    const orders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
+    const finances = Array.isArray(ERP.state?.finances) ? ERP.state.finances : [];
+
+    orders.forEach(order => {
+        const paymentStatus = String(order?.payment_status || 'unpaid');
+        const orderStatus = String(order?.status || '');
+        if (paymentStatus === 'paid') {
+            return;
+        }
+        if (orderStatus === 'cancelled' || orderStatus === 'refunded') {
+            return;
+        }
+
+        const amount = Number(order?.total_amount);
+        const days = getAgingDays(order?.order_date);
+        addAmountToAgingBucket(receivable, amount, days);
+    });
+
+    finances.forEach(finance => {
+        const category = String(finance?.category || '');
+        if (!category.includes('应付账款')) {
+            return;
+        }
+
+        const amount = Math.abs(Number(finance?.amount || 0));
+        const days = getAgingDays(finance?.transaction_date);
+        addAmountToAgingBucket(payable, amount, days);
+    });
+
+    container.innerHTML = `
+        ${renderAgingCard('应收账龄（未回款订单）', receivable, 'normal')}
+        ${renderAgingCard('应付账龄（待付款采购）', payable, 'warn')}
+    `;
+}
+
+function downloadJsonFile(fileName, data) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+function markERPLoadedFlags(value) {
+    if (!window.ERP || !ERP.state || !ERP.state.loaded) {
+        return;
+    }
+    ERP.state.loaded.customers = value;
+    ERP.state.loaded.products = value;
+    ERP.state.loaded.orders = value;
+    ERP.state.loaded.finances = value;
+}
+
+async function loadERPAllModules(options = {}) {
+    if (!window.ERP) {
+        return;
+    }
+
+    const forceRefresh = options?.forceRefresh === true;
+    if (forceRefresh) {
+        markERPLoadedFlags(false);
+    }
+
+    await Promise.all([
+        ERP.loadCustomers(false),
+        ERP.loadProducts(false),
+        ERP.loadOrders(false),
+        ERP.loadFinances(false)
+    ]);
+}
+
+async function insertRowsByChunk(tableName, rows, chunkSize = 80) {
+    if (!Array.isArray(rows) || rows.length === 0) {
+        return 0;
+    }
+
+    let inserted = 0;
+    for (let i = 0; i < rows.length; i += chunkSize) {
+        const chunk = rows.slice(i, i + chunkSize);
+        const { error } = await supabaseClient
+            .from(tableName)
+            .insert(chunk);
+        if (error) {
+            throw error;
+        }
+        inserted += chunk.length;
+    }
+    return inserted;
+}
+
+async function exportERPBackupJson() {
+    if (!window.ERP) {
+        alert('ERP 尚未初始化');
+        return;
+    }
+
+    try {
+        await loadERPAllModules({ forceRefresh: true });
+
+        const payload = {
+            meta: {
+                version: '2.0',
+                exportedAt: new Date().toISOString(),
+                source: 'WebStack ERP',
+                userId: userData?.user?.id || null
+            },
+            data: {
+                customers: ERP.state.customers || [],
+                products: ERP.state.products || [],
+                orders: ERP.state.orders || [],
+                finances: ERP.state.finances || []
+            }
+        };
+
+        const fileName = `erp-backup-${formatFileTimestamp()}.json`;
+        downloadJsonFile(fileName, payload);
+        if (typeof showToast === 'function') {
+            showToast('备份导出成功', 'success');
+        }
+    } catch (error) {
+        console.error('[ERP] 导出备份失败:', error);
+        if (typeof showToast === 'function') {
+            showToast('导出失败：' + (error?.message || '未知错误'), 'error');
+        }
+    }
+}
+
+function triggerERPBackupImport() {
+    const input = document.getElementById('backupImportInput');
+    if (!input) {
+        alert('未找到导入控件');
+        return;
+    }
+    input.click();
+}
+
+async function importERPBackupFromFile(event) {
+    const input = event?.target;
+    const file = input?.files?.[0];
+    if (!file) {
+        return;
+    }
+
+    if (!window.ERP || typeof supabaseClient === 'undefined') {
+        alert('ERP 或数据库客户端未初始化');
+        input.value = '';
+        return;
+    }
+
+    try {
+        const text = await file.text();
+        const backup = JSON.parse(text);
+        const payload = backup?.data || {};
+
+        const customers = Array.isArray(payload.customers) ? payload.customers : [];
+        const products = Array.isArray(payload.products) ? payload.products : [];
+        const finances = Array.isArray(payload.finances) ? payload.finances : [];
+
+        await loadERPAllModules({ forceRefresh: true });
+
+        const currentUserId = userData?.user?.id;
+        const existingCustomerKeys = new Set((ERP.state.customers || []).map(buildCustomerMergeKey).filter(Boolean));
+        const existingProductKeys = new Set((ERP.state.products || []).map(buildProductMergeKey).filter(Boolean));
+        const existingFinanceKeys = new Set(
+            (ERP.state.finances || [])
+                .filter(item => ['income', 'expense'].includes(String(item?.type || '').toLowerCase()))
+                .filter(item => !isSystemLinkedFinanceCategory(item?.category))
+                .map(buildFinanceMergeKey)
+                .filter(Boolean)
+        );
+
+        const customerRows = customers
+            .map(item => ({
+                user_id: currentUserId,
+                name: String(item?.name || '').trim(),
+                contact_person: String(item?.contact_person || '').trim(),
+                phone: String(item?.phone || '').trim(),
+                email: String(item?.email || '').trim(),
+                address: String(item?.address || '').trim(),
+                notes: String(item?.notes || '').trim(),
+                status: String(item?.status || 'active')
+            }))
+            .filter(item => item.name)
+            .filter(item => {
+                const key = buildCustomerMergeKey(item);
+                if (!key || existingCustomerKeys.has(key)) {
+                    return false;
+                }
+                existingCustomerKeys.add(key);
+                return true;
+            });
+
+        const productRows = products
+            .map(item => {
+                const parsedPrice = Number(item?.price);
+                const parsedCost = Number(item?.cost);
+                return {
+                user_id: currentUserId,
+                    name: String(item?.name || '').trim(),
+                    sku: item?.sku ? String(item.sku).trim() : null,
+                    category: String(item?.category || '').trim(),
+                    description: String(item?.description || '').trim(),
+                    price: Number.isFinite(parsedPrice) ? parsedPrice : 0,
+                    cost: Number.isFinite(parsedCost) ? parsedCost : 0,
+                    stock_quantity: parseInt(item?.stock_quantity, 10) || 0,
+                    min_stock: parseInt(item?.min_stock, 10) || 0,
+                    unit: String(item?.unit || 'piece').trim(),
+                    status: String(item?.status || 'active')
+                };
+            })
+            .filter(item => item.name)
+            .filter(item => {
+                const key = buildProductMergeKey(item);
+                if (!key || existingProductKeys.has(key)) {
+                    return false;
+                }
+                existingProductKeys.add(key);
+                return true;
+            });
+
+        const financeRows = finances
+            .map(item => ({
+                user_id: currentUserId,
+                type: String(item?.type || '').toLowerCase(),
+                category: String(item?.category || '').trim(),
+                amount: Number(item?.amount || 0),
+                description: String(item?.description || '').trim(),
+                reference_id: item?.reference_id || null,
+                order_id: item?.order_id || null,
+                transaction_date: toDbDateTimeString(item?.transaction_date || new Date().toISOString())
+            }))
+            .filter(item => ['income', 'expense'].includes(item.type))
+            .filter(item => !isSystemLinkedFinanceCategory(item.category))
+            .filter(item => Number.isFinite(item.amount) && item.amount > 0)
+            .filter(item => {
+                const key = buildFinanceMergeKey(item);
+                if (!key || existingFinanceKeys.has(key)) {
+                    return false;
+                }
+                existingFinanceKeys.add(key);
+                return true;
+            });
+
+        const insertedCustomers = await insertRowsByChunk('erp_customers', customerRows);
+        const insertedProducts = await insertRowsByChunk('erp_products', productRows);
+        const insertedFinances = await insertRowsByChunk('erp_finances', financeRows);
+
+        await loadERPAllModules({ forceRefresh: true });
+
+        if (typeof renderCustomers === 'function') {
+            renderCustomers(ERP.state.customers);
+        }
+        if (typeof renderProducts === 'function') {
+            renderProducts(ERP.state.products);
+        }
+        if (typeof renderOrders === 'function') {
+            renderOrders(ERP.state.orders);
+        }
+        if (typeof renderInventory === 'function') {
+            renderInventory(ERP.state.products);
+            populateInventoryProducts();
+        }
+        if (typeof renderFinances === 'function') {
+            renderFinances(ERP.state.finances);
+        }
+        updateStatistics();
+        await loadPurchaseRecords();
+
+        if (typeof showToast === 'function') {
+            showToast(`导入完成：客户${insertedCustomers}，产品${insertedProducts}，手工财务${insertedFinances}`, 'success');
+        }
+    } catch (error) {
+        console.error('[ERP] 导入备份失败:', error);
+        if (typeof showToast === 'function') {
+            showToast('导入失败：' + (error?.message || '文件格式错误'), 'error');
+        }
+    } finally {
+        if (input) {
+            input.value = '';
+        }
+    }
+}
+
 // ==================== 状态文本转换 ====================
 function getOrderStatusText(status) {
     return getOrderStatusTextByValue(status);
@@ -2637,6 +3241,8 @@ if (typeof window !== 'undefined') {
         if (typeof renderFinances === 'function') {
             renderFinances(event.detail.finances);
         }
+        loadPurchaseRecords();
+        renderFinanceAgingSummary();
     });
 
     window.addEventListener('erpFinanceChanged', async function () {
@@ -2649,6 +3255,7 @@ if (typeof window !== 'undefined') {
             renderFinances(finances);
         }
         updateStatistics();
+        renderFinanceAgingSummary();
     });
 
     window.addEventListener('erpInventoryChanged', async function () {
@@ -2662,6 +3269,7 @@ if (typeof window !== 'undefined') {
             populateInventoryProducts();
         }
         updateStatistics();
+        await loadPurchaseRecords();
         await refreshLowStockFromLatestData('inventory-changed');
     });
 
@@ -2692,6 +3300,22 @@ if (typeof window !== 'undefined') {
 document.addEventListener('DOMContentLoaded', function () {
     initFinanceFilters();
     setTimeout(() => refreshLowStockFromLatestData('dom-ready'), 1200);
+    setTimeout(() => loadPurchaseRecords(), 1600);
+
+    const inventoryTypeInput = document.getElementById('inventoryType');
+    if (inventoryTypeInput) {
+        inventoryTypeInput.addEventListener('change', toggleInventoryPurchaseFields);
+    }
+
+    const purchasePaymentInput = document.getElementById('inventoryPaymentStatus');
+    if (purchasePaymentInput) {
+        purchasePaymentInput.addEventListener('change', toggleInventoryPurchaseFields);
+    }
+
+    const backupInput = document.getElementById('backupImportInput');
+    if (backupInput) {
+        backupInput.addEventListener('change', importERPBackupFromFile);
+    }
 
     document.addEventListener('click', function (event) {
         const target = event.target instanceof Element ? event.target : null;

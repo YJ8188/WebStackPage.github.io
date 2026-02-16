@@ -2073,20 +2073,80 @@ const ERP = {
         }
     },
 
-    async adjustInventory(productId, quantityChange, type, notes) {
+    async adjustInventory(productId, quantityChange, type, notes, options = {}) {
         try {
-            const result = await this.updateStock(productId, quantityChange, type, null, notes);
+            const normalizedType = String(type || '').trim();
+            const parsedQuantity = Number(quantityChange);
+            const safeQuantity = Number.isFinite(parsedQuantity) ? parsedQuantity : 0;
+            if (safeQuantity === 0) {
+                throw new Error('调整数量必须大于 0');
+            }
+
+            const product = this.state.products.find(item => this.isSameId(item.id, productId)) || null;
+            const productName = product?.name || String(productId);
+            const safeUnitCost = Number.isFinite(Number(options?.unitCost)) ? Number(options.unitCost) : 0;
+            const safePurchaseDate = options?.purchaseDate || new Date().toISOString();
+            const safeSupplier = String(options?.supplier || '').trim();
+            const safePaymentStatus = String(options?.paymentStatus || 'paid').toLowerCase();
+            const userNote = String(notes || '').trim();
+            const purchaseAmount = Math.abs(safeQuantity) * Math.max(safeUnitCost, 0);
+            const rawPaidAmount = Number(options?.paidAmount);
+
+            let paidAmount = 0;
+            if (safePaymentStatus === 'paid') {
+                paidAmount = purchaseAmount;
+            } else if (safePaymentStatus === 'partial') {
+                const safePaidAmount = Number.isFinite(rawPaidAmount) ? rawPaidAmount : 0;
+                paidAmount = Math.min(Math.max(safePaidAmount, 0), purchaseAmount);
+            }
+            const payableAmount = Math.max(purchaseAmount - paidAmount, 0);
+
+            let effectiveNotes = userNote;
+            if (normalizedType === 'purchase') {
+                const purchaseMeta = [
+                    '采购入库',
+                    `商品=${productName}`,
+                    `数量=${Math.abs(safeQuantity)}`,
+                    `单价=${Math.max(safeUnitCost, 0)}`,
+                    `总额=${purchaseAmount}`,
+                    `供应商=${safeSupplier || '-'}`,
+                    `付款=${safePaymentStatus}`,
+                    `已付=${paidAmount}`,
+                    `待付=${payableAmount}`,
+                    `时间=${safePurchaseDate}`,
+                    `备注=${userNote || '-'}`
+                ];
+                effectiveNotes = purchaseMeta.join('|');
+            }
+
+            const result = await this.updateStock(productId, safeQuantity, normalizedType, null, effectiveNotes);
 
             if (result) {
                 // 创建财务记录
-                if (type === 'purchase') {
-                    await this.addFinanceRecord({
-                        type: 'expense',
-                        category: '采购',
-                        amount: Math.abs(quantityChange) * 0, // 这里需要根据实际情况计算
-                        description: `库存调整 - ${type}`,
-                        reference_id: productId
-                    });
+                if (normalizedType === 'purchase') {
+                    const baseDescription = `采购入库 ${productName} x${Math.abs(safeQuantity)}，供应商：${safeSupplier || '未填写'}${userNote ? `，备注：${userNote}` : ''}`;
+
+                    if (paidAmount > 0) {
+                        await this.addFinanceRecord({
+                            type: 'expense',
+                            category: '采购入库',
+                            amount: paidAmount,
+                            description: `${baseDescription}（已付款）`,
+                            reference_id: productId,
+                            transaction_date: safePurchaseDate
+                        });
+                    }
+
+                    if (payableAmount > 0) {
+                        await this.addFinanceRecord({
+                            type: 'system',
+                            category: '应付账款',
+                            amount: payableAmount,
+                            description: `${baseDescription}（待付款）`,
+                            reference_id: productId,
+                            transaction_date: safePurchaseDate
+                        });
+                    }
                 }
 
                 if (typeof showToast === 'function') {
@@ -2102,6 +2162,28 @@ const ERP = {
                 showToast('调整库存失败: ' + error.message, 'error');
             }
             return false;
+        }
+    },
+
+    async loadPurchaseLogs(limit = 80) {
+        try {
+            const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 80, 1), 500);
+            const { data, error } = await supabaseClient
+                .from('erp_inventory_logs')
+                .select('id, user_id, product_id, quantity_change, current_quantity, type, notes, created_at')
+                .eq('user_id', userData.user.id)
+                .eq('type', 'purchase')
+                .order('created_at', { ascending: false })
+                .limit(safeLimit);
+
+            if (error) {
+                throw error;
+            }
+
+            return data || [];
+        } catch (error) {
+            console.error('[ERP] 加载采购记录失败:', error);
+            return [];
         }
     },
 

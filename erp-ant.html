@@ -1346,10 +1346,11 @@
                 <button class="btn-close" onclick="hideHeaderNoticeModal()">&times;</button>
             </div>
             <div class="modal-body">
+                <div id="headerNoticeFilterBar" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;"></div>
                 <ul id="headerNoticeList" class="erp-header-panel-list"></ul>
             </div>
             <div class="modal-footer">
-                <button class="btn-secondary" onclick="markAllHeaderNoticesRead()">全部已读</button>
+                <button class="btn-secondary" onclick="markAllHeaderNoticesRead()">本分组已读</button>
                 <button class="ant-btn ant-btn-primary" onclick="hideHeaderNoticeModal()">我知道了</button>
             </div>
         </div>
@@ -2285,6 +2286,37 @@
             }[char]));
         }
 
+        function getHeaderNoticeReadStorageKey() {
+            const userId = (window.userData && userData.user && userData.user.id) ? String(userData.user.id) : 'guest';
+            return `erpHeaderNoticeReadMap_${userId}`;
+        }
+
+        function getHeaderNoticeGroupStorageKey() {
+            const userId = (window.userData && userData.user && userData.user.id) ? String(userData.user.id) : 'guest';
+            return `erpHeaderNoticeGroup_${userId}`;
+        }
+
+        function getHeaderNoticeReadMap() {
+            try {
+                return JSON.parse(localStorage.getItem(getHeaderNoticeReadStorageKey()) || '{}');
+            } catch (error) {
+                return {};
+            }
+        }
+
+        function saveHeaderNoticeReadMap(readMap = {}) {
+            localStorage.setItem(getHeaderNoticeReadStorageKey(), JSON.stringify(readMap || {}));
+        }
+
+        function getHeaderNoticeSelectedGroup() {
+            const raw = String(localStorage.getItem(getHeaderNoticeGroupStorageKey()) || 'all').trim();
+            return raw || 'all';
+        }
+
+        function setHeaderNoticeSelectedGroup(groupKey = 'all') {
+            localStorage.setItem(getHeaderNoticeGroupStorageKey(), String(groupKey || 'all'));
+        }
+
         function headerSearchInModule(moduleName, data, keyword, mapToTitle, mapToSubtitle) {
             if (!Array.isArray(data) || data.length === 0) {
                 return [];
@@ -2376,7 +2408,8 @@
                     key: `low_stock_${product.id}`,
                     title: `库存预警：${product.name}`,
                     subtitle: `当前库存 ${product.stock_quantity || 0}，安全库存 ${(product.min_stock ?? 0)}`,
-                    level: 'warning'
+                    level: 'warning',
+                    group: 'inventory'
                 });
             });
 
@@ -2387,6 +2420,7 @@
                     title: `待回款订单：${order.order_number || `订单#${order.id}`}`,
                     subtitle: `金额 ¥${parseFloat(order.total_amount || 0).toFixed(2)}，状态 ${getOrderStatusText(order.status)}`,
                     level: 'info',
+                    group: 'receivable',
                     action: {
                         type: 'open_module',
                         module: 'orders'
@@ -2423,6 +2457,7 @@
                     title: `采购待审批：${purchaseNo}`,
                     subtitle: `供应商 ${supplier}，金额 ¥${Number.isFinite(amount) ? amount.toFixed(2) : '0.00'}`,
                     level: 'warning',
+                    group: 'purchase_approval',
                     action: {
                         type: 'purchase_approval',
                         logId: record.id
@@ -2435,7 +2470,8 @@
                     key: 'all_good',
                     title: '当前无待处理提醒',
                     subtitle: `系统检查时间：${formatHeaderDate(now)}`,
-                    level: 'success'
+                    level: 'success',
+                    group: 'all'
                 });
             }
 
@@ -2458,19 +2494,48 @@
         async function renderHeaderNotices() {
             const listEl = document.getElementById('headerNoticeList');
             const badgeEl = document.getElementById('headerNoticeBadge');
+            const filterBarEl = document.getElementById('headerNoticeFilterBar');
             if (!listEl || !badgeEl) {
                 return;
             }
 
             await ensureHeaderNoticeData();
-            const readMap = JSON.parse(localStorage.getItem('erpHeaderNoticeReadMap') || '{}');
+            const readMap = getHeaderNoticeReadMap();
             const notices = getHeaderNotices();
+            const selectedGroup = getHeaderNoticeSelectedGroup();
 
             const unreadCount = notices.filter(n => !readMap[n.key]).length;
             badgeEl.textContent = unreadCount;
             badgeEl.classList.toggle('hidden', unreadCount === 0);
 
-            listEl.innerHTML = notices.map(notice => `
+            const groups = [
+                { key: 'all', label: '全部' },
+                { key: 'inventory', label: '库存' },
+                { key: 'receivable', label: '回款' },
+                { key: 'purchase_approval', label: '采购审批' }
+            ];
+            const filteredNotices = selectedGroup === 'all'
+                ? notices
+                : notices.filter(item => item.group === selectedGroup);
+
+            if (filterBarEl) {
+                filterBarEl.innerHTML = groups.map(group => {
+                    const groupRows = group.key === 'all'
+                        ? notices
+                        : notices.filter(item => item.group === group.key);
+                    const unread = groupRows.filter(item => !readMap[item.key]).length;
+                    const isActive = group.key === selectedGroup;
+                    return `
+                        <button class="ant-btn" type="button"
+                            style="height:26px;line-height:24px;padding:0 10px;font-size:12px;${isActive ? 'color:#1677ff;border-color:#91caff;background:#e6f4ff;' : ''}"
+                            onclick="setHeaderNoticeGroupAndRender('${group.key}')">
+                            ${group.label}${unread > 0 ? ` (${unread})` : ''}
+                        </button>
+                    `;
+                }).join('');
+            }
+
+            listEl.innerHTML = filteredNotices.map(notice => `
                 <li class="erp-header-panel-item">
                     <div>
                         <p class="erp-header-panel-title">${safeText(notice.title)}</p>
@@ -2481,25 +2546,34 @@
                         <button class="ant-btn" type="button" onclick="markHeaderNoticeRead('${notice.key}')">已读</button>
                     </div>
                 </li>
-            `).join('');
+            `).join('') || '<li class="erp-header-panel-item"><div><p class="erp-header-panel-title">当前分组暂无提醒</p><p class="erp-header-panel-subtitle">可切换分组查看其他通知</p></div></li>';
         }
 
         function markHeaderNoticeRead(key) {
-            const readMap = JSON.parse(localStorage.getItem('erpHeaderNoticeReadMap') || '{}');
+            const readMap = getHeaderNoticeReadMap();
             readMap[key] = true;
-            localStorage.setItem('erpHeaderNoticeReadMap', JSON.stringify(readMap));
+            saveHeaderNoticeReadMap(readMap);
+            renderHeaderNotices();
+        }
+
+        function setHeaderNoticeGroupAndRender(groupKey) {
+            setHeaderNoticeSelectedGroup(groupKey);
             renderHeaderNotices();
         }
 
         function markAllHeaderNoticesRead() {
             const notices = getHeaderNotices();
-            const readMap = JSON.parse(localStorage.getItem('erpHeaderNoticeReadMap') || '{}');
-            notices.forEach(n => {
+            const selectedGroup = getHeaderNoticeSelectedGroup();
+            const targets = selectedGroup === 'all'
+                ? notices
+                : notices.filter(item => item.group === selectedGroup);
+            const readMap = getHeaderNoticeReadMap();
+            targets.forEach(n => {
                 readMap[n.key] = true;
             });
-            localStorage.setItem('erpHeaderNoticeReadMap', JSON.stringify(readMap));
+            saveHeaderNoticeReadMap(readMap);
             renderHeaderNotices();
-            showToast('通知已全部标记为已读', 'success');
+            showToast(selectedGroup === 'all' ? '通知已全部标记为已读' : '当前分组通知已标记为已读', 'success');
         }
 
         async function openHeaderNotice(key) {

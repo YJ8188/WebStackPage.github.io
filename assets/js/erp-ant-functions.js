@@ -3616,23 +3616,46 @@ function applyFinanceFilters() {
     renderFinanceAgingSummary();
 }
 
+function updateFinanceQuickRangeButtons() {
+    const rangePreset = String(document.getElementById('financeDateRange')?.value || 'all');
+    const buttons = document.querySelectorAll('[data-finance-range-btn]');
+    buttons.forEach(button => {
+        const buttonPreset = String(button.getAttribute('data-finance-range-btn') || '').trim();
+        button.classList.toggle('is-active', buttonPreset === rangePreset);
+    });
+}
+
+function setFinanceDateRangePreset(preset = 'all') {
+    const rangeSelect = document.getElementById('financeDateRange');
+    if (rangeSelect) {
+        rangeSelect.value = String(preset || 'all');
+    }
+    onFinanceDateRangeChange();
+}
+
 function onFinanceDateRangeChange() {
     const rangePreset = String(document.getElementById('financeDateRange')?.value || 'all');
     const startInput = document.getElementById('financeDateStart');
     const endInput = document.getElementById('financeDateEnd');
-    if (!startInput || !endInput) {
-        return;
-    }
 
     const isCustom = rangePreset === 'custom';
-    startInput.disabled = !isCustom;
-    endInput.disabled = !isCustom;
-
-    if (!isCustom) {
-        startInput.value = '';
-        endInput.value = '';
+    if (startInput) {
+        startInput.disabled = !isCustom;
+    }
+    if (endInput) {
+        endInput.disabled = !isCustom;
     }
 
+    if (!isCustom) {
+        if (startInput) {
+            startInput.value = '';
+        }
+        if (endInput) {
+            endInput.value = '';
+        }
+    }
+
+    updateFinanceQuickRangeButtons();
     applyFinanceFilters();
 }
 
@@ -3657,7 +3680,7 @@ function resetFinanceFilters() {
         searchInput.value = '';
     }
 
-    applyFinanceFilters();
+    onFinanceDateRangeChange();
 }
 
 function initFinanceFilters() {
@@ -3687,6 +3710,7 @@ function initFinanceFilters() {
         dailyReportDateInput.value = dateText;
     }
 
+    updateFinanceQuickRangeButtons();
     syncFinanceViewRows(Array.isArray(ERP.state?.finances) ? ERP.state.finances : [], 'all');
     applyFinanceFilters();
 }

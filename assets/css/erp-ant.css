@@ -443,6 +443,11 @@ select.ant-select option {
     border-spacing: 0;
 }
 
+.ant-table th,
+.ant-table td {
+    vertical-align: middle;
+}
+
 .ant-table-thead>tr>th {
     color: var(--heading-color);
     font-weight: 500;
@@ -819,6 +824,26 @@ select.ant-select option {
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
+.erp-finance-quick-range {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.erp-finance-quick-btn {
+    height: 26px;
+    line-height: 24px;
+    padding: 0 10px;
+    font-size: 12px;
+}
+
+.erp-finance-quick-btn.is-active {
+    color: #1677ff;
+    border-color: #91caff;
+    background: #e6f4ff;
+}
+
 .erp-row-actions {
     display: inline-flex;
     align-items: center;
@@ -836,6 +861,15 @@ select.ant-select option {
     width: 1%;
     white-space: nowrap;
     vertical-align: middle;
+}
+
+.erp-cell-ellipsis {
+    display: inline-block;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
 }
 
 .erp-btn-danger {

@@ -871,6 +871,67 @@ function setOrderLogisticsStatus(message, isError = false) {
     statusEl.classList.toggle('error', !!isError);
 }
 
+function getCarrierFallbackLetter(name) {
+    const text = String(name || '').trim();
+    if (!text) {
+        return '物';
+    }
+    return text.slice(0, 1).toUpperCase();
+}
+
+function renderOrderLogisticsCarrierCard(result = null) {
+    const cardEl = document.getElementById('orderLogisticsCarrierCard');
+    const logoEl = document.getElementById('orderLogisticsCarrierLogo');
+    const fallbackEl = document.getElementById('orderLogisticsCarrierFallback');
+    const nameEl = document.getElementById('orderLogisticsCarrierName');
+    const metaEl = document.getElementById('orderLogisticsCarrierMeta');
+
+    if (!cardEl || !logoEl || !fallbackEl || !nameEl || !metaEl) {
+        return;
+    }
+
+    const providerName = String(result?.providerName || '').trim();
+    if (!providerName) {
+        cardEl.classList.add('is-empty');
+        logoEl.style.display = 'none';
+        logoEl.removeAttribute('src');
+        fallbackEl.style.display = 'inline-flex';
+        fallbackEl.textContent = '物';
+        nameEl.textContent = '物流公司';
+        metaEl.textContent = '中国 · 无电话';
+        return;
+    }
+
+    const countryText = String(result?.providerCountryText || '中国');
+    const phoneText = String(result?.providerPhone || '').trim() || '无电话';
+    const logoUrlPrimary = String(result?.providerLogoUrl || '').trim();
+    const logoUrlFallback = String(result?.providerLogoFallbackUrl || '').trim();
+
+    cardEl.classList.remove('is-empty');
+    nameEl.textContent = providerName;
+    metaEl.textContent = `${countryText} · ${phoneText}`;
+    fallbackEl.textContent = getCarrierFallbackLetter(providerName);
+
+    if (!logoUrlPrimary && !logoUrlFallback) {
+        logoEl.style.display = 'none';
+        logoEl.removeAttribute('src');
+        fallbackEl.style.display = 'inline-flex';
+        return;
+    }
+
+    logoEl.style.display = 'block';
+    fallbackEl.style.display = 'none';
+    logoEl.onerror = function () {
+        if (logoUrlFallback && logoEl.src !== logoUrlFallback) {
+            logoEl.src = logoUrlFallback;
+            return;
+        }
+        logoEl.style.display = 'none';
+        fallbackEl.style.display = 'inline-flex';
+    };
+    logoEl.src = logoUrlPrimary || logoUrlFallback;
+}
+
 function renderOrderLogisticsTimeline(events = []) {
     const timelineEl = document.getElementById('orderLogisticsTimeline');
     if (!timelineEl) {
@@ -882,7 +943,7 @@ function renderOrderLogisticsTimeline(events = []) {
         return;
     }
 
-    timelineEl.innerHTML = events.map(event => {
+    timelineEl.innerHTML = events.map((event, index) => {
         const timeText = escapeHtmlText(event?.time || '-');
         const rawDisplayText = String(event?.displayText || '').trim();
         const statusText = String(event?.status || '').trim();
@@ -890,10 +951,14 @@ function renderOrderLogisticsTimeline(events = []) {
         const locationText = String(event?.location || '').trim();
         const fallbackText = [statusText, descText, locationText].filter(Boolean).join(' ｜ ');
         const displayText = escapeHtmlText(rawDisplayText || fallbackText || '状态更新');
+        const itemClass = index === 0 ? 'order-logistics-item is-latest' : 'order-logistics-item';
         return `
-            <div class="order-logistics-item">
-                <div class="order-logistics-time">${timeText}</div>
-                <div class="order-logistics-main">${displayText}</div>
+            <div class="${itemClass}">
+                <span class="order-logistics-node"></span>
+                <div class="order-logistics-content">
+                    <div class="order-logistics-main">${displayText}</div>
+                    <div class="order-logistics-time">${timeText}</div>
+                </div>
             </div>
         `;
     }).join('');
@@ -902,6 +967,7 @@ function renderOrderLogisticsTimeline(events = []) {
 }
 
 function resetOrderLogisticsPanel() {
+    renderOrderLogisticsCarrierCard(null);
     setOrderLogisticsStatus('填写快递单号后可查询实时轨迹');
     renderOrderLogisticsTimeline([]);
 }
@@ -1004,6 +1070,7 @@ async function queryOrderLogisticsByForm(options = {}) {
     try {
         const result = await requestOrderLogistics(trackingNumber, shippingCompany, { forceRefresh, param: trackingParam });
         const timeline = Array.isArray(result.timeline) ? result.timeline : [];
+        renderOrderLogisticsCarrierCard(result);
         renderOrderLogisticsTimeline(timeline);
 
         const latestStatusText = String(result.latestStatusText || result.latestStatusCode || '已同步');
@@ -1011,6 +1078,7 @@ async function queryOrderLogisticsByForm(options = {}) {
         setOrderLogisticsStatus(`最新状态：${latestStatusText}（${providerText}）`);
     } catch (error) {
         const message = String(error?.message || error || '物流查询失败');
+        renderOrderLogisticsCarrierCard(null);
         setOrderLogisticsStatus(`物流查询失败：${message}`, true);
         renderOrderLogisticsTimeline([]);
         if (!silentError && typeof showToast === 'function') {

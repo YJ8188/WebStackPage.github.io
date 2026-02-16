@@ -106,6 +106,56 @@ function providerToChinese(name: string): string {
   return map[raw] || raw || "17TRACK";
 }
 
+function countryCodeToText(code: string): string {
+  const normalized = String(code || "").trim().toUpperCase();
+  const map: Record<string, string> = {
+    CN: "中国",
+    US: "美国",
+    GB: "英国",
+    HK: "中国香港",
+    JP: "日本",
+    KR: "韩国",
+  };
+  return map[normalized] || normalized || "未知";
+}
+
+function extractDomain(value: string): string {
+  const text = String(value || "").trim();
+  if (!text) {
+    return "";
+  }
+
+  try {
+    const url = new URL(text);
+    return url.hostname || "";
+  } catch (_) {
+    return "";
+  }
+}
+
+function buildProviderLogo(homepage: string, providerName: string): { logoUrl: string; logoFallbackUrl: string } {
+  const homeDomain = extractDomain(homepage);
+  const fallbackDomainMap: Record<string, string> = {
+    "申通快递": "www.sto.cn",
+    "中通快递": "www.zto.com",
+    "圆通速递": "www.yto.net.cn",
+    "韵达速递": "www.yundaex.com",
+    "顺丰速运": "www.sf-express.com",
+    "京东物流": "www.jdl.com",
+    "USPS": "www.usps.com",
+  };
+
+  const domain = homeDomain || fallbackDomainMap[String(providerName || "").trim()] || "";
+  if (!domain) {
+    return { logoUrl: "", logoFallbackUrl: "" };
+  }
+
+  return {
+    logoUrl: `https://${domain}/favicon.ico`,
+    logoFallbackUrl: `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`,
+  };
+}
+
 function normalizeEventDescription(text: unknown): string {
   return String(text ?? "").replace(/\s+/g, " ").trim();
 }
@@ -267,6 +317,12 @@ serve(async (req) => {
     const tracking = (trackInfo.tracking as Record<string, unknown>) || {};
     const providers = Array.isArray(tracking.providers) ? tracking.providers : [];
     const firstProvider = ((providers[0] as Record<string, unknown>)?.provider as Record<string, unknown>) || {};
+    const providerName = providerToChinese(String(firstProvider.name || "17TRACK"));
+    const providerCountryCode = String(firstProvider.country || "");
+    const providerCountryText = countryCodeToText(providerCountryCode);
+    const providerPhone = String(firstProvider.tel || "").trim();
+    const providerHomepage = String(firstProvider.homepage || "").trim();
+    const providerLogo = buildProviderLogo(providerHomepage, providerName);
 
     const timeline = normalizeTimeline(trackInfo);
     const latestStatusCode = String(latestStatus.status || "");
@@ -297,7 +353,13 @@ serve(async (req) => {
       trackingNumber,
       shippingCompany,
       provider: "17TRACK",
-      providerName: providerToChinese(String(firstProvider.name || "17TRACK")),
+      providerName,
+      providerCountryCode,
+      providerCountryText,
+      providerPhone,
+      providerHomepage,
+      providerLogoUrl: providerLogo.logoUrl,
+      providerLogoFallbackUrl: providerLogo.logoFallbackUrl,
       carrier: first.carrier ?? null,
       latestStatusCode,
       latestStatusText,

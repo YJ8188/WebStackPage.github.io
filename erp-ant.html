@@ -104,6 +104,69 @@
             gap: 8px;
         }
 
+        .order-logistics-carrier {
+            margin-top: 10px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #fff;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .order-logistics-carrier-logo-wrap {
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .order-logistics-carrier-logo {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: none;
+        }
+
+        .order-logistics-carrier-fallback {
+            font-size: 14px;
+            color: #475569;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+        }
+
+        .order-logistics-carrier-main {
+            line-height: 1.35;
+            min-width: 0;
+        }
+
+        .order-logistics-carrier-name {
+            font-size: 15px;
+            color: #1d4ed8;
+            font-weight: 600;
+        }
+
+        .order-logistics-carrier-meta {
+            margin-top: 1px;
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .order-logistics-carrier.is-empty .order-logistics-carrier-name {
+            color: #64748b;
+        }
+
         .order-logistics-status {
             margin-top: 8px;
             font-size: 12px;
@@ -121,28 +184,69 @@
             border: 1px solid #e5e7eb;
             border-radius: 8px;
             background: #fafafa;
-            padding: 8px 10px;
+            padding: 10px 10px 10px 8px;
         }
 
         .order-logistics-item {
-            border-bottom: 1px dashed #e2e8f0;
-            padding: 8px 0;
+            position: relative;
+            padding: 0 0 10px 32px;
         }
 
-        .order-logistics-item:last-child {
-            border-bottom: none;
+        .order-logistics-item::before {
+            content: '';
+            position: absolute;
+            left: 9px;
+            top: 14px;
+            bottom: -2px;
+            width: 2px;
+            background: #d9d9d9;
+        }
+
+        .order-logistics-item:last-child::before {
+            display: none;
+        }
+
+        .order-logistics-node {
+            position: absolute;
+            left: 3px;
+            top: 2px;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid #d9d9d9;
+            background: #fff;
+            box-sizing: border-box;
+        }
+
+        .order-logistics-item.is-latest .order-logistics-node {
+            border-color: #52c41a;
+            background: #52c41a;
+        }
+
+        .order-logistics-item.is-latest .order-logistics-node::after {
+            content: '✓';
+            position: absolute;
+            left: 1px;
+            top: -1px;
+            color: #fff;
+            font-size: 10px;
+            line-height: 1;
         }
 
         .order-logistics-time {
             color: #334155;
             font-size: 12px;
-            margin-bottom: 2px;
+            margin-top: 3px;
         }
 
         .order-logistics-main {
             color: #0f172a;
             font-size: 13px;
             line-height: 1.5;
+        }
+
+        .order-logistics-content {
+            min-width: 0;
         }
 
         .order-logistics-empty {
@@ -850,6 +954,16 @@
                             </button>
                         </div>
                         <input type="text" id="orderTrackingParam" class="ant-input" placeholder="可选：顺丰可填写收件人手机号后4位" style="margin-top:8px;">
+                        <div id="orderLogisticsCarrierCard" class="order-logistics-carrier is-empty">
+                            <div class="order-logistics-carrier-logo-wrap">
+                                <img id="orderLogisticsCarrierLogo" class="order-logistics-carrier-logo" alt="快递公司logo">
+                                <span id="orderLogisticsCarrierFallback" class="order-logistics-carrier-fallback">物</span>
+                            </div>
+                            <div class="order-logistics-carrier-main">
+                                <div id="orderLogisticsCarrierName" class="order-logistics-carrier-name">物流公司</div>
+                                <div id="orderLogisticsCarrierMeta" class="order-logistics-carrier-meta">中国 · 无电话</div>
+                            </div>
+                        </div>
                         <div id="orderLogisticsStatus" class="order-logistics-status">填写快递单号后可查询实时轨迹</div>
                         <div id="orderLogisticsTimeline" class="order-logistics-timeline">
                             <div class="order-logistics-empty">暂无物流轨迹</div>
@@ -1025,7 +1139,7 @@
     <script src="assets/js/supabase-config.js?v=20260212-14"></script>
     <script src="assets/js/user-data.js?v=20260214-20"></script>
     <script src="assets/js/erp.js?v=20260214-17"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260216-6"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260216-7"></script>
     <script src="assets/js/pwa-register.js?v=20260216-1" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->

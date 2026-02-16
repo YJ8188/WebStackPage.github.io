@@ -3191,7 +3191,7 @@ function renderPurchaseRecords(records = []) {
 
     const rows = Array.isArray(records) ? records : [];
     if (rows.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:16px;color:#999;">暂无采购记录</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:16px;color:#999;">暂无采购记录</td></tr>';
         return;
     }
 
@@ -3210,9 +3210,26 @@ function renderPurchaseRecords(records = []) {
         const paymentStatus = String(meta['付款'] || 'paid');
         const paymentTextMap = { paid: '已付款', unpaid: '未付款', partial: '部分付款' };
         const paymentText = paymentTextMap[paymentStatus] || paymentStatus;
+        const approvalStatus = normalizePurchaseApprovalStatus(meta['审批'] || 'approved');
+        const approvalText = formatPurchaseApprovalStatus(approvalStatus);
+        const approvalColor = approvalStatus === 'approved' ? '#237804' : (approvalStatus === 'rejected' ? '#cf1322' : '#d46b08');
+        const approvalBg = approvalStatus === 'approved' ? '#f6ffed' : (approvalStatus === 'rejected' ? '#fff1f0' : '#fff7e6');
+        const approvalBorder = approvalStatus === 'approved' ? '#b7eb8f' : (approvalStatus === 'rejected' ? '#ffa39e' : '#ffd591');
+        const approvalNote = String(meta['审批备注'] || '').trim();
         const createdAt = meta['时间'] || record?.created_at || '';
         const noteText = (meta['备注'] && meta['备注'] !== '-') ? meta['备注'] : '-';
         const displayTime = parseFinanceDate(createdAt);
+        const approvalActions = approvalStatus === 'pending'
+            ? `
+                <button class="ant-btn" style="height:24px;line-height:22px;padding:0 8px;font-size:12px;color:#237804;border-color:#b7eb8f;margin-right:6px;"
+                    onclick='setPurchaseApprovalStatus(${JSON.stringify(record?.id)}, "approved")'>通过</button>
+                <button class="ant-btn" style="height:24px;line-height:22px;padding:0 8px;font-size:12px;color:#cf1322;border-color:#ffa39e;"
+                    onclick='setPurchaseApprovalStatus(${JSON.stringify(record?.id)}, "rejected")'>驳回</button>
+            `
+            : `
+                <button class="ant-btn" style="height:24px;line-height:22px;padding:0 8px;font-size:12px;color:#d46b08;border-color:#ffd591;"
+                    onclick='setPurchaseApprovalStatus(${JSON.stringify(record?.id)}, "pending")'>改待审</button>
+            `;
 
         return `
             <tr>
@@ -3224,10 +3241,47 @@ function renderPurchaseRecords(records = []) {
                 <td>${formatCurrency(amount)}</td>
                 <td>${escapeHtmlText(supplier)}</td>
                 <td>${escapeHtmlText(paymentText)}</td>
+                <td>
+                    <span style="display:inline-block;padding:1px 8px;border-radius:999px;border:1px solid ${approvalBorder};background:${approvalBg};color:${approvalColor};font-size:12px;"
+                        title="${escapeHtmlText(approvalNote || '-')}"
+                    >${escapeHtmlText(approvalText)}</span>
+                </td>
                 <td title="${escapeHtmlText(noteText)}">${escapeHtmlText(noteText)}</td>
+                <td>${approvalActions}</td>
             </tr>
         `;
     }).join('');
+}
+
+async function setPurchaseApprovalStatus(logId, approvalStatus = 'approved') {
+    if (!window.ERP || typeof ERP.updatePurchaseApproval !== 'function') {
+        alert('当前版本不支持采购审批，请刷新后重试');
+        return;
+    }
+
+    const safeStatus = normalizePurchaseApprovalStatus(approvalStatus);
+    const statusText = formatPurchaseApprovalStatus(safeStatus);
+    let note = '';
+    if (safeStatus === 'rejected') {
+        note = String(prompt('请输入驳回原因（必填）', '') || '').trim();
+        if (!note) {
+            alert('驳回必须填写原因');
+            return;
+        }
+    } else {
+        note = String(prompt(`可选：填写审批备注（状态：${statusText}）`, '') || '').trim();
+    }
+
+    const result = await ERP.updatePurchaseApproval(logId, safeStatus, note);
+    if (!result) {
+        return;
+    }
+
+    await loadPurchaseRecords(120);
+    updateStatistics();
+    if (typeof showToast === 'function') {
+        showToast(`采购审批已更新为：${statusText}`, 'success');
+    }
 }
 
 function searchInventory() {
@@ -4837,6 +4891,20 @@ function normalizePurchasePaymentStatus(value) {
     return 'paid';
 }
 
+function normalizePurchaseApprovalStatus(value) {
+    const text = String(value || '').trim().toLowerCase();
+    if (text === 'pending') return 'pending';
+    if (text === 'rejected') return 'rejected';
+    return 'approved';
+}
+
+function formatPurchaseApprovalStatus(status) {
+    const safeStatus = normalizePurchaseApprovalStatus(status);
+    if (safeStatus === 'pending') return '待审批';
+    if (safeStatus === 'rejected') return '已驳回';
+    return '已通过';
+}
+
 function parsePurchaseRecordForDashboard(record, productMap = new Map()) {
     const meta = parsePurchaseMetaFromNotes(record?.notes);
     const productFromState = productMap.get(String(record?.product_id || '')) || null;
@@ -4850,6 +4918,9 @@ function parsePurchaseRecordForDashboard(record, productMap = new Map()) {
     const amountRaw = Number(meta['总额'] ?? (quantity * unitCost));
     const amount = Number.isFinite(amountRaw) ? Math.max(amountRaw, 0) : 0;
     const paymentStatus = normalizePurchasePaymentStatus(meta['付款'] || 'paid');
+    const approvalStatus = normalizePurchaseApprovalStatus(meta['审批'] || 'approved');
+    const approvalTime = parseFinanceDate(meta['审批时间'] || '');
+    const approvalNote = String(meta['审批备注'] || '').trim();
     const paidAmountRaw = Number(meta['已付']);
     const payableAmountRaw = Number(meta['待付']);
     const paidAmount = Number.isFinite(paidAmountRaw)
@@ -4872,6 +4943,9 @@ function parsePurchaseRecordForDashboard(record, productMap = new Map()) {
         amount,
         supplier,
         paymentStatus,
+        approvalStatus,
+        approvalTime,
+        approvalNote,
         paidAmount,
         payableAmount,
         note,
@@ -5359,7 +5433,7 @@ async function exportPurchaseDetailsByMonth(monthKey = '') {
         return;
     }
 
-    const headers = ['采购单号', '采购时间', '供应商', '商品', '数量', '单价', '总额', '付款状态', '已付', '待付', '备注'];
+    const headers = ['采购单号', '采购时间', '供应商', '商品', '数量', '单价', '总额', '付款状态', '审批状态', '审批时间', '审批备注', '已付', '待付', '备注'];
     const paymentStatusMap = { paid: '已付款', unpaid: '未付款', partial: '部分付款' };
     const exportRows = rows.map(item => [
         item.purchaseOrderNo || '-',
@@ -5370,6 +5444,9 @@ async function exportPurchaseDetailsByMonth(monthKey = '') {
         Number(item.unitCost || 0).toFixed(2),
         Number(item.amount || 0).toFixed(2),
         paymentStatusMap[String(item.paymentStatus || '').toLowerCase()] || String(item.paymentStatus || '-'),
+        formatPurchaseApprovalStatus(item.approvalStatus),
+        item.approvalTime ? item.approvalTime.toLocaleString('zh-CN') : '-',
+        item.approvalNote || '-',
         Number(item.paidAmount || 0).toFixed(2),
         Number(item.payableAmount || 0).toFixed(2),
         item.note || '-'
@@ -5416,9 +5493,9 @@ async function exportSupplierMonthlyStatement() {
     const totalAmount = rows.reduce((sum, item) => sum + Number(item.amount || 0), 0);
     const totalPaid = rows.reduce((sum, item) => sum + Number(item.paidAmount || 0), 0);
     const totalPayable = rows.reduce((sum, item) => sum + Number(item.payableAmount || 0), 0);
-    const headers = ['类型', '月份', '供应商', '采购单号', '采购时间', '商品', '数量', '单价', '采购总额', '已付', '待付', '备注'];
+    const headers = ['类型', '月份', '供应商', '采购单号', '采购时间', '商品', '数量', '单价', '采购总额', '审批状态', '审批时间', '审批备注', '已付', '待付', '备注'];
     const exportRows = [
-        ['汇总', monthInput, supplierName, '-', '-', '-', '-', '-', totalAmount.toFixed(2), totalPaid.toFixed(2), totalPayable.toFixed(2), `采购笔数=${rows.length}`],
+        ['汇总', monthInput, supplierName, '-', '-', '-', '-', '-', totalAmount.toFixed(2), '-', '-', '-', totalPaid.toFixed(2), totalPayable.toFixed(2), `采购笔数=${rows.length}`],
         ...rows.map(item => [
             '明细',
             monthInput,
@@ -5429,6 +5506,9 @@ async function exportSupplierMonthlyStatement() {
             Number(item.quantity || 0),
             Number(item.unitCost || 0).toFixed(2),
             Number(item.amount || 0).toFixed(2),
+            formatPurchaseApprovalStatus(item.approvalStatus),
+            item.approvalTime ? item.approvalTime.toLocaleString('zh-CN') : '-',
+            item.approvalNote || '-',
             Number(item.paidAmount || 0).toFixed(2),
             Number(item.payableAmount || 0).toFixed(2),
             item.note || '-'
@@ -5439,6 +5519,113 @@ async function exportSupplierMonthlyStatement() {
     if (typeof showToast === 'function') {
         showToast(`已导出供应商月结单：${supplierName} ${monthInput}`, 'success');
     }
+}
+
+async function exportSupplierMonthlyStatementPdf() {
+    const supplierName = String(prompt('请输入供应商名称（必填）', '') || '').trim();
+    if (!supplierName) {
+        return;
+    }
+    const defaultMonth = getCurrentYearMonthText();
+    const monthInput = String(prompt('请输入结算月份（格式：YYYY-MM）', defaultMonth) || '').trim() || defaultMonth;
+    if (!/^\d{4}-\d{2}$/.test(monthInput)) {
+        alert('月份格式错误，请使用 YYYY-MM');
+        return;
+    }
+
+    const products = Array.isArray(ERP.state?.products) ? ERP.state.products : [];
+    const productMap = new Map(products.map(item => [String(item?.id), item]));
+    const logs = await ensureDashboardPurchaseRecords(500);
+    const rows = logs
+        .map(record => parsePurchaseRecordForDashboard(record, productMap))
+        .filter(item => {
+            const date = item?.purchaseDate instanceof Date ? item.purchaseDate : null;
+            if (!date) {
+                return false;
+            }
+            const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            return key === monthInput && String(item.supplier || '').trim() === supplierName;
+        });
+
+    if (!rows.length) {
+        if (typeof showToast === 'function') {
+            showToast(`${monthInput} 未找到供应商 ${supplierName} 的采购记录`, 'info');
+        }
+        return;
+    }
+
+    const totalAmount = rows.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    const totalPaid = rows.reduce((sum, item) => sum + Number(item.paidAmount || 0), 0);
+    const totalPayable = rows.reduce((sum, item) => sum + Number(item.payableAmount || 0), 0);
+    const paymentStatusMap = { paid: '已付款', unpaid: '未付款', partial: '部分付款' };
+
+    const tableRows = rows.map((item, idx) => `
+        <tr>
+            <td>${idx + 1}</td>
+            <td>${escapeHtmlText(item.purchaseOrderNo || '-')}</td>
+            <td>${escapeHtmlText(item.purchaseDate ? item.purchaseDate.toLocaleString('zh-CN') : '-')}</td>
+            <td>${escapeHtmlText(item.productName || '-')}</td>
+            <td>${Number(item.quantity || 0)}</td>
+            <td>${Number(item.unitCost || 0).toFixed(2)}</td>
+            <td>${Number(item.amount || 0).toFixed(2)}</td>
+            <td>${escapeHtmlText(paymentStatusMap[String(item.paymentStatus || '').toLowerCase()] || '-')}</td>
+            <td>${escapeHtmlText(formatPurchaseApprovalStatus(item.approvalStatus))}</td>
+            <td>${Number(item.paidAmount || 0).toFixed(2)}</td>
+            <td>${Number(item.payableAmount || 0).toFixed(2)}</td>
+            <td>${escapeHtmlText(item.note || '-')}</td>
+        </tr>
+    `).join('');
+
+    const html = `
+        <!doctype html>
+        <html lang="zh-CN">
+        <head>
+            <meta charset="UTF-8" />
+            <title>供应商月结单</title>
+            <style>
+                body { font-family: "Microsoft YaHei", Arial, sans-serif; color:#222; padding:20px; }
+                h2 { margin:0 0 8px 0; }
+                .meta { margin-bottom:12px; font-size:12px; color:#555; }
+                .summary { margin-bottom:12px; font-size:12px; display:flex; gap:12px; flex-wrap:wrap; }
+                table { width:100%; border-collapse:collapse; font-size:12px; }
+                th, td { border:1px solid #ddd; padding:6px 8px; text-align:left; }
+                th { background:#f5f5f5; }
+            </style>
+        </head>
+        <body>
+            <h2>供应商月结单</h2>
+            <div class="meta">供应商：${escapeHtmlText(supplierName)} ｜ 月份：${escapeHtmlText(monthInput)} ｜ 生成时间：${new Date().toLocaleString('zh-CN')}</div>
+            <div class="summary">
+                <span>采购笔数：${rows.length}</span>
+                <span>采购总额：${totalAmount.toFixed(2)}</span>
+                <span>已付：${totalPaid.toFixed(2)}</span>
+                <span>待付：${totalPayable.toFixed(2)}</span>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th><th>采购单号</th><th>采购时间</th><th>商品</th><th>数量</th><th>单价</th><th>总额</th>
+                        <th>付款状态</th><th>审批状态</th><th>已付</th><th>待付</th><th>备注</th>
+                    </tr>
+                </thead>
+                <tbody>${tableRows}</tbody>
+            </table>
+        </body>
+        </html>
+    `;
+
+    const printWindow = window.open('', '_blank', 'width=1200,height=800');
+    if (!printWindow) {
+        alert('浏览器拦截了弹窗，请允许弹窗后重试');
+        return;
+    }
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+        printWindow.print();
+    }, 300);
 }
 
 async function renderDashboardSupplierReconciliation() {
@@ -5505,6 +5692,10 @@ async function renderDashboardSupplierReconciliation() {
                 <button class="ant-btn" style="height:26px;line-height:24px;padding:0 10px;font-size:12px;color:#531dab;border-color:#d3adf7;"
                     onclick='exportSupplierMonthlyStatement()'>
                     导出供应商月结单
+                </button>
+                <button class="ant-btn" style="height:26px;line-height:24px;padding:0 10px;font-size:12px;color:#1d39c4;border-color:#adc6ff;"
+                    onclick='exportSupplierMonthlyStatementPdf()'>
+                    打印供应商月结单(PDF)
                 </button>
             </div>
             <div style="font-size:12px;color:#8c8c8c;margin-bottom:4px;">最近月份对账</div>
@@ -5657,6 +5848,7 @@ async function createPurchaseFromRestock(productId, suggestedQty = 0) {
         unitCost,
         supplier,
         paymentStatus: 'unpaid',
+        approvalStatus: 'pending',
         paidAmount: 0,
         purchaseDate: new Date().toISOString()
     });
@@ -5721,6 +5913,7 @@ async function createBulkPurchaseFromRestockRecommendations() {
             unitCost,
             supplier: String(product?.supplier || '系统补货').trim() || '系统补货',
             paymentStatus: 'unpaid',
+            approvalStatus: 'pending',
             paidAmount: 0,
             purchaseDate: new Date().toISOString()
         });

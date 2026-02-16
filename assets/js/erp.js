@@ -1611,6 +1611,55 @@ const ERP = {
         return `CG-${y}${m}${d}-${msTail}${randomTail}`;
     },
 
+    parsePurchaseMetaFromNotes(notes = '') {
+        const raw = String(notes || '').trim();
+        const result = {};
+        if (!raw || !raw.includes('|')) {
+            return result;
+        }
+        raw.split('|').forEach((segment, index) => {
+            if (index === 0 && !segment.includes('=')) {
+                result.tag = segment.trim();
+                return;
+            }
+            const [key, ...valueParts] = String(segment || '').split('=');
+            const keyText = String(key || '').trim();
+            if (!keyText) {
+                return;
+            }
+            result[keyText] = valueParts.join('=').trim();
+        });
+        return result;
+    },
+
+    stringifyPurchaseMeta(meta = {}) {
+        const tag = String(meta?.tag || '采购入库').trim() || '采购入库';
+        const keys = [
+            '采购单号',
+            '商品',
+            '数量',
+            '单价',
+            '总额',
+            '供应商',
+            '付款',
+            '已付',
+            '待付',
+            '审批',
+            '审批时间',
+            '审批备注',
+            '时间',
+            '备注'
+        ];
+        const segments = [tag];
+        keys.forEach(key => {
+            if (meta[key] === undefined || meta[key] === null) {
+                return;
+            }
+            segments.push(`${key}=${String(meta[key]).trim() || '-'}`);
+        });
+        return segments.join('|');
+    },
+
     async releaseOrderLockedInventory(orderId, items = [], reason = '订单状态回补库存', releaseType = 'order_release') {
         const resolvedItems = await this.resolveOrderItemsForInventory(orderId, items);
         const expectedMap = this.buildOrderItemQuantityMap(resolvedItems);
@@ -2100,6 +2149,7 @@ const ERP = {
             const safeSupplier = String(options?.supplier || '').trim();
             const safePurchaseOrderNo = String(options?.purchaseOrderNo || '').trim() || this.buildPurchaseOrderNumber(safePurchaseDate);
             const safePaymentStatus = String(options?.paymentStatus || 'paid').toLowerCase();
+            const safeApprovalStatus = String(options?.approvalStatus || 'approved').toLowerCase();
             const userNote = String(notes || '').trim();
             const purchaseAmount = Math.abs(safeQuantity) * Math.max(safeUnitCost, 0);
             const rawPaidAmount = Number(options?.paidAmount);
@@ -2126,6 +2176,9 @@ const ERP = {
                     `付款=${safePaymentStatus}`,
                     `已付=${paidAmount}`,
                     `待付=${payableAmount}`,
+                    `审批=${safeApprovalStatus}`,
+                    `审批时间=${safePurchaseDate}`,
+                    `审批备注=${safeApprovalStatus === 'pending' ? '待审批' : '自动通过'}`,
                     `时间=${safePurchaseDate}`,
                     `备注=${userNote || '-'}`
                 ];
@@ -2175,6 +2228,60 @@ const ERP = {
                 showToast('调整库存失败: ' + error.message, 'error');
             }
             return false;
+        }
+    },
+
+    async updatePurchaseApproval(logId, approvalStatus = 'approved', approvalNote = '') {
+        try {
+            const safeStatus = String(approvalStatus || '').trim().toLowerCase();
+            if (!['pending', 'approved', 'rejected'].includes(safeStatus)) {
+                throw new Error('审批状态无效');
+            }
+
+            const { data: record, error: loadError } = await supabaseClient
+                .from('erp_inventory_logs')
+                .select('id, user_id, type, notes')
+                .eq('id', logId)
+                .eq('user_id', userData.user.id)
+                .single();
+
+            if (loadError) {
+                throw loadError;
+            }
+            if (String(record?.type || '') !== 'purchase') {
+                throw new Error('仅采购记录支持审批');
+            }
+
+            const meta = this.parsePurchaseMetaFromNotes(record?.notes || '');
+            meta['审批'] = safeStatus;
+            meta['审批时间'] = new Date().toISOString();
+            meta['审批备注'] = String(approvalNote || '').trim() || (safeStatus === 'approved' ? '手动通过' : (safeStatus === 'rejected' ? '手动驳回' : '待审批'));
+            const nextNotes = this.stringifyPurchaseMeta(meta);
+
+            const { data, error } = await supabaseClient
+                .from('erp_inventory_logs')
+                .update({ notes: nextNotes })
+                .eq('id', logId)
+                .eq('user_id', userData.user.id)
+                .select()
+                .single();
+
+            if (error) {
+                throw error;
+            }
+
+            this.emitEvent('erpInventoryChanged', {
+                type: 'purchase_approval_updated',
+                logId: data?.id || logId,
+                approvalStatus: safeStatus
+            });
+            return data;
+        } catch (error) {
+            console.error('[ERP] 更新采购审批失败:', error);
+            if (typeof showToast === 'function') {
+                showToast('更新采购审批失败: ' + (error?.message || '未知错误'), 'error');
+            }
+            return null;
         }
     },
 

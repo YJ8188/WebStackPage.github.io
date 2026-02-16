@@ -122,6 +122,8 @@ python -m http.server 8000
 supabase functions deploy logistics-track
 ```
 
+> 说明：本函数配置 `verify_jwt = false`，用于兼容当前前端登录态（否则会出现 `Invalid JWT` 导致 non-2xx）。
+
 ### 2）配置 17TRACK Key（服务端）
 ```bash
 supabase secrets set TRACK17_API_KEY=你的17TRACK_API_KEY

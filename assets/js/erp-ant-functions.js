@@ -938,7 +938,23 @@ async function requestOrderLogistics(trackingNumber, shippingCompany = '', optio
     });
 
     if (error) {
-        throw new Error(error?.message || '物流查询服务调用失败');
+        let errorMessage = String(error?.message || '物流查询服务调用失败');
+        const context = error?.context;
+        if (context && typeof context.json === 'function') {
+            try {
+                const payload = await context.json();
+                const serverMessage = payload?.message || payload?.error || payload?.msg;
+                if (serverMessage) {
+                    errorMessage = String(serverMessage);
+                }
+            } catch (contextParseError) {
+                const fallbackMessage = String(contextParseError?.message || '');
+                if (fallbackMessage) {
+                    errorMessage = `${errorMessage}（${fallbackMessage}）`;
+                }
+            }
+        }
+        throw new Error(errorMessage);
     }
 
     if (!data || data.ok !== true) {

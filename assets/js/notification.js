@@ -589,7 +589,11 @@ function triggerReminder(reminder) {
     playNotificationSound();
 
     // 如果是一次性提醒，标记为已完成
-    if (reminder.type === 'countdown' || (reminder.type === 'schedule' && reminder.repeat === 'once')) {
+    if (
+        reminder.type === 'countdown'
+        || reminder.type === 'event'
+        || (reminder.type === 'schedule' && reminder.repeat === 'once')
+    ) {
         reminder.active = false;
     }
 }

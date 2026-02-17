@@ -11,6 +11,7 @@ let reminderTimers = {}; // 定时器对象
 let checkInterval = null; // 检查提醒的定时器
 let dateTimeTimer = null; // 日期时间定时器
 let notificationEventsBound = false; // 通知中心事件是否已绑定
+let currentReminderDialogId = null; // 当前弹窗提醒ID
 const REMINDER_KEY_LEGACY = 'reminders';
 const REMINDER_KEY_GUEST = 'reminders_guest_v1';
 let notificationTimersSuspended = false;
@@ -582,6 +583,16 @@ function runReminderCheckTick() {
 
 // ==================== 触发提醒 ====================
 function triggerReminder(reminder) {
+    if (!reminder || !reminder.active) {
+        return;
+    }
+
+    const now = Date.now();
+    const ackUntil = Number(reminder.ackUntil || 0);
+    if (ackUntil > now) {
+        return;
+    }
+
     // 弹出提醒对话框
     showReminderDialog(reminder);
 
@@ -606,6 +617,7 @@ function showReminderDialog(reminder) {
 
     // 设置提醒内容
     message.textContent = reminder.content;
+    currentReminderDialogId = reminder.id;
 
     // 显示对话框
     overlay.style.display = 'flex';
@@ -623,12 +635,33 @@ function showReminderDialog(reminder) {
 function closeReminderDialog() {
     const overlay = document.getElementById('reminderOverlay');
     const dialog = document.getElementById('reminderDialog');
+    const currentReminder = reminders.find(item => item.id === currentReminderDialogId);
+
+    // 用户点击“知道了”后，至少60秒内不重复弹同一条（兜底防抖）
+    if (currentReminder) {
+        currentReminder.ackUntil = Date.now() + 60 * 1000;
+
+        if (
+            currentReminder.type === 'countdown'
+            || currentReminder.type === 'event'
+            || (currentReminder.type === 'schedule' && currentReminder.repeat === 'once')
+        ) {
+            currentReminder.active = false;
+        }
+
+        saveReminders();
+        updateBadge();
+        if (isNotificationPanelVisible()) {
+            updateReminderList();
+        }
+    }
 
     // 移除震动动画
     dialog.classList.remove('shake-animation');
 
     // 隐藏对话框
     overlay.style.display = 'none';
+    currentReminderDialogId = null;
 }
 
 // ==================== 删除提醒 ====================

@@ -12,9 +12,48 @@ let checkInterval = null; // 检查提醒的定时器
 let dateTimeTimer = null; // 日期时间定时器
 let notificationEventsBound = false; // 通知中心事件是否已绑定
 let currentReminderDialogId = null; // 当前弹窗提醒ID
+let currentReminderDialogContent = ''; // 当前弹窗提醒内容
 const REMINDER_KEY_LEGACY = 'reminders';
 const REMINDER_KEY_GUEST = 'reminders_guest_v1';
 let notificationTimersSuspended = false;
+
+function normalizeReminderId(value) {
+    return String(value ?? '').trim();
+}
+
+function isOneShotReminder(reminder) {
+    return !!reminder && (
+        reminder.type === 'countdown'
+        || reminder.type === 'event'
+        || (reminder.type === 'schedule' && reminder.repeat === 'once')
+    );
+}
+
+function isReminderDueNow(reminder, now = Date.now()) {
+    if (!reminder || !reminder.active) {
+        return false;
+    }
+    switch (reminder.type) {
+        case 'countdown':
+        case 'event':
+            return Number(reminder.endTime || 0) > 0 && now >= Number(reminder.endTime);
+        case 'schedule':
+        case 'repeat':
+            return Number(reminder.nextTrigger || 0) > 0 && now >= Number(reminder.nextTrigger);
+        default:
+            return false;
+    }
+}
+
+function applyReminderAcknowledge(reminder, now = Date.now()) {
+    if (!reminder) {
+        return;
+    }
+    reminder.ackUntil = now + 60 * 1000;
+    if (isOneShotReminder(reminder)) {
+        reminder.active = false;
+    }
+}
 
 function getReminderStorageKey() {
     if (userData?.isLoggedIn && userData?.user?.id) {
@@ -600,11 +639,7 @@ function triggerReminder(reminder) {
     playNotificationSound();
 
     // 如果是一次性提醒，标记为已完成
-    if (
-        reminder.type === 'countdown'
-        || reminder.type === 'event'
-        || (reminder.type === 'schedule' && reminder.repeat === 'once')
-    ) {
+    if (isOneShotReminder(reminder)) {
         reminder.active = false;
     }
 }
@@ -618,6 +653,7 @@ function showReminderDialog(reminder) {
     // 设置提醒内容
     message.textContent = reminder.content;
     currentReminderDialogId = reminder.id;
+    currentReminderDialogContent = String(reminder.content || '').trim();
 
     // 显示对话框
     overlay.style.display = 'flex';
@@ -635,20 +671,34 @@ function showReminderDialog(reminder) {
 function closeReminderDialog() {
     const overlay = document.getElementById('reminderOverlay');
     const dialog = document.getElementById('reminderDialog');
-    const currentReminder = reminders.find(item => item.id === currentReminderDialogId);
+    const now = Date.now();
+    const normalizedId = normalizeReminderId(currentReminderDialogId);
+    let acknowledgedCount = 0;
 
-    // 用户点击“知道了”后，至少60秒内不重复弹同一条（兜底防抖）
-    if (currentReminder) {
-        currentReminder.ackUntil = Date.now() + 60 * 1000;
+    let matchedReminder = reminders.find(item => normalizeReminderId(item?.id) === normalizedId);
+    if (matchedReminder) {
+        applyReminderAcknowledge(matchedReminder, now);
+        acknowledgedCount += 1;
+    } else {
+        const dueByContent = reminders.filter(item =>
+            String(item?.content || '').trim() === currentReminderDialogContent
+            && isReminderDueNow(item, now)
+        );
+        dueByContent.forEach(item => {
+            applyReminderAcknowledge(item, now);
+        });
+        acknowledgedCount += dueByContent.length;
+    }
 
-        if (
-            currentReminder.type === 'countdown'
-            || currentReminder.type === 'event'
-            || (currentReminder.type === 'schedule' && currentReminder.repeat === 'once')
-        ) {
-            currentReminder.active = false;
-        }
+    if (acknowledgedCount === 0) {
+        const dueFallback = reminders.filter(item => isReminderDueNow(item, now));
+        dueFallback.forEach(item => {
+            applyReminderAcknowledge(item, now);
+        });
+        acknowledgedCount += dueFallback.length;
+    }
 
+    if (acknowledgedCount > 0) {
         saveReminders();
         updateBadge();
         if (isNotificationPanelVisible()) {
@@ -662,6 +712,7 @@ function closeReminderDialog() {
     // 隐藏对话框
     overlay.style.display = 'none';
     currentReminderDialogId = null;
+    currentReminderDialogContent = '';
 }
 
 // ==================== 删除提醒 ====================

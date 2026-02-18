@@ -7746,46 +7746,77 @@ async function renderDashboardRestockRecommendations() {
     const itemRows = await loadDashboardOrderItems(validOrders);
     const stats = calculateRestockRecommendations(products, validOrders, itemRows);
 
-    const rowsHtml = stats.rows.slice(0, 8).map((item, index) => {
-        const levelColor = item.riskLevel >= 3 ? '#cf1322' : (item.riskLevel === 2 ? '#d46b08' : '#1677ff');
-        const coverText = Number.isFinite(item.coverDays) ? `${item.coverDays.toFixed(1)}天` : '∞';
+    const riskRows = [
+        { label: '紧急/低预警', value: Number(stats?.summary?.urgent || 0), color: '#cf1322' },
+        { label: '7天风险', value: Number(stats?.summary?.warning || 0), color: '#d48806' },
+        { label: '建议补货', value: Number(stats?.summary?.suggest || 0), color: '#1677ff' }
+    ];
+    const maxRiskValue = Math.max(1, ...riskRows.map(item => Number(item?.value || 0)));
+    const riskBarsHtml = riskRows.map(item => {
+        const widthPercent = Math.max(6, Math.round((Number(item?.value || 0) / maxRiskValue) * 100));
         return `
-            <div style="padding:6px 0;border-bottom:1px dashed #f0f0f0;">
-                <div style="display:flex;justify-content:space-between;gap:8px;">
-                    <span style="font-size:12px;color:#262626;">${index + 1}. ${escapeHtmlText(item.productName)}</span>
-                    <span style="font-size:12px;color:${levelColor};">${item.reason}</span>
+            <div class="erp-dashboard-bar-row">
+                <span class="erp-dashboard-bar-label">${item.label}</span>
+                <div class="erp-dashboard-bar-track">
+                    <div class="erp-dashboard-bar-fill" style="width:${widthPercent}%;background:${item.color};"></div>
                 </div>
-                <div style="font-size:12px;color:#8c8c8c;margin-top:2px;">
-                    库存 ${item.stock}（预警 ${item.minStock}）/ 近30天销量 ${item.sold30} / 可售 ${coverText} / 建议补货 ${item.recommendQty}
+                <span class="erp-dashboard-bar-value">${item.value} 个</span>
+            </div>
+        `;
+    }).join('');
+
+    const recommendRows = stats.rows.slice(0, 5);
+    const maxRecommendQty = Math.max(1, ...recommendRows.map(item => Number(item?.recommendQty || 0)));
+    const recommendRowsHtml = recommendRows.map(item => {
+        const coverText = Number.isFinite(item.coverDays) ? `${item.coverDays.toFixed(1)}天` : '∞';
+        const levelColor = item.riskLevel >= 3 ? '#cf1322' : (item.riskLevel === 2 ? '#d48806' : '#1677ff');
+        const widthPercent = Math.max(6, Math.round((Number(item?.recommendQty || 0) / maxRecommendQty) * 100));
+        return `
+            <div class="erp-dashboard-bar-row">
+                <span class="erp-dashboard-bar-label">${escapeHtmlText(item.productName)}</span>
+                <div class="erp-dashboard-bar-track">
+                    <div class="erp-dashboard-bar-fill" style="width:${widthPercent}%;background:${levelColor};"></div>
                 </div>
-                <div style="margin-top:4px;">
-                    <button class="ant-btn" style="height:24px;line-height:22px;padding:0 8px;font-size:12px;color:#0958d9;border-color:#91caff;"
-                        onclick='createPurchaseFromRestock(${JSON.stringify(item.productId)}, ${Number(item.recommendQty || 0)})'>
-                        一键生成待付采购
-                    </button>
-                </div>
+                <span class="erp-dashboard-bar-value">补货 ${Number(item?.recommendQty || 0)}</span>
+            </div>
+            <div class="erp-dashboard-chart-subtitle">
+                库存 ${Number(item?.stock || 0)}（预警 ${Number(item?.minStock || 0)}）/ 30天销量 ${Number(item?.sold30 || 0)} / 可售 ${coverText}
+                <button class="ant-btn erp-btn-compact erp-btn-blue" style="margin-left:8px;"
+                    onclick='createPurchaseFromRestock(${JSON.stringify(item.productId)}, ${Number(item.recommendQty || 0)})'>生成待付采购</button>
             </div>
         `;
     }).join('');
 
     container.innerHTML = `
-        <div style="flex:1;min-width:320px;padding:12px 14px;border:1px solid #ffccc7;border-radius:8px;background:#fff1f0;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <div style="font-size:14px;font-weight:600;color:#cf1322;">智能补货建议</div>
-                <div style="font-size:12px;color:#8c8c8c;">建议总量 ${stats.summary.totalRecommendQty}</div>
+        <div class="erp-dashboard-chart-card">
+            <div class="erp-dashboard-chart-header">
+                <div class="erp-dashboard-chart-title">智能补货建议</div>
+                <div class="erp-dashboard-chart-subtitle">建议总量 ${Number(stats?.summary?.totalRecommendQty || 0)}</div>
             </div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;margin-bottom:8px;">
-                <span class="ant-tag" style="margin:0;">紧急/低预警 ${stats.summary.urgent}</span>
-                <span class="ant-tag" style="margin:0;">7天风险 ${stats.summary.warning}</span>
-                <span class="ant-tag" style="margin:0;">建议补货 ${stats.summary.suggest}</span>
+            <div class="erp-dashboard-chart-body">
+                <div class="erp-dashboard-kpi-stack">
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">建议补货总量</div>
+                        <div class="erp-dashboard-kpi-value is-danger">${Number(stats?.summary?.totalRecommendQty || 0)}</div>
+                    </div>
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">建议商品数</div>
+                        <div class="erp-dashboard-kpi-value">${stats.rows.length}</div>
+                    </div>
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">紧急商品</div>
+                        <div class="erp-dashboard-kpi-value is-warning">${Number(stats?.summary?.urgent || 0)}</div>
+                    </div>
+                    <button class="ant-btn ant-btn-primary" type="button" onclick="createBulkPurchaseFromRestockRecommendations()"
+                        ${stats.rows.length > 0 ? '' : 'disabled'}>
+                        一键生成建议补货待付采购单
+                    </button>
+                </div>
+                <div class="erp-dashboard-bar-list">
+                    ${riskBarsHtml}
+                    ${recommendRowsHtml || '<div class="erp-dashboard-chart-subtitle">当前暂无补货建议</div>'}
+                </div>
             </div>
-            <div style="margin-bottom:8px;">
-                <button class="ant-btn ant-btn-primary" style="height:28px;line-height:26px;padding:0 10px;font-size:12px;"
-                    onclick="createBulkPurchaseFromRestockRecommendations()">
-                    一键生成建议补货待付采购单
-                </button>
-            </div>
-            ${rowsHtml || '<div style="font-size:12px;color:#8c8c8c;">当前暂无补货建议</div>'}
         </div>
     `;
 }
@@ -7860,34 +7891,63 @@ async function renderDashboardInventoryCapital() {
     const highRiskCount = rows.filter(item => Number(item.riskLevel || 0) >= 3).length;
     const slowTurnoverCount = rows.filter(item => Number(item.riskLevel || 0) === 2).length;
 
-    const rowsHtml = rows.slice(0, 8).map((item, index) => {
-        const turnoverText = item.turnoverDays === null ? '暂无近30天销量' : `${item.turnoverDays.toFixed(1)} 天`;
-        const levelColor = item.riskLevel >= 3 ? '#cf1322' : (item.riskLevel === 2 ? '#d46b08' : '#1677ff');
+    const topRows = rows.slice(0, 6);
+    const maxStockValue = Math.max(1, ...topRows.map(item => Number(item?.stockValue || 0)));
+    const capitalBarsHtml = topRows.map(item => {
+        const turnoverText = item.turnoverDays === null ? '暂无销量' : `${item.turnoverDays.toFixed(1)}天`;
+        const levelColor = item.riskLevel >= 3 ? '#cf1322' : (item.riskLevel === 2 ? '#d48806' : '#1677ff');
+        const widthPercent = Math.max(6, Math.round((Number(item?.stockValue || 0) / maxStockValue) * 100));
         return `
-            <div style="padding:6px 0;border-bottom:1px dashed #f0f0f0;">
-                <div style="display:flex;justify-content:space-between;gap:8px;">
-                    <span style="font-size:12px;color:#262626;">${index + 1}. ${escapeHtmlText(item.name)}</span>
-                    <span style="font-size:12px;color:${levelColor};">周转 ${turnoverText}</span>
+            <div class="erp-dashboard-bar-row">
+                <span class="erp-dashboard-bar-label">${escapeHtmlText(item.name)}</span>
+                <div class="erp-dashboard-bar-track">
+                    <div class="erp-dashboard-bar-fill" style="width:${widthPercent}%;background:${levelColor};"></div>
                 </div>
-                <div style="font-size:12px;color:#8c8c8c;margin-top:2px;">
-                    库存 ${item.stock} / 单位成本 ${formatCurrency(item.unitCost)} / 资金占用 ${formatCurrency(item.stockValue)} / 30天销量 ${item.soldQty30}
-                </div>
+                <span class="erp-dashboard-bar-value">${formatCurrency(item.stockValue)}</span>
             </div>
+            <div class="erp-dashboard-chart-subtitle">库存 ${item.stock} / 单位成本 ${formatCurrency(item.unitCost)} / 周转 ${turnoverText} / 30天销量 ${item.soldQty30}</div>
         `;
     }).join('');
 
+    const highRiskRows = rows
+        .filter(item => Number(item?.riskLevel || 0) >= 2)
+        .slice(0, 3)
+        .map(item => {
+            const turnoverText = item.turnoverDays === null ? '暂无销量' : `${item.turnoverDays.toFixed(1)}天`;
+            return `<div class="erp-dashboard-chart-subtitle">${escapeHtmlText(item.name)}：周转 ${turnoverText}，占用 ${formatCurrency(item.stockValue)}</div>`;
+        })
+        .join('');
+
     container.innerHTML = `
-        <div style="flex:1;min-width:320px;padding:12px 14px;border:1px solid #d9f7be;border-radius:8px;background:#f6ffed;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <div style="font-size:14px;font-weight:600;color:#389e0d;">库存资金占用与周转</div>
-                <div style="font-size:12px;color:#8c8c8c;">库存资金 ${formatCurrency(totalCapital)}</div>
+        <div class="erp-dashboard-chart-card">
+            <div class="erp-dashboard-chart-header">
+                <div class="erp-dashboard-chart-title">库存资金占用与周转</div>
+                <div class="erp-dashboard-chart-subtitle">库存资金 ${formatCurrency(totalCapital)}</div>
             </div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;margin-bottom:8px;">
-                <span class="ant-tag" style="margin:0;">高风险 ${highRiskCount}</span>
-                <span class="ant-tag" style="margin:0;">慢周转 ${slowTurnoverCount}</span>
-                <span class="ant-tag" style="margin:0;">商品 ${rows.length}</span>
+            <div class="erp-dashboard-chart-body">
+                <div class="erp-dashboard-kpi-stack">
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">库存资金占用</div>
+                        <div class="erp-dashboard-kpi-value">${formatCurrency(totalCapital)}</div>
+                    </div>
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">高风险商品</div>
+                        <div class="erp-dashboard-kpi-value is-danger">${highRiskCount}</div>
+                    </div>
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">慢周转商品</div>
+                        <div class="erp-dashboard-kpi-value is-warning">${slowTurnoverCount}</div>
+                    </div>
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">在库商品数</div>
+                        <div class="erp-dashboard-kpi-value">${rows.length}</div>
+                    </div>
+                </div>
+                <div class="erp-dashboard-bar-list">
+                    ${capitalBarsHtml || '<div class="erp-dashboard-chart-subtitle">暂无库存数据</div>'}
+                    ${highRiskRows}
+                </div>
             </div>
-            ${rowsHtml || '<div style="font-size:12px;color:#8c8c8c;">暂无库存数据</div>'}
         </div>
     `;
 }
@@ -8005,34 +8065,75 @@ async function renderDashboardGrossMarginAlerts() {
     const itemRows = await loadDashboardOrderItems(validOrders);
     const stats = calculateGrossMarginAnomalyStats(validOrders, customers, itemRows);
 
-    const rowsHtml = stats.anomalyRows.slice(0, 10).map((item, index) => {
-        const levelColor = item.level >= 4 ? '#cf1322' : (item.level === 3 ? '#d46b08' : '#1677ff');
-        const marginText = item.margin === null ? '-' : `${(item.margin * 100).toFixed(1)}%`;
+    const reasonRows = [
+        { label: '负毛利', value: Number(stats?.summary?.negativeCount || 0), color: '#cf1322' },
+        { label: '低毛利(<10%)', value: Number(stats?.summary?.lowCount || 0), color: '#d48806' },
+        { label: '成本缺失', value: Number(stats?.summary?.missingCostCount || 0), color: '#1677ff' }
+    ];
+    const maxReasonValue = Math.max(1, ...reasonRows.map(item => Number(item?.value || 0)));
+    const reasonBarsHtml = reasonRows.map(item => {
+        const widthPercent = Math.max(6, Math.round((Number(item?.value || 0) / maxReasonValue) * 100));
         return `
-            <div style="padding:6px 0;border-bottom:1px dashed #f0f0f0;">
-                <div style="display:flex;justify-content:space-between;gap:8px;">
-                    <span style="font-size:12px;color:#262626;">${index + 1}. ${escapeHtmlText(item.orderNumber)} / ${escapeHtmlText(item.customerName)}</span>
-                    <span style="font-size:12px;color:${levelColor};">${item.reason}</span>
+            <div class="erp-dashboard-bar-row">
+                <span class="erp-dashboard-bar-label">${item.label}</span>
+                <div class="erp-dashboard-bar-track">
+                    <div class="erp-dashboard-bar-fill" style="width:${widthPercent}%;background:${item.color};"></div>
                 </div>
-                <div style="font-size:12px;color:#8c8c8c;margin-top:2px;">
-                    收入 ${formatCurrency(item.revenue)} / 成本 ${formatCurrency(item.cost)} / 毛利 ${formatCurrency(item.profit)} / 毛利率 ${marginText}
+                <span class="erp-dashboard-bar-value">${item.value} 单</span>
+            </div>
+        `;
+    }).join('');
+
+    const topRows = stats.anomalyRows.slice(0, 6);
+    const maxRiskRevenue = Math.max(1, ...topRows.map(item => Number(item?.revenue || 0)));
+    const rowsHtml = topRows.map(item => {
+        const levelColor = item.level >= 4 ? '#cf1322' : (item.level === 3 ? '#d48806' : '#1677ff');
+        const marginText = item.margin === null ? '-' : `${(item.margin * 100).toFixed(1)}%`;
+        const widthPercent = Math.max(6, Math.round((Number(item?.revenue || 0) / maxRiskRevenue) * 100));
+        return `
+            <div class="erp-dashboard-bar-row">
+                <span class="erp-dashboard-bar-label">${escapeHtmlText(item.orderNumber)}</span>
+                <div class="erp-dashboard-bar-track">
+                    <div class="erp-dashboard-bar-fill" style="width:${widthPercent}%;background:${levelColor};"></div>
                 </div>
+                <span class="erp-dashboard-bar-value">${escapeHtmlText(item.reason)}</span>
+            </div>
+            <div class="erp-dashboard-chart-subtitle">
+                ${escapeHtmlText(item.customerName)}：收入 ${formatCurrency(item.revenue)} / 成本 ${formatCurrency(item.cost)} / 毛利 ${formatCurrency(item.profit)} / 毛利率 ${marginText}
             </div>
         `;
     }).join('');
 
     container.innerHTML = `
-        <div style="flex:1;min-width:320px;padding:12px 14px;border:1px solid #ffccc7;border-radius:8px;background:#fff1f0;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <div style="font-size:14px;font-weight:600;color:#cf1322;">毛利异常检测</div>
-                <div style="font-size:12px;color:#8c8c8c;">异常 ${stats.summary.total} 单</div>
+        <div class="erp-dashboard-chart-card">
+            <div class="erp-dashboard-chart-header">
+                <div class="erp-dashboard-chart-title">毛利异常检测</div>
+                <div class="erp-dashboard-chart-subtitle">异常 ${Number(stats?.summary?.total || 0)} 单</div>
             </div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;margin-bottom:8px;">
-                <span class="ant-tag" style="margin:0;">负毛利 ${stats.summary.negativeCount}</span>
-                <span class="ant-tag" style="margin:0;">低毛利 ${stats.summary.lowCount}</span>
-                <span class="ant-tag" style="margin:0;">成本缺失 ${stats.summary.missingCostCount}</span>
+            <div class="erp-dashboard-chart-body">
+                <div class="erp-dashboard-kpi-stack">
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">异常订单总数</div>
+                        <div class="erp-dashboard-kpi-value is-danger">${Number(stats?.summary?.total || 0)}</div>
+                    </div>
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">负毛利订单</div>
+                        <div class="erp-dashboard-kpi-value is-danger">${Number(stats?.summary?.negativeCount || 0)}</div>
+                    </div>
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">低毛利订单</div>
+                        <div class="erp-dashboard-kpi-value is-warning">${Number(stats?.summary?.lowCount || 0)}</div>
+                    </div>
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">成本缺失订单</div>
+                        <div class="erp-dashboard-kpi-value">${Number(stats?.summary?.missingCostCount || 0)}</div>
+                    </div>
+                </div>
+                <div class="erp-dashboard-bar-list">
+                    ${reasonBarsHtml}
+                    ${rowsHtml || '<div class="erp-dashboard-chart-subtitle">暂无毛利异常订单</div>'}
+                </div>
             </div>
-            ${rowsHtml || '<div style="font-size:12px;color:#8c8c8c;">暂无毛利异常订单</div>'}
         </div>
     `;
 }
@@ -8112,40 +8213,77 @@ function renderDashboardRiskApprovals() {
     const customers = Array.isArray(ERP.state?.customers) ? ERP.state.customers : [];
     const ledger = calculateOrderRiskApprovalLedger(orders, customers);
 
-    const rowsHtml = ledger.rows.slice(0, 10).map((item, index) => {
-        const rankColor = item.riskRank >= 4 ? '#cf1322' : '#d46b08';
+    const rankBuckets = { level4: 0, level3: 0, level2: 0 };
+    ledger.rows.forEach(item => {
+        const rank = Number(item?.riskRank || 0);
+        if (rank >= 4) rankBuckets.level4 += 1;
+        else if (rank >= 3) rankBuckets.level3 += 1;
+        else if (rank >= 2) rankBuckets.level2 += 1;
+    });
+
+    const rankRows = [
+        { label: '风险4级+', value: rankBuckets.level4, color: '#cf1322' },
+        { label: '风险3级', value: rankBuckets.level3, color: '#d48806' },
+        { label: '风险2级', value: rankBuckets.level2, color: '#1677ff' }
+    ];
+    const maxRankValue = Math.max(1, ...rankRows.map(item => Number(item?.value || 0)));
+    const rankBarsHtml = rankRows.map(item => {
+        const widthPercent = Math.max(6, Math.round((Number(item?.value || 0) / maxRankValue) * 100));
+        return `
+            <div class="erp-dashboard-bar-row">
+                <span class="erp-dashboard-bar-label">${item.label}</span>
+                <div class="erp-dashboard-bar-track">
+                    <div class="erp-dashboard-bar-fill" style="width:${widthPercent}%;background:${item.color};"></div>
+                </div>
+                <span class="erp-dashboard-bar-value">${item.value} 单</span>
+            </div>
+        `;
+    }).join('');
+
+    const rowsHtml = ledger.rows.slice(0, 6).map(item => {
+        const rankColor = item.riskRank >= 4 ? '#cf1322' : '#d48806';
         const marginText = `${(Number(item.grossMargin || 0) * 100).toFixed(1)}%`;
         const reasonText = String(item.approvalReason || '').trim() || '未填写审批原因';
         const reasonColor = item.approvalReason ? '#262626' : '#cf1322';
         const orderDateText = item.orderDate instanceof Date ? item.orderDate.toLocaleDateString() : '-';
         const safeOrderId = escapeHtmlText(String(item.id || ''));
         return `
-            <div style="padding:8px 0;border-bottom:1px dashed #f0f0f0;">
-                <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
-                    <span style="font-size:12px;color:#262626;">${index + 1}. <a href="javascript:void(0)" onclick="openOrderFromRiskLedger('${safeOrderId}')" style="color:#1677ff;">${escapeHtmlText(item.orderNumber)}</a> / ${escapeHtmlText(item.customerName)}</span>
-                    <span style="font-size:12px;color:${rankColor};">风险${item.riskRank}级</span>
-                </div>
-                <div style="font-size:12px;color:#8c8c8c;margin-top:2px;">
-                    ${orderDateText} · 金额 ${formatCurrency(item.amount)} · 毛利 ${formatCurrency(item.grossProfit)}（${marginText}） · ${escapeHtmlText(item.alertsText)}
-                </div>
-                <div style="font-size:12px;color:${reasonColor};margin-top:2px;">
-                    审批原因：${escapeHtmlText(reasonText)}
-                </div>
+            <div class="erp-dashboard-chart-subtitle">
+                <a href="javascript:void(0)" onclick="openOrderFromRiskLedger('${safeOrderId}')" style="color:#1677ff;">${escapeHtmlText(item.orderNumber)}</a>
+                / ${escapeHtmlText(item.customerName)} · 风险${item.riskRank}级 · ${orderDateText}
+                · 金额 ${formatCurrency(item.amount)} · 毛利 ${formatCurrency(item.grossProfit)}（${marginText}）
+                · <span style="color:${rankColor};">${escapeHtmlText(item.alertsText)}</span>
             </div>
+            <div class="erp-dashboard-chart-subtitle" style="color:${reasonColor};">审批原因：${escapeHtmlText(reasonText)}</div>
         `;
     }).join('');
 
     container.innerHTML = `
-        <div style="flex:1;min-width:320px;padding:12px 14px;border:1px solid #ffd591;border-radius:8px;background:#fffbe6;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <div style="font-size:14px;font-weight:600;color:#ad6800;">风控审批台账</div>
-                <div style="font-size:12px;color:#8c8c8c;">高风险 ${ledger.total} 单</div>
+        <div class="erp-dashboard-chart-card">
+            <div class="erp-dashboard-chart-header">
+                <div class="erp-dashboard-chart-title">风控审批台账</div>
+                <div class="erp-dashboard-chart-subtitle">高风险 ${ledger.total} 单</div>
             </div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;margin-bottom:8px;">
-                <span class="ant-tag" style="margin:0;">已填审批 ${ledger.completedReasonCount}</span>
-                <span class="ant-tag" style="margin:0;color:#cf1322;border-color:#ffa39e;background:#fff1f0;">缺失审批 ${ledger.missingReasonCount}</span>
+            <div class="erp-dashboard-chart-body">
+                <div class="erp-dashboard-kpi-stack">
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">高风险订单</div>
+                        <div class="erp-dashboard-kpi-value is-danger">${ledger.total}</div>
+                    </div>
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">已填审批原因</div>
+                        <div class="erp-dashboard-kpi-value is-success">${ledger.completedReasonCount}</div>
+                    </div>
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">缺失审批原因</div>
+                        <div class="erp-dashboard-kpi-value is-warning">${ledger.missingReasonCount}</div>
+                    </div>
+                </div>
+                <div class="erp-dashboard-bar-list">
+                    ${rankBarsHtml}
+                    ${rowsHtml || '<div class="erp-dashboard-chart-subtitle">暂无高风险订单台账</div>'}
+                </div>
             </div>
-            ${rowsHtml || '<div style="font-size:12px;color:#8c8c8c;">暂无高风险订单台账</div>'}
         </div>
     `;
 }

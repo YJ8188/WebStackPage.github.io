@@ -1834,6 +1834,14 @@ select.ant-select option {
     margin-right: 0;
 }
 
+.ant-btn .fa,
+.ant-menu-item .fa,
+.erp-domain-btn .fa,
+.sidebar .fa {
+    width: 14px;
+    text-align: center;
+}
+
 .erp-finance-toolbar {
     justify-content: space-between;
     align-items: flex-start;

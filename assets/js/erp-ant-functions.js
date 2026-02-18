@@ -447,7 +447,7 @@ function toggleFinanceMoreActions(forceVisible = null) {
         button.classList.toggle('is-open', shouldShow);
         button.innerHTML = shouldShow
             ? '<i class="fa fa-angle-up"></i> 收起操作'
-            : '<i class="fa fa-sliders"></i> 更多操作';
+            : '<i class="fa fa-cog"></i> 更多操作';
     }
 }
 

@@ -55,7 +55,7 @@ const ERP = {
 
     orderStatusTransitions: {
         pending: ['confirmed', 'cancelled'],
-        confirmed: ['shipped', 'cancelled'],
+        confirmed: ['shipped', 'signed', 'cancelled'],
         shipped: ['signed', 'refunded'],
         signed: ['completed', 'refunded'],
         completed: [],

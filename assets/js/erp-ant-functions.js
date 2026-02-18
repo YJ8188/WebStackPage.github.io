@@ -2499,7 +2499,7 @@ const ERP_ORDER_STATUS_META = {
 
 const ERP_ORDER_STATUS_TRANSITIONS = {
     pending: ['confirmed', 'cancelled'],
-    confirmed: ['shipped', 'cancelled'],
+    confirmed: ['shipped', 'signed', 'cancelled'],
     shipped: ['signed', 'refunded'],
     signed: ['completed', 'refunded'],
     completed: [],
@@ -2522,6 +2522,47 @@ function normalizeOrderStatusValue(status) {
     };
     const normalized = legacyMap[raw] || raw || 'pending';
     return ERP_ORDER_STATUS_META[normalized] ? normalized : 'pending';
+}
+
+function normalizeShippingStatusValue(status) {
+    const raw = String(status || '').trim().toLowerCase();
+    const legacyMap = {
+        signed: 'delivered',
+        sign: 'delivered',
+        intransit: 'in_transit',
+        transit: 'in_transit'
+    };
+    const normalized = legacyMap[raw] || raw || 'not_shipped';
+    const validSet = new Set(['not_shipped', 'shipped', 'in_transit', 'delivered', 'rejected', 'returned']);
+    return validSet.has(normalized) ? normalized : 'not_shipped';
+}
+
+function resolveNextOrderStatusByTarget(currentStatus, targetStatus) {
+    const from = normalizeOrderStatusValue(currentStatus);
+    const to = normalizeOrderStatusValue(targetStatus);
+    if (from === to) {
+        return from;
+    }
+
+    const allowed = ERP_ORDER_STATUS_TRANSITIONS[from] || [];
+    if (allowed.includes(to)) {
+        return to;
+    }
+
+    const stageFlow = ERP_ORDER_STAGE_FLOW.map(item => item.key);
+    const fromIndex = stageFlow.indexOf(from);
+    const toIndex = stageFlow.indexOf(to);
+    if (fromIndex < 0 || toIndex < 0 || toIndex <= fromIndex) {
+        return from;
+    }
+
+    for (let index = fromIndex + 1; index <= toIndex; index += 1) {
+        const candidate = stageFlow[index];
+        if (allowed.includes(candidate)) {
+            return candidate;
+        }
+    }
+    return from;
 }
 
 function getOrderStatusTextByValue(status) {
@@ -2882,6 +2923,126 @@ function updateOrderTrackingParamHint() {
     trackingParamInput.value = '';
 }
 
+function inferFulfillmentFromLogisticsResult(result = {}, timeline = []) {
+    const firstEvent = Array.isArray(timeline) && timeline.length > 0 ? timeline[0] : null;
+    const sourceText = [
+        result?.latestStatusText,
+        result?.latestStatusCode,
+        firstEvent?.displayText,
+        firstEvent?.status,
+        firstEvent?.description,
+        firstEvent?.location
+    ]
+        .map(value => String(value || '').trim().toLowerCase())
+        .join(' ');
+
+    if (!sourceText) {
+        return null;
+    }
+
+    const includesAny = keywords => keywords.some(keyword => sourceText.includes(keyword));
+
+    if (includesAny(['签收', '妥投', '已送达', '投递成功', 'delivered', 'signed'])) {
+        return { shippingStatus: 'delivered', orderStatus: 'signed' };
+    }
+    if (includesAny(['拒收', 'rejected'])) {
+        return { shippingStatus: 'rejected', orderStatus: 'shipped' };
+    }
+    if (includesAny(['退回', '退货', '返回', 'returned', 'return'])) {
+        return { shippingStatus: 'returned', orderStatus: 'shipped' };
+    }
+    if (includesAny(['运输中', '在途', '派送中', '中转', 'in transit', 'transit'])) {
+        return { shippingStatus: 'in_transit', orderStatus: 'shipped' };
+    }
+    if (includesAny(['已发货', '已揽收', '揽件', '出库', 'shipped', 'picked up'])) {
+        return { shippingStatus: 'shipped', orderStatus: 'shipped' };
+    }
+    return null;
+}
+
+function applyLogisticsStatusToOrderForm(suggestion = null) {
+    if (!suggestion) {
+        return { changed: false, orderStatus: null, shippingStatus: null };
+    }
+
+    const orderStatusSelect = document.getElementById('orderStatus');
+    const shippingStatusSelect = document.getElementById('orderShippingStatus');
+    const currentOrderStatus = normalizeOrderStatusValue(orderStatusSelect?.value || 'pending');
+    const currentShippingStatus = normalizeShippingStatusValue(shippingStatusSelect?.value || 'not_shipped');
+
+    const nextOrderStatus = resolveNextOrderStatusByTarget(currentOrderStatus, suggestion.orderStatus || currentOrderStatus);
+    const nextShippingStatus = normalizeShippingStatusValue(suggestion.shippingStatus || currentShippingStatus);
+    const changed = nextOrderStatus !== currentOrderStatus || nextShippingStatus !== currentShippingStatus;
+
+    if (shippingStatusSelect && shippingStatusSelect.querySelector(`option[value="${nextShippingStatus}"]`)) {
+        shippingStatusSelect.value = nextShippingStatus;
+    }
+
+    if (orderStatusSelect) {
+        refreshOrderStatusOptions(nextOrderStatus, false);
+        if (orderStatusSelect.querySelector(`option[value="${nextOrderStatus}"]`)) {
+            orderStatusSelect.value = nextOrderStatus;
+        }
+    }
+
+    if (changed) {
+        refreshOrderSummaryFromForm();
+    }
+
+    return {
+        changed,
+        orderStatus: nextOrderStatus,
+        shippingStatus: nextShippingStatus
+    };
+}
+
+async function persistOrderFulfillmentAutoSync(updatePayload = {}) {
+    const orderId = normalizeEntityId(document.getElementById('orderId')?.value);
+    if (orderId === null || !window.ERP || typeof ERP.updateOrder !== 'function') {
+        return false;
+    }
+
+    const currentOrder = (ERP.state?.orders || []).find(order => isSameEntityId(order?.id, orderId));
+    if (!currentOrder) {
+        return false;
+    }
+
+    const currentOrderStatus = normalizeOrderStatusValue(currentOrder?.status || 'pending');
+    const currentShippingStatus = normalizeShippingStatusValue(currentOrder?.shipping_status || 'not_shipped');
+    const nextOrderStatus = resolveNextOrderStatusByTarget(currentOrderStatus, updatePayload?.orderStatus || currentOrderStatus);
+    const nextShippingStatus = normalizeShippingStatusValue(updatePayload?.shippingStatus || currentShippingStatus);
+
+    if (nextOrderStatus === currentOrderStatus && nextShippingStatus === currentShippingStatus) {
+        return false;
+    }
+
+    const shippingCompanyFromForm = String(getOrderShippingCompanyFromForm() || '').trim();
+    const trackingNumberFromForm = normalizeTrackingNumber(document.getElementById('orderTrackingNumber')?.value || '');
+
+    const saveData = {
+        customer_id: normalizeEntityId(currentOrder?.customer_id),
+        notes: String(currentOrder?.notes || ''),
+        status: nextOrderStatus,
+        payment_status: String(currentOrder?.payment_status || 'unpaid'),
+        shipping_company: shippingCompanyFromForm || String(currentOrder?.shipping_company || ''),
+        tracking_number: trackingNumberFromForm || String(currentOrder?.tracking_number || ''),
+        shipping_status: nextShippingStatus,
+        total_amount: Number(currentOrder?.total_amount || 0),
+        items: Array.isArray(currentOrder?.items) ? currentOrder.items : []
+    };
+
+    const updated = await ERP.updateOrder(orderId, saveData);
+    if (!updated) {
+        return false;
+    }
+
+    if (typeof searchOrders === 'function') {
+        searchOrders();
+    }
+    updateStatistics();
+    return true;
+}
+
 async function requestOrderLogistics(trackingNumber, shippingCompany = '', options = {}) {
     const normalizedTracking = normalizeTrackingNumber(trackingNumber);
     const normalizedCompany = String(shippingCompany || '').trim();
@@ -2974,6 +3135,26 @@ async function queryOrderLogisticsByForm(options = {}) {
         const latestStatusText = String(result.latestStatusText || result.latestStatusCode || '已同步');
         const providerText = String(result.providerName || '17TRACK');
         setOrderLogisticsStatus(`最新状态：${latestStatusText}（${providerText}）`);
+
+        const fulfillmentSuggestion = inferFulfillmentFromLogisticsResult(result, timeline);
+        const formUpdateResult = applyLogisticsStatusToOrderForm(fulfillmentSuggestion);
+        const shouldAutoPersist = options?.autoPersist !== false;
+        if (formUpdateResult.changed && shouldAutoPersist) {
+            const persisted = await persistOrderFulfillmentAutoSync(formUpdateResult);
+            if (persisted && typeof showToast === 'function') {
+                const statusText = getOrderStatusTextByValue(formUpdateResult.orderStatus);
+                const shippingMap = {
+                    not_shipped: '未发货',
+                    shipped: '已发货',
+                    in_transit: '运输中',
+                    delivered: '已签收',
+                    rejected: '已拒收',
+                    returned: '已退货'
+                };
+                const shippingText = shippingMap[formUpdateResult.shippingStatus] || '已同步';
+                showToast(`已根据物流轨迹自动同步：${statusText} / ${shippingText}`, 'success');
+            }
+        }
     } catch (error) {
         const message = String(error?.message || error || '物流查询失败');
         renderOrderLogisticsCarrierCard(null);
@@ -4563,11 +4744,11 @@ function initOrderFilters() {
 
 function isOrderShippingDelayRisk(order) {
     const status = normalizeOrderStatusValue(order?.status || 'pending');
-    const shippingStatus = String(order?.shipping_status || 'not_shipped').trim().toLowerCase();
+    const shippingStatus = normalizeShippingStatusValue(order?.shipping_status || 'not_shipped');
     if (status !== 'confirmed') {
         return false;
     }
-    if (['shipped', 'signed', 'returned'].includes(shippingStatus)) {
+    if (['shipped', 'in_transit', 'delivered', 'returned', 'rejected'].includes(shippingStatus)) {
         return false;
     }
     const orderDate = parseOrderDateForFilter(order?.order_date);
@@ -4579,11 +4760,11 @@ function isOrderShippingDelayRisk(order) {
 
 function isOrderSignDelayRisk(order) {
     const status = normalizeOrderStatusValue(order?.status || 'pending');
-    const shippingStatus = String(order?.shipping_status || 'not_shipped').trim().toLowerCase();
-    if (!['shipped', 'signed'].includes(status) && !['shipped'].includes(shippingStatus)) {
+    const shippingStatus = normalizeShippingStatusValue(order?.shipping_status || 'not_shipped');
+    if (!['shipped', 'signed'].includes(status) && !['shipped', 'in_transit'].includes(shippingStatus)) {
         return false;
     }
-    if (['signed', 'completed', 'refunded', 'cancelled'].includes(status) || shippingStatus === 'signed') {
+    if (['signed', 'completed', 'refunded', 'cancelled'].includes(status) || shippingStatus === 'delivered') {
         return false;
     }
     const orderDate = parseOrderDateForFilter(order?.order_date);
@@ -4626,7 +4807,7 @@ function filterOrdersBySearchAndStatus(orders) {
         const customerName = String(customer?.name || order?.customer_name || '').toLowerCase();
         const normalizedStatus = normalizeOrderStatusValue(order?.status || 'pending');
         const paymentStatus = String(order?.payment_status || 'unpaid').trim().toLowerCase();
-        const shippingStatus = String(order?.shipping_status || 'not_shipped').trim().toLowerCase();
+        const shippingStatus = normalizeShippingStatusValue(order?.shipping_status || 'not_shipped');
         const orderDate = parseOrderDateForFilter(order?.order_date);
 
         const matchKeyword = !keyword
@@ -4666,6 +4847,28 @@ function getOrderStatusCountMap(orders) {
     return counters;
 }
 
+function getOrderFulfillmentStage(order) {
+    const status = normalizeOrderStatusValue(order?.status || 'pending');
+    const shippingStatus = normalizeShippingStatusValue(order?.shipping_status || 'not_shipped');
+
+    if (['cancelled', 'refunded'].includes(status)) {
+        return null;
+    }
+    if (status === 'completed') {
+        return 'completed';
+    }
+    if (status === 'signed' || shippingStatus === 'delivered') {
+        return 'transit';
+    }
+    if (status === 'shipped' || ['shipped', 'in_transit', 'returned', 'rejected'].includes(shippingStatus)) {
+        return 'transit';
+    }
+    if (status === 'confirmed') {
+        return 'confirmed';
+    }
+    return 'pending';
+}
+
 function renderOrderWorkflowSummary(allOrders = [], visibleOrders = []) {
     const summaryEl = document.getElementById('orderWorkflowSummary');
     if (!summaryEl) {
@@ -4682,7 +4885,22 @@ function renderOrderWorkflowSummary(allOrders = [], visibleOrders = []) {
     const visibleTotal = Math.max(visibleRows.length, 1);
     const finishedCount = visibleStats.completed + visibleStats.refunded;
     const finishedRate = visibleRows.length > 0 ? Math.round((finishedCount / visibleTotal) * 100) : 0;
-    const inTransitCount = visibleStats.shipped + visibleStats.signed;
+    const visibleFulfillmentCounters = { pending: 0, confirmed: 0, transit: 0, completed: 0 };
+    const allFulfillmentCounters = { pending: 0, confirmed: 0, transit: 0, completed: 0 };
+    visibleRows.forEach(order => {
+        const stage = getOrderFulfillmentStage(order);
+        if (stage && Object.prototype.hasOwnProperty.call(visibleFulfillmentCounters, stage)) {
+            visibleFulfillmentCounters[stage] += 1;
+        }
+    });
+    allRows.forEach(order => {
+        const stage = getOrderFulfillmentStage(order);
+        if (stage && Object.prototype.hasOwnProperty.call(allFulfillmentCounters, stage)) {
+            allFulfillmentCounters[stage] += 1;
+        }
+    });
+    const pendingAndWaitShip = visibleFulfillmentCounters.pending + visibleFulfillmentCounters.confirmed;
+    const inTransitCount = visibleFulfillmentCounters.transit;
 
     summaryEl.innerHTML = `
         <div class="erp-order-summary-grid">
@@ -4693,13 +4911,13 @@ function renderOrderWorkflowSummary(allOrders = [], visibleOrders = []) {
             </div>
             <div class="erp-order-summary-item">
                 <div class="erp-order-summary-label">待处理</div>
-                <div class="erp-order-summary-value">${visibleStats.pending + visibleStats.confirmed}</div>
-                <div class="erp-order-summary-sub">待审批 ${visibleStats.pending}，待发货 ${visibleStats.confirmed}</div>
+                <div class="erp-order-summary-value">${pendingAndWaitShip}</div>
+                <div class="erp-order-summary-sub">待审批 ${visibleFulfillmentCounters.pending}，待发货 ${visibleFulfillmentCounters.confirmed}</div>
             </div>
             <div class="erp-order-summary-item">
                 <div class="erp-order-summary-label">在途订单</div>
                 <div class="erp-order-summary-value">${inTransitCount}</div>
-                <div class="erp-order-summary-sub">总在途 ${allStats.shipped + allStats.signed}</div>
+                <div class="erp-order-summary-sub">总在途 ${allFulfillmentCounters.transit}</div>
             </div>
             <div class="erp-order-summary-item">
                 <div class="erp-order-summary-label">履约完成率</div>
@@ -6011,9 +6229,8 @@ function renderDashboardBusinessCards() {
 
 function buildSalesFunnelStats() {
     const orders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
-    const normalizeStatus = value => String(value || '').trim().toLowerCase();
     const validOrders = orders.filter(order => {
-        const status = normalizeStatus(order?.status);
+        const status = normalizeOrderStatusValue(order?.status || '');
         return status !== 'cancelled' && status !== 'refunded';
     });
 
@@ -6025,27 +6242,15 @@ function buildSalesFunnelStats() {
     };
 
     validOrders.forEach(order => {
-        const status = normalizeStatus(order?.status);
-        if (status === 'pending') {
-            counters.pending += 1;
-            return;
-        }
-        if (status === 'confirmed') {
-            counters.confirmed += 1;
-            return;
-        }
-        if (status === 'shipped' || status === 'signed') {
-            counters.transit += 1;
-            return;
-        }
-        if (status === 'completed') {
-            counters.completed += 1;
+        const stage = getOrderFulfillmentStage(order);
+        if (stage && Object.prototype.hasOwnProperty.call(counters, stage)) {
+            counters[stage] += 1;
         }
     });
 
     const total = validOrders.length;
     const completedRate = total > 0 ? (counters.completed / total) : 0;
-    const pendingOver3Days = validOrders.filter(order => normalizeStatus(order?.status) === 'pending')
+    const pendingOver3Days = validOrders.filter(order => getOrderFulfillmentStage(order) === 'pending')
         .filter(order => {
             const days = getAgingDays(order?.order_date);
             return Number.isFinite(days) && days > 3;

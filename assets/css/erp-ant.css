@@ -1507,6 +1507,31 @@ select.ant-select option {
     margin-top: 10px;
 }
 
+.erp-finance-amount-range {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.erp-finance-amount-range .ant-input {
+    width: 112px;
+}
+
+.erp-finance-range-sep {
+    color: #94a3b8;
+    font-size: 12px;
+}
+
+.erp-finance-filter-summary {
+    margin-top: 8px;
+    padding: 6px 10px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 8px;
+    background: #f8fafc;
+    color: #475569;
+    font-size: 12px;
+}
+
 .erp-finance-quick-btn {
     height: 26px;
     line-height: 24px;

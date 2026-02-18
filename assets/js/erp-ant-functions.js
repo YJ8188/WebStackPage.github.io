@@ -5509,11 +5509,84 @@ function getFinanceRangeFromPreset(preset) {
     }
 }
 
+function parseFinanceAmountFilterValue(rawValue) {
+    const text = String(rawValue ?? '').trim();
+    if (!text) {
+        return null;
+    }
+    const parsed = Number(text);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+        return null;
+    }
+    return parsed;
+}
+
+function getFinanceRangePresetText(preset) {
+    const map = {
+        all: '全部',
+        today: '今天',
+        thisWeek: '本周',
+        yesterday: '昨天',
+        last7: '近7天',
+        last30: '近30天',
+        thisMonth: '本月',
+        custom: '自定义'
+    };
+    return map[String(preset || 'all')] || '全部';
+}
+
+function updateFinanceFilterSummary(summary = {}) {
+    const summaryEl = document.getElementById('financeFilterSummary');
+    if (!summaryEl) {
+        return;
+    }
+
+    const parts = [];
+    if (summary.rangePreset && summary.rangePreset !== 'all') {
+        parts.push(`日期：${getFinanceRangePresetText(summary.rangePreset)}`);
+    }
+    if (summary.keyword) {
+        parts.push(`关键词：${summary.keyword}`);
+    }
+    if (summary.typeFilter && summary.typeFilter !== 'all') {
+        const typeText = summary.typeFilter === 'income'
+            ? '收入'
+            : (summary.typeFilter === 'expense' ? '支出' : '系统');
+        parts.push(`类型：${typeText}`);
+    }
+    if (summary.linkedFilter && summary.linkedFilter !== 'all') {
+        parts.push(`关联：${summary.linkedFilter === 'linked' ? '仅已关联' : '仅未关联'}`);
+    }
+    if (summary.minAmount !== null || summary.maxAmount !== null) {
+        const minText = summary.minAmount !== null ? formatCurrency(summary.minAmount) : '不限';
+        const maxText = summary.maxAmount !== null ? formatCurrency(summary.maxAmount) : '不限';
+        parts.push(`金额：${minText} ~ ${maxText}`);
+    }
+
+    const total = Number.isFinite(Number(summary.total)) ? Number(summary.total) : 0;
+    const matched = Number.isFinite(Number(summary.matched)) ? Number(summary.matched) : 0;
+    if (!parts.length) {
+        summaryEl.textContent = `当前筛选：全部数据 · 共 ${matched}/${total} 条`;
+        return;
+    }
+    summaryEl.textContent = `当前筛选：${parts.join(' ｜ ')} · 共 ${matched}/${total} 条`;
+}
+
 function applyFinanceFilters() {
     const keyword = String(document.getElementById('financeSearch')?.value || '').trim().toLowerCase();
     const rangePreset = String(document.getElementById('financeDateRange')?.value || 'all');
     const customStart = String(document.getElementById('financeDateStart')?.value || '').trim();
     const customEnd = String(document.getElementById('financeDateEnd')?.value || '').trim();
+    const typeFilter = String(document.getElementById('financeTypeFilter')?.value || 'all').trim().toLowerCase();
+    const linkedFilter = String(document.getElementById('financeOrderLinkFilter')?.value || 'all').trim().toLowerCase();
+    let minAmount = parseFinanceAmountFilterValue(document.getElementById('financeAmountMin')?.value);
+    let maxAmount = parseFinanceAmountFilterValue(document.getElementById('financeAmountMax')?.value);
+
+    if (minAmount !== null && maxAmount !== null && minAmount > maxAmount) {
+        const temp = minAmount;
+        minAmount = maxAmount;
+        maxAmount = temp;
+    }
 
     let startDate = null;
     let endDate = null;
@@ -5536,15 +5609,21 @@ function applyFinanceFilters() {
     const orderMap = new Map(orders.map(item => [String(item?.id), item]));
     const customerMap = new Map(customers.map(item => [String(item?.id), item]));
 
-    const filtered = (ERP.state.finances || []).filter(finance => {
+    const sourceRows = Array.isArray(ERP.state.finances) ? ERP.state.finances : [];
+    const filtered = sourceRows.filter(finance => {
         const targetDate = parseFinanceDate(finance?.transaction_date);
         if ((startDate || endDate) && !targetDate) {
             return false;
         }
 
-        const linkedOrderId = finance?.order_id || finance?.reference_id;
-        const linkedOrder = linkedOrderId ? orderMap.get(String(linkedOrderId)) : null;
+        const linkedOrderId = finance?.order_id ?? finance?.reference_id;
+        const linkedOrderIdText = String(linkedOrderId ?? '').trim();
+        const hasLinkedOrder = linkedOrderIdText.length > 0;
+        const linkedOrder = hasLinkedOrder ? orderMap.get(linkedOrderIdText) : null;
         const linkedCustomer = linkedOrder ? customerMap.get(String(linkedOrder.customer_id)) : null;
+        const normalizedType = String(finance?.type || '').trim().toLowerCase();
+        const amount = Math.abs(Number(finance?.amount || 0));
+        const safeAmount = Number.isFinite(amount) ? amount : 0;
 
         const keywordSource = [
             finance?.description,
@@ -5560,13 +5639,36 @@ function applyFinanceFilters() {
         const keywordMatch = !keyword || keywordSource.includes(keyword);
         const startMatch = !startDate || targetDate >= startDate;
         const endMatch = !endDate || targetDate <= endDate;
+        const typeMatch = typeFilter === 'all' || normalizedType === typeFilter;
+        const linkedMatch = linkedFilter === 'all'
+            || (linkedFilter === 'linked' && hasLinkedOrder)
+            || (linkedFilter === 'unlinked' && !hasLinkedOrder);
+        const minAmountMatch = minAmount === null || safeAmount >= minAmount;
+        const maxAmountMatch = maxAmount === null || safeAmount <= maxAmount;
 
-        return keywordMatch && startMatch && endMatch;
+        return keywordMatch && startMatch && endMatch && typeMatch && linkedMatch && minAmountMatch && maxAmountMatch;
     });
 
-    syncFinanceViewRows(filtered, rangePreset === 'all' && !keyword ? 'all' : 'filtered');
+    const isDefaultFilter = rangePreset === 'all'
+        && !keyword
+        && typeFilter === 'all'
+        && linkedFilter === 'all'
+        && minAmount === null
+        && maxAmount === null;
+
+    syncFinanceViewRows(filtered, isDefaultFilter ? 'all' : 'filtered');
     renderFinances(filtered);
     renderFinanceAgingSummary();
+    updateFinanceFilterSummary({
+        rangePreset,
+        keyword,
+        typeFilter,
+        linkedFilter,
+        minAmount,
+        maxAmount,
+        total: sourceRows.length,
+        matched: filtered.length
+    });
 }
 
 function updateFinanceQuickRangeButtons() {
@@ -5617,6 +5719,10 @@ function resetFinanceFilters() {
     const startInput = document.getElementById('financeDateStart');
     const endInput = document.getElementById('financeDateEnd');
     const searchInput = document.getElementById('financeSearch');
+    const typeSelect = document.getElementById('financeTypeFilter');
+    const linkedSelect = document.getElementById('financeOrderLinkFilter');
+    const minAmountInput = document.getElementById('financeAmountMin');
+    const maxAmountInput = document.getElementById('financeAmountMax');
 
     if (rangeSelect) {
         rangeSelect.value = 'all';
@@ -5632,6 +5738,18 @@ function resetFinanceFilters() {
     if (searchInput) {
         searchInput.value = '';
     }
+    if (typeSelect) {
+        typeSelect.value = 'all';
+    }
+    if (linkedSelect) {
+        linkedSelect.value = 'all';
+    }
+    if (minAmountInput) {
+        minAmountInput.value = '';
+    }
+    if (maxAmountInput) {
+        maxAmountInput.value = '';
+    }
 
     onFinanceDateRangeChange();
 }
@@ -5640,6 +5758,10 @@ function initFinanceFilters() {
     const rangeSelect = document.getElementById('financeDateRange');
     const startInput = document.getElementById('financeDateStart');
     const endInput = document.getElementById('financeDateEnd');
+    const typeSelect = document.getElementById('financeTypeFilter');
+    const linkedSelect = document.getElementById('financeOrderLinkFilter');
+    const minAmountInput = document.getElementById('financeAmountMin');
+    const maxAmountInput = document.getElementById('financeAmountMax');
     const reportMonthInput = document.getElementById('financeReportMonth');
     const dailyReportDateInput = document.getElementById('financeDailyReportDate');
 
@@ -5653,6 +5775,18 @@ function initFinanceFilters() {
     if (endInput) {
         endInput.value = '';
         endInput.disabled = true;
+    }
+    if (typeSelect) {
+        typeSelect.value = 'all';
+    }
+    if (linkedSelect) {
+        linkedSelect.value = 'all';
+    }
+    if (minAmountInput) {
+        minAmountInput.value = '';
+    }
+    if (maxAmountInput) {
+        maxAmountInput.value = '';
     }
     if (reportMonthInput && !reportMonthInput.value) {
         reportMonthInput.value = getCurrentYearMonthText();

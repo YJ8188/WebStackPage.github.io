@@ -3301,6 +3301,35 @@ function confirmOrderRiskBeforeSave(analysis) {
     return confirm(message);
 }
 
+function buildOrderItemRowHtml(productOptionsHtml = '', quantity = 1, unitPrice = 0) {
+    const safeQuantity = Math.max(1, Number(quantity || 1));
+    const safeUnitPrice = Math.max(0, Number(unitPrice || 0));
+    return `
+        <div class="erp-order-item-top">
+            <label class="erp-order-item-label">商品</label>
+            <select class="ant-select product-select" style="width:100%;" onchange="updateOrderItemTotal(this)">
+                <option value="">选择产品</option>
+                ${productOptionsHtml}
+            </select>
+        </div>
+        <div class="erp-order-item-main">
+            <div class="erp-order-item-field">
+                <label class="erp-order-item-label">数量</label>
+                <input type="number" class="ant-input item-quantity" value="${safeQuantity}" min="1" onchange="updateOrderItemTotal(this)">
+            </div>
+            <div class="erp-order-item-field">
+                <label class="erp-order-item-label">单价</label>
+                <input type="number" class="ant-input item-unit-price" value="${safeUnitPrice.toFixed(2)}" min="0" step="0.01" onchange="updateOrderItemTotal(this)" placeholder="单价">
+            </div>
+            <div class="erp-order-item-field">
+                <label class="erp-order-item-label">小计</label>
+                <input type="text" class="ant-input item-total erp-order-item-total" readonly value="¥0.00">
+            </div>
+            <button type="button" class="ant-btn erp-btn-danger erp-btn-compact" onclick="removeOrderItem(this)">删除</button>
+        </div>
+    `;
+}
+
 function showOrderModal(order = null) {
     const modal = document.getElementById('orderModal');
     if (!modal) {
@@ -3389,23 +3418,12 @@ function showOrderModal(order = null) {
                     : '';
 
                 const row = document.createElement('div');
-                row.className = 'order-item';
-                row.style.cssText = 'border: 1px dashed #d9d9d9; padding: 10px; margin-bottom: 8px; background: #fff;';
-                row.innerHTML = `
-                    <div style="margin-bottom:8px;">
-                        <select class="ant-select product-select" style="width:100%;" onchange="updateOrderItemTotal(this)">
-                            <option value="">选择产品</option>
-                            ${fallbackOption}
-                            ${ERP.state.products.map(p => `<option value="${p.id}" data-name="${p.name}" data-price="${p.price}">${p.name} - ¥${p.price}</option>`).join('')}
-                        </select>
-                    </div>
-                    <div style="display:flex; gap:8px;">
-                        <input type="number" class="ant-input item-quantity" value="${detail.quantity || 1}" min="1" onchange="updateOrderItemTotal(this)" style="width:80px;">
-                        <input type="number" class="ant-input item-unit-price" value="${parseFloat(detail.unit_price || 0).toFixed(2)}" min="0" step="0.01" onchange="updateOrderItemTotal(this)" style="width:120px;" placeholder="单价">
-                        <input type="text" class="ant-input item-total" readonly value="¥0.00" style="flex:1; background:#fafafa;">
-                        <button type="button" class="ant-btn" onclick="removeOrderItem(this)" style="color:red;">删除</button>
-                    </div>
-                `;
+                row.className = 'order-item erp-order-item-card';
+                row.innerHTML = buildOrderItemRowHtml(
+                    `${fallbackOption}${ERP.state.products.map(p => `<option value="${p.id}" data-name="${p.name}" data-price="${p.price}">${p.name} - ¥${p.price}</option>`).join('')}`,
+                    detail.quantity || 1,
+                    parseFloat(detail.unit_price || 0)
+                );
                 itemsContainer.appendChild(row);
                 const select = row.querySelector('.product-select');
                 if (select) {

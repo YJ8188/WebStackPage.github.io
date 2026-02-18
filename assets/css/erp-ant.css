@@ -1088,12 +1088,49 @@ select.ant-select option {
     background: #f8fbff !important;
     border: 1px solid #dbeafe;
     border-radius: 10px !important;
+    padding: 10px !important;
 }
 
 .erp-modal-form #orderRiskPanel {
     border-color: #dbeafe !important;
     background: #f8fbff !important;
     color: #475569 !important;
+}
+
+.erp-order-item-card {
+    border: 1px dashed #d0dbe8;
+    border-radius: 10px;
+    padding: 10px;
+    margin-bottom: 8px;
+    background: #fff;
+}
+
+.erp-order-item-top {
+    margin-bottom: 8px;
+}
+
+.erp-order-item-main {
+    display: grid;
+    grid-template-columns: 92px 140px minmax(110px, 1fr) auto;
+    gap: 8px;
+    align-items: end;
+}
+
+.erp-order-item-field {
+    min-width: 0;
+}
+
+.erp-order-item-label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.erp-order-item-total {
+    background: #f8fafc !important;
+    font-weight: 700;
+    color: #cf1322;
 }
 
 .erp-order-modal-summary {
@@ -1183,6 +1220,12 @@ select.ant-select option {
     margin-top: 8px;
     display: flex;
     justify-content: flex-end;
+}
+
+@media (max-width: 768px) {
+    .erp-order-item-main {
+        grid-template-columns: 1fr;
+    }
 }
 
 .erp-modal-form .order-logistics-toolbar .ant-btn {

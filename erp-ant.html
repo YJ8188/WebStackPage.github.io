@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="assets/css/fonts/fontawesome/css/font-awesome.min.css">
 
     <!-- Ant Design Style Clone -->
-    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260218-58">
+    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260218-59">
 
     <script>
         (function () {
@@ -1639,7 +1639,7 @@
     <script src="assets/js/supabase-config.js?v=20260212-14"></script>
     <script src="assets/js/user-data.js?v=20260214-20"></script>
     <script src="assets/js/erp.js?v=20260218-35"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260218-66"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260218-67"></script>
     <script src="assets/js/pwa-register.js?v=20260218-3" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->
@@ -2587,22 +2587,22 @@
         window.addOrderItem = function () {
             const container = document.getElementById('orderItems');
             const div = document.createElement('div');
-            div.className = 'order-item';
-            div.style.cssText = 'border: 1px dashed #d9d9d9; padding: 10px; margin-bottom: 8px; background: #fff;';
-            div.innerHTML = `
-                <div style="margin-bottom:8px;">
-                     <select class="ant-select product-select" style="width:100%;" onchange="updateOrderItemTotal(this)">
+            div.className = 'order-item erp-order-item-card';
+            const optionsHtml = ERP.state.products.map(p => `<option value="${p.id}" data-name="${p.name}" data-price="${p.price}">${p.name} - ¥${p.price}</option>`).join('');
+            if (typeof buildOrderItemRowHtml === 'function') {
+                div.innerHTML = buildOrderItemRowHtml(optionsHtml, 1, 0);
+            } else {
+                div.innerHTML = `
+                    <select class="ant-select product-select" style="width:100%;" onchange="updateOrderItemTotal(this)">
                         <option value="">选择产品</option>
-                        ${ERP.state.products.map(p => `<option value="${p.id}" data-name="${p.name}" data-price="${p.price}">${p.name} - ¥${p.price}</option>`).join('')}
-                     </select>
-                </div>
-                <div style="display:flex; gap:8px;">
-                    <input type="number" class="ant-input item-quantity" value="1" min="1" onchange="updateOrderItemTotal(this)" style="width:80px;">
-                    <input type="number" class="ant-input item-unit-price" value="0" min="0" step="0.01" onchange="updateOrderItemTotal(this)" style="width:120px;" placeholder="单价">
-                    <input type="text" class="ant-input item-total" readonly value="¥0.00" style="flex:1; background:#fafafa;">
-                    <button type="button" class="ant-btn" onclick="removeOrderItem(this)" style="color:red;">删除</button>
-                </div>
-            `;
+                        ${optionsHtml}
+                    </select>
+                    <input type="number" class="ant-input item-quantity" value="1" min="1" onchange="updateOrderItemTotal(this)">
+                    <input type="number" class="ant-input item-unit-price" value="0" min="0" step="0.01" onchange="updateOrderItemTotal(this)" placeholder="单价">
+                    <input type="text" class="ant-input item-total" readonly value="¥0.00">
+                    <button type="button" class="ant-btn erp-btn-danger erp-btn-compact" onclick="removeOrderItem(this)">删除</button>
+                `;
+            }
             container.appendChild(div);
             if (typeof refreshOrderRiskPreview === 'function') {
                 refreshOrderRiskPreview();

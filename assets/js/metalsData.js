@@ -4,6 +4,38 @@
  * 功能：获取并显示贵金属的实时价格、涨跌幅等信息
  */
 
+const __METALS_DEBUG__ = typeof window !== 'undefined' && window.__DEBUG_MODE__ === true;
+const __METALS_NATIVE_CONSOLE__ = typeof window !== 'undefined' && window.console
+    ? window.console
+    : console;
+const console = {
+    log: (...args) => {
+        if (__METALS_DEBUG__ && typeof __METALS_NATIVE_CONSOLE__.log === 'function') {
+            __METALS_NATIVE_CONSOLE__.log(...args);
+        }
+    },
+    info: (...args) => {
+        if (__METALS_DEBUG__ && typeof __METALS_NATIVE_CONSOLE__.info === 'function') {
+            __METALS_NATIVE_CONSOLE__.info(...args);
+        }
+    },
+    debug: (...args) => {
+        if (__METALS_DEBUG__ && typeof __METALS_NATIVE_CONSOLE__.debug === 'function') {
+            __METALS_NATIVE_CONSOLE__.debug(...args);
+        }
+    },
+    warn: (...args) => {
+        if (typeof __METALS_NATIVE_CONSOLE__.warn === 'function') {
+            __METALS_NATIVE_CONSOLE__.warn(...args);
+        }
+    },
+    error: (...args) => {
+        if (typeof __METALS_NATIVE_CONSOLE__.error === 'function') {
+            __METALS_NATIVE_CONSOLE__.error(...args);
+        }
+    }
+};
+
 var MetalsData = {
     // 贵金属价格数据
     prices: {

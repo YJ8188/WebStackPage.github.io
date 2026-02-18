@@ -3,6 +3,9 @@
         return;
     }
 
+    const CACHE_EPOCH = '20260218-3';
+    const CACHE_EPOCH_KEY = 'webstack-cache-epoch';
+
     const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
     if (location.protocol !== 'https:' && !isLocalhost) {
         return;
@@ -19,7 +22,20 @@
 
     window.addEventListener('load', async () => {
         try {
-            const registration = await navigator.serviceWorker.register('/sw.js?v=20260218-2', { scope: '/' });
+            const lastEpoch = localStorage.getItem(CACHE_EPOCH_KEY);
+            if (lastEpoch !== CACHE_EPOCH) {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                await Promise.all(registrations.map((item) => item.unregister()));
+
+                if ('caches' in window) {
+                    const cacheKeys = await caches.keys();
+                    await Promise.all(cacheKeys.map((cacheKey) => caches.delete(cacheKey)));
+                }
+
+                localStorage.setItem(CACHE_EPOCH_KEY, CACHE_EPOCH);
+            }
+
+            const registration = await navigator.serviceWorker.register('/sw.js?v=20260218-3', { scope: '/' });
             await registration.update();
             if (registration && registration.waiting) {
                 registration.waiting.postMessage({ type: 'SKIP_WAITING' });

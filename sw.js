@@ -1,5 +1,5 @@
-const CORE_CACHE = 'webstack-core-v20260218-2';
-const RUNTIME_CACHE = 'webstack-runtime-v20260218-2';
+const CORE_CACHE = 'webstack-core-v20260218-3';
+const RUNTIME_CACHE = 'webstack-runtime-v20260218-3';
 
 const CORE_ASSETS = [
     '/',

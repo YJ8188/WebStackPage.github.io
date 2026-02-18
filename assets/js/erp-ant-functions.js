@@ -9457,6 +9457,48 @@ const ERP_FINANCE_CHART_RETRY_TIMERS = {
     trend: null,
     monthly: null
 };
+const ERP_FINANCE_CHART_RESIZE_TIMERS = {
+    trend: [],
+    monthly: []
+};
+
+function isChartInstanceAlive(instance) {
+    if (!instance || typeof instance.resize !== 'function') {
+        return false;
+    }
+    if (typeof instance.isDisposed === 'function' && instance.isDisposed()) {
+        return false;
+    }
+    return true;
+}
+
+function clearFinanceChartResizeTimers(key) {
+    const timers = ERP_FINANCE_CHART_RESIZE_TIMERS[key];
+    if (!Array.isArray(timers) || !timers.length) {
+        return;
+    }
+    timers.forEach(timerId => {
+        try {
+            clearTimeout(timerId);
+        } catch (error) {
+            // 忽略清理异常
+        }
+    });
+    ERP_FINANCE_CHART_RESIZE_TIMERS[key] = [];
+}
+
+function safeResizeFinanceChart(instance, sourceLabel = 'unknown') {
+    if (!isChartInstanceAlive(instance)) {
+        return false;
+    }
+    try {
+        instance.resize();
+        return true;
+    } catch (error) {
+        console.error(`[ERP] 财务图表 resize 失败(${sourceLabel}):`, error?.message || error);
+        return false;
+    }
+}
 
 function bindFinanceChartResizeOnce() {
     if (erpFinanceChartResizeBound || typeof window === 'undefined') {
@@ -9464,18 +9506,25 @@ function bindFinanceChartResizeOnce() {
     }
     window.addEventListener('resize', () => {
         Object.values(ERP_FINANCE_CHART_INSTANCES).forEach(instance => {
-            if (instance && typeof instance.resize === 'function') {
-                instance.resize();
-            }
+            safeResizeFinanceChart(instance, 'window');
         });
     });
     erpFinanceChartResizeBound = true;
 }
 
 function disposeFinanceChartInstance(key) {
+    clearFinanceChartResizeTimers(key);
+    if (ERP_FINANCE_CHART_RETRY_TIMERS[key]) {
+        clearTimeout(ERP_FINANCE_CHART_RETRY_TIMERS[key]);
+        ERP_FINANCE_CHART_RETRY_TIMERS[key] = null;
+    }
     const instance = ERP_FINANCE_CHART_INSTANCES[key];
     if (instance && typeof instance.dispose === 'function') {
-        instance.dispose();
+        try {
+            instance.dispose();
+        } catch (error) {
+            console.error('[ERP] 财务图表销毁失败:', error?.message || error);
+        }
     }
     ERP_FINANCE_CHART_INSTANCES[key] = null;
 }
@@ -9518,30 +9567,29 @@ function queueFinanceChartRetry(key, callback, attempt) {
 
 function queueFinanceChartResize(key) {
     const instance = ERP_FINANCE_CHART_INSTANCES[key];
-    if (!instance || typeof instance.resize !== 'function') {
+    if (!isChartInstanceAlive(instance)) {
         return;
     }
+    clearFinanceChartResizeTimers(key);
     requestAnimationFrame(() => {
-        try {
-            instance.resize();
-        } catch (error) {
-            console.error('[ERP] 财务图表 resize 失败:', error?.message || error);
+        if (ERP_FINANCE_CHART_INSTANCES[key] !== instance) {
+            return;
         }
+        safeResizeFinanceChart(instance, 'raf');
     });
-    setTimeout(() => {
-        try {
-            instance.resize();
-        } catch (error) {
-            console.error('[ERP] 财务图表延迟 resize 失败:', error?.message || error);
+    const timer1 = setTimeout(() => {
+        if (ERP_FINANCE_CHART_INSTANCES[key] !== instance) {
+            return;
         }
+        safeResizeFinanceChart(instance, 't+100');
     }, 100);
-    setTimeout(() => {
-        try {
-            instance.resize();
-        } catch (error) {
-            console.error('[ERP] 财务图表二次 resize 失败:', error?.message || error);
+    const timer2 = setTimeout(() => {
+        if (ERP_FINANCE_CHART_INSTANCES[key] !== instance) {
+            return;
         }
+        safeResizeFinanceChart(instance, 't+260');
     }, 260);
+    ERP_FINANCE_CHART_RESIZE_TIMERS[key].push(timer1, timer2);
 }
 
 function formatTrendAxisLabel(value, index, totalCount) {
@@ -9577,12 +9625,18 @@ function renderFinanceTrendEChart(rows = [], attempt = 0) {
     const chart = window.echarts.init(chartEl, null, { renderer: 'canvas' });
     ERP_FINANCE_CHART_INSTANCES.trend = chart;
 
-    const labels = rows.map(item => item?.label || '-');
-    const incomeData = rows.map(item => Number(item?.income || 0));
-    const expenseData = rows.map(item => Number(item?.expense || 0));
+    const labels = rows.map(item => String(item?.label || '-'));
+    const incomeData = rows.map(item => {
+        const value = Number(item?.income || 0);
+        return Number.isFinite(value) ? value : 0;
+    });
+    const expenseData = rows.map(item => {
+        const value = Number(item?.expense || 0);
+        return Number.isFinite(value) ? value : 0;
+    });
     const maxValue = Math.max(1, ...incomeData, ...expenseData);
 
-    chart.setOption({
+    const option = {
         animationDuration: 450,
         animationEasing: 'cubicOut',
         grid: { left: 64, right: 24, top: 22, bottom: 52 },
@@ -9644,7 +9698,6 @@ function renderFinanceTrendEChart(rows = [], attempt = 0) {
                 lineStyle: { width: 2.6, color: '#d61f69', shadowColor: 'rgba(214,31,105,0.25)', shadowBlur: 6 },
                 itemStyle: { color: '#f5227b' },
                 areaStyle: { color: 'rgba(245,34,123,0.05)' },
-                emphasis: { focus: 'series' },
                 data: incomeData
             },
             {
@@ -9657,11 +9710,17 @@ function renderFinanceTrendEChart(rows = [], attempt = 0) {
                 lineStyle: { width: 2.6, color: '#3f9f15', shadowColor: 'rgba(63,159,21,0.25)', shadowBlur: 6 },
                 itemStyle: { color: '#52c41a' },
                 areaStyle: { color: 'rgba(82,196,26,0.05)' },
-                emphasis: { focus: 'series' },
                 data: expenseData
             }
         ]
-    }, true);
+    };
+    try {
+        chart.setOption(option, true);
+    } catch (error) {
+        console.error('[ERP] 收支趋势图渲染失败，已降级为静态图:', error?.message || error);
+        disposeFinanceChartInstance('trend');
+        return false;
+    }
     queueFinanceChartResize('trend');
     return true;
 }
@@ -9898,12 +9957,15 @@ function renderFinanceMonthlyProfitEChart(rows = [], attempt = 0) {
     const chart = window.echarts.init(chartEl, null, { renderer: 'canvas' });
     ERP_FINANCE_CHART_INSTANCES.monthly = chart;
 
-    const labels = rows.map(item => item?.label || '-');
-    const netData = rows.map(item => Number(item?.net || 0));
+    const labels = rows.map(item => String(item?.label || '-'));
+    const netData = rows.map(item => {
+        const value = Number(item?.net || 0);
+        return Number.isFinite(value) ? value : 0;
+    });
     const maxAbs = Math.max(1, ...netData.map(value => Math.abs(value)));
     const bound = Math.ceil(maxAbs * 1.2 * 100) / 100;
 
-    chart.setOption({
+    const option = {
         animationDuration: 450,
         animationEasing: 'cubicOut',
         grid: { left: 64, right: 24, top: 24, bottom: 52 },
@@ -9973,16 +10035,15 @@ function renderFinanceMonthlyProfitEChart(rows = [], attempt = 0) {
                     data: [{ yAxis: 0 }]
                 }
             }
-        ],
-        visualMap: {
-            show: false,
-            dimension: 1,
-            pieces: [
-                { gt: 0, color: '#1677ff' },
-                { lte: 0, color: '#fa8c16' }
-            ]
-        }
-    }, true);
+        ]
+    };
+    try {
+        chart.setOption(option, true);
+    } catch (error) {
+        console.error('[ERP] 月度利润图渲染失败，已降级为静态图:', error?.message || error);
+        disposeFinanceChartInstance('monthly');
+        return false;
+    }
     queueFinanceChartResize('monthly');
     return true;
 }

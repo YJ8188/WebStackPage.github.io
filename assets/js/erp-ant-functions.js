@@ -2585,11 +2585,12 @@ function getOrderSummaryShippingText(status) {
         not_shipped: '未发货',
         shipped: '已发货',
         in_transit: '运输中',
+        signed: '已签收',
         delivered: '已签收',
         rejected: '已拒收',
         returned: '已退货'
     };
-    const key = String(status || '').trim().toLowerCase();
+    const key = normalizeShippingStatusValue(status);
     return map[key] || '未发货';
 }
 
@@ -2679,9 +2680,9 @@ function renderOrderModalSummary(sourceOrder = null, riskAnalysis = null) {
     const paymentStatus = String(
         document.getElementById('orderPaymentStatus')?.value || currentOrder?.payment_status || 'unpaid'
     ).trim().toLowerCase();
-    const shippingStatus = String(
+    const shippingStatus = normalizeShippingStatusValue(
         document.getElementById('orderShippingStatus')?.value || currentOrder?.shipping_status || 'not_shipped'
-    ).trim().toLowerCase();
+    );
 
     const normalizedItems = currentItems.map(item => ({
         product_id: null,
@@ -2986,7 +2987,7 @@ function applyLogisticsStatusToOrderForm(suggestion = null) {
     }
 
     if (changed) {
-        refreshOrderSummaryFromForm();
+        renderOrderModalSummary();
     }
 
     return {

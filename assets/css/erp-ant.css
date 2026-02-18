@@ -1974,27 +1974,25 @@ select.ant-select option {
 }
 
 .table-page-search-wrapper.erp-filter-one-line .search-form {
-    display: flex;
-    flex-wrap: nowrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     align-items: end;
-    gap: 10px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding-bottom: 2px;
+    gap: 10px 12px;
+    overflow: visible;
+    padding-bottom: 0;
 }
 
 .table-page-search-wrapper.erp-filter-one-line .search-item {
-    flex: 0 0 auto;
-    min-width: 210px;
+    min-width: 0;
 }
 
 .table-page-search-wrapper.erp-filter-one-line .search-item.search-item-actions {
-    min-width: 170px;
-    justify-content: flex-start;
+    min-width: 0;
+    justify-content: flex-end;
 }
 
 .table-page-search-wrapper.erp-filter-one-line .erp-finance-amount-range {
-    min-width: 230px;
+    min-width: 0;
 }
 
 .erp-finance-quick-range {

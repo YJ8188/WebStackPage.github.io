@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="assets/css/fonts/fontawesome/css/font-awesome.min.css">
 
     <!-- Ant Design Style Clone -->
-    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260218-47">
+    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260218-48">
 
     <script>
         (function () {
@@ -282,27 +282,30 @@
                 <span style="color: #fff; font-size: 16px;">何哥ERP</span>
             </div>
             <ul class="ant-menu">
-                <li class="ant-menu-item ant-menu-item-selected" onclick="switchTab('dashboard')">
+                <li class="ant-menu-group-title">运营总览</li>
+                <li class="ant-menu-item ant-menu-item-selected" data-module="dashboard" onclick="switchTab('dashboard')">
                     <i class="fa fa-dashboard"></i>
                     <span>首页</span>
                 </li>
-                <li class="ant-menu-item" onclick="switchTab('customers')">
+                <li class="ant-menu-group-title">基础资料</li>
+                <li class="ant-menu-item" data-module="customers" onclick="switchTab('customers')">
                     <i class="fa fa-users"></i>
                     <span>客户管理</span>
                 </li>
-                <li class="ant-menu-item" onclick="switchTab('products')">
+                <li class="ant-menu-item" data-module="products" onclick="switchTab('products')">
                     <i class="fa fa-cube"></i>
                     <span>产品管理</span>
                 </li>
-                <li class="ant-menu-item" onclick="switchTab('orders')">
+                <li class="ant-menu-group-title">业务流转</li>
+                <li class="ant-menu-item" data-module="orders" onclick="switchTab('orders')">
                     <i class="fa fa-shopping-cart"></i>
                     <span>订单管理</span>
                 </li>
-                <li class="ant-menu-item" onclick="switchTab('inventory')">
+                <li class="ant-menu-item" data-module="inventory" onclick="switchTab('inventory')">
                     <i class="fa fa-archive"></i>
                     <span>库存管理</span>
                 </li>
-                <li class="ant-menu-item" onclick="switchTab('finance')">
+                <li class="ant-menu-item" data-module="finance" onclick="switchTab('finance')">
                     <i class="fa fa-line-chart"></i>
                     <span>财务管理</span>
                 </li>
@@ -356,6 +359,27 @@
                     <span class="ant-tag" id="tab-finance" onclick="switchTab('finance')"
                         style="display:none;">财务管理</span>
                 </div>
+            </div>
+
+            <div class="erp-domain-nav">
+                <button type="button" class="erp-domain-btn is-active" data-domain="dashboard" onclick="switchBusinessDomain('dashboard')">
+                    <i class="fa fa-dashboard"></i> 经营看板
+                </button>
+                <button type="button" class="erp-domain-btn" data-domain="customers" onclick="switchBusinessDomain('customers')">
+                    <i class="fa fa-address-book-o"></i> 客户管理
+                </button>
+                <button type="button" class="erp-domain-btn" data-domain="products" onclick="switchBusinessDomain('products')">
+                    <i class="fa fa-cubes"></i> 商品管理
+                </button>
+                <button type="button" class="erp-domain-btn" data-domain="orders" onclick="switchBusinessDomain('orders')">
+                    <i class="fa fa-cart-arrow-down"></i> 销售订单
+                </button>
+                <button type="button" class="erp-domain-btn" data-domain="inventory" onclick="switchBusinessDomain('inventory')">
+                    <i class="fa fa-dropbox"></i> 采购库存
+                </button>
+                <button type="button" class="erp-domain-btn" data-domain="finance" onclick="switchBusinessDomain('finance')">
+                    <i class="fa fa-area-chart"></i> 财务报表
+                </button>
             </div>
 
             <!-- Content Area -->
@@ -1523,15 +1547,31 @@
     <!-- UI Logic Script (Adapted for Ant Design) -->
     <script>
         // Ant Design specific logic (Tab Switching, Sidebar Active State)
+        function setBusinessDomainActive(moduleName) {
+            document.querySelectorAll('.erp-domain-btn').forEach(btn => {
+                const isActive = btn.getAttribute('data-domain') === moduleName;
+                btn.classList.toggle('is-active', isActive);
+            });
+        }
+
+        function switchBusinessDomain(domain) {
+            const moduleName = String(domain || '').trim() || 'dashboard';
+            if (window.openModule) {
+                window.openModule(moduleName);
+            } else {
+                switchTab(moduleName);
+            }
+        }
+
         function switchTab(moduleName) {
             
 
             // Update Menu
-            document.querySelectorAll('.ant-menu-item').forEach(item => item.classList.remove('ant-menu-item-selected'));
-            const menuIndex = ['dashboard', 'customers', 'products', 'orders', 'inventory', 'finance'].indexOf(moduleName);
-            if (menuIndex >= 0) {
-                document.querySelectorAll('.ant-menu-item')[menuIndex].classList.add('ant-menu-item-selected');
-            }
+            document.querySelectorAll('.ant-menu-item[data-module]').forEach(item => {
+                const targetModule = item.getAttribute('data-module');
+                item.classList.toggle('ant-menu-item-selected', targetModule === moduleName);
+            });
+            setBusinessDomainActive(moduleName);
 
             // Update Tabs
             document.querySelectorAll('.ant-tag').forEach(tag => {

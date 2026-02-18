@@ -107,6 +107,15 @@ ul {
     margin-top: 14px;
 }
 
+.ant-menu-group-title {
+    margin: 14px 14px 6px;
+    padding-left: 10px;
+    font-size: 12px;
+    letter-spacing: 0.4px;
+    color: rgba(255, 255, 255, 0.42);
+    text-transform: uppercase;
+}
+
 .ant-menu-item {
     height: 40px;
     line-height: 40px;
@@ -239,6 +248,43 @@ ul {
     border-top: 1px solid var(--border-color-split);
     border-bottom: 1px solid var(--border-color-split);
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.erp-domain-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 16px;
+    background: #fff;
+    border-bottom: 1px solid var(--border-color-split);
+}
+
+.erp-domain-btn {
+    border: 1px solid #d9d9d9;
+    background: #fff;
+    color: #334155;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.erp-domain-btn .fa {
+    margin-right: 6px;
+}
+
+.erp-domain-btn:hover {
+    border-color: #69b1ff;
+    color: #0958d9;
+}
+
+.erp-domain-btn.is-active {
+    border-color: #1677ff;
+    background: #e6f4ff;
+    color: #0958d9;
+    font-weight: 600;
 }
 
 .tags-scroll-wrapper {

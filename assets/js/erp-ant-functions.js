@@ -1319,6 +1319,133 @@ function showERPContent() {
     startERPRealtimeSync();
 }
 
+const CUSTOMER_META_LABELS = {
+    tier: '[客户等级]',
+    creditLimit: '[信用额度]',
+    paymentTermDays: '[账期天数]'
+};
+
+function toSafeNumber(value, fallback = 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function parseCustomerMetaFromNotes(notes) {
+    const text = String(notes || '').trim();
+    const lines = text ? text.split('\n').map(item => String(item || '').trim()) : [];
+    const meta = {
+        tier: '',
+        creditLimit: 0,
+        paymentTermDays: 0
+    };
+
+    lines.forEach(line => {
+        if (line.startsWith(CUSTOMER_META_LABELS.tier)) {
+            meta.tier = line.replace(CUSTOMER_META_LABELS.tier, '').trim();
+        }
+        if (line.startsWith(CUSTOMER_META_LABELS.creditLimit)) {
+            const amountText = line.replace(CUSTOMER_META_LABELS.creditLimit, '').replace(/[^\d.-]/g, '').trim();
+            meta.creditLimit = Math.max(0, toSafeNumber(amountText, 0));
+        }
+        if (line.startsWith(CUSTOMER_META_LABELS.paymentTermDays)) {
+            const dayText = line.replace(CUSTOMER_META_LABELS.paymentTermDays, '').replace(/[^\d.-]/g, '').trim();
+            meta.paymentTermDays = Math.max(0, Math.floor(toSafeNumber(dayText, 0)));
+        }
+    });
+
+    return meta;
+}
+
+function stripCustomerMetaLines(notes) {
+    const text = String(notes || '').trim();
+    if (!text) {
+        return '';
+    }
+    return text
+        .split('\n')
+        .map(item => String(item || '').trim())
+        .filter(line =>
+            line
+            && !line.startsWith(CUSTOMER_META_LABELS.tier)
+            && !line.startsWith(CUSTOMER_META_LABELS.creditLimit)
+            && !line.startsWith(CUSTOMER_META_LABELS.paymentTermDays)
+        )
+        .join('\n')
+        .trim();
+}
+
+function buildCustomerNotesWithMeta(baseNotes, meta = {}) {
+    const safeBase = stripCustomerMetaLines(baseNotes);
+    const lines = safeBase ? [safeBase] : [];
+    const safeTier = String(meta.tier || '').trim();
+    const safeCredit = Math.max(0, toSafeNumber(meta.creditLimit, 0));
+    const safeTermDays = Math.max(0, Math.floor(toSafeNumber(meta.paymentTermDays, 0)));
+
+    if (safeTier) {
+        lines.push(`${CUSTOMER_META_LABELS.tier} ${safeTier}`);
+    }
+    if (safeCredit > 0) {
+        lines.push(`${CUSTOMER_META_LABELS.creditLimit} ${safeCredit.toFixed(2)}`);
+    }
+    if (safeTermDays > 0) {
+        lines.push(`${CUSTOMER_META_LABELS.paymentTermDays} ${safeTermDays}天`);
+    }
+    return lines.join('\n').trim();
+}
+
+function getCustomerSmeMeta(customer) {
+    const fromNotes = parseCustomerMetaFromNotes(customer?.notes || '');
+    const tier = String(customer?.customer_tier || fromNotes.tier || '').trim();
+    const creditLimit = Math.max(0, toSafeNumber(customer?.credit_limit, fromNotes.creditLimit));
+    const paymentTermDays = Math.max(0, Math.floor(toSafeNumber(customer?.payment_term_days, fromNotes.paymentTermDays)));
+    return {
+        tier,
+        creditLimit,
+        paymentTermDays
+    };
+}
+
+function calculateCustomerOutstandingReceivable(customerId, excludeOrderId = null) {
+    const orders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
+    return orders.reduce((sum, order) => {
+        if (!isSameEntityId(order?.customer_id, customerId)) {
+            return sum;
+        }
+        if (excludeOrderId !== null && excludeOrderId !== undefined && isSameEntityId(order?.id, excludeOrderId)) {
+            return sum;
+        }
+        const status = normalizeOrderStatusValue(order?.status || 'pending');
+        const paymentStatus = String(order?.payment_status || 'unpaid').toLowerCase();
+        if (['cancelled', 'refunded'].includes(status) || paymentStatus === 'paid') {
+            return sum;
+        }
+        return sum + Math.max(0, toSafeNumber(order?.total_amount, 0));
+    }, 0);
+}
+
+function appendOrderPaymentTermNotes(baseNotes, customerMeta = {}, orderTotal = 0) {
+    const safeBase = String(baseNotes || '')
+        .split('\n')
+        .map(item => String(item || '').trim())
+        .filter(line => line && !line.startsWith('[预计回款]') && !line.startsWith('[订单账期]'))
+        .join('\n')
+        .trim();
+
+    const lines = safeBase ? [safeBase] : [];
+    const paymentTermDays = Math.max(0, Math.floor(toSafeNumber(customerMeta.paymentTermDays, 0)));
+    if (paymentTermDays > 0) {
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + paymentTermDays);
+        const dueDateText = `${dueDate.getFullYear()}-${String(dueDate.getMonth() + 1).padStart(2, '0')}-${String(dueDate.getDate()).padStart(2, '0')}`;
+        lines.push(`[订单账期] ${paymentTermDays}天`);
+        lines.push(`[预计回款] ${dueDateText}`);
+    }
+    if (toSafeNumber(orderTotal, 0) > 0) {
+        lines.push(`[订单金额] ${toSafeNumber(orderTotal, 0).toFixed(2)}`);
+    }
+    return lines.join('\n').trim();
+}
+
 function showCustomerProfile(customerId) {
     if (!window.ERP || !Array.isArray(ERP.state.customers)) {
         console.error('[ERP] 客户档案打开失败：ERP状态不可用');
@@ -1344,6 +1471,11 @@ function showCustomerProfile(customerId) {
     }
 
     const relatedOrders = (ERP.state.orders || []).filter(order => isSameEntityId(order.customer_id, customer.id));
+    const customerMeta = getCustomerSmeMeta(customer);
+    const outstandingReceivable = calculateCustomerOutstandingReceivable(customer.id);
+    const availableCredit = customerMeta.creditLimit > 0
+        ? Math.max(customerMeta.creditLimit - outstandingReceivable, 0)
+        : 0;
     const totalAmount = relatedOrders.reduce((sum, order) => sum + parseFloat(order.total_amount || 0), 0);
 
     const modal = document.getElementById('customerProfileModal');
@@ -1369,6 +1501,11 @@ function showCustomerProfile(customerId) {
                 <div><strong>状态：</strong>${customer.status === 'active' ? '活跃' : '停用'}</div>
                 <div><strong>历史订单：</strong>${relatedOrders.length} 笔</div>
                 <div><strong>累计金额：</strong>¥${totalAmount.toFixed(2)}</div>
+                <div><strong>客户等级：</strong>${customerMeta.tier || '-'}</div>
+                <div><strong>信用额度：</strong>${customerMeta.creditLimit > 0 ? `¥${customerMeta.creditLimit.toFixed(2)}` : '-'}</div>
+                <div><strong>账期：</strong>${customerMeta.paymentTermDays > 0 ? `${customerMeta.paymentTermDays}天` : '-'}</div>
+                <div><strong>当前应收：</strong><span style="color:#cf1322;">¥${outstandingReceivable.toFixed(2)}</span></div>
+                <div><strong>可用授信：</strong>${customerMeta.creditLimit > 0 ? `¥${availableCredit.toFixed(2)}` : '-'}</div>
             </div>
             <div style="margin-top:12px;"><strong>地址：</strong>${customer.address || '-'}</div>
             <div style="margin-top:6px;"><strong>备注：</strong>${customer.notes || '-'}</div>
@@ -1393,6 +1530,11 @@ function showCustomerProfile(customerId) {
         `状态：${customer.status === 'active' ? '活跃' : '停用'}`,
         `历史订单：${relatedOrders.length} 笔`,
         `累计金额：¥${totalAmount.toFixed(2)}`,
+        `客户等级：${customerMeta.tier || '-'}`,
+        `信用额度：${customerMeta.creditLimit > 0 ? `¥${customerMeta.creditLimit.toFixed(2)}` : '-'}`,
+        `账期：${customerMeta.paymentTermDays > 0 ? `${customerMeta.paymentTermDays}天` : '-'}`,
+        `当前应收：¥${outstandingReceivable.toFixed(2)}`,
+        `可用授信：${customerMeta.creditLimit > 0 ? `¥${availableCredit.toFixed(2)}` : '-'}`,
         `地址：${customer.address || '-'}`,
         `备注：${customer.notes || '-'}`
     ].join('\n');
@@ -1635,6 +1777,7 @@ function showCustomerModal(customer = null) {
     const form = document.getElementById('customerForm');
 
     if (customer) {
+        const customerMeta = getCustomerSmeMeta(customer);
         title.textContent = '编辑客户';
         document.getElementById('customerId').value = customer.id;
         document.getElementById('customerName').value = customer.name;
@@ -1642,7 +1785,10 @@ function showCustomerModal(customer = null) {
         document.getElementById('customerPhone').value = customer.phone || '';
         document.getElementById('customerEmail').value = customer.email || '';
         document.getElementById('customerAddress').value = customer.address || '';
-        document.getElementById('customerNotes').value = customer.notes || '';
+        document.getElementById('customerNotes').value = stripCustomerMetaLines(customer.notes || '');
+        document.getElementById('customerTier').value = customerMeta.tier || '';
+        document.getElementById('customerCreditLimit').value = customerMeta.creditLimit > 0 ? customerMeta.creditLimit.toFixed(2) : '';
+        document.getElementById('customerPaymentTermDays').value = customerMeta.paymentTermDays > 0 ? String(customerMeta.paymentTermDays) : '';
 
         const statusSelect = document.getElementById('customerStatus');
         const validStatus = customer.status && statusSelect.querySelector(`option[value="${customer.status}"]`);
@@ -1652,6 +1798,9 @@ function showCustomerModal(customer = null) {
         form.reset();
         document.getElementById('customerId').value = '';
         document.getElementById('customerStatus').value = 'active';
+        document.getElementById('customerTier').value = '';
+        document.getElementById('customerCreditLimit').value = '';
+        document.getElementById('customerPaymentTermDays').value = '';
     }
 
     modal.classList.add('active');
@@ -1666,13 +1815,18 @@ function hideCustomerModal() {
 
 async function saveCustomer() {
     const customerId = document.getElementById('customerId').value;
+    const customerMeta = {
+        tier: String(document.getElementById('customerTier')?.value || '').trim(),
+        creditLimit: Math.max(0, toSafeNumber(document.getElementById('customerCreditLimit')?.value, 0)),
+        paymentTermDays: Math.max(0, Math.floor(toSafeNumber(document.getElementById('customerPaymentTermDays')?.value, 0)))
+    };
     const customerData = {
         name: document.getElementById('customerName').value,
         contact_person: document.getElementById('customerContactPerson').value,
         phone: document.getElementById('customerPhone').value,
         email: document.getElementById('customerEmail').value,
         address: document.getElementById('customerAddress').value,
-        notes: document.getElementById('customerNotes').value,
+        notes: buildCustomerNotesWithMeta(document.getElementById('customerNotes').value, customerMeta),
         status: document.getElementById('customerStatus').value
     };
 
@@ -2862,6 +3016,26 @@ async function saveOrder() {
 
     const riskAnalysis = buildOrderRiskAnalysis(orderItems, totalAmount);
     renderOrderRiskPanel(riskAnalysis);
+    const selectedCustomer = (ERP.state.customers || []).find(item => isSameEntityId(item?.id, normalizeEntityId(customerId))) || null;
+    const customerMeta = getCustomerSmeMeta(selectedCustomer || {});
+    const outstandingReceivable = calculateCustomerOutstandingReceivable(
+        normalizeEntityId(customerId),
+        orderId ? normalizeEntityId(orderId) : null
+    );
+    const projectedReceivable = outstandingReceivable + Math.max(0, toSafeNumber(totalAmount, 0));
+    if (customerMeta.creditLimit > 0 && projectedReceivable > customerMeta.creditLimit) {
+        const overLimitAmount = projectedReceivable - customerMeta.creditLimit;
+        const shouldContinue = confirm(
+            `客户「${selectedCustomer?.name || '-'}」将超出信用额度。\n`
+            + `信用额度：${formatCurrency(customerMeta.creditLimit)}\n`
+            + `当前应收：${formatCurrency(outstandingReceivable)}\n`
+            + `本单金额：${formatCurrency(totalAmount)}\n`
+            + `超出额度：${formatCurrency(overLimitAmount)}\n\n是否继续保存？`
+        );
+        if (!shouldContinue) {
+            return;
+        }
+    }
     const riskReasonInput = document.getElementById('orderRiskApprovalReason');
     const riskApprovalReason = String(riskReasonInput?.value || '').trim();
     if (riskAnalysis.riskRank >= 3 && !riskApprovalReason) {
@@ -2878,6 +3052,7 @@ async function saveOrder() {
         .filter(line => !String(line || '').trim().startsWith('[风控审批]'))
         .join('\n')
         .trim();
+    const notesWithPaymentMeta = appendOrderPaymentTermNotes(baseNotes, customerMeta, totalAmount);
 
     const orderData = {
         customer_id: normalizeEntityId(customerId),
@@ -2885,9 +3060,9 @@ async function saveOrder() {
         notes: (() => {
             if (riskAnalysis.riskRank >= 3) {
                 const approvalLine = `[风控审批] ${riskApprovalReason}`;
-                return baseNotes ? `${baseNotes}\n${approvalLine}` : approvalLine;
+                return notesWithPaymentMeta ? `${notesWithPaymentMeta}\n${approvalLine}` : approvalLine;
             }
-            return baseNotes;
+            return notesWithPaymentMeta;
         })(),
         status: document.getElementById('orderStatus').value,
         payment_status: document.getElementById('orderPaymentStatus').value,

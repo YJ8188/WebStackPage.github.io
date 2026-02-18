@@ -6394,34 +6394,61 @@ function renderDashboardCustomerLifecycle() {
         return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     };
 
-    const rowsHtml = lifecycle.rows
-        .slice(0, 8)
-        .map(item => `
-            <div style="padding:6px 0;border-bottom:1px dashed #f0f0f0;">
-                <div style="display:flex;justify-content:space-between;gap:10px;">
-                    <div style="font-size:12px;color:#262626;">${item.customerName}</div>
-                    <div style="font-size:12px;color:${item.stage === '沉睡' ? '#d46b08' : '#1677ff'};">${item.stage}</div>
+    const stageRows = [
+        { label: '新客', value: lifecycle.summary.newCustomers, color: '#1677ff' },
+        { label: '活跃', value: lifecycle.summary.activeCustomers, color: '#13c2c2' },
+        { label: '沉睡', value: lifecycle.summary.sleepingCustomers, color: '#fa8c16' }
+    ];
+    const maxStageValue = Math.max(1, ...stageRows.map(item => Number(item?.value || 0)));
+    const stageBarsHtml = stageRows.map(item => {
+        const widthPercent = Math.max(6, Math.round((Number(item?.value || 0) / maxStageValue) * 100));
+        return `
+            <div class="erp-dashboard-bar-row">
+                <span class="erp-dashboard-bar-label">${item.label}</span>
+                <div class="erp-dashboard-bar-track">
+                    <div class="erp-dashboard-bar-fill" style="width:${widthPercent}%;background:${item.color};"></div>
                 </div>
-                <div style="font-size:12px;color:#8c8c8c;margin-top:2px;">
-                    首单 ${formatDateText(item.firstDate)} → 最近 ${formatDateText(item.lastDate)}（${Number.isFinite(item.lastDays) ? `${item.lastDays}天前` : '-'}）
-                </div>
-                <div style="font-size:12px;color:#595959;">累计 ${item.orderCount} 单 / ${formatCurrency(item.totalAmount)}</div>
+                <span class="erp-dashboard-bar-value">${item.value} 人</span>
             </div>
-        `)
-        .join('');
+        `;
+    }).join('');
+
+    const customerRowsHtml = lifecycle.rows.slice(0, 5).map(item => `
+        <div class="erp-dashboard-chart-subtitle">
+            ${item.customerName}：${item.orderCount}单 / ${formatCurrency(item.totalAmount)}（最近${Number.isFinite(item.lastDays) ? `${item.lastDays}天` : '-'}）
+        </div>
+    `).join('');
 
     container.innerHTML = `
-        <div style="flex:1;min-width:320px;padding:12px 14px;border:1px solid #d6e4ff;border-radius:8px;background:#f0f5ff;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <div style="font-size:14px;font-weight:600;color:#1d39c4;">客户生命周期</div>
-                <div style="font-size:12px;color:#8c8c8c;">客户 ${lifecycle.summary.totalCustomers} 人</div>
+        <div class="erp-dashboard-chart-card">
+            <div class="erp-dashboard-chart-header">
+                <div class="erp-dashboard-chart-title">客户生命周期</div>
+                <div class="erp-dashboard-chart-subtitle">客户 ${lifecycle.summary.totalCustomers} 人</div>
             </div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;margin-bottom:8px;">
-                <span class="ant-tag" style="margin:0;">新客 ${lifecycle.summary.newCustomers}</span>
-                <span class="ant-tag" style="margin:0;">活跃 ${lifecycle.summary.activeCustomers}</span>
-                <span class="ant-tag" style="margin:0;">沉睡 ${lifecycle.summary.sleepingCustomers}</span>
+            <div class="erp-dashboard-chart-body">
+                <div class="erp-dashboard-kpi-stack">
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">客户总数</div>
+                        <div class="erp-dashboard-kpi-value">${lifecycle.summary.totalCustomers}</div>
+                    </div>
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">新客</div>
+                        <div class="erp-dashboard-kpi-value is-success">${lifecycle.summary.newCustomers}</div>
+                    </div>
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">活跃</div>
+                        <div class="erp-dashboard-kpi-value">${lifecycle.summary.activeCustomers}</div>
+                    </div>
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">沉睡</div>
+                        <div class="erp-dashboard-kpi-value is-warning">${lifecycle.summary.sleepingCustomers}</div>
+                    </div>
+                </div>
+                <div class="erp-dashboard-bar-list">
+                    ${stageBarsHtml}
+                    ${customerRowsHtml || '<div class="erp-dashboard-chart-subtitle">暂无客户生命周期数据</div>'}
+                </div>
             </div>
-            ${rowsHtml || '<div style="font-size:12px;color:#8c8c8c;">暂无客户生命周期数据</div>'}
         </div>
     `;
 }
@@ -6540,31 +6567,62 @@ function renderDashboardCustomerRfm() {
     }
 
     const rfm = calculateCustomerRfmStats();
-    const rowsHtml = rfm.rows.slice(0, 10).map(item => `
-        <div style="padding:6px 0;border-bottom:1px dashed #f0f0f0;">
-            <div style="display:flex;justify-content:space-between;gap:10px;">
-                <div style="font-size:12px;color:#262626;">${item.customerName}</div>
-                <div style="font-size:12px;color:${item.totalScore >= 13 ? '#237804' : (item.totalScore >= 10 ? '#1677ff' : (item.totalScore >= 7 ? '#d46b08' : '#cf1322'))};">${item.segment}</div>
+    const segmentRows = [
+        { label: '核心价值', value: rfm.summary.highValue, color: '#237804' },
+        { label: '成长维护', value: rfm.summary.growth, color: '#1677ff' },
+        { label: '普通维系', value: rfm.summary.normal, color: '#fa8c16' },
+        { label: '召回预警', value: rfm.summary.risk, color: '#cf1322' }
+    ];
+    const maxSegmentValue = Math.max(1, ...segmentRows.map(item => Number(item?.value || 0)));
+    const segmentBarsHtml = segmentRows.map(item => {
+        const widthPercent = Math.max(6, Math.round((Number(item?.value || 0) / maxSegmentValue) * 100));
+        return `
+            <div class="erp-dashboard-bar-row">
+                <span class="erp-dashboard-bar-label">${item.label}</span>
+                <div class="erp-dashboard-bar-track">
+                    <div class="erp-dashboard-bar-fill" style="width:${widthPercent}%;background:${item.color};"></div>
+                </div>
+                <span class="erp-dashboard-bar-value">${item.value} 人</span>
             </div>
-            <div style="font-size:12px;color:#8c8c8c;margin-top:2px;">
-                R${item.scoreR} F${item.scoreF} M${item.scoreM} | 最近${Number.isFinite(item.recencyDays) ? `${item.recencyDays}天` : '-'} | ${item.frequency}单 / ${formatCurrency(item.monetary)}
-            </div>
+        `;
+    }).join('');
+
+    const avgScore = rfm.rows.length > 0
+        ? rfm.rows.reduce((sum, item) => sum + Number(item?.totalScore || 0), 0) / rfm.rows.length
+        : 0;
+
+    const rowsHtml = rfm.rows.slice(0, 6).map(item => `
+        <div class="erp-dashboard-chart-subtitle">
+            ${item.customerName}：${item.segment}（R${item.scoreR}F${item.scoreF}M${item.scoreM}） ${item.frequency}单 / ${formatCurrency(item.monetary)}
         </div>
     `).join('');
 
     container.innerHTML = `
-        <div style="flex:1;min-width:320px;padding:12px 14px;border:1px solid #efdbff;border-radius:8px;background:#f9f0ff;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <div style="font-size:14px;font-weight:600;color:#531dab;">客户RFM评分</div>
-                <div style="font-size:12px;color:#8c8c8c;">客户 ${rfm.summary.totalCustomers} 人</div>
+        <div class="erp-dashboard-chart-card">
+            <div class="erp-dashboard-chart-header">
+                <div class="erp-dashboard-chart-title">客户RFM评分</div>
+                <div class="erp-dashboard-chart-subtitle">客户 ${rfm.summary.totalCustomers} 人</div>
             </div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;margin-bottom:8px;">
-                <span class="ant-tag" style="margin:0;">核心 ${rfm.summary.highValue}</span>
-                <span class="ant-tag" style="margin:0;">成长 ${rfm.summary.growth}</span>
-                <span class="ant-tag" style="margin:0;">维系 ${rfm.summary.normal}</span>
-                <span class="ant-tag" style="margin:0;">召回 ${rfm.summary.risk}</span>
+            <div class="erp-dashboard-chart-body">
+                <div class="erp-dashboard-kpi-stack">
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">平均RFM总分</div>
+                        <div class="erp-dashboard-kpi-value">${avgScore.toFixed(1)}</div>
+                    </div>
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">核心价值客户</div>
+                        <div class="erp-dashboard-kpi-value is-success">${rfm.summary.highValue}</div>
+                    </div>
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">召回预警客户</div>
+                        <div class="erp-dashboard-kpi-value is-danger">${rfm.summary.risk}</div>
+                    </div>
+                </div>
+                <div class="erp-dashboard-bar-list">
+                    ${segmentBarsHtml}
+                    ${rowsHtml || '<div class="erp-dashboard-chart-subtitle">暂无可评分客户</div>'}
+                </div>
             </div>
-            ${rowsHtml || '<div style="font-size:12px;color:#8c8c8c;">暂无可评分客户</div>'}
         </div>
     `;
 }

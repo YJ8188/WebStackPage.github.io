@@ -4908,6 +4908,10 @@ function filterFinancesByMonth() {
 }
 
 function parseFinanceDate(value) {
+    if (value instanceof Date) {
+        return Number.isNaN(value.getTime()) ? null : value;
+    }
+
     const raw = String(value || '').trim();
     if (!raw) {
         return null;
@@ -4916,6 +4920,10 @@ function parseFinanceDate(value) {
     const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T');
     const date = new Date(normalized);
     return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function parseERPDate(value) {
+    return parseFinanceDate(value);
 }
 
 function getFinanceRangeFromPreset(preset) {

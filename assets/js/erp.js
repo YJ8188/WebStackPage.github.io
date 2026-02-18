@@ -5,6 +5,29 @@
  * 版本：1.0.0
  */
 
+// 兼容兜底：防止旧缓存脚本缺少 parseERPDate 导致统计面板报错
+if (typeof window !== 'undefined') {
+    if (typeof window.parseFinanceDate !== 'function') {
+        window.parseFinanceDate = function parseFinanceDateFallback(value) {
+            if (value instanceof Date) {
+                return Number.isNaN(value.getTime()) ? null : value;
+            }
+            const raw = String(value || '').trim();
+            if (!raw) {
+                return null;
+            }
+            const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T');
+            const date = new Date(normalized);
+            return Number.isNaN(date.getTime()) ? null : date;
+        };
+    }
+    if (typeof window.parseERPDate !== 'function') {
+        window.parseERPDate = function parseERPDateFallback(value) {
+            return window.parseFinanceDate(value);
+        };
+    }
+}
+
 const ERP = {
     // ==================== 配置 ====================
     config: {

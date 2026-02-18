@@ -1,5 +1,5 @@
-const CORE_CACHE = 'webstack-core-v20260216-1';
-const RUNTIME_CACHE = 'webstack-runtime-v20260216-1';
+const CORE_CACHE = 'webstack-core-v20260218-2';
+const RUNTIME_CACHE = 'webstack-runtime-v20260218-2';
 
 const CORE_ASSETS = [
     '/',
@@ -12,6 +12,8 @@ const CORE_ASSETS = [
     '/offline.html',
     '/manifest.webmanifest',
     '/assets/images/favicon.png',
+    '/assets/images/icon-192.png',
+    '/assets/images/icon-512.png',
     '/assets/css/nav.css',
     '/assets/js/supabase-config.js',
     '/assets/js/user-data.js',
@@ -55,6 +57,23 @@ async function staleWhileRevalidate(request, cacheName) {
     }
 
     throw new Error('network-and-cache-miss');
+}
+
+async function networkFirstWithCacheFallback(request, cacheName) {
+    const cache = await caches.open(cacheName);
+    try {
+        const response = await fetch(request);
+        if (response && (response.ok || response.type === 'opaque')) {
+            cache.put(request, response.clone());
+        }
+        return response;
+    } catch (error) {
+        const cached = await cache.match(request);
+        if (cached) {
+            return cached;
+        }
+        throw error;
+    }
 }
 
 self.addEventListener('install', (event) => {
@@ -137,6 +156,12 @@ self.addEventListener('fetch', (event) => {
     );
 
     if (!shouldRuntimeCache) {
+        return;
+    }
+
+    const hasVersionQuery = isSameOrigin && url.searchParams.has('v');
+    if (hasVersionQuery) {
+        event.respondWith(networkFirstWithCacheFallback(request, RUNTIME_CACHE));
         return;
     }
 

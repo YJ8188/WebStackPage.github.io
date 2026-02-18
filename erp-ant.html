@@ -1684,7 +1684,7 @@
     <script src="assets/js/supabase.min.js"></script>
     <script src="assets/js/supabase-config.js?v=20260212-14"></script>
     <script src="assets/js/user-data.js?v=20260214-20"></script>
-    <script src="assets/js/erp.js?v=20260218-37"></script>
+    <script src="assets/js/erp.js?v=20260218-38"></script>
     <script src="assets/js/vendor/echarts.min.js?v=5.5.0"></script>
     <script src="assets/js/erp-ant-functions.js?v=20260218-78"></script>
     <script src="assets/js/pwa-register.js?v=20260218-3" defer></script>
@@ -2223,17 +2223,19 @@
             const resolveFinanceDescription = (finance) => {
                 const linkedOrderId = finance?.reference_id || finance?.order_id;
                 const linkedOrder = linkedOrderId ? orderMap.get(String(linkedOrderId)) : null;
-                const linkedCustomer = linkedOrder ? customerMap.get(String(linkedOrder.customer_id)) : null;
                 const linkedOrderNo = linkedOrder?.order_number || (linkedOrderId ? `订单#${linkedOrderId}` : '');
-                const linkedCustomerName = linkedCustomer?.name || '未知客户';
 
                 if (finance?.description) {
-                    const detailText = String(finance.description || '').trim();
-                    const subText = linkedOrderId
-                        ? `关联：${linkedOrderNo} · 客户：${linkedCustomerName}`
-                        : `分类：${finance?.category || '-'}`;
+                    let detailText = String(finance.description || '').trim();
+                    if (linkedOrderId) {
+                        detailText = detailText
+                            .replace(/^订单\s*[^|｜]+\s*[|｜]\s*客户[:：][^|｜]+\s*[|｜]\s*/i, '')
+                            .replace(/^关联[:：][^|｜]+\s*[·•]\s*客户[:：][^|｜]+\s*[|｜]\s*/i, '');
+                    }
+                    const finalDetailText = detailText || '无描述';
+                    const subText = `分类：${finance?.category || '-'}`;
                     return `
-                        <div class="erp-finance-cell-main erp-cell-ellipsis" title="${safeText(detailText)}">${safeText(detailText)}</div>
+                        <div class="erp-finance-cell-main erp-cell-ellipsis" title="${safeText(finalDetailText)}">${safeText(finalDetailText)}</div>
                         <div class="erp-finance-cell-sub">${safeText(subText)}</div>
                     `;
                 }
@@ -2263,7 +2265,7 @@
 
                 return `
                     <div class="erp-finance-cell-main erp-cell-ellipsis" title="${safeText(productsText)}">商品：${safeText(productsText)}</div>
-                    <div class="erp-finance-cell-sub">来源：${safeText(linkedOrderNo)} · 客户：${safeText(linkedCustomerName)}</div>
+                    <div class="erp-finance-cell-sub">分类：${safeText(finance?.category || '-')} · 来源：${safeText(linkedOrderNo)}</div>
                 `;
             };
 

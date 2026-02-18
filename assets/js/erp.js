@@ -1573,10 +1573,6 @@ const ERP = {
     },
 
     buildOrderContext(orderNumber, customerId, items = [], context = {}) {
-        const customer = (this.state.customers || []).find(item => this.isSameId(item.id, customerId));
-        const fallbackCustomerName = String(context?.customerName || '').trim();
-        const customerName = customer?.name || fallbackCustomerName || '未知客户';
-
         const itemNames = (items || []).map(item => {
             const product = (this.state.products || []).find(p => this.isSameId(p.id, item?.product_id));
             const productName = item?.product_name || product?.name || '';
@@ -1597,7 +1593,7 @@ const ERP = {
             ? '未识别商品'
             : `${itemNames.slice(0, 3).join('、')}${itemNames.length > 3 ? ` 等${itemNames.length}项` : ''}`;
 
-        return `订单 ${orderNumber} | 客户:${customerName} | 商品:${productSummary}`;
+        return `商品:${productSummary}`;
     },
 
     buildOrderFinanceDescriptions(orderNumber, customerId, items = [], totalAmount = 0, totalCost = 0, netProfit = 0, context = {}) {

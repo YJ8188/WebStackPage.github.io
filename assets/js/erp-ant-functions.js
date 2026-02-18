@@ -9440,6 +9440,129 @@ function buildFinanceTrendLineChart(rows = []) {
     `;
 }
 
+const ERP_FINANCE_CHART_INSTANCES = {
+    trend: null,
+    monthly: null
+};
+let erpFinanceChartResizeBound = false;
+
+function bindFinanceChartResizeOnce() {
+    if (erpFinanceChartResizeBound || typeof window === 'undefined') {
+        return;
+    }
+    window.addEventListener('resize', () => {
+        Object.values(ERP_FINANCE_CHART_INSTANCES).forEach(instance => {
+            if (instance && typeof instance.resize === 'function') {
+                instance.resize();
+            }
+        });
+    });
+    erpFinanceChartResizeBound = true;
+}
+
+function disposeFinanceChartInstance(key) {
+    const instance = ERP_FINANCE_CHART_INSTANCES[key];
+    if (instance && typeof instance.dispose === 'function') {
+        instance.dispose();
+    }
+    ERP_FINANCE_CHART_INSTANCES[key] = null;
+}
+
+function renderFinanceTrendEChart(rows = []) {
+    if (!window.echarts || !Array.isArray(rows) || rows.length === 0) {
+        disposeFinanceChartInstance('trend');
+        return false;
+    }
+
+    const chartEl = document.getElementById('financeTrendEChartCanvas');
+    if (!chartEl) {
+        disposeFinanceChartInstance('trend');
+        return false;
+    }
+
+    bindFinanceChartResizeOnce();
+    disposeFinanceChartInstance('trend');
+    const chart = window.echarts.init(chartEl, null, { renderer: 'canvas' });
+    ERP_FINANCE_CHART_INSTANCES.trend = chart;
+
+    const labels = rows.map(item => item?.label || '-');
+    const incomeData = rows.map(item => Number(item?.income || 0));
+    const expenseData = rows.map(item => Number(item?.expense || 0));
+    const maxValue = Math.max(1, ...incomeData, ...expenseData);
+
+    chart.setOption({
+        animationDuration: 450,
+        grid: { left: 72, right: 24, top: 26, bottom: 42 },
+        tooltip: {
+            trigger: 'axis',
+            backgroundColor: 'rgba(15, 23, 42, 0.92)',
+            borderWidth: 0,
+            textStyle: { color: '#f8fafc', fontSize: 12 },
+            formatter(params) {
+                const list = Array.isArray(params) ? params : [];
+                const index = Number(list[0]?.dataIndex || 0);
+                const row = rows[index] || {};
+                return [
+                    `<div style="margin-bottom:4px;">${escapeHtmlText(row?.label || '-')}</div>`,
+                    `<div>收入：${formatCurrency(row?.income || 0)}</div>`,
+                    `<div>支出：${formatCurrency(row?.expense || 0)}</div>`,
+                    `<div>净额：${formatCurrency((row?.income || 0) - (row?.expense || 0))}</div>`
+                ].join('');
+            }
+        },
+        legend: { show: false },
+        xAxis: {
+            type: 'category',
+            boundaryGap: false,
+            data: labels,
+            axisLine: { lineStyle: { color: '#dbe4f0' } },
+            axisTick: { show: false },
+            axisLabel: { color: '#64748b', fontSize: 11 }
+        },
+        yAxis: {
+            type: 'value',
+            min: 0,
+            max: Math.ceil(maxValue * 1.12 * 100) / 100,
+            splitNumber: 5,
+            axisLine: { show: false },
+            axisTick: { show: false },
+            axisLabel: {
+                color: '#64748b',
+                fontSize: 11,
+                formatter: value => formatChartAxisCurrency(value)
+            },
+            splitLine: { lineStyle: { color: '#edf2f8' } }
+        },
+        series: [
+            {
+                name: '收入',
+                type: 'line',
+                smooth: 0.25,
+                showSymbol: true,
+                symbol: 'circle',
+                symbolSize: 6,
+                lineStyle: { width: 3, color: '#f5227b' },
+                itemStyle: { color: '#f5227b' },
+                areaStyle: { color: 'rgba(245,34,123,0.10)' },
+                data: incomeData
+            },
+            {
+                name: '支出',
+                type: 'line',
+                smooth: 0.25,
+                showSymbol: true,
+                symbol: 'circle',
+                symbolSize: 6,
+                lineStyle: { width: 3, color: '#52c41a' },
+                itemStyle: { color: '#52c41a' },
+                areaStyle: { color: 'rgba(82,196,26,0.10)' },
+                data: expenseData
+            }
+        ]
+    }, true);
+    return true;
+}
+
 function buildFinanceMonthlyProfitLineChart(rows = []) {
     const safeRows = Array.isArray(rows) ? rows : [];
     if (!safeRows.length) {
@@ -9556,7 +9679,7 @@ function renderFinanceTrendSummary(finances = null) {
         ? '#8c8c8c'
         : (targetRate >= 1 ? '#237804' : (targetRate >= 0.7 ? '#d46b08' : '#cf1322'));
 
-    const chartHtml = buildFinanceTrendLineChart(rowsSelected);
+    const fallbackTrendChartHtml = buildFinanceTrendLineChart(rowsSelected);
 
     container.innerHTML = `
         <div style="display:flex;flex-wrap:wrap;gap:12px;">
@@ -9591,9 +9714,16 @@ function renderFinanceTrendSummary(finances = null) {
         </div>
         <div style="margin-top:10px;padding:10px;border:1px solid #f0f0f0;border-radius:8px;background:#fff;">
             <div style="font-size:13px;font-weight:500;color:#262626;margin-bottom:8px;">近${selectedRange}天收支走势图（${scopeText}）</div>
-            ${chartHtml}
+            <div id="financeTrendEChartCanvas" class="erp-finance-echart-canvas"></div>
+            <div id="financeTrendFallback" style="display:none;">${fallbackTrendChartHtml}</div>
         </div>
     `;
+
+    const rendered = renderFinanceTrendEChart(rowsSelected);
+    const fallbackEl = document.getElementById('financeTrendFallback');
+    if (fallbackEl) {
+        fallbackEl.style.display = rendered ? 'none' : '';
+    }
 }
 
 function buildMonthlyProfitRows(finances, months = 6) {
@@ -9644,6 +9774,103 @@ function buildMonthlyProfitRows(finances, months = 6) {
     return monthRows;
 }
 
+function renderFinanceMonthlyProfitEChart(rows = []) {
+    if (!window.echarts || !Array.isArray(rows) || rows.length === 0) {
+        disposeFinanceChartInstance('monthly');
+        return false;
+    }
+
+    const chartEl = document.getElementById('financeMonthlyEChartCanvas');
+    if (!chartEl) {
+        disposeFinanceChartInstance('monthly');
+        return false;
+    }
+
+    bindFinanceChartResizeOnce();
+    disposeFinanceChartInstance('monthly');
+    const chart = window.echarts.init(chartEl, null, { renderer: 'canvas' });
+    ERP_FINANCE_CHART_INSTANCES.monthly = chart;
+
+    const labels = rows.map(item => item?.label || '-');
+    const netData = rows.map(item => Number(item?.net || 0));
+    const maxAbs = Math.max(1, ...netData.map(value => Math.abs(value)));
+    const bound = Math.ceil(maxAbs * 1.2 * 100) / 100;
+
+    chart.setOption({
+        animationDuration: 450,
+        grid: { left: 72, right: 24, top: 26, bottom: 42 },
+        tooltip: {
+            trigger: 'axis',
+            backgroundColor: 'rgba(15, 23, 42, 0.92)',
+            borderWidth: 0,
+            textStyle: { color: '#f8fafc', fontSize: 12 },
+            formatter(params) {
+                const list = Array.isArray(params) ? params : [];
+                const index = Number(list[0]?.dataIndex || 0);
+                const row = rows[index] || {};
+                return [
+                    `<div style="margin-bottom:4px;">${escapeHtmlText(row?.label || '-')}</div>`,
+                    `<div>收入：${formatCurrency(row?.income || 0)}</div>`,
+                    `<div>支出：${formatCurrency(row?.expense || 0)}</div>`,
+                    `<div>净利润：${formatCurrency(row?.net || 0)}</div>`
+                ].join('');
+            }
+        },
+        legend: { show: false },
+        xAxis: {
+            type: 'category',
+            boundaryGap: false,
+            data: labels,
+            axisLine: { lineStyle: { color: '#dbe4f0' } },
+            axisTick: { show: false },
+            axisLabel: { color: '#64748b', fontSize: 11 }
+        },
+        yAxis: {
+            type: 'value',
+            min: -bound,
+            max: bound,
+            splitNumber: 5,
+            axisLine: { show: false },
+            axisTick: { show: false },
+            axisLabel: {
+                color: '#64748b',
+                fontSize: 11,
+                formatter: value => formatChartAxisCurrency(value)
+            },
+            splitLine: { lineStyle: { color: '#edf2f8' } }
+        },
+        series: [
+            {
+                name: '净利润',
+                type: 'line',
+                smooth: 0.28,
+                showSymbol: true,
+                symbol: 'circle',
+                symbolSize: 6,
+                lineStyle: { width: 3 },
+                itemStyle: { color: '#1677ff' },
+                areaStyle: { color: 'rgba(22,119,255,0.10)' },
+                data: netData,
+                markLine: {
+                    silent: true,
+                    symbol: 'none',
+                    lineStyle: { color: '#cbd5e1', type: 'dashed', width: 1.5 },
+                    data: [{ yAxis: 0 }]
+                }
+            }
+        ],
+        visualMap: {
+            show: false,
+            dimension: 1,
+            pieces: [
+                { gt: 0, color: '#1677ff' },
+                { lte: 0, color: '#fa8c16' }
+            ]
+        }
+    }, true);
+    return true;
+}
+
 function renderFinanceMonthlyProfitChart(finances = null) {
     const container = document.getElementById('financeMonthlyProfitChart');
     if (!container) {
@@ -9655,7 +9882,7 @@ function renderFinanceMonthlyProfitChart(finances = null) {
     const scopeText = scopeValue === 'filtered' ? '当前筛选' : '全部数据';
     const monthRange = Math.max(3, parseInt(document.getElementById('financeMonthlyRange')?.value || '6', 10));
     const rows = buildMonthlyProfitRows(source, monthRange);
-    const chartHtml = buildFinanceMonthlyProfitLineChart(rows);
+    const fallbackMonthlyChartHtml = buildFinanceMonthlyProfitLineChart(rows);
     const latest = rows[rows.length - 1] || { net: 0 };
     const latestPositive = Number(latest.net || 0) >= 0;
 
@@ -9665,10 +9892,17 @@ function renderFinanceMonthlyProfitChart(finances = null) {
                 <div style="font-size:13px;font-weight:500;color:#262626;">月度利润走势图（近${monthRange}个月，${scopeText}）</div>
                 <div style="font-size:12px;color:${latestPositive ? '#1677ff' : '#d46b08'};">最新月净利润：${latestPositive ? '+' : '-'}${formatCurrency(Math.abs(Number(latest.net || 0)))}</div>
             </div>
-            ${chartHtml}
+            <div id="financeMonthlyEChartCanvas" class="erp-finance-echart-canvas"></div>
+            <div id="financeMonthlyFallback" style="display:none;">${fallbackMonthlyChartHtml}</div>
             <div style="margin-top:8px;font-size:12px;color:#8c8c8c;">蓝线为净利润走势，虚线为零轴（按收入-支出）</div>
         </div>
     `;
+
+    const rendered = renderFinanceMonthlyProfitEChart(rows);
+    const fallbackEl = document.getElementById('financeMonthlyFallback');
+    if (fallbackEl) {
+        fallbackEl.style.display = rendered ? 'none' : '';
+    }
 }
 
 function resolveFinanceOrderId(finance) {

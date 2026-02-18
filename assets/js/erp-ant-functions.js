@@ -2487,6 +2487,14 @@ const ERP_ORDER_STATUS_TRANSITIONS = {
     cancelled: []
 };
 
+const ERP_ORDER_STAGE_FLOW = [
+    { key: 'pending', text: '待处理' },
+    { key: 'confirmed', text: '已确认' },
+    { key: 'shipped', text: '已发货' },
+    { key: 'signed', text: '已签收' },
+    { key: 'completed', text: '已完成' }
+];
+
 function normalizeOrderStatusValue(status) {
     const raw = String(status || '').trim().toLowerCase();
     const legacyMap = {
@@ -2499,6 +2507,182 @@ function normalizeOrderStatusValue(status) {
 function getOrderStatusTextByValue(status) {
     const normalized = normalizeOrderStatusValue(status);
     return ERP_ORDER_STATUS_META[normalized]?.text || '待处理';
+}
+
+function getOrderSummaryPaymentText(status) {
+    const map = {
+        unpaid: '未支付',
+        partial: '部分支付',
+        paid: '已支付'
+    };
+    const key = String(status || '').trim().toLowerCase();
+    return map[key] || '未支付';
+}
+
+function getOrderSummaryShippingText(status) {
+    const map = {
+        not_shipped: '未发货',
+        shipped: '已发货',
+        in_transit: '运输中',
+        delivered: '已签收',
+        rejected: '已拒收',
+        returned: '已退货'
+    };
+    const key = String(status || '').trim().toLowerCase();
+    return map[key] || '未发货';
+}
+
+function renderOrderModalStage(status) {
+    const stageEl = document.getElementById('orderSummaryStage');
+    if (!stageEl) {
+        return;
+    }
+    const normalizedStatus = normalizeOrderStatusValue(status || 'pending');
+    const currentIndex = Math.max(0, ERP_ORDER_STAGE_FLOW.findIndex(item => item.key === normalizedStatus));
+
+    stageEl.innerHTML = ERP_ORDER_STAGE_FLOW.map((item, index) => {
+        const stateClass = index < currentIndex
+            ? 'is-done'
+            : (index === currentIndex ? 'is-current' : 'is-wait');
+        return `<span class="erp-order-stage-item ${stateClass}">${item.text}</span>`;
+    }).join('');
+}
+
+function renderOrderModalSummary(sourceOrder = null, riskAnalysis = null) {
+    const summaryEl = document.getElementById('orderModalSummary');
+    if (!summaryEl) {
+        return;
+    }
+
+    const orderIdInput = document.getElementById('orderId');
+    const orderId = normalizeEntityId(orderIdInput?.value);
+    const stateOrder = orderId !== null
+        ? (ERP.state.orders || []).find(order => isSameEntityId(order?.id, orderId))
+        : null;
+    const currentOrder = sourceOrder || stateOrder || null;
+
+    const orderNoEl = document.getElementById('orderSummaryNo');
+    const customerEl = document.getElementById('orderSummaryCustomer');
+    const itemsEl = document.getElementById('orderSummaryItems');
+    const itemsSubEl = document.getElementById('orderSummaryItemsSub');
+    const amountEl = document.getElementById('orderSummaryAmount');
+    const amountSubEl = document.getElementById('orderSummaryAmountSub');
+    const statusEl = document.getElementById('orderSummaryStatus');
+    const statusSubEl = document.getElementById('orderSummaryStatusSub');
+    const riskEl = document.getElementById('orderSummaryRisk');
+    const riskSubEl = document.getElementById('orderSummaryRiskSub');
+    const historyBtn = document.getElementById('orderModalHistoryBtn');
+
+    const customerSelect = document.getElementById('orderCustomer');
+    const customerId = normalizeEntityId(customerSelect?.value);
+    const selectedCustomer = customerId !== null
+        ? (ERP.state.customers || []).find(item => isSameEntityId(item?.id, customerId))
+        : null;
+
+    const orderNumber = String(
+        currentOrder?.order_number
+        || (orderId !== null ? `订单#${orderId}` : '新建订单')
+    ).trim();
+    const customerName = String(
+        selectedCustomer?.name
+        || currentOrder?.customer_name
+        || (customerSelect?.selectedOptions?.[0]?.text || '').replace('请选择客户', '').trim()
+        || '-'
+    ).trim();
+
+    const formItems = getOrderItems();
+    const currentItems = formItems.length > 0
+        ? formItems.map(item => ({
+            productName: String(item?.productName || '').trim(),
+            quantity: Math.max(Number(item?.quantity || 0), 0),
+            unitPrice: Math.max(Number(item?.unitPrice || 0), 0)
+        }))
+        : (Array.isArray(currentOrder?.items) ? currentOrder.items.map(item => ({
+            productName: String(item?.product_name || '').trim(),
+            quantity: Math.max(Number(item?.quantity || 0), 0),
+            unitPrice: Math.max(Number(item?.unit_price || 0), 0)
+        })) : []);
+
+    const totalAmountInput = document.getElementById('orderTotalAmount');
+    const currentTotalAmount = Math.max(
+        Number(totalAmountInput?.value || currentOrder?.total_amount || 0) || 0,
+        0
+    );
+    const suggestedTotal = currentItems.reduce((sum, item) => (
+        sum + Math.max(Number(item.unitPrice || 0), 0) * Math.max(Number(item.quantity || 0), 0)
+    ), 0);
+
+    const normalizedStatus = normalizeOrderStatusValue(
+        document.getElementById('orderStatus')?.value || currentOrder?.status || 'pending'
+    );
+    const paymentStatus = String(
+        document.getElementById('orderPaymentStatus')?.value || currentOrder?.payment_status || 'unpaid'
+    ).trim().toLowerCase();
+    const shippingStatus = String(
+        document.getElementById('orderShippingStatus')?.value || currentOrder?.shipping_status || 'not_shipped'
+    ).trim().toLowerCase();
+
+    const normalizedItems = currentItems.map(item => ({
+        product_id: null,
+        product_name: item.productName,
+        quantity: item.quantity,
+        unit_price: item.unitPrice
+    }));
+    const analysis = riskAnalysis || buildOrderRiskAnalysis(normalizedItems, currentTotalAmount || suggestedTotal);
+    const riskRank = Number(analysis?.riskRank || 0);
+    const riskText = riskRank >= 3 ? '高风险' : (riskRank >= 2 ? '关注' : '正常');
+    const riskClass = riskRank >= 3 ? 'is-danger' : (riskRank >= 2 ? 'is-warning' : 'is-normal');
+
+    const itemCount = currentItems.length;
+    const itemPreview = currentItems
+        .slice(0, 2)
+        .map(item => {
+            if (!item.productName) return '';
+            return item.quantity > 0 ? `${item.productName}×${item.quantity}` : item.productName;
+        })
+        .filter(Boolean)
+        .join('；');
+    const itemPreviewText = itemPreview || '暂无商品明细';
+    const itemMoreText = itemCount > 2 ? `（共 ${itemCount} 项）` : '';
+
+    if (orderNoEl) orderNoEl.textContent = orderNumber;
+    if (customerEl) customerEl.textContent = customerName || '-';
+    if (itemsEl) itemsEl.textContent = `${itemCount} 项`;
+    if (itemsSubEl) itemsSubEl.textContent = `${itemPreviewText}${itemMoreText}`;
+    if (amountEl) amountEl.textContent = formatCurrency(currentTotalAmount);
+    if (amountSubEl) amountSubEl.textContent = `建议价 ${formatCurrency(suggestedTotal)}`;
+    if (statusEl) statusEl.textContent = getOrderStatusTextByValue(normalizedStatus);
+    if (statusSubEl) {
+        statusSubEl.textContent = `${getOrderSummaryPaymentText(paymentStatus)} · ${getOrderSummaryShippingText(shippingStatus)}`;
+    }
+    if (riskEl) {
+        riskEl.textContent = riskText;
+        riskEl.classList.remove('is-danger', 'is-warning', 'is-normal');
+        riskEl.classList.add(riskClass);
+    }
+    if (riskSubEl) {
+        const alertsCount = Array.isArray(analysis?.alerts) ? analysis.alerts.length : 0;
+        riskSubEl.textContent = alertsCount > 0 ? `触发 ${alertsCount} 条风控规则` : '当前未触发风控规则';
+    }
+
+    if (historyBtn) {
+        historyBtn.style.display = orderId !== null ? '' : 'none';
+    }
+
+    renderOrderModalStage(normalizedStatus);
+}
+
+function openCurrentOrderApprovalHistory() {
+    const orderId = normalizeEntityId(document.getElementById('orderId')?.value);
+    if (orderId === null) {
+        if (typeof showToast === 'function') {
+            showToast('请先保存订单后再查看审批记录', 'warning');
+        }
+        return;
+    }
+    if (typeof showOrderApprovalHistory === 'function') {
+        showOrderApprovalHistory(orderId);
+    }
 }
 
 function refreshOrderStatusOptions(currentStatus, isCreateMode = false) {
@@ -3096,6 +3280,7 @@ function refreshOrderRiskPreview() {
             row.style.background = '#fff';
         }
     });
+    renderOrderModalSummary(null, analysis);
     return analysis;
 }
 
@@ -9826,6 +10011,23 @@ document.addEventListener('DOMContentLoaded', function () {
             renderOrderLogisticsCarrierCard(null);
             setOrderLogisticsStatus('校验参数已变化，请重新查询轨迹');
             renderOrderLogisticsTimeline([]);
+        });
+    }
+
+    ['orderCustomer', 'orderStatus', 'orderPaymentStatus', 'orderShippingStatus'].forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (!field) {
+            return;
+        }
+        field.addEventListener('change', function () {
+            renderOrderModalSummary();
+        });
+    });
+
+    const totalAmountInput = document.getElementById('orderTotalAmount');
+    if (totalAmountInput) {
+        totalAmountInput.addEventListener('input', function () {
+            refreshOrderRiskPreview();
         });
     }
 

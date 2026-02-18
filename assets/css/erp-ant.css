@@ -1721,6 +1721,46 @@ select.ant-select option {
     box-shadow: none;
 }
 
+.erp-order-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 8px;
+}
+
+.erp-order-summary-item {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #ffffff;
+    padding: 8px 10px;
+}
+
+.erp-order-summary-label {
+    font-size: 12px;
+    color: #64748b;
+    margin-bottom: 4px;
+}
+
+.erp-order-summary-value {
+    font-size: 18px;
+    line-height: 1.2;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.erp-order-summary-value.is-danger {
+    color: #cf1322;
+}
+
+.erp-order-summary-value.is-warning {
+    color: #d46b08;
+}
+
+.erp-order-summary-sub {
+    margin-top: 4px;
+    font-size: 12px;
+    color: #8c8c8c;
+}
+
 .ant-table-wrapper.erp-table-scroll.erp-block-table {
     padding: 0;
     border-color: #dbe3ef;
@@ -1858,6 +1898,11 @@ select.ant-select option {
 #ordersView [data-table-col="orders:customer"],
 #ordersView [data-table-cell="orders:customer"] {
     min-width: 120px;
+}
+
+#ordersView [data-table-col="orders:items"],
+#ordersView [data-table-cell="orders:items"] {
+    min-width: 220px;
 }
 
 #ordersView [data-table-col="orders:date"],

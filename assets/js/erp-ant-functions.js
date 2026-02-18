@@ -4456,17 +4456,43 @@ function renderOrderWorkflowSummary(allOrders = [], visibleOrders = []) {
     const allRisk = getOrderFulfillmentRiskStats(allRows);
     const visibleRisk = getOrderFulfillmentRiskStats(visibleRows);
 
+    const visibleTotal = Math.max(visibleRows.length, 1);
+    const finishedCount = visibleStats.completed + visibleStats.refunded;
+    const finishedRate = visibleRows.length > 0 ? Math.round((finishedCount / visibleTotal) * 100) : 0;
+    const inTransitCount = visibleStats.shipped + visibleStats.signed;
+
     summaryEl.innerHTML = `
-        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
-            <span class="ant-tag">筛选结果：${visibleRows.length}/${allRows.length}</span>
-            <span class="ant-tag">待审批 ${visibleStats.pending}（总${allStats.pending}）</span>
-            <span class="ant-tag">待发货 ${visibleStats.confirmed}（总${allStats.confirmed}）</span>
-            <span class="ant-tag">在途 ${visibleStats.shipped + visibleStats.signed}（总${allStats.shipped + allStats.signed}）</span>
-            <span class="ant-tag" style="color:#cf1322;border-color:#ffa39e;background:#fff1f0;">超48小时未发货 ${visibleRisk.shipDelay}（总${allRisk.shipDelay}）</span>
-            <span class="ant-tag" style="color:#d46b08;border-color:#ffd591;background:#fff7e6;">超7天未签收 ${visibleRisk.signDelay}（总${allRisk.signDelay}）</span>
-            <span class="ant-tag">已完成 ${visibleStats.completed}（总${allStats.completed}）</span>
-            <span class="ant-tag">已退款 ${visibleStats.refunded}（总${allStats.refunded}）</span>
-            <span class="ant-tag">已取消 ${visibleStats.cancelled}（总${allStats.cancelled}）</span>
+        <div class="erp-order-summary-grid">
+            <div class="erp-order-summary-item">
+                <div class="erp-order-summary-label">筛选结果</div>
+                <div class="erp-order-summary-value">${visibleRows.length}/${allRows.length}</div>
+                <div class="erp-order-summary-sub">当前筛选 / 全部订单</div>
+            </div>
+            <div class="erp-order-summary-item">
+                <div class="erp-order-summary-label">待处理</div>
+                <div class="erp-order-summary-value">${visibleStats.pending + visibleStats.confirmed}</div>
+                <div class="erp-order-summary-sub">待审批 ${visibleStats.pending}，待发货 ${visibleStats.confirmed}</div>
+            </div>
+            <div class="erp-order-summary-item">
+                <div class="erp-order-summary-label">在途订单</div>
+                <div class="erp-order-summary-value">${inTransitCount}</div>
+                <div class="erp-order-summary-sub">总在途 ${allStats.shipped + allStats.signed}</div>
+            </div>
+            <div class="erp-order-summary-item">
+                <div class="erp-order-summary-label">履约完成率</div>
+                <div class="erp-order-summary-value">${finishedRate}%</div>
+                <div class="erp-order-summary-sub">已完成 ${visibleStats.completed}，已退款 ${visibleStats.refunded}</div>
+            </div>
+            <div class="erp-order-summary-item">
+                <div class="erp-order-summary-label">超48小时未发货</div>
+                <div class="erp-order-summary-value is-danger">${visibleRisk.shipDelay}</div>
+                <div class="erp-order-summary-sub">总计 ${allRisk.shipDelay}</div>
+            </div>
+            <div class="erp-order-summary-item">
+                <div class="erp-order-summary-label">超7天未签收</div>
+                <div class="erp-order-summary-value is-warning">${visibleRisk.signDelay}</div>
+                <div class="erp-order-summary-sub">总计 ${allRisk.signDelay}</div>
+            </div>
         </div>
     `;
 }

@@ -5384,21 +5384,25 @@ function renderDashboardBusinessCards() {
         .filter(finance => String(finance?.category || '').includes('应付账款'))
         .reduce((sum, finance) => sum + Math.abs(Number(finance?.amount || 0)), 0);
 
-    const card = (title, value, subtitle, color = '#1677ff', bg = '#f0f5ff', border = '#adc6ff') => `
-        <div style="flex:1;min-width:180px;padding:10px 12px;border:1px solid ${border};border-radius:8px;background:${bg};">
-            <div style="font-size:12px;color:#8c8c8c;">${title}</div>
-            <div style="font-size:20px;font-weight:600;color:${color};margin-top:4px;">${value}</div>
-            <div style="font-size:12px;color:#8c8c8c;margin-top:2px;">${subtitle}</div>
-        </div>
-    `;
+    const cards = [
+        { title: '今日订单', value: `${todayOrdersCount} 笔`, subtitle: '按下单日期统计', color: '#1d39c4' },
+        { title: '今日回款', value: formatCurrency(todayReceivedAmount), subtitle: '仅统计回款确认', color: '#08979c' },
+        { title: '待回款', value: formatCurrency(pendingReceivableAmount), subtitle: '未支付订单合计', color: '#cf1322' },
+        { title: '待付款', value: formatCurrency(pendingPayableAmount), subtitle: '应付账款余额', color: '#d48806' },
+        { title: '库存预警', value: `${diagnostics.lowStockCount}/${diagnostics.rows.length}`, subtitle: '库存 ≤ 商品预警值', color: '#7a3d00' },
+        { title: '逾期预警', value: `${risk.totalOverdueCount} 笔`, subtitle: `超过30天，总额 ${formatCurrency(risk.totalOverdueAmount)}`, color: '#722ed1' }
+    ];
 
     container.innerHTML = `
-        ${card('今日订单', `${todayOrdersCount} 笔`, '按下单日期统计', '#1d39c4', '#f0f5ff', '#adc6ff')}
-        ${card('今日回款', formatCurrency(todayReceivedAmount), '仅统计回款确认', '#08979c', '#e6fffb', '#87e8de')}
-        ${card('待回款', formatCurrency(pendingReceivableAmount), '未支付订单合计', '#cf1322', '#fff1f0', '#ffccc7')}
-        ${card('待付款', formatCurrency(pendingPayableAmount), '应付账款余额', '#ad6800', '#fff7e6', '#ffe7ba')}
-        ${card('库存预警', `${diagnostics.lowStockCount}/${diagnostics.rows.length}`, '库存 ≤ 商品预警值', '#7a3d00', '#fff7e6', '#ffd591')}
-        ${card('逾期预警', `${risk.totalOverdueCount} 笔`, `超过30天，总额 ${formatCurrency(risk.totalOverdueAmount)}`, '#722ed1', '#f9f0ff', '#d3adf7')}
+        <div class="erp-dashboard-metric-grid">
+            ${cards.map(card => `
+                <div class="erp-dashboard-metric-card" style="--metric-color:${card.color};">
+                    <div class="erp-dashboard-metric-title">${card.title}</div>
+                    <div class="erp-dashboard-metric-value">${card.value}</div>
+                    <div class="erp-dashboard-metric-sub">${card.subtitle}</div>
+                </div>
+            `).join('')}
+        </div>
     `;
 }
 
@@ -5469,28 +5473,40 @@ function renderDashboardSalesFunnel() {
         const widthPercent = Math.max(6, Math.round((step.count / maxCount) * 100));
         const ratioText = funnel.total > 0 ? `${((step.count / funnel.total) * 100).toFixed(1)}%` : '0.0%';
         return `
-            <div style="margin-bottom:8px;">
-                <div style="display:flex;justify-content:space-between;font-size:12px;color:#595959;">
-                    <span>${step.title}</span>
-                    <span>${step.count} 单（${ratioText}）</span>
+            <div class="erp-dashboard-bar-row">
+                <span class="erp-dashboard-bar-label">${step.title}</span>
+                <div class="erp-dashboard-bar-track">
+                    <div class="erp-dashboard-bar-fill" style="width:${widthPercent}%;background:${step.color};"></div>
                 </div>
-                <div style="height:10px;background:#f5f5f5;border-radius:999px;overflow:hidden;margin-top:4px;">
-                    <div style="height:10px;background:${step.color};width:${widthPercent}%;"></div>
-                </div>
+                <span class="erp-dashboard-bar-value">${step.count} 单（${ratioText}）</span>
             </div>
         `;
     }).join('');
 
     container.innerHTML = `
-        <div style="flex:1;min-width:320px;padding:12px 14px;border:1px solid #d9d9d9;border-radius:8px;background:#fff;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <div style="font-size:14px;font-weight:600;color:#262626;">销售漏斗</div>
-                <div style="font-size:12px;color:#8c8c8c;">有效订单 ${funnel.total} 笔</div>
+        <div class="erp-dashboard-chart-card">
+            <div class="erp-dashboard-chart-header">
+                <div class="erp-dashboard-chart-title">销售漏斗</div>
+                <div class="erp-dashboard-chart-subtitle">有效订单 ${funnel.total} 笔</div>
             </div>
-            ${barsHtml || '<div style="font-size:12px;color:#8c8c8c;">暂无订单数据</div>'}
-            <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:8px;font-size:12px;">
-                <span class="ant-tag" style="margin:0;">完成率 ${(funnel.completedRate * 100).toFixed(1)}%</span>
-                <span class="ant-tag" style="margin:0;">超3天待审批 ${funnel.pendingOver3Days} 单</span>
+            <div class="erp-dashboard-chart-body">
+                <div class="erp-dashboard-kpi-stack">
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">总订单</div>
+                        <div class="erp-dashboard-kpi-value">${funnel.total}</div>
+                    </div>
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">完成率</div>
+                        <div class="erp-dashboard-kpi-value is-success">${(funnel.completedRate * 100).toFixed(1)}%</div>
+                    </div>
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">超3天待审批</div>
+                        <div class="erp-dashboard-kpi-value is-danger">${funnel.pendingOver3Days} 单</div>
+                    </div>
+                </div>
+                <div class="erp-dashboard-bar-list">
+                    ${barsHtml || '<div class="erp-dashboard-chart-subtitle">暂无订单数据</div>'}
+                </div>
             </div>
         </div>
     `;
@@ -5719,9 +5735,11 @@ async function renderDashboardDeliveryPerformance() {
 
     const orders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
     container.innerHTML = `
-        <div style="flex:1;min-width:320px;padding:12px 14px;border:1px solid #f0f0f0;border-radius:8px;background:#fff;">
-            <div style="font-size:14px;font-weight:600;color:#262626;margin-bottom:8px;">订单交付时效</div>
-            <div style="font-size:12px;color:#8c8c8c;">加载中...</div>
+        <div class="erp-dashboard-chart-card">
+            <div class="erp-dashboard-chart-header">
+                <div class="erp-dashboard-chart-title">订单交付时效</div>
+                <div class="erp-dashboard-chart-subtitle">加载中...</div>
+            </div>
         </div>
     `;
 
@@ -5731,35 +5749,49 @@ async function renderDashboardDeliveryPerformance() {
     const bar = (label, value, color) => {
         const width = Math.max(6, Math.round((value / totalDelivered) * 100));
         return `
-            <div style="margin-bottom:6px;">
-                <div style="display:flex;justify-content:space-between;font-size:12px;color:#595959;">
-                    <span>${label}</span>
-                    <span>${value} 单</span>
+            <div class="erp-dashboard-bar-row">
+                <span class="erp-dashboard-bar-label">${label}</span>
+                <div class="erp-dashboard-bar-track">
+                    <div class="erp-dashboard-bar-fill" style="width:${width}%;background:${color};"></div>
                 </div>
-                <div style="height:8px;background:#f5f5f5;border-radius:999px;overflow:hidden;margin-top:3px;">
-                    <div style="height:8px;background:${color};width:${width}%;"></div>
-                </div>
+                <span class="erp-dashboard-bar-value">${value} 单</span>
             </div>
         `;
     };
 
     container.innerHTML = `
-        <div style="flex:1;min-width:320px;padding:12px 14px;border:1px solid #bae0ff;border-radius:8px;background:#f0f5ff;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <div style="font-size:14px;font-weight:600;color:#1d39c4;">订单交付时效</div>
-                <div style="font-size:12px;color:#8c8c8c;">可计算签收 ${perf.deliveredCount} 单</div>
+        <div class="erp-dashboard-chart-card">
+            <div class="erp-dashboard-chart-header">
+                <div class="erp-dashboard-chart-title">订单交付时效</div>
+                <div class="erp-dashboard-chart-subtitle">可计算签收 ${perf.deliveredCount} 单</div>
             </div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;margin-bottom:8px;">
-                <span class="ant-tag" style="margin:0;">平均 ${perf.avgDays.toFixed(1)} 天</span>
-                <span class="ant-tag" style="margin:0;">P80 ${perf.p80Days} 天</span>
-                <span class="ant-tag" style="margin:0;">3天内签收率 ${(perf.onTimeRate * 100).toFixed(1)}%</span>
-                <span class="ant-tag" style="margin:0;">在途超5天 ${perf.longTransitCount} 单</span>
+            <div class="erp-dashboard-chart-body">
+                <div class="erp-dashboard-kpi-stack">
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">平均签收时长</div>
+                        <div class="erp-dashboard-kpi-value">${perf.avgDays.toFixed(1)} 天</div>
+                    </div>
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">P80 时长</div>
+                        <div class="erp-dashboard-kpi-value is-warning">${perf.p80Days} 天</div>
+                    </div>
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">3天内签收率</div>
+                        <div class="erp-dashboard-kpi-value is-success">${(perf.onTimeRate * 100).toFixed(1)}%</div>
+                    </div>
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">在途超5天</div>
+                        <div class="erp-dashboard-kpi-value is-danger">${perf.longTransitCount} 单</div>
+                    </div>
+                </div>
+                <div class="erp-dashboard-bar-list">
+                    ${bar('1天内签收', perf.bucket.d1, '#1677ff')}
+                    ${bar('2-3天签收', perf.bucket.d3, '#13c2c2')}
+                    ${bar('4-7天签收', perf.bucket.d7, '#faad14')}
+                    ${bar('7天以上签收', perf.bucket.d7p, '#f5222d')}
+                    <div class="erp-dashboard-chart-subtitle">在途订单 ${perf.inTransitCount} 单；基于订单状态变更日志计算</div>
+                </div>
             </div>
-            ${bar('1天内签收', perf.bucket.d1, '#1677ff')}
-            ${bar('2-3天签收', perf.bucket.d3, '#13c2c2')}
-            ${bar('4-7天签收', perf.bucket.d7, '#faad14')}
-            ${bar('7天以上签收', perf.bucket.d7p, '#f5222d')}
-            <div style="margin-top:6px;font-size:12px;color:#8c8c8c;">在途订单 ${perf.inTransitCount} 单；基于订单状态变更日志计算</div>
         </div>
     `;
 }

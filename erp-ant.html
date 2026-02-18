@@ -1517,7 +1517,7 @@
     <script src="assets/js/supabase-config.js?v=20260212-14"></script>
     <script src="assets/js/user-data.js?v=20260214-20"></script>
     <script src="assets/js/erp.js?v=20260218-35"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260218-53"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260218-54"></script>
     <script src="assets/js/pwa-register.js?v=20260218-3" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->
@@ -2353,41 +2353,6 @@
 
             // Simulate data loading listener
             window.addEventListener('erpDataLoaded', function (event) {
-                const loadingContainer = document.getElementById('loadingContainer');
-                const erpContent = document.getElementById('erpContent');
-
-                if (loadingContainer) {
-                    loadingContainer.style.display = 'none';
-                }
-                if (erpContent) {
-                    erpContent.style.display = 'block';
-                }
-
-                // Update Stats
-                if (typeof window.updateStatistics === 'function') {
-                    window.updateStatistics();
-                } else if (typeof ERP !== 'undefined' && ERP.getStatistics) {
-                    const stats = ERP.getStatistics();
-
-                    const statCustomers = document.getElementById('statCustomers');
-                    const statActiveCustomers = document.getElementById('statActiveCustomers');
-                    const statProducts = document.getElementById('statProducts');
-                    const statOrders = document.getElementById('statOrders');
-                    const statPendingOrders = document.getElementById('statPendingOrders');
-                    const statRevenue = document.getElementById('statRevenue');
-                    const statProfit = document.getElementById('statProfit');
-
-                    if (statCustomers) statCustomers.innerText = stats.customers.total;
-                    if (statActiveCustomers) statActiveCustomers.innerText = stats.customers.active;
-                    if (statProducts) statProducts.innerText = stats.products.total;
-                    if (statOrders) statOrders.innerText = stats.orders.total;
-                    if (statPendingOrders) statPendingOrders.innerText = stats.orders.pending;
-                    if (statRevenue) statRevenue.innerText = '¥' + stats.finances.totalIncome.toLocaleString();
-                    if (statProfit) statProfit.innerText = '¥' + stats.finances.netProfit.toLocaleString();
-                } else {
-                    console.error('[ERP Ant HTML] ERP 或 ERP.getStatistics 未定义');
-                }
-
                 renderHeaderNotices();
             });
 

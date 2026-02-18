@@ -7,6 +7,14 @@
 let erpRealtimeSyncTimer = null;
 let erpRealtimeSyncInProgress = false;
 const ERP_VERBOSE_LOG = typeof window !== 'undefined' && window.__DEBUG_MODE__ === true;
+let erpPageViewState = 'loading';
+const erpStatsRenderState = {
+    lastFingerprint: '',
+    lastRenderAt: 0,
+    pendingTimer: null,
+    lastDashboardFingerprint: '',
+    lastDashboardRenderAt: 0
+};
 
 function erpDebugLog(level, ...args) {
     if (!ERP_VERBOSE_LOG) {
@@ -15,6 +23,27 @@ function erpDebugLog(level, ...args) {
 
     const logger = console[level] || console.log;
     logger(...args);
+}
+
+function setERPPageView(nextView) {
+    if (erpPageViewState === nextView) {
+        return;
+    }
+
+    const loadingContainer = document.getElementById('loadingContainer');
+    const notLoggedIn = document.getElementById('notLoggedIn');
+    const erpContent = document.getElementById('erpContent');
+
+    if (!loadingContainer || !notLoggedIn || !erpContent) {
+        erpPageViewState = nextView;
+        return;
+    }
+
+    loadingContainer.style.display = nextView === 'loading' ? 'block' : 'none';
+    notLoggedIn.style.display = nextView === 'notLoggedIn' ? 'block' : 'none';
+    erpContent.style.display = nextView === 'content' ? 'block' : 'none';
+
+    erpPageViewState = nextView;
 }
 
 function isInventoryRiskProduct(product) {
@@ -1300,22 +1329,16 @@ async function checkLoginStatus() {
 }
 
 function showLoading() {
-    document.getElementById('loadingContainer').style.display = 'block';
-    document.getElementById('notLoggedIn').style.display = 'none';
-    document.getElementById('erpContent').style.display = 'none';
+    setERPPageView('loading');
 }
 
 function showNotLoggedIn() {
     stopERPRealtimeSync();
-    document.getElementById('loadingContainer').style.display = 'none';
-    document.getElementById('notLoggedIn').style.display = 'block';
-    document.getElementById('erpContent').style.display = 'none';
+    setERPPageView('notLoggedIn');
 }
 
 function showERPContent() {
-    document.getElementById('loadingContainer').style.display = 'none';
-    document.getElementById('notLoggedIn').style.display = 'none';
-    document.getElementById('erpContent').style.display = 'block';
+    setERPPageView('content');
     startERPRealtimeSync();
 }
 
@@ -1574,10 +1597,96 @@ function hideCustomerProfileModal() {
 }
 
 // ==================== 统计数据更新 ====================
+function toNumericHash(value, seed = 0) {
+    const text = String(value ?? '');
+    let hash = seed;
+    for (let index = 0; index < text.length; index += 1) {
+        hash = ((hash << 5) - hash + text.charCodeAt(index)) | 0;
+    }
+    return Math.abs(hash);
+}
+
+function buildERPStatsFingerprint(stats) {
+    const products = Array.isArray(ERP?.state?.products) ? ERP.state.products : [];
+    const orders = Array.isArray(ERP?.state?.orders) ? ERP.state.orders : [];
+    const finances = Array.isArray(ERP?.state?.finances) ? ERP.state.finances : [];
+
+    const productHash = products.reduce((sum, product) => (
+        sum
+        + toNumericHash(product?.id, 7)
+        + Math.round(Number(product?.stock_quantity) || 0)
+        + Math.round(Number(product?.min_stock) || 0)
+    ), 0);
+
+    const orderHash = orders.reduce((sum, order) => (
+        sum
+        + toNumericHash(order?.id, 11)
+        + toNumericHash(order?.status, 13)
+        + toNumericHash(order?.payment_status, 17)
+        + Math.round(Number(order?.total_amount) || 0)
+    ), 0);
+
+    const financeHash = finances.reduce((sum, finance) => (
+        sum
+        + toNumericHash(finance?.id, 19)
+        + toNumericHash(finance?.type, 23)
+        + Math.round(Number(finance?.amount) || 0)
+    ), 0);
+
+    return [
+        Number(stats?.customers?.total || 0),
+        Number(stats?.customers?.active || 0),
+        Number(stats?.products?.total || 0),
+        Number(stats?.products?.lowStock || 0),
+        Number(stats?.orders?.total || 0),
+        Number(stats?.orders?.pending || 0),
+        Number(Math.round(stats?.finances?.totalIncome || 0)),
+        Number(Math.round(stats?.finances?.netProfit || 0)),
+        products.length,
+        orders.length,
+        finances.length,
+        productHash,
+        orderHash,
+        financeHash
+    ].join('|');
+}
+
+function queueStatisticsRefresh(data, options = {}, delay = 140) {
+    if (erpStatsRenderState.pendingTimer) {
+        clearTimeout(erpStatsRenderState.pendingTimer);
+    }
+    erpStatsRenderState.pendingTimer = setTimeout(() => {
+        erpStatsRenderState.pendingTimer = null;
+        updateStatistics(data, { ...options, force: true });
+    }, delay);
+}
+
 function updateStatistics(data) {
     if (typeof ERP === 'undefined' || !ERP.getStatistics) return;
-    
+
+    const options = (data && typeof data === 'object' && (Object.prototype.hasOwnProperty.call(data, 'force') || Object.prototype.hasOwnProperty.call(data, 'silent')))
+        ? data
+        : {};
+    const forceRefresh = options.force === true;
+    const now = Date.now();
+
     const stats = ERP.getStatistics();
+    const fingerprint = buildERPStatsFingerprint(stats);
+
+    if (!forceRefresh) {
+        const recentRender = now - erpStatsRenderState.lastRenderAt < 180;
+        const unchanged = fingerprint === erpStatsRenderState.lastFingerprint;
+        if (unchanged) {
+            return;
+        }
+        if (recentRender) {
+            queueStatisticsRefresh(data, options, 220);
+            return;
+        }
+    }
+
+    erpStatsRenderState.lastFingerprint = fingerprint;
+    erpStatsRenderState.lastRenderAt = now;
 
     // 更新客户统计
     const statCustomers = document.getElementById('statCustomers');
@@ -1624,22 +1733,32 @@ function updateStatistics(data) {
     renderFinanceMonthlyProfitChart();
     renderFinanceCashflowOverview();
     renderFinanceRiskAlerts();
-    renderDashboardBusinessCards();
-    renderDashboardSalesFunnel();
-    renderDashboardDeliveryPerformance();
-    renderDashboardCustomerInsights();
-    renderDashboardCustomerRiskAlerts();
-    renderDashboardTopProducts();
-    renderDashboardProfitProducts();
-    renderDashboardCustomerLifecycle();
-    renderDashboardCustomerRfm();
-    renderDashboardSupplierPerformance();
-    renderDashboardProcurementCycle();
-    renderDashboardSupplierReconciliation();
-    renderDashboardRestockRecommendations();
-    renderDashboardInventoryCapital();
-    renderDashboardGrossMarginAlerts();
-    renderDashboardRiskApprovals();
+
+    const isDashboardModule = ERP?.config?.currentModule === 'dashboard';
+    const dashboardNeedRefresh = forceRefresh
+        || erpStatsRenderState.lastDashboardFingerprint !== fingerprint
+        || (now - erpStatsRenderState.lastDashboardRenderAt) > 20000;
+
+    if (isDashboardModule && dashboardNeedRefresh) {
+        erpStatsRenderState.lastDashboardFingerprint = fingerprint;
+        erpStatsRenderState.lastDashboardRenderAt = now;
+        renderDashboardBusinessCards();
+        renderDashboardSalesFunnel();
+        renderDashboardDeliveryPerformance();
+        renderDashboardCustomerInsights();
+        renderDashboardCustomerRiskAlerts();
+        renderDashboardTopProducts();
+        renderDashboardProfitProducts();
+        renderDashboardCustomerLifecycle();
+        renderDashboardCustomerRfm();
+        renderDashboardSupplierPerformance();
+        renderDashboardProcurementCycle();
+        renderDashboardSupplierReconciliation();
+        renderDashboardRestockRecommendations();
+        renderDashboardInventoryCapital();
+        renderDashboardGrossMarginAlerts();
+        renderDashboardRiskApprovals();
+    }
 }
 
 // ==================== 单位转换 ====================

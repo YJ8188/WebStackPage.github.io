@@ -477,6 +477,14 @@
                                         </select>
                                     </div>
                                     <div class="search-item">
+                                        <label class="search-label">履约预警:</label>
+                                        <select id="orderRiskFilter" class="ant-select" onchange="searchOrders()">
+                                            <option value="all">全部</option>
+                                            <option value="ship_delay">超48小时未发货</option>
+                                            <option value="sign_delay">超7天未签收</option>
+                                        </select>
+                                    </div>
+                                    <div class="search-item">
                                         <label class="search-label">日期:</label>
                                         <select id="orderDateRange" class="ant-select" onchange="onOrderDateRangeChange()">
                                             <option value="all">全部</option>
@@ -700,6 +708,10 @@
                                 </select>
                                 <input type="date" id="financeDailyReportDate" class="ant-input erp-compact-input">
                                 <input type="month" id="financeReportMonth" class="ant-input erp-compact-input" onchange="onFinanceReportMonthChange()">
+                                <input type="number" id="financeMonthlyTarget" class="ant-input erp-compact-input" placeholder="月净利润目标">
+                                <button class="ant-btn" onclick="saveFinanceMonthlyTarget()">
+                                    <i class="fa fa-bullseye"></i> 保存目标
+                                </button>
                                 <button class="ant-btn" onclick="exportFinanceCsvByCurrentView()">
                                     <i class="fa fa-file-excel-o"></i> 导出Excel(CSV)
                                 </button>
@@ -1288,7 +1300,7 @@
     <script src="assets/js/supabase-config.js?v=20260212-14"></script>
     <script src="assets/js/user-data.js?v=20260212-14"></script>
     <script src="assets/js/erp.js?v=20260216-33"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260216-46"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260218-48"></script>
     <script src="assets/js/pwa-register.js?v=20260216-1" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->

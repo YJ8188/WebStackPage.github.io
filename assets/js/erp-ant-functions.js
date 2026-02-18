@@ -1008,6 +1008,47 @@ function getSelectedFinanceReportMonth() {
     return parseYearMonthValue(rawValue);
 }
 
+function getFinanceMonthlyTargetStorageKey(monthKey) {
+    const safeMonth = String(monthKey || getCurrentYearMonthText()).trim();
+    const userId = String(userData?.user?.id || userData?.user?.email || 'guest').trim() || 'guest';
+    return `erp_finance_monthly_target_${userId}_${safeMonth}`;
+}
+
+function loadFinanceMonthlyTarget(monthKey) {
+    const key = getFinanceMonthlyTargetStorageKey(monthKey);
+    const raw = localStorage.getItem(key);
+    const value = Number(raw || 0);
+    return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+function saveFinanceMonthlyTarget() {
+    const monthInfo = getSelectedFinanceReportMonth();
+    const input = document.getElementById('financeMonthlyTarget');
+    const targetValue = Number(input?.value || 0);
+    if (!input || !Number.isFinite(targetValue) || targetValue < 0) {
+        if (typeof showToast === 'function') {
+            showToast('目标金额无效，请输入非负数字', 'warning');
+        }
+        return;
+    }
+    const key = getFinanceMonthlyTargetStorageKey(monthInfo.key);
+    localStorage.setItem(key, String(targetValue));
+    if (typeof showToast === 'function') {
+        showToast(`已保存 ${monthInfo.key} 月净利润目标：${formatCurrency(targetValue)}`, 'success');
+    }
+    renderFinanceTrendSummary();
+}
+
+function syncFinanceMonthlyTargetInput() {
+    const monthInfo = getSelectedFinanceReportMonth();
+    const input = document.getElementById('financeMonthlyTarget');
+    if (!input) {
+        return;
+    }
+    const targetValue = loadFinanceMonthlyTarget(monthInfo.key);
+    input.value = targetValue > 0 ? String(targetValue) : '';
+}
+
 function isDateInYearMonth(dateValue, year, month) {
     const date = parseFinanceDate(dateValue);
     if (!date) {
@@ -1053,6 +1094,8 @@ function onFinanceChartScopeChange() {
 }
 
 function onFinanceReportMonthChange() {
+    syncFinanceMonthlyTargetInput();
+    renderFinanceTrendSummary();
     renderFinanceCashflowOverview();
     renderFinanceMonthlyProfitChart();
 }
@@ -3677,6 +3720,11 @@ function getOrderShippingFilterValue() {
     return String(shippingSelect?.value || 'all').trim().toLowerCase();
 }
 
+function getOrderRiskFilterValue() {
+    const riskSelect = document.getElementById('orderRiskFilter');
+    return String(riskSelect?.value || 'all').trim().toLowerCase();
+}
+
 function getOrderDateRangePresetValue() {
     const rangeSelect = document.getElementById('orderDateRange');
     return String(rangeSelect?.value || 'all').trim();
@@ -3785,6 +3833,7 @@ function initOrderFilters() {
     const endInput = document.getElementById('orderDateEnd');
     const paymentSelect = document.getElementById('orderPaymentFilter');
     const shippingSelect = document.getElementById('orderShippingFilter');
+    const riskSelect = document.getElementById('orderRiskFilter');
 
     if (rangeSelect) {
         rangeSelect.value = 'all';
@@ -3803,8 +3852,61 @@ function initOrderFilters() {
     if (shippingSelect) {
         shippingSelect.value = 'all';
     }
+    if (riskSelect) {
+        riskSelect.value = 'all';
+    }
 
     updateOrderQuickRangeButtons();
+}
+
+function isOrderShippingDelayRisk(order) {
+    const status = normalizeOrderStatusValue(order?.status || 'pending');
+    const shippingStatus = String(order?.shipping_status || 'not_shipped').trim().toLowerCase();
+    if (status !== 'confirmed') {
+        return false;
+    }
+    if (['shipped', 'signed', 'returned'].includes(shippingStatus)) {
+        return false;
+    }
+    const orderDate = parseOrderDateForFilter(order?.order_date);
+    if (!orderDate) {
+        return false;
+    }
+    return (Date.now() - orderDate.getTime()) > (48 * 60 * 60 * 1000);
+}
+
+function isOrderSignDelayRisk(order) {
+    const status = normalizeOrderStatusValue(order?.status || 'pending');
+    const shippingStatus = String(order?.shipping_status || 'not_shipped').trim().toLowerCase();
+    if (!['shipped', 'signed'].includes(status) && !['shipped'].includes(shippingStatus)) {
+        return false;
+    }
+    if (['completed', 'refunded', 'cancelled'].includes(status) || shippingStatus === 'signed') {
+        return false;
+    }
+    const orderDate = parseOrderDateForFilter(order?.order_date);
+    if (!orderDate) {
+        return false;
+    }
+    return (Date.now() - orderDate.getTime()) > (7 * 24 * 60 * 60 * 1000);
+}
+
+function getOrderFulfillmentRiskStats(orders = []) {
+    const rows = Array.isArray(orders) ? orders : [];
+    let shipDelay = 0;
+    let signDelay = 0;
+    rows.forEach(order => {
+        if (isOrderShippingDelayRisk(order)) {
+            shipDelay += 1;
+        }
+        if (isOrderSignDelayRisk(order)) {
+            signDelay += 1;
+        }
+    });
+    return {
+        shipDelay,
+        signDelay
+    };
 }
 
 function filterOrdersBySearchAndStatus(orders) {
@@ -3812,6 +3914,7 @@ function filterOrdersBySearchAndStatus(orders) {
     const statusFilter = getOrderStatusFilterValue();
     const paymentFilter = getOrderPaymentFilterValue();
     const shippingFilter = getOrderShippingFilterValue();
+    const riskFilter = getOrderRiskFilterValue();
     const { start: orderDateStart, end: orderDateEnd } = getOrderDateRangeFilterBounds();
     const customers = Array.isArray(ERP.state?.customers) ? ERP.state.customers : [];
 
@@ -3833,8 +3936,11 @@ function filterOrdersBySearchAndStatus(orders) {
         const matchDateStart = !orderDateStart || (orderDate && orderDate >= orderDateStart);
         const matchDateEnd = !orderDateEnd || (orderDate && orderDate <= orderDateEnd);
         const matchDate = matchDateStart && matchDateEnd;
+        const matchRisk = riskFilter === 'all'
+            || (riskFilter === 'ship_delay' && isOrderShippingDelayRisk(order))
+            || (riskFilter === 'sign_delay' && isOrderSignDelayRisk(order));
 
-        return matchKeyword && matchStatus && matchPayment && matchShipping && matchDate;
+        return matchKeyword && matchStatus && matchPayment && matchShipping && matchDate && matchRisk;
     });
 }
 
@@ -3868,6 +3974,8 @@ function renderOrderWorkflowSummary(allOrders = [], visibleOrders = []) {
     const visibleRows = Array.isArray(visibleOrders) ? visibleOrders : [];
     const allStats = getOrderStatusCountMap(allRows);
     const visibleStats = getOrderStatusCountMap(visibleRows);
+    const allRisk = getOrderFulfillmentRiskStats(allRows);
+    const visibleRisk = getOrderFulfillmentRiskStats(visibleRows);
 
     summaryEl.innerHTML = `
         <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
@@ -3875,6 +3983,8 @@ function renderOrderWorkflowSummary(allOrders = [], visibleOrders = []) {
             <span class="ant-tag">待审批 ${visibleStats.pending}（总${allStats.pending}）</span>
             <span class="ant-tag">待发货 ${visibleStats.confirmed}（总${allStats.confirmed}）</span>
             <span class="ant-tag">在途 ${visibleStats.shipped + visibleStats.signed}（总${allStats.shipped + allStats.signed}）</span>
+            <span class="ant-tag" style="color:#cf1322;border-color:#ffa39e;background:#fff1f0;">超48小时未发货 ${visibleRisk.shipDelay}（总${allRisk.shipDelay}）</span>
+            <span class="ant-tag" style="color:#d46b08;border-color:#ffd591;background:#fff7e6;">超7天未签收 ${visibleRisk.signDelay}（总${allRisk.signDelay}）</span>
             <span class="ant-tag">已完成 ${visibleStats.completed}（总${allStats.completed}）</span>
             <span class="ant-tag">已退款 ${visibleStats.refunded}（总${allStats.refunded}）</span>
             <span class="ant-tag">已取消 ${visibleStats.cancelled}（总${allStats.cancelled}）</span>
@@ -4079,6 +4189,7 @@ function resetOrderFilters() {
     const statusSelect = document.getElementById('orderStatusFilter');
     const paymentSelect = document.getElementById('orderPaymentFilter');
     const shippingSelect = document.getElementById('orderShippingFilter');
+    const riskSelect = document.getElementById('orderRiskFilter');
     const rangeSelect = document.getElementById('orderDateRange');
     if (keywordInput) {
         keywordInput.value = '';
@@ -4091,6 +4202,9 @@ function resetOrderFilters() {
     }
     if (shippingSelect) {
         shippingSelect.value = 'all';
+    }
+    if (riskSelect) {
+        riskSelect.value = 'all';
     }
     if (rangeSelect) {
         rangeSelect.value = 'all';
@@ -4812,6 +4926,7 @@ function initFinanceFilters() {
     }
 
     updateFinanceQuickRangeButtons();
+    syncFinanceMonthlyTargetInput();
     syncFinanceViewRows(Array.isArray(ERP.state?.finances) ? ERP.state.finances : [], 'all');
     applyFinanceFilters();
 }
@@ -7837,6 +7952,15 @@ function renderFinanceTrendSummary(finances = null) {
     summary30.net = summary30.income - summary30.expense;
     const summarySelected = calcFinanceSummaryFromRows(rowsSelected);
     summarySelected.net = summarySelected.income - summarySelected.expense;
+    const monthInfo = getSelectedFinanceReportMonth();
+    const monthRows = buildMonthlyProfitRows(source, 24);
+    const currentMonthRow = monthRows.find(item => String(item?.key) === monthInfo.key) || { net: 0, income: 0, expense: 0 };
+    const monthlyTarget = loadFinanceMonthlyTarget(monthInfo.key);
+    const targetRate = monthlyTarget > 0 ? (currentMonthRow.net / monthlyTarget) : 0;
+    const targetRatePercent = monthlyTarget > 0 ? Math.max(0, Math.min(999, Math.round(targetRate * 100))) : 0;
+    const targetTone = monthlyTarget <= 0
+        ? '#8c8c8c'
+        : (targetRate >= 1 ? '#237804' : (targetRate >= 0.7 ? '#d46b08' : '#cf1322'));
 
     const maxDaily = Math.max(
         1,
@@ -7881,6 +8005,14 @@ function renderFinanceTrendSummary(finances = null) {
                 <div style="font-size:12px;color:#8c8c8c;">近${selectedRange}天净额</div>
                 <div style="font-size:18px;font-weight:600;color:#d46b08;">${formatCurrency(summarySelected.net)}</div>
                 <div style="font-size:12px;color:#8c8c8c;">收 ${formatCurrency(summarySelected.income)} / 支 ${formatCurrency(summarySelected.expense)}</div>
+            </div>
+            <div style="flex:1;min-width:220px;padding:10px 12px;border:1px solid #d9d9d9;border-radius:8px;background:#fff;">
+                <div style="font-size:12px;color:#8c8c8c;">${monthInfo.key} 净利润目标</div>
+                <div style="font-size:18px;font-weight:600;color:${targetTone};">${monthlyTarget > 0 ? `${targetRatePercent}%` : '未设置目标'}</div>
+                <div style="font-size:12px;color:#8c8c8c;">当前 ${formatCurrency(currentMonthRow.net)} / 目标 ${formatCurrency(monthlyTarget)}</div>
+                <div style="margin-top:6px;height:6px;background:#f0f0f0;border-radius:999px;overflow:hidden;">
+                    <div style="height:6px;background:${targetTone};width:${monthlyTarget > 0 ? Math.max(4, Math.min(100, targetRatePercent)) : 0}%;"></div>
+                </div>
             </div>
         </div>
         <div style="margin-top:10px;padding:10px;border:1px solid #f0f0f0;border-radius:8px;background:#fff;">

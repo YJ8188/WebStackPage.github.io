@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="assets/css/fonts/fontawesome/css/font-awesome.min.css">
 
     <!-- Ant Design Style Clone -->
-    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260218-54">
+    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260218-55">
 
     <script>
         (function () {
@@ -1013,8 +1013,10 @@
             <div class="modal-body">
                 <form id="customerForm" class="erp-modal-form">
                     <input type="hidden" id="customerId">
+                    <div class="erp-form-section">
+                        <div class="erp-form-section-title">基础资料</div>
                     <div class="form-group">
-                        <label>客户名称 *</label>
+                        <label>客户名称 <span class="erp-required-star">*</span></label>
                         <input type="text" id="customerName" class="ant-input">
                     </div>
                     <div class="form-group">
@@ -1036,6 +1038,9 @@
                             <option value="inactive">停用</option>
                         </select>
                     </div>
+                    </div>
+                    <div class="erp-form-section">
+                        <div class="erp-form-section-title">商务参数</div>
                     <div class="form-group erp-form-grid-2">
                         <div class="erp-form-col">
                             <label>客户等级</label>
@@ -1055,6 +1060,9 @@
                         <label>账期天数</label>
                         <input type="number" id="customerPaymentTermDays" class="ant-input" min="0" step="1" placeholder="如 30">
                     </div>
+                    </div>
+                    <div class="erp-form-section">
+                        <div class="erp-form-section-title">补充信息</div>
                     <div class="form-group">
                         <label>备注</label>
                         <textarea id="customerNotes" class="ant-input" style="height: auto;" rows="3"></textarea>
@@ -1062,6 +1070,7 @@
                     <div class="form-group">
                         <label>地址</label>
                         <input type="text" id="customerAddress" class="ant-input" placeholder="填写客户地址（可选）">
+                    </div>
                     </div>
                 </form>
             </div>
@@ -1124,8 +1133,10 @@
             <div class="modal-body">
                 <form id="productForm" class="erp-modal-form">
                     <input type="hidden" id="productId">
+                    <div class="erp-form-section">
+                        <div class="erp-form-section-title">基础资料</div>
                     <div class="form-group">
-                        <label>产品名称 *</label>
+                        <label>产品名称 <span class="erp-required-star">*</span></label>
                         <input type="text" id="productName" class="ant-input">
                     </div>
                     <div class="form-group">
@@ -1136,9 +1147,12 @@
                         <label>分类</label>
                         <input type="text" id="productCategory" class="ant-input">
                     </div>
+                    </div>
+                    <div class="erp-form-section">
+                        <div class="erp-form-section-title">价格与库存</div>
                     <div class="form-group erp-form-grid-2">
                         <div class="erp-form-col">
-                            <label>售价 *</label>
+                            <label>售价 <span class="erp-required-star">*</span></label>
                             <input type="number" id="productPrice" class="ant-input" step="0.01">
                         </div>
                         <div class="erp-form-col">
@@ -1156,6 +1170,9 @@
                             <input type="number" id="productMinStock" class="ant-input">
                         </div>
                     </div>
+                    </div>
+                    <div class="erp-form-section">
+                        <div class="erp-form-section-title">单位与状态</div>
                     <div class="form-group">
                         <label>单位</label>
                         <input type="text" id="productUnit" class="ant-input" list="unitList" placeholder="请输入或选择单位">
@@ -1187,6 +1204,7 @@
                             <option value="inactive">停用</option>
                         </select>
                     </div>
+                    </div>
                     <input type="hidden" id="productDescription">
                 </form>
             </div>
@@ -1207,8 +1225,10 @@
             <div class="modal-body">
                 <form id="orderForm" class="erp-modal-form">
                     <input type="hidden" id="orderId">
+                    <div class="erp-form-section">
+                        <div class="erp-form-section-title">客户与商品</div>
                     <div class="form-group">
-                        <label>客户 *</label>
+                        <label>客户 <span class="erp-required-star">*</span></label>
                         <select id="orderCustomer" class="ant-select" style="width: 100%;">
                             <option value="">请选择客户</option>
                         </select>
@@ -1224,25 +1244,25 @@
                             <i class="fa fa-plus"></i> 添加产品
                         </button>
                     </div>
+                    </div>
 
+                    <div class="erp-form-section">
+                        <div class="erp-form-section-title">金额与风控</div>
                     <div class="form-group">
-                        <label>总金额 <small style="color: #999;">（可手动修改，系统会根据产品自动计算建议价）</small></label>
-                        <div style="display: flex; gap: 10px;">
-                            <input type="number" id="orderTotalAmount" class="ant-input" placeholder="请输入订单总金额"
-                                style="font-weight: bold; color: #f5222d; flex: 1;" step="0.01" min="0">
-                            <button type="button" onclick="calculateOrderTotal()" class="ant-btn" 
-                                style="background: #1890ff; color: white; border-color: #1890ff;">
+                        <label>总金额 <small class="erp-form-helper-inline">（可手动修改，系统会根据产品自动计算建议价）</small></label>
+                        <div class="erp-form-inline-actions">
+                            <input type="number" id="orderTotalAmount" class="ant-input erp-amount-input" placeholder="请输入订单总金额"
+                                step="0.01" min="0">
+                            <button type="button" onclick="calculateOrderTotal()" class="ant-btn erp-btn-blue">
                                 计算建议价
                             </button>
                         </div>
-                        <div id="orderRiskPanel"
-                            style="margin-top: 8px; padding: 8px 10px; border: 1px solid #d9d9d9; border-radius: 6px; background: #fafafa; font-size: 12px; color: #8c8c8c;">
+                        <div id="orderRiskPanel" class="erp-form-hint-card">
                             风控提示：添加商品后自动分析超金额、超折扣、异常毛利。
                         </div>
-                        <div
-                            style="margin-top: 8px; padding: 8px 10px; border: 1px dashed #d9d9d9; border-radius: 6px; background: #fafafa;">
-                            <div style="font-size: 12px; color: #595959; margin-bottom: 6px;">风控阈值配置（当前浏览器按账号保存）</div>
-                            <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                        <div class="erp-form-hint-card is-dashed">
+                            <div class="erp-form-helper">风控阈值配置（当前浏览器按账号保存）</div>
+                            <div class="erp-risk-threshold-row">
                                 <input type="number" id="orderRiskAmountThreshold" class="ant-input" placeholder="超金额阈值"
                                     min="1" step="1" style="width: 130px;">
                                 <input type="number" id="orderRiskDiscountThreshold" class="ant-input" placeholder="超折扣阈值(%)"
@@ -1254,13 +1274,16 @@
                                 <button type="button" class="ant-btn" onclick="resetOrderRiskConfigToDefault()">重置阈值</button>
                             </div>
                         </div>
-                        <div id="orderRiskApprovalGroup" class="form-group" style="display:none; margin-top: 8px;">
+                        <div id="orderRiskApprovalGroup" class="form-group erp-risk-approval-group" style="display:none;">
                             <label style="color:#cf1322;">高风险审批原因（必填）</label>
                             <textarea id="orderRiskApprovalReason" class="ant-textarea" rows="2"
                                 placeholder="请填写高风险订单继续保存的原因"></textarea>
                         </div>
                     </div>
+                    </div>
 
+                    <div class="erp-form-section">
+                        <div class="erp-form-section-title">履约信息</div>
                     <div class="form-group erp-form-grid-2">
                         <div class="erp-form-col">
                             <label>状态</label>
@@ -1372,6 +1395,7 @@
                         <label>订单备注</label>
                         <textarea id="orderNotes" class="ant-input" placeholder="订单备注" rows="2"></textarea>
                     </div>
+                    </div>
                 </form>
             </div>
             <div class="modal-footer">
@@ -1390,8 +1414,10 @@
             </div>
             <div class="modal-body">
                 <form id="inventoryForm" class="erp-modal-form">
+                    <div class="erp-form-section">
+                        <div class="erp-form-section-title">库存调整</div>
                     <div class="form-group">
-                        <label>产品 *</label>
+                        <label>产品 <span class="erp-required-star">*</span></label>
                         <select id="inventoryProduct" class="ant-select" style="width: 100%;"></select>
                     </div>
                     <div class="form-group">
@@ -1410,7 +1436,10 @@
                         <label>备注</label>
                         <textarea id="inventoryNotes" class="ant-input" rows="2"></textarea>
                     </div>
+                    </div>
                     <div id="inventoryPurchaseExtra" style="display: none;">
+                        <div class="erp-form-section">
+                            <div class="erp-form-section-title">采购扩展信息</div>
                         <div class="form-group erp-form-grid-2">
                             <div class="erp-form-col">
                                 <label>采购单价</label>
@@ -1439,6 +1468,7 @@
                             <label>已付款金额（部分付款时）</label>
                             <input type="number" id="inventoryPaidAmount" class="ant-input" min="0" step="0.01" placeholder="例如 1000">
                         </div>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -1459,6 +1489,8 @@
             <div class="modal-body">
                 <form id="financeForm" class="erp-modal-form">
                     <input type="hidden" id="financeId">
+                    <div class="erp-form-section">
+                        <div class="erp-form-section-title">账务信息</div>
                     <div class="form-group">
                         <label>类型</label>
                         <select id="financeType" class="ant-select" style="width: 100%;">
@@ -1481,6 +1513,7 @@
                     <div class="form-group">
                         <label>描述</label>
                         <input type="text" id="financeDescription" class="ant-input">
+                    </div>
                     </div>
                 </form>
             </div>
@@ -1559,7 +1592,7 @@
     <script src="assets/js/supabase-config.js?v=20260212-14"></script>
     <script src="assets/js/user-data.js?v=20260214-20"></script>
     <script src="assets/js/erp.js?v=20260218-35"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260218-61"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260218-62"></script>
     <script src="assets/js/pwa-register.js?v=20260218-3" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->

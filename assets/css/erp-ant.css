@@ -988,6 +988,85 @@ select.ant-select option {
     color: #334155;
 }
 
+.erp-form-section {
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #f8fbff;
+}
+
+.erp-form-section:last-child {
+    margin-bottom: 0;
+}
+
+.erp-form-section-title {
+    margin: 0 0 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.erp-form-helper-inline {
+    color: #64748b;
+    font-weight: 400;
+}
+
+.erp-form-helper {
+    margin-bottom: 6px;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.erp-required-star {
+    color: #cf1322;
+    margin-left: 2px;
+}
+
+.erp-form-inline-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.erp-amount-input {
+    font-weight: 700;
+    color: #cf1322;
+    flex: 1;
+}
+
+.erp-form-hint-card {
+    margin-top: 8px;
+    padding: 8px 10px;
+    border: 1px solid #dbeafe;
+    border-radius: 8px;
+    background: #f8fbff;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.erp-form-hint-card.is-dashed {
+    border-style: dashed;
+}
+
+.erp-risk-threshold-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.erp-risk-approval-group {
+    margin-top: 8px;
+}
+
+.erp-field-invalid {
+    border-color: #ff4d4f !important;
+    box-shadow: 0 0 0 2px rgba(245, 34, 45, 0.15) !important;
+}
+
+#orderItems.erp-field-invalid {
+    border: 1px solid #ff4d4f !important;
+}
+
 .erp-form-grid-2 {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1147,6 +1226,10 @@ select.ant-select option {
 }
 
 @media (max-width: 768px) {
+    .erp-form-inline-actions {
+        flex-direction: column;
+    }
+
     .erp-form-grid-2 {
         grid-template-columns: 1fr;
     }

@@ -1885,6 +1885,44 @@ function getUnitText(unit) {
     return unitMap[unit] || '-';
 }
 
+function clearModalFieldValidation(modalId) {
+    const modal = document.getElementById(modalId);
+    if (!modal) {
+        return;
+    }
+    modal.querySelectorAll('.erp-field-invalid').forEach(node => node.classList.remove('erp-field-invalid'));
+}
+
+function markFieldInvalid(fieldId, message = '') {
+    const target = document.getElementById(fieldId);
+    if (target && target.classList) {
+        target.classList.add('erp-field-invalid');
+        if (typeof target.focus === 'function') {
+            target.focus();
+        }
+    }
+    if (message) {
+        if (typeof showToast === 'function') {
+            showToast(message, 'warning');
+        } else {
+            alert(message);
+        }
+    }
+    return false;
+}
+
+if (!window.__erpFieldValidationBound) {
+    const clearInvalidClass = (event) => {
+        const node = event?.target;
+        if (node && node.classList && node.classList.contains('erp-field-invalid')) {
+            node.classList.remove('erp-field-invalid');
+        }
+    };
+    document.addEventListener('input', clearInvalidClass, true);
+    document.addEventListener('change', clearInvalidClass, true);
+    window.__erpFieldValidationBound = true;
+}
+
 // ==================== 客户管理 ====================
 function showCustomerModal(customer = null) {
     const modal = document.getElementById('customerModal');
@@ -1925,6 +1963,7 @@ function showCustomerModal(customer = null) {
 
     modal.classList.add('active');
     modal.style.display = 'flex';
+    clearModalFieldValidation('customerModal');
 }
 
 function hideCustomerModal() {
@@ -1934,6 +1973,7 @@ function hideCustomerModal() {
 }
 
 async function saveCustomer() {
+    clearModalFieldValidation('customerModal');
     const customerId = document.getElementById('customerId').value;
     const customerMeta = {
         tier: String(document.getElementById('customerTier')?.value || '').trim(),
@@ -1951,7 +1991,7 @@ async function saveCustomer() {
     };
 
     if (!customerData.name) {
-        alert('请输入客户名称');
+        markFieldInvalid('customerName', '请输入客户名称');
         return;
     }
 
@@ -2129,6 +2169,7 @@ function showProductModal(product = null) {
 
     modal.classList.add('active');
     modal.style.display = 'flex';
+    clearModalFieldValidation('productModal');
 }
 
 function hideProductModal() {
@@ -2138,6 +2179,7 @@ function hideProductModal() {
 }
 
 async function saveProduct() {
+    clearModalFieldValidation('productModal');
     const productId = document.getElementById('productId').value;
     const productData = {
         name: document.getElementById('productName').value,
@@ -2152,8 +2194,12 @@ async function saveProduct() {
         status: document.getElementById('productStatus').value
     };
 
-    if (!productData.name || !productData.price) {
-        alert('请输入产品名称和售价');
+    if (!productData.name) {
+        markFieldInvalid('productName', '请输入产品名称');
+        return;
+    }
+    if (!productData.price || Number(productData.price) <= 0) {
+        markFieldInvalid('productPrice', '请输入有效售价');
         return;
     }
 
@@ -3076,6 +3122,7 @@ function showOrderModal(order = null) {
 
     modal.classList.add('active');
     modal.style.display = 'flex';
+    clearModalFieldValidation('orderModal');
 }
 
 function hideOrderModal() {
@@ -3085,11 +3132,12 @@ function hideOrderModal() {
 }
 
 async function saveOrder() {
+    clearModalFieldValidation('orderModal');
     const orderId = document.getElementById('orderId').value;
     const customerId = document.getElementById('orderCustomer').value;
 
     if (!customerId) {
-        alert('请选择客户');
+        markFieldInvalid('orderCustomer', '请选择客户');
         return;
     }
 
@@ -3121,7 +3169,7 @@ async function saveOrder() {
     });
 
     if (orderItems.length === 0) {
-        alert('请至少添加一个产品');
+        markFieldInvalid('orderItems', '请至少添加一个产品');
         return;
     }
 
@@ -3159,10 +3207,7 @@ async function saveOrder() {
     const riskReasonInput = document.getElementById('orderRiskApprovalReason');
     const riskApprovalReason = String(riskReasonInput?.value || '').trim();
     if (riskAnalysis.riskRank >= 3 && !riskApprovalReason) {
-        alert('高风险订单必须填写审批原因后才能保存');
-        if (riskReasonInput) {
-            riskReasonInput.focus();
-        }
+        markFieldInvalid('orderRiskApprovalReason', '高风险订单必须填写审批原因后才能保存');
         return;
     }
 
@@ -4540,6 +4585,7 @@ function showInventoryModal() {
     toggleInventoryPurchaseFields();
     modal.classList.add('active');
     modal.style.display = 'flex';
+    clearModalFieldValidation('inventoryModal');
 }
 
 function hideInventoryModal() {
@@ -4603,6 +4649,7 @@ function showInventoryAdjustModalForProduct(productId) {
 }
 
 async function saveInventory() {
+    clearModalFieldValidation('inventoryModal');
     const productId = document.getElementById('inventoryProduct')?.value;
     const quantityChangeRaw = Number(document.getElementById('inventoryQuantityChange')?.value);
     const type = document.getElementById('inventoryType')?.value || 'manual';
@@ -4617,13 +4664,18 @@ async function saveInventory() {
         ? Math.abs(quantityChangeRaw)
         : quantityChangeRaw;
 
-    if (!productId || !quantityChange) {
-        alert('请选择产品并输入调整数量');
+    if (!productId) {
+        markFieldInvalid('inventoryProduct', '请选择产品');
+        return;
+    }
+
+    if (!quantityChange) {
+        markFieldInvalid('inventoryQuantityChange', '请输入调整数量');
         return;
     }
 
     if (type === 'purchase' && unitCost < 0) {
-        alert('采购单价不能小于 0');
+        markFieldInvalid('inventoryUnitCost', '采购单价不能小于 0');
         return;
     }
 
@@ -4882,6 +4934,7 @@ function showFinanceModal() {
 
     modal.classList.add('active');
     modal.style.display = 'flex';
+    clearModalFieldValidation('financeModal');
 }
 
 function hideFinanceModal() {
@@ -4891,6 +4944,7 @@ function hideFinanceModal() {
 }
 
 async function saveFinance() {
+    clearModalFieldValidation('financeModal');
     // 处理日期时间格式，确保使用本地时间
     let transactionDate = document.getElementById('financeTransactionDate').value;
     // 如果是 datetime-local 格式 (YYYY-MM-DDTHH:MM)，转换为数据库格式 (YYYY-MM-DD HH:MM:SS)
@@ -4916,7 +4970,7 @@ async function saveFinance() {
     };
 
     if (!financeData.amount) {
-        alert('请输入金额');
+        markFieldInvalid('financeAmount', '请输入金额');
         return;
     }
 

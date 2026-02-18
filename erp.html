@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="assets/css/fonts/fontawesome/css/font-awesome.min.css">
 
     <!-- Ant Design Style Clone -->
-    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260218-49">
+    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260218-50">
 
     <script>
         (function () {
@@ -435,7 +435,8 @@
                     <!-- Orders View -->
                     <div id="ordersView" class="module-view">
                         <div class="content-card">
-                            <div class="table-page-search-wrapper">
+                            <div class="erp-module-section-title">订单筛选</div>
+                            <div class="table-page-search-wrapper erp-block-card erp-block-filter">
                                 <div class="search-form">
                                     <div class="search-item">
                                         <label class="search-label">订单搜索:</label>
@@ -518,9 +519,10 @@
                                 </div>
                             </div>
 
-                            <div id="orderWorkflowSummary" style="margin: 10px 0 14px;"></div>
+                            <div id="orderWorkflowSummary" class="erp-block-card erp-order-workflow-card"></div>
 
-                            <div class="table-operator erp-toolbar">
+                            <div class="erp-module-section-title">订单操作</div>
+                            <div class="table-operator erp-toolbar erp-block-card erp-block-toolbar">
                                 <button class="ant-btn ant-btn-primary" onclick="showOrderModal()">
                                     <i class="fa fa-plus"></i> 创建订单
                                 </button>
@@ -543,7 +545,8 @@
                             </div>
                             <div id="ordersColumnSettingsPanel" class="erp-inline-settings hidden"></div>
 
-                            <div class="ant-table-wrapper erp-table-scroll">
+                            <div class="erp-module-section-title">订单列表</div>
+                            <div class="ant-table-wrapper erp-table-scroll erp-block-card erp-block-table">
                                 <div class="ant-table">
                                     <table>
                                         <thead class="ant-table-thead">
@@ -644,7 +647,8 @@
                     <!-- Finance View -->
                     <div id="financeView" class="module-view">
                         <div class="content-card">
-                            <div class="table-page-search-wrapper">
+                            <div class="erp-module-section-title">财务筛选</div>
+                            <div class="table-page-search-wrapper erp-block-card erp-block-filter">
                                 <div class="search-form">
                                     <div class="search-item">
                                         <label class="search-label">日期:</label>
@@ -684,7 +688,8 @@
                                 </div>
                             </div>
 
-                            <div class="table-operator erp-toolbar">
+                            <div class="erp-module-section-title">财务操作</div>
+                            <div class="table-operator erp-toolbar erp-block-card erp-block-toolbar">
                                 <button class="ant-btn ant-btn-primary" onclick="showFinanceModal()">
                                     <i class="fa fa-plus"></i> 记一笔
                                 </button>
@@ -761,7 +766,8 @@
 
                             <div id="financeMonthlyProfitChart" class="erp-finance-block"></div>
 
-                            <div class="ant-table-wrapper erp-table-scroll">
+                            <div class="erp-module-section-title">财务流水</div>
+                            <div class="ant-table-wrapper erp-table-scroll erp-block-card erp-block-table">
                                 <div class="ant-table">
                                     <table>
                                         <thead class="ant-table-thead">

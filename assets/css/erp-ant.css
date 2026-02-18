@@ -1302,12 +1302,31 @@ select.ant-select option {
     min-height: auto;
 }
 
+.erp-module-section-title {
+    margin: 0 0 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+}
+
+.erp-block-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+}
+
 .table-page-search-wrapper {
     margin-bottom: 16px;
     padding: 14px 16px;
     border: 1px solid #edf1f7;
     border-radius: 10px;
     background: #fafcff;
+}
+
+.table-page-search-wrapper.erp-block-filter {
+    border-color: #dbeafe;
+    background: #f8fbff;
 }
 
 .table-page-search-wrapper .search-form {
@@ -1358,6 +1377,10 @@ select.ant-select option {
     align-items: center;
 }
 
+.table-operator.erp-toolbar.erp-block-toolbar {
+    padding: 10px 12px;
+}
+
 .table-operator.erp-toolbar .ant-btn,
 .table-operator.erp-toolbar .ant-select,
 .table-operator.erp-toolbar .ant-input {
@@ -1402,6 +1425,28 @@ select.ant-select option {
     border: 1px solid #e2e8f0;
     border-radius: 8px;
     background: #f8fafc;
+}
+
+.erp-order-workflow-card {
+    box-shadow: none;
+}
+
+.ant-table-wrapper.erp-table-scroll.erp-block-table {
+    padding: 0;
+    border-color: #dbe3ef;
+    overflow: hidden;
+}
+
+.erp-block-table .ant-table {
+    background: #fff;
+}
+
+.erp-block-table .ant-table-tbody>tr:nth-child(even)>td {
+    background: #fbfdff;
+}
+
+.erp-block-table .ant-table-tbody>tr:hover>td {
+    background: #f0f7ff !important;
 }
 
 .erp-finance-summary-strip {

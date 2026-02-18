@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="assets/css/fonts/fontawesome/css/font-awesome.min.css">
 
     <!-- Ant Design Style Clone -->
-    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260218-50">
+    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260218-51">
 
     <script>
         (function () {
@@ -1858,27 +1858,27 @@
                             ${isModuleRowSelected('orders', order.id) ? 'checked' : ''}
                             onchange="onModuleRowCheckedChange('orders', this.getAttribute('data-id'), this.checked)">
                     </td>
-                    <td data-table-cell="orders:order_no">${order.order_number}${hasRiskApproval ? '<span style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:999px;background:#fff1f0;color:#cf1322;border:1px solid #ffa39e;font-size:11px;">风控</span>' : ''}</td>
+                    <td data-table-cell="orders:order_no">${order.order_number}${hasRiskApproval ? '<span class="erp-type-pill is-income" style="margin-left:6px;">风控</span>' : ''}</td>
                     <td data-table-cell="orders:customer">${customer ? customer.name : '-'}</td>
-                    <td data-table-cell="orders:date">${new Date(order.order_date).toLocaleDateString()}</td>
-                    <td data-table-cell="orders:amount" style="${getOrderAmountStyle(order)}">¥${parseFloat(order.total_amount || 0).toFixed(2)}</td>
+                    <td data-table-cell="orders:date" class="erp-cell-nowrap">${new Date(order.order_date).toLocaleDateString()}</td>
+                    <td data-table-cell="orders:amount"><span class="erp-amount-text is-income">¥${parseFloat(order.total_amount || 0).toFixed(2)}</span></td>
                     <td data-table-cell="orders:status">
-                        <span style="display:inline-flex;align-items:center;padding:2px 10px;border-radius:999px;font-size:12px;color:${getOrderStatusColor(order.status)};background:${getOrderStatusBg(order.status)};border:1px solid ${getOrderStatusBorder(order.status)};">
+                        <span class="erp-status-pill" style="--erp-pill-color:${getOrderStatusColor(order.status)};--erp-pill-bg:${getOrderStatusBg(order.status)};--erp-pill-border:${getOrderStatusBorder(order.status)};">
                             ${getOrderStatusText(order.status)}
                         </span>
                     </td>
                     <td data-table-cell="orders:payment">
-                        <span style="display:inline-flex;align-items:center;padding:2px 10px;border-radius:999px;font-size:12px;color:${getPaymentStatusColor(order.payment_status)};background:${getPaymentStatusBg(order.payment_status)};border:1px solid ${getPaymentStatusBorder(order.payment_status)};">
+                        <span class="erp-status-pill" style="--erp-pill-color:${getPaymentStatusColor(order.payment_status)};--erp-pill-bg:${getPaymentStatusBg(order.payment_status)};--erp-pill-border:${getPaymentStatusBorder(order.payment_status)};">
                             ${getPaymentStatusText(order.payment_status)}
                         </span>
                     </td>
                     <td data-table-cell="orders:shipping">${getShippingStatusText(order.shipping_status)}</td>
-                    <td data-table-cell="orders:logistics">${shippingInfo.length > 0 ? shippingInfo.join('<br>') : '-'}</td>
+                    <td data-table-cell="orders:logistics">${shippingInfo.length > 0 ? shippingInfo.map(item => `<span class="erp-cell-subline">${item}</span>`).join('<br>') : '-'}</td>
                     <td class="erp-action-cell" data-table-cell="orders:actions">
                         <div class="erp-row-actions">
-                            <button class="ant-btn" onclick='editOrder(${JSON.stringify(order.id)})'>详情</button>
+                            <button class="ant-btn erp-btn-blue erp-btn-compact" onclick='editOrder(${JSON.stringify(order.id)})'>详情</button>
                             ${typeof getOrderQuickActions === 'function' ? getOrderQuickActions(order) : ''}
-                            <button class="ant-btn erp-btn-danger" onclick='deleteOrder(${JSON.stringify(order.id)})'>删除</button>
+                            <button class="ant-btn erp-btn-danger erp-btn-compact" onclick='deleteOrder(${JSON.stringify(order.id)})'>删除</button>
                         </div>
                     </td>
                 </tr>
@@ -2038,7 +2038,7 @@
                 const customer = customerMap.get(String(order.customer_id));
                 const customerName = customer?.name || '未知客户';
                 const orderNumber = order.order_number || `订单#${order.id}`;
-                return `${orderNumber}<br><span style="color:#8c8c8c;">客户：${customerName}</span>`;
+                return `${orderNumber}<br><span class="erp-cell-subline">客户：${customerName}</span>`;
             };
 
             const resolveFinanceDescription = (finance) => {
@@ -2084,12 +2084,12 @@
                             ${isFinanceRowSelected(f?.id) ? 'checked' : ''}
                             onchange="onFinanceRowCheckedChange(this.getAttribute('data-id'), this.checked)">
                     </td>
-                    <td data-finance-cell="type">${f.type === 'income' ? '收入' : (f.type === 'expense' ? '支出' : '系统')}</td>
+                    <td data-finance-cell="type"><span class="erp-type-pill ${f.type === 'income' ? 'is-income' : (f.type === 'expense' ? 'is-expense' : 'is-system')}">${f.type === 'income' ? '收入' : (f.type === 'expense' ? '支出' : '系统')}</span></td>
                     <td data-finance-cell="category">${f.category || '-'}</td>
-                    <td data-finance-cell="amount" style="font-weight:bold; color: ${f.type === 'income' ? '#cf1322' : (f.type === 'expense' ? '#3f8600' : '#2563eb')}">${f.type === 'income' ? '+' : (f.type === 'expense' ? '-' : (parseFloat(f.amount) >= 0 ? '+' : '-'))}¥${Math.abs(parseFloat(f.amount)).toFixed(2)}</td>
+                    <td data-finance-cell="amount"><span class="erp-amount-text ${f.type === 'income' ? 'is-income' : (f.type === 'expense' ? 'is-expense' : 'is-system')}">${f.type === 'income' ? '+' : (f.type === 'expense' ? '-' : (parseFloat(f.amount) >= 0 ? '+' : '-'))}¥${Math.abs(parseFloat(f.amount)).toFixed(2)}</span></td>
                     <td data-finance-cell="order">${resolveFinanceOrderInfo(f)}</td>
                     <td data-finance-cell="description"><span class="erp-cell-ellipsis">${resolveFinanceDescription(f)}</span></td>
-                    <td data-finance-cell="date">${(() => {
+                    <td data-finance-cell="date" class="erp-cell-nowrap">${(() => {
                         const date = new Date(f.transaction_date);
                         // 如果数据库存储的是本地时间格式，直接使用
                         if (typeof f.transaction_date === 'string' && f.transaction_date.includes(' ')) {

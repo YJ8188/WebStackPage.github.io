@@ -2244,6 +2244,33 @@ select.ant-select option {
     min-width: 220px;
 }
 
+.erp-finance-cell-main {
+    color: #1f2937;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.erp-finance-cell-sub {
+    margin-top: 2px;
+    color: #8c8c8c;
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.erp-finance-empty {
+    color: #94a3b8;
+    font-size: 12px;
+}
+
+#financeView [data-finance-cell="order"] .erp-finance-cell-main {
+    font-weight: 600;
+}
+
+#financeView [data-finance-cell="description"] .erp-cell-ellipsis {
+    display: block;
+    max-width: 100%;
+}
+
 #financeView [data-finance-col="date"],
 #financeView [data-finance-cell="date"] {
     min-width: 166px;

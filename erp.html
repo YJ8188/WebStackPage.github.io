@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="assets/css/fonts/fontawesome/css/font-awesome.min.css">
 
     <!-- Ant Design Style Clone -->
-    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260218-60">
+    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260218-61">
 
     <script>
         (function () {
@@ -1928,40 +1928,56 @@
             const resolveFinanceOrderInfo = (finance) => {
                 const linkedOrderId = finance?.order_id || finance?.reference_id;
                 if (!linkedOrderId) {
-                    return '-';
+                    return '<span class="erp-finance-empty">未关联订单</span>';
                 }
 
                 const order = orderMap.get(String(linkedOrderId));
                 if (!order) {
-                    return `订单#${linkedOrderId}`;
+                    return `
+                        <div class="erp-finance-cell-main">订单#${safeText(linkedOrderId)}</div>
+                        <div class="erp-finance-cell-sub">客户：未知客户</div>
+                    `;
                 }
 
                 const customer = customerMap.get(String(order.customer_id));
                 const customerName = customer?.name || '未知客户';
                 const orderNumber = order.order_number || `订单#${order.id}`;
-                return `${orderNumber}<br><span class="erp-cell-subline">客户：${customerName}</span>`;
+                return `
+                    <div class="erp-finance-cell-main">${safeText(orderNumber)}</div>
+                    <div class="erp-finance-cell-sub">客户：${safeText(customerName)}</div>
+                `;
             };
 
             const resolveFinanceDescription = (finance) => {
-                if (finance?.description) {
-                    return finance.description;
-                }
-
                 const linkedOrderId = finance?.reference_id || finance?.order_id;
+                const linkedOrder = linkedOrderId ? orderMap.get(String(linkedOrderId)) : null;
+                const linkedCustomer = linkedOrder ? customerMap.get(String(linkedOrder.customer_id)) : null;
+                const linkedOrderNo = linkedOrder?.order_number || (linkedOrderId ? `订单#${linkedOrderId}` : '');
+                const linkedCustomerName = linkedCustomer?.name || '未知客户';
+
+                if (finance?.description) {
+                    const detailText = String(finance.description || '').trim();
+                    const subText = linkedOrderId
+                        ? `关联：${linkedOrderNo} · 客户：${linkedCustomerName}`
+                        : `分类：${finance?.category || '-'}`;
+                    return `
+                        <div class="erp-finance-cell-main erp-cell-ellipsis" title="${safeText(detailText)}">${safeText(detailText)}</div>
+                        <div class="erp-finance-cell-sub">${safeText(subText)}</div>
+                    `;
+                }
+
                 if (!linkedOrderId) {
-                    return linkedOrderId ? `关联订单#${linkedOrderId}` : '-';
+                    return '<span class="erp-finance-empty">无描述</span>';
                 }
 
-                const order = orderMap.get(String(linkedOrderId));
-                if (!order) {
-                    return `关联订单#${linkedOrderId}`;
+                if (!linkedOrder) {
+                    return `
+                        <div class="erp-finance-cell-main">关联订单#${safeText(linkedOrderId)}</div>
+                        <div class="erp-finance-cell-sub">暂无更多描述</div>
+                    `;
                 }
 
-                const customer = customerMap.get(String(order.customer_id));
-                const customerName = customer?.name || '未知客户';
-                const orderNumber = order.order_number || `订单#${order.id}`;
-
-                const itemSummary = (order.items || []).map(item => {
+                const itemSummary = (linkedOrder.items || []).map(item => {
                     const product = products.find(p => String(p?.id) === String(item?.product_id));
                     const productName = item?.product_name || product?.name || '';
                     const quantity = Number(item?.quantity);
@@ -1973,11 +1989,19 @@
                     ? `${itemSummary.slice(0, 3).join('、')}${itemSummary.length > 3 ? ` 等${itemSummary.length}项` : ''}`
                     : '未识别商品';
 
-                return `${orderNumber} | 客户:${customerName} | 商品:${productsText}`;
+                return `
+                    <div class="erp-finance-cell-main erp-cell-ellipsis" title="${safeText(productsText)}">商品：${safeText(productsText)}</div>
+                    <div class="erp-finance-cell-sub">来源：${safeText(linkedOrderNo)} · 客户：${safeText(linkedCustomerName)}</div>
+                `;
             };
 
             tbody.innerHTML = sortedData.map(f => {
                 const financeIdText = String(f?.id ?? '').replace(/"/g, '&quot;');
+                const amountRaw = Number(f?.amount || 0);
+                const amountValue = Number.isFinite(amountRaw) ? amountRaw : 0;
+                const amountSign = f.type === 'income'
+                    ? '+'
+                    : (f.type === 'expense' ? '-' : (amountValue >= 0 ? '+' : '-'));
                 return `
                 <tr>
                     <td class="finance-col-select">
@@ -1987,9 +2011,9 @@
                     </td>
                     <td data-finance-cell="type"><span class="erp-type-pill ${f.type === 'income' ? 'is-income' : (f.type === 'expense' ? 'is-expense' : 'is-system')}">${f.type === 'income' ? '收入' : (f.type === 'expense' ? '支出' : '系统')}</span></td>
                     <td data-finance-cell="category">${f.category || '-'}</td>
-                    <td data-finance-cell="amount"><span class="erp-amount-text ${f.type === 'income' ? 'is-income' : (f.type === 'expense' ? 'is-expense' : 'is-system')}">${f.type === 'income' ? '+' : (f.type === 'expense' ? '-' : (parseFloat(f.amount) >= 0 ? '+' : '-'))}¥${Math.abs(parseFloat(f.amount)).toFixed(2)}</span></td>
+                    <td data-finance-cell="amount"><span class="erp-amount-text ${f.type === 'income' ? 'is-income' : (f.type === 'expense' ? 'is-expense' : 'is-system')}">${amountSign}¥${Math.abs(amountValue).toFixed(2)}</span></td>
                     <td data-finance-cell="order">${resolveFinanceOrderInfo(f)}</td>
-                    <td data-finance-cell="description"><span class="erp-cell-ellipsis">${resolveFinanceDescription(f)}</span></td>
+                    <td data-finance-cell="description">${resolveFinanceDescription(f)}</td>
                     <td data-finance-cell="date" class="erp-cell-nowrap">${(() => {
                         const date = new Date(f.transaction_date);
                         // 如果数据库存储的是本地时间格式，直接使用

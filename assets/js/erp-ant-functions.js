@@ -4206,6 +4206,15 @@ function getOrderRangeFromPreset(preset = 'all') {
     const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
     switch (preset) {
+        case 'today':
+            return { start: todayStart, end: todayEnd };
+        case 'thisWeek': {
+            const day = now.getDay();
+            const mondayOffset = day === 0 ? -6 : (1 - day);
+            const start = new Date(todayStart);
+            start.setDate(start.getDate() + mondayOffset);
+            return { start, end: todayEnd };
+        }
         case 'yesterday': {
             const start = new Date(todayStart);
             start.setDate(start.getDate() - 1);
@@ -5236,6 +5245,15 @@ function getFinanceRangeFromPreset(preset) {
     const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
     switch (preset) {
+        case 'today':
+            return { start: todayStart, end: todayEnd };
+        case 'thisWeek': {
+            const day = now.getDay();
+            const mondayOffset = day === 0 ? -6 : (1 - day);
+            const start = new Date(todayStart);
+            start.setDate(start.getDate() + mondayOffset);
+            return { start, end: todayEnd };
+        }
         case 'yesterday': {
             const start = new Date(todayStart);
             start.setDate(start.getDate() - 1);

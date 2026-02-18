@@ -7,37 +7,45 @@
 -- =========================================================
 
 -- ==================== 1) 客户主数据增强 ====================
-ALTER TABLE IF EXISTS public.customers
-    ADD COLUMN IF NOT EXISTS customer_tier text;
-
-ALTER TABLE IF EXISTS public.customers
-    ADD COLUMN IF NOT EXISTS credit_limit numeric(14,2) DEFAULT 0;
-
-ALTER TABLE IF EXISTS public.customers
-    ADD COLUMN IF NOT EXISTS payment_term_days integer DEFAULT 0;
-
--- 约束：非负
+-- 兼容两种命名：public.erp_customers（当前项目）/ public.customers（通用）
 DO $$
+DECLARE
+    customer_table regclass;
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1
-        FROM pg_constraint
-        WHERE conname = 'customers_credit_limit_non_negative'
-    ) THEN
-        ALTER TABLE public.customers
-            ADD CONSTRAINT customers_credit_limit_non_negative CHECK (credit_limit >= 0);
+    customer_table := COALESCE(
+        to_regclass('public.erp_customers'),
+        to_regclass('public.customers')
+    );
+
+    IF customer_table IS NULL THEN
+        RAISE NOTICE 'Skip customers upgrade: neither public.erp_customers nor public.customers exists.';
+        RETURN;
     END IF;
-END $$;
 
-DO $$
-BEGIN
+    EXECUTE format('ALTER TABLE %s ADD COLUMN IF NOT EXISTS customer_tier text', customer_table);
+    EXECUTE format('ALTER TABLE %s ADD COLUMN IF NOT EXISTS credit_limit numeric(14,2) DEFAULT 0', customer_table);
+    EXECUTE format('ALTER TABLE %s ADD COLUMN IF NOT EXISTS payment_term_days integer DEFAULT 0', customer_table);
+
     IF NOT EXISTS (
         SELECT 1
         FROM pg_constraint
-        WHERE conname = 'customers_payment_term_days_non_negative'
+        WHERE conname = 'erp_customers_credit_limit_non_negative'
     ) THEN
-        ALTER TABLE public.customers
-            ADD CONSTRAINT customers_payment_term_days_non_negative CHECK (payment_term_days >= 0);
+        EXECUTE format(
+            'ALTER TABLE %s ADD CONSTRAINT erp_customers_credit_limit_non_negative CHECK (credit_limit >= 0)',
+            customer_table
+        );
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'erp_customers_payment_term_days_non_negative'
+    ) THEN
+        EXECUTE format(
+            'ALTER TABLE %s ADD CONSTRAINT erp_customers_payment_term_days_non_negative CHECK (payment_term_days >= 0)',
+            customer_table
+        );
     END IF;
 END $$;
 
@@ -107,4 +115,3 @@ END $$;
 -- FOR UPDATE
 -- USING (auth.uid() = user_id)
 -- WITH CHECK (auth.uid() = user_id);
-

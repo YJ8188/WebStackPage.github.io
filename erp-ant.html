@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="assets/css/fonts/fontawesome/css/font-awesome.min.css">
 
     <!-- Ant Design Style Clone -->
-    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260218-72">
+    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260218-73">
 
     <script>
         (function () {
@@ -858,7 +858,7 @@
                     <div id="financeView" class="module-view">
                         <div class="content-card">
                             <div class="erp-module-section-title">财务筛选</div>
-                            <div class="table-page-search-wrapper erp-block-card erp-block-filter erp-filter-one-line">
+                            <div class="table-page-search-wrapper erp-block-card erp-block-filter erp-filter-one-line erp-filter-finance">
                                 <div class="search-form">
                                     <div class="search-item">
                                         <label class="search-label">日期:</label>
@@ -903,7 +903,7 @@
                                             <option value="unlinked">仅未关联</option>
                                         </select>
                                     </div>
-                                    <div class="search-item">
+                                    <div class="search-item erp-search-item-amount">
                                         <label class="search-label">金额区间:</label>
                                         <div class="erp-finance-amount-range">
                                             <input type="number" id="financeAmountMin" class="ant-input" placeholder="最小金额" step="0.01" min="0" oninput="searchFinances()">

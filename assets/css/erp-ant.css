@@ -1995,6 +1995,36 @@ select.ant-select option {
     min-width: 0;
 }
 
+.table-page-search-wrapper.erp-filter-one-line.erp-filter-finance .search-form {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.table-page-search-wrapper.erp-filter-one-line.erp-filter-finance .search-item {
+    grid-template-columns: 72px minmax(0, 1fr);
+}
+
+.table-page-search-wrapper.erp-filter-one-line.erp-filter-finance .search-item.erp-search-item-amount {
+    grid-column: span 2;
+    min-width: 0;
+}
+
+.table-page-search-wrapper.erp-filter-one-line.erp-filter-finance .erp-finance-amount-range {
+    display: grid;
+    grid-template-columns: minmax(130px, 1fr) auto minmax(130px, 1fr);
+    gap: 6px;
+}
+
+.table-page-search-wrapper.erp-filter-one-line.erp-filter-finance .search-item.search-item-actions {
+    grid-column: span 2;
+}
+
+@media (max-width: 1360px) {
+    .table-page-search-wrapper.erp-filter-one-line.erp-filter-finance .search-item.erp-search-item-amount,
+    .table-page-search-wrapper.erp-filter-one-line.erp-filter-finance .search-item.search-item-actions {
+        grid-column: span 1;
+    }
+}
+
 .erp-finance-quick-range {
     margin-top: 12px;
     padding-top: 10px;

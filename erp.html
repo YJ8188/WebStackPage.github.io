@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="assets/css/fonts/fontawesome/css/font-awesome.min.css">
 
     <!-- Ant Design Style Clone -->
-    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260218-64">
+    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260218-65">
 
     <script>
         (function () {
@@ -1172,90 +1172,97 @@
 
                     <div class="erp-form-section">
                         <div class="erp-form-section-title">履约信息</div>
-                    <div class="form-group erp-form-grid-2">
-                        <div class="erp-form-col">
-                            <label>状态</label>
-                            <select id="orderStatus" class="ant-select" style="width: 100%;">
-                                <option value="pending">待处理</option>
-                                <option value="processing">处理中</option>
-                                <option value="completed">已完成</option>
-                                <option value="cancelled">已取消</option>
-                            </select>
+                    <div class="erp-order-fulfillment-grid">
+                        <div class="erp-order-fulfillment-col">
+                            <div class="form-group erp-form-grid-2">
+                                <div class="erp-form-col">
+                                    <label>状态</label>
+                                    <select id="orderStatus" class="ant-select" style="width: 100%;">
+                                        <option value="pending">待处理</option>
+                                        <option value="processing">处理中</option>
+                                        <option value="completed">已完成</option>
+                                        <option value="cancelled">已取消</option>
+                                    </select>
+                                </div>
+                                <div class="erp-form-col">
+                                    <label>支付状态</label>
+                                    <select id="orderPaymentStatus" class="ant-select" style="width: 100%;">
+                                        <option value="unpaid">未支付</option>
+                                        <option value="partial">部分支付</option>
+                                        <option value="paid">已支付</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>快递公司</label>
+                                <select id="orderShippingCompany" class="ant-select" style="width: 100%;" onchange="toggleOtherShippingCompany()">
+                                    <option value="">请选择快递公司</option>
+                                    <option value="顺丰速运">顺丰速运</option>
+                                    <option value="申通快递">申通快递</option>
+                                    <option value="圆通速递">圆通速递</option>
+                                    <option value="中通快递">中通快递</option>
+                                    <option value="韵达速递">韵达速递</option>
+                                    <option value="邮政EMS">邮政EMS</option>
+                                    <option value="京东物流">京东物流</option>
+                                    <option value="德邦快递">德邦快递</option>
+                                    <option value="极兔速递">极兔速递</option>
+                                    <option value="跨越速运">跨越速运</option>
+                                    <option value="百世快递">百世快递</option>
+                                    <option value="宅急送">宅急送</option>
+                                    <option value="安能快递">安能快递</option>
+                                    <option value="优速快递">优速快递</option>
+                                    <option value="如风达">如风达</option>
+                                    <option value="国通快递">国通快递</option>
+                                    <option value="加运美">加运美</option>
+                                    <option value="速尔快递">速尔快递</option>
+                                    <option value="远成物流">远成物流</option>
+                                    <option value="品骏快递">品骏快递</option>
+                                    <option value="苏宁物流">苏宁物流</option>
+                                    <option value="佳吉快运">佳吉快运</option>
+                                    <option value="中铁快运">中铁快运</option>
+                                    <option value="天地华宇">天地华宇</option>
+                                    <option value="壹米滴答">壹米滴答</option>
+                                    <option value="顺心捷达">顺心捷达</option>
+                                    <option value="丰网速运">丰网速运</option>
+                                    <option value="众邮快递">众邮快递</option>
+                                    <option value="哪吒速运">哪吒速运</option>
+                                    <option value="快弟来了">快弟来了</option>
+                                    <option value="菜鸟驿站">菜鸟驿站</option>
+                                    <option value="其他">其他（手动输入）</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group" id="otherShippingCompanyGroup" style="display: none;">
+                                <label>其他快递公司</label>
+                                <input type="text" id="orderOtherShippingCompany" class="ant-input" placeholder="请输入快递公司名称">
+                            </div>
                         </div>
-                        <div class="erp-form-col">
-                            <label>支付状态</label>
-                            <select id="orderPaymentStatus" class="ant-select" style="width: 100%;">
-                                <option value="unpaid">未支付</option>
-                                <option value="partial">部分支付</option>
-                                <option value="paid">已支付</option>
-                            </select>
+
+                        <div class="erp-order-fulfillment-col">
+                            <div class="form-group">
+                                <label>快递单号</label>
+                                <input type="text" id="orderTrackingNumber" class="ant-input" placeholder="请输入快递单号">
+                            </div>
+
+                            <div class="form-group erp-form-grid-2">
+                                <div class="erp-form-col">
+                                    <label>发货状态</label>
+                                    <select id="orderShippingStatus" class="ant-select" style="width: 100%;">
+                                        <option value="not_shipped">未发货</option>
+                                        <option value="shipped">已发货</option>
+                                        <option value="in_transit">运输中</option>
+                                        <option value="delivered">已签收</option>
+                                        <option value="rejected">已拒收</option>
+                                        <option value="returned">已退货</option>
+                                    </select>
+                                </div>
+                                <div class="erp-form-col">
+                                    <label>订单备注</label>
+                                    <textarea id="orderNotes" class="ant-input" placeholder="订单备注" rows="2"></textarea>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>快递公司</label>
-                        <select id="orderShippingCompany" class="ant-select" style="width: 100%;" onchange="toggleOtherShippingCompany()">
-                            <option value="">请选择快递公司</option>
-                            <option value="顺丰速运">顺丰速运</option>
-                            <option value="申通快递">申通快递</option>
-                            <option value="圆通速递">圆通速递</option>
-                            <option value="中通快递">中通快递</option>
-                            <option value="韵达速递">韵达速递</option>
-                            <option value="邮政EMS">邮政EMS</option>
-                            <option value="京东物流">京东物流</option>
-                            <option value="德邦快递">德邦快递</option>
-                            <option value="极兔速递">极兔速递</option>
-                            <option value="跨越速运">跨越速运</option>
-                            <option value="百世快递">百世快递</option>
-                            <option value="宅急送">宅急送</option>
-                            <option value="安能快递">安能快递</option>
-                            <option value="优速快递">优速快递</option>
-                            <option value="如风达">如风达</option>
-                            <option value="国通快递">国通快递</option>
-                            <option value="加运美">加运美</option>
-                            <option value="速尔快递">速尔快递</option>
-                            <option value="远成物流">远成物流</option>
-                            <option value="品骏快递">品骏快递</option>
-                            <option value="苏宁物流">苏宁物流</option>
-                            <option value="佳吉快运">佳吉快运</option>
-                            <option value="中铁快运">中铁快运</option>
-                            <option value="天地华宇">天地华宇</option>
-                            <option value="壹米滴答">壹米滴答</option>
-                            <option value="顺心捷达">顺心捷达</option>
-                            <option value="丰网速运">丰网速运</option>
-                            <option value="众邮快递">众邮快递</option>
-                            <option value="哪吒速运">哪吒速运</option>
-                            <option value="快弟来了">快弟来了</option>
-                            <option value="菜鸟驿站">菜鸟驿站</option>
-                            <option value="其他">其他（手动输入）</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group" id="otherShippingCompanyGroup" style="display: none;">
-                        <label>其他快递公司</label>
-                        <input type="text" id="orderOtherShippingCompany" class="ant-input" placeholder="请输入快递公司名称">
-                    </div>
-
-                    <div class="form-group">
-                        <label>快递单号</label>
-                        <input type="text" id="orderTrackingNumber" class="ant-input" placeholder="请输入快递单号">
-                    </div>
-
-                    <div class="form-group">
-                        <label>发货状态</label>
-                        <select id="orderShippingStatus" class="ant-select" style="width: 100%;">
-                            <option value="not_shipped">未发货</option>
-                            <option value="shipped">已发货</option>
-                            <option value="in_transit">运输中</option>
-                            <option value="delivered">已签收</option>
-                            <option value="rejected">已拒收</option>
-                              <option value="returned">已退货</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>订单备注</label>
-                        <textarea id="orderNotes" class="ant-input" placeholder="订单备注" rows="2"></textarea>
                     </div>
                     </div>
                 </form>

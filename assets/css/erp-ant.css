@@ -1159,6 +1159,20 @@ select.ant-select option {
     color: #cf1322;
 }
 
+.erp-order-fulfillment-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.erp-order-fulfillment-col {
+    min-width: 0;
+}
+
+.erp-order-fulfillment-col .form-group:last-child {
+    margin-bottom: 0;
+}
+
 .erp-order-modal-summary {
     margin-bottom: 10px;
     padding: 10px;
@@ -1262,6 +1276,10 @@ select.ant-select option {
     }
 
     .erp-order-modal-summary-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .erp-order-fulfillment-grid {
         grid-template-columns: 1fr;
     }
 }

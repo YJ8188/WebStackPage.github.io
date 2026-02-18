@@ -39,7 +39,8 @@ const ERP = {
     runtime: {
         initPromise: null,
         initializedUserId: null,
-        auditLogDisabled: false
+        auditLogDisabled: false,
+        orderMutationInProgress: false
     },
 
     orderStatusMeta: {
@@ -1404,6 +1405,7 @@ const ERP = {
     },
 
     async addOrder(orderData) {
+        this.runtime.orderMutationInProgress = true;
         try {
             // 生成订单号
             const { data: orderNumData, error: orderNumError } = await supabaseClient
@@ -1489,19 +1491,10 @@ const ERP = {
                 };
             });
 
-            const { data: itemsDataRaw, error: itemsError } = await supabaseClient
-                .from('erp_order_items')
-                .insert(orderItems)
-                .select();
-
-            if (itemsError) {
-                console.error('[ERP] 订单明细写入失败，继续执行后处理:', itemsError);
-            }
-
-            const itemsData = itemsDataRaw || [];
+            const localItems = orderItems.map(item => ({ ...item }));
 
             // 先返回订单创建结果，减少用户等待体感
-            order.items = itemsData;
+            order.items = localItems;
             this.state.orders.unshift(order);
             this.emitEvent('erpOrderChanged', { orderId: order.id, action: 'created' });
             this.logAudit({
@@ -1525,19 +1518,41 @@ const ERP = {
                 }
             });
 
-            // 库存/财务后处理改为异步执行，完成后会通过事件刷新页面
-            this.postProcessOrder(order, orderData.items, {
+            const persistItemsTask = (async () => {
+                const { error: itemsError } = await supabaseClient
+                    .from('erp_order_items')
+                    .insert(orderItems);
+                if (itemsError) {
+                    throw itemsError;
+                }
+                return true;
+            })();
+
+            const postProcessTask = this.postProcessOrder(order, orderData.items, {
                 orderNumber,
                 totalAmount,
                 totalCost,
                 netProfit
             }, {
                 customerName: orderData.customer_name || ''
-            }).catch(error => {
-                console.error('[ERP] 订单后处理失败:', error);
-                if (typeof showToast === 'function') {
-                    showToast('订单已保存，库存/财务同步稍后自动重试', 'warning');
+            });
+
+            Promise.allSettled([persistItemsTask, postProcessTask]).then((results) => {
+                const [itemsResult, processResult] = results;
+                if (itemsResult.status === 'rejected') {
+                    console.error('[ERP] 订单明细写入失败，稍后可在订单详情重试:', itemsResult.reason);
+                    if (typeof showToast === 'function') {
+                        showToast('订单明细同步稍慢，系统将自动重试', 'warning');
+                    }
                 }
+                if (processResult.status === 'rejected') {
+                    console.error('[ERP] 订单后处理失败:', processResult.reason);
+                    if (typeof showToast === 'function') {
+                        showToast('订单已保存，库存/财务同步稍后自动重试', 'warning');
+                    }
+                }
+            }).catch((backgroundError) => {
+                console.error('[ERP] 订单后台任务异常:', backgroundError);
             });
 
             if (typeof showToast === 'function') {
@@ -1552,6 +1567,8 @@ const ERP = {
                 showToast('创建订单失败: ' + error.message, 'error');
             }
             return null;
+        } finally {
+            this.runtime.orderMutationInProgress = false;
         }
     },
 

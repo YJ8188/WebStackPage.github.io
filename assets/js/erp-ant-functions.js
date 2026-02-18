@@ -1697,6 +1697,10 @@ async function syncERPRealtimeData() {
         return;
     }
 
+    if (ERP?.runtime?.orderMutationInProgress) {
+        return;
+    }
+
     erpRealtimeSyncInProgress = true;
     try {
         await Promise.all([
@@ -3104,16 +3108,6 @@ async function saveOrder() {
                 // 直接使用本地状态刷新，避免额外全量查询导致卡顿
                 searchOrders();
                 updateStatistics();
-
-                if (ERP.config.currentModule === 'finance') {
-                    const finances = await ERP.loadFinances(true);
-                    syncFinanceViewRows(finances, 'all');
-                    renderFinances(finances);
-                }
-                
-                if (typeof showToast === 'function') {
-                    showToast('订单保存成功', 'success');
-                }
             }
         }
 
@@ -3124,16 +3118,6 @@ async function saveOrder() {
             // 直接使用本地状态刷新，减少等待
             searchOrders();
             updateStatistics();
-
-            if (ERP.config.currentModule === 'finance') {
-                const finances = await ERP.loadFinances(true);
-                syncFinanceViewRows(finances, 'all');
-                renderFinances(finances);
-            }
-            
-            if (typeof showToast === 'function') {
-                showToast('订单更新成功', 'success');
-            }
         }
     } catch (error) {
         console.error('[ERP Ant] 保存订单失败:', error);
@@ -9056,27 +9040,33 @@ if (typeof window !== 'undefined') {
         await refreshLowStockFromLatestData('inventory-changed');
     });
 
-    window.addEventListener('erpOrderPostProcessed', async function () {
+    window.addEventListener('erpOrderPostProcessed', async function (event) {
         if (typeof ERP === 'undefined') {
             return;
         }
 
-        ERP.state.loaded.orders = false;
         resetDashboardItemCache();
-        await ERP.loadOrders(true);
-        searchOrders();
-        updateStatistics();
+        if (ERP.config.currentModule === 'orders') {
+            searchOrders();
+        }
+        updateStatistics(event?.detail || {});
     });
 
-    window.addEventListener('erpOrderChanged', async function () {
+    window.addEventListener('erpOrderChanged', async function (event) {
         if (typeof ERP === 'undefined') {
             return;
         }
 
+        const action = String(event?.detail?.action || '').trim();
+        const useLocalStateActions = new Set(['created', 'deleted', 'status-updated', 'payment-settled', 'updated']);
+
         resetDashboardItemCache();
-        await ERP.loadOrders(true);
+        if (!useLocalStateActions.has(action)) {
+            ERP.state.loaded.orders = false;
+            await ERP.loadOrders(true);
+        }
         searchOrders();
-        updateStatistics();
+        updateStatistics(event?.detail || {});
     });
 
     window.addEventListener('beforeunload', stopERPRealtimeSync);

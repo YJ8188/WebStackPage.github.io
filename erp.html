@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="assets/css/fonts/fontawesome/css/font-awesome.min.css">
 
     <!-- Ant Design Style Clone -->
-    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260218-70">
+    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260218-71">
 
     <script>
         (function () {
@@ -442,7 +442,7 @@
                     <div id="ordersView" class="module-view">
                         <div class="content-card">
                             <div class="erp-module-section-title">订单筛选</div>
-                            <div class="table-page-search-wrapper erp-block-card erp-block-filter">
+                            <div class="table-page-search-wrapper erp-block-card erp-block-filter erp-filter-one-line">
                                 <div class="search-form">
                                     <div class="search-item">
                                         <label class="search-label">订单搜索:</label>
@@ -662,7 +662,7 @@
                     <div id="financeView" class="module-view">
                         <div class="content-card">
                             <div class="erp-module-section-title">财务筛选</div>
-                            <div class="table-page-search-wrapper erp-block-card erp-block-filter">
+                            <div class="table-page-search-wrapper erp-block-card erp-block-filter erp-filter-one-line">
                                 <div class="search-form">
                                     <div class="search-item">
                                         <label class="search-label">日期:</label>
@@ -716,7 +716,8 @@
                                         </div>
                                     </div>
                                     <div class="search-item search-item-actions">
-                                        <button class="ant-btn" type="button" onclick="resetFinanceFilters()">重置筛选</button>
+                                        <button class="ant-btn ant-btn-primary" type="button" onclick="searchFinances()">查询</button>
+                                        <button class="ant-btn" type="button" onclick="resetFinanceFilters()">重置</button>
                                     </div>
                                 </div>
                                 <div class="erp-finance-quick-range">
@@ -2955,5 +2956,3 @@
 </body>
 
 </html>
-
-

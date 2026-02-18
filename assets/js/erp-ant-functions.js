@@ -6129,20 +6129,49 @@ async function renderDashboardTopProducts() {
         })
         .slice(0, 8);
 
-    const rankRowsHtml = ranked.map((item, index) => `
-        <div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed #f0f0f0;">
-            <div style="font-size:12px;color:#262626;">${index + 1}. ${item.productName}</div>
-            <div style="font-size:12px;color:#595959;">销量 ${item.quantity} / ${formatCurrency(item.revenue)}</div>
-        </div>
-    `).join('');
+    const totalQuantity = ranked.reduce((sum, item) => sum + Number(item?.quantity || 0), 0);
+    const totalRevenue = ranked.reduce((sum, item) => sum + Number(item?.revenue || 0), 0);
+    const maxQuantity = Math.max(1, ...ranked.map(item => Number(item?.quantity || 0)));
+
+    const rankRowsHtml = ranked.map((item, index) => {
+        const quantity = Number(item?.quantity || 0);
+        const widthPercent = Math.max(6, Math.round((quantity / maxQuantity) * 100));
+        return `
+            <div class="erp-dashboard-bar-row">
+                <span class="erp-dashboard-bar-label">${index + 1}. ${item.productName}</span>
+                <div class="erp-dashboard-bar-track">
+                    <div class="erp-dashboard-bar-fill" style="width:${widthPercent}%;background:#1677ff;"></div>
+                </div>
+                <span class="erp-dashboard-bar-value">${quantity} 件</span>
+            </div>
+        `;
+    }).join('');
 
     container.innerHTML = `
-        <div style="flex:1;min-width:320px;padding:12px 14px;border:1px solid #b7eb8f;border-radius:8px;background:#f6ffed;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <div style="font-size:14px;font-weight:600;color:#237804;">热销商品排行</div>
-                <div style="font-size:12px;color:#8c8c8c;">有效订单 ${validOrders.length} 笔</div>
+        <div class="erp-dashboard-chart-card">
+            <div class="erp-dashboard-chart-header">
+                <div class="erp-dashboard-chart-title">产品销量分布</div>
+                <div class="erp-dashboard-chart-subtitle">有效订单 ${validOrders.length} 笔</div>
             </div>
-            ${rankRowsHtml || '<div style="font-size:12px;color:#8c8c8c;">暂无订单商品数据</div>'}
+            <div class="erp-dashboard-chart-body">
+                <div class="erp-dashboard-kpi-stack">
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">TOP商品数</div>
+                        <div class="erp-dashboard-kpi-value">${ranked.length}</div>
+                    </div>
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">TOP销量总计</div>
+                        <div class="erp-dashboard-kpi-value is-success">${totalQuantity}</div>
+                    </div>
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">TOP销售额</div>
+                        <div class="erp-dashboard-kpi-value">${formatCurrency(totalRevenue)}</div>
+                    </div>
+                </div>
+                <div class="erp-dashboard-bar-list">
+                    ${rankRowsHtml || '<div class="erp-dashboard-chart-subtitle">暂无订单商品数据</div>'}
+                </div>
+            </div>
         </div>
     `;
 }
@@ -6217,28 +6246,59 @@ async function renderDashboardProfitProducts() {
     const itemRows = await loadDashboardOrderItems(validOrders);
     const ranking = buildProductProfitRanking(itemRows, products).slice(0, 8);
     const totalProfit = ranking.reduce((sum, item) => sum + Number(item?.profit || 0), 0);
+    const widthBase = Math.max(...ranking.map(row => Math.abs(Number(row?.profit || 0))), 1);
 
     const rowsHtml = ranking.map((item, index) => {
         const margin = item.revenue > 0 ? ((item.profit / item.revenue) * 100) : 0;
-        const positive = item.profit >= 0;
+        const profit = Number(item?.profit || 0);
+        const widthPercent = Math.max(6, Math.round((Math.abs(profit) / widthBase) * 100));
+        const color = profit >= 0 ? '#13c2c2' : '#f5222d';
         return `
-            <div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed #f0f0f0;">
-                <div style="font-size:12px;color:#262626;">${index + 1}. ${item.productName}</div>
-                <div style="text-align:right;font-size:12px;color:${positive ? '#237804' : '#d46b08'};">
-                    <div>利润 ${formatCurrency(item.profit)}</div>
-                    <div style="color:#8c8c8c;">毛利率 ${margin.toFixed(1)}%</div>
+            <div class="erp-dashboard-bar-row">
+                <span class="erp-dashboard-bar-label">${index + 1}. ${item.productName}</span>
+                <div class="erp-dashboard-bar-track">
+                    <div class="erp-dashboard-bar-fill" style="width:${widthPercent}%;background:${color};"></div>
                 </div>
+                <span class="erp-dashboard-bar-value">利润 ${formatCurrency(item.profit)} / ${margin.toFixed(1)}%</span>
             </div>
         `;
     }).join('');
 
+    const positiveCount = ranking.filter(item => Number(item?.profit || 0) >= 0).length;
+    const avgMargin = ranking.length > 0
+        ? ranking.reduce((sum, item) => {
+            const revenue = Number(item?.revenue || 0);
+            const profit = Number(item?.profit || 0);
+            const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
+            return sum + margin;
+        }, 0) / ranking.length
+        : 0;
+
     container.innerHTML = `
-        <div style="flex:1;min-width:320px;padding:12px 14px;border:1px solid #d9f7be;border-radius:8px;background:#f6ffed;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <div style="font-size:14px;font-weight:600;color:#237804;">商品利润排行</div>
-                <div style="font-size:12px;color:#8c8c8c;">TOP利润 ${formatCurrency(totalProfit)}</div>
+        <div class="erp-dashboard-chart-card">
+            <div class="erp-dashboard-chart-header">
+                <div class="erp-dashboard-chart-title">产品销售金额分布</div>
+                <div class="erp-dashboard-chart-subtitle">TOP利润 ${formatCurrency(totalProfit)}</div>
             </div>
-            ${rowsHtml || '<div style="font-size:12px;color:#8c8c8c;">暂无可计算利润数据</div>'}
+            <div class="erp-dashboard-chart-body">
+                <div class="erp-dashboard-kpi-stack">
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">TOP商品数</div>
+                        <div class="erp-dashboard-kpi-value">${ranking.length}</div>
+                    </div>
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">盈利商品</div>
+                        <div class="erp-dashboard-kpi-value is-success">${positiveCount}</div>
+                    </div>
+                    <div class="erp-dashboard-kpi-box">
+                        <div class="erp-dashboard-kpi-label">平均毛利率</div>
+                        <div class="erp-dashboard-kpi-value ${avgMargin >= 0 ? 'is-success' : 'is-danger'}">${avgMargin.toFixed(1)}%</div>
+                    </div>
+                </div>
+                <div class="erp-dashboard-bar-list">
+                    ${rowsHtml || '<div class="erp-dashboard-chart-subtitle">暂无可计算利润数据</div>'}
+                </div>
+            </div>
         </div>
     `;
 }

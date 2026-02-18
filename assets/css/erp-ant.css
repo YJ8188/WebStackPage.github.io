@@ -1117,6 +1117,32 @@ select.ant-select option {
     padding: 10px !important;
 }
 
+.erp-order-items-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.erp-order-items-header label {
+    margin-bottom: 0 !important;
+}
+
+.erp-order-add-item-btn {
+    min-width: 108px;
+    border-style: dashed !important;
+    border-color: #91caff !important;
+    color: #0958d9 !important;
+    background: #f0f7ff !important;
+}
+
+.erp-order-add-item-btn:hover {
+    border-color: #69b1ff !important;
+    color: #1677ff !important;
+    background: #e6f4ff !important;
+}
+
 .erp-modal-form #orderRiskPanel {
     border-color: #dbeafe !important;
     background: #f8fbff !important;
@@ -1281,6 +1307,11 @@ select.ant-select option {
 
     .erp-order-fulfillment-grid {
         grid-template-columns: 1fr;
+    }
+
+    .erp-order-items-header {
+        flex-direction: column;
+        align-items: stretch;
     }
 }
 

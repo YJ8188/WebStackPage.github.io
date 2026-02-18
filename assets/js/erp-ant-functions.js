@@ -431,6 +431,26 @@ function toggleFinanceColumnSettings(forceVisible = null) {
     }
 }
 
+function toggleFinanceMoreActions(forceVisible = null) {
+    const panel = document.getElementById('financeMoreActionsPanel');
+    const button = document.getElementById('financeMoreActionsBtn');
+    if (!panel) {
+        return;
+    }
+
+    const shouldShow = typeof forceVisible === 'boolean'
+        ? forceVisible
+        : panel.classList.contains('hidden');
+    panel.classList.toggle('hidden', !shouldShow);
+
+    if (button) {
+        button.classList.toggle('is-open', shouldShow);
+        button.innerHTML = shouldShow
+            ? '<i class="fa fa-angle-up"></i> 收起操作'
+            : '<i class="fa fa-sliders"></i> 更多操作';
+    }
+}
+
 function syncFinanceSelectionVisibleRows(rows = []) {
     financeSelectionState.visibleIds = (Array.isArray(rows) ? rows : [])
         .map(item => normalizeFinanceRowId(item?.id))
@@ -5798,6 +5818,7 @@ function initFinanceFilters() {
     }
 
     updateFinanceQuickRangeButtons();
+    toggleFinanceMoreActions(false);
     syncFinanceMonthlyTargetInput();
     syncFinanceViewRows(Array.isArray(ERP.state?.finances) ? ERP.state.finances : [], 'all');
     applyFinanceFilters();

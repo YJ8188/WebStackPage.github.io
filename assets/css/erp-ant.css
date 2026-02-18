@@ -1834,6 +1834,49 @@ select.ant-select option {
     margin-right: 0;
 }
 
+.erp-finance-toolbar {
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.erp-finance-toolbar-main {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.erp-finance-toolbar-inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.erp-finance-more-actions {
+    margin: 0 0 14px;
+    padding: 10px 12px;
+    border: 1px dashed #dbe3ef;
+    border-radius: 10px;
+    background: #f8fafc;
+}
+
+.erp-finance-more-actions.hidden {
+    display: none;
+}
+
+.erp-finance-more-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+#financeMoreActionsBtn.is-open {
+    color: #1677ff;
+    border-color: #91caff;
+    background: #e6f4ff;
+}
+
 .erp-compact-input {
     width: 138px !important;
 }

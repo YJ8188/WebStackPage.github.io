@@ -854,12 +854,20 @@ select.ant-select option {
     width: 560px;
 }
 
+.erp-modal.erp-modal-sm {
+    width: 500px;
+}
+
 .erp-modal.erp-modal-lg {
     width: 680px;
 }
 
 .erp-modal.erp-modal-xl {
     width: min(860px, 96vw);
+}
+
+.erp-modal.erp-modal-xxl {
+    width: min(980px, 96vw);
 }
 
 @keyframes zoomIn {
@@ -941,6 +949,14 @@ select.ant-select option {
     padding: 10px 14px;
 }
 
+.erp-history-modal .modal-body {
+    padding: 12px 14px;
+}
+
+.erp-header-modal .modal-body {
+    padding: 12px 14px;
+}
+
 .modal-footer button+button {
     margin-left: 8px;
     margin-bottom: 0;
@@ -1003,6 +1019,105 @@ select.ant-select option {
     background: #1677ff !important;
     color: #fff !important;
     border-color: #1677ff !important;
+}
+
+.erp-header-search-result {
+    margin-top: 8px;
+}
+
+.erp-header-empty-text {
+    margin: 0;
+    color: #64748b;
+    font-size: 13px;
+}
+
+.erp-history-toolbar {
+    margin-bottom: 12px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+}
+
+.erp-history-toolbar .search-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    grid-template-columns: none;
+}
+
+.erp-history-toolbar .search-item .search-label {
+    margin: 0;
+}
+
+.erp-history-input {
+    min-width: 220px;
+}
+
+.erp-history-meta {
+    margin-bottom: 12px;
+    color: #64748b;
+    font-size: 12px;
+}
+
+.erp-history-loading,
+.erp-history-empty {
+    padding: 16px 0;
+    color: #64748b;
+}
+
+.erp-history-error {
+    padding: 16px 0;
+    color: #cf1322;
+}
+
+.erp-history-summary-grid {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.erp-history-summary-card {
+    min-width: 180px;
+    padding: 10px 12px;
+    border: 1px solid #d6e4ff;
+    border-radius: 10px;
+    background: #f0f5ff;
+}
+
+.erp-history-summary-card.is-warning {
+    border-color: #ffd6e7;
+    background: #fff1f8;
+}
+
+.erp-history-summary-label {
+    font-size: 12px;
+    color: #8c8c8c;
+}
+
+.erp-history-summary-value {
+    margin-top: 2px;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.erp-history-summary-value.is-paid {
+    color: #1d39c4;
+}
+
+.erp-history-summary-value.is-payable {
+    color: #cf1322;
+}
+
+.erp-history-table {
+    border-color: #dbe3ef;
+}
+
+.erp-history-empty-cell {
+    text-align: center;
+    color: #999;
+    padding: 16px;
 }
 
 /* Secondary Button (Cancel) */

@@ -3609,12 +3609,12 @@ function renderOrderApprovalHistoryModal(order, records = [], options = {}) {
     }
 
     if (loading || orderApprovalHistoryState.loading) {
-        body.innerHTML = '<div style="padding:16px 0;color:#64748b;">审批记录加载中...</div>';
+        body.innerHTML = '<div class="erp-history-loading">审批记录加载中...</div>';
         return;
     }
 
     if (errorMessage || orderApprovalHistoryState.errorMessage) {
-        body.innerHTML = `<div style="padding:16px 0;color:#cf1322;">${escapeHtmlText(errorMessage || orderApprovalHistoryState.errorMessage)}</div>`;
+        body.innerHTML = `<div class="erp-history-error">${escapeHtmlText(errorMessage || orderApprovalHistoryState.errorMessage)}</div>`;
         return;
     }
 
@@ -3633,19 +3633,19 @@ function renderOrderApprovalHistoryModal(order, records = [], options = {}) {
         const timeText = escapeHtmlText(formatOrderApprovalDateTime(item?.createdAt));
         return `
             <tr>
-                <td>${indexText}</td>
-                <td>${actionText}</td>
+                <td class="erp-cell-nowrap">${indexText}</td>
+                <td class="erp-cell-nowrap">${actionText}</td>
                 <td>${fromText} → ${toText}</td>
-                <td>${operatorText}</td>
-                <td title="${remarkText}">${remarkText}</td>
-                <td>${timeText}</td>
+                <td class="erp-cell-nowrap">${operatorText}</td>
+                <td title="${remarkText}"><span class="erp-cell-ellipsis">${remarkText}</span></td>
+                <td class="erp-cell-nowrap">${timeText}</td>
             </tr>
         `;
     }).join('');
 
     const tableContent = filteredRecords.length > 0
         ? `
-            <div class="ant-table-wrapper">
+            <div class="ant-table-wrapper erp-block-card erp-history-table">
                 <div class="ant-table">
                     <table>
                         <thead class="ant-table-thead">
@@ -3665,13 +3665,13 @@ function renderOrderApprovalHistoryModal(order, records = [], options = {}) {
                 </div>
             </div>
         `
-        : '<div style="padding:16px 0;color:#64748b;">当前筛选条件下暂无审批记录</div>';
+        : '<div class="erp-history-empty">当前筛选条件下暂无审批记录</div>';
 
     body.innerHTML = `
-        <div class="search-form" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+        <div class="search-form erp-history-toolbar">
             <div class="search-item">
                 <label class="search-label">筛选关键词:</label>
-                <input type="text" id="orderApprovalHistorySearch" class="ant-input" style="min-width:220px;"
+                <input type="text" id="orderApprovalHistorySearch" class="ant-input erp-history-input"
                     placeholder="动作/状态/操作人/备注"
                     value="${escapeHtmlText(keyword)}"
                     oninput="onOrderApprovalHistoryFilterChange()">
@@ -3687,15 +3687,15 @@ function renderOrderApprovalHistoryModal(order, records = [], options = {}) {
             </div>
             <div class="search-item">
                 <button class="ant-btn ant-btn-primary" onclick="onOrderApprovalHistoryFilterChange()">筛选</button>
-                <button class="ant-btn" onclick="resetOrderApprovalHistoryFilters()" style="margin-left:8px;">重置</button>
+                <button class="ant-btn" onclick="resetOrderApprovalHistoryFilters()">重置</button>
             </div>
             <div class="search-item">
-                <button class="ant-btn" onclick="exportOrderApprovalHistoryCsv()" style="color:#1677ff;border-color:#91caff;">
+                <button class="ant-btn erp-btn-blue" onclick="exportOrderApprovalHistoryCsv()">
                     导出审批CSV
                 </button>
             </div>
         </div>
-        <div style="margin-bottom:12px;color:#64748b;font-size:12px;">
+        <div class="erp-history-meta">
             共 ${orderApprovalHistoryState.records.length} 条记录，当前显示 ${filteredRecords.length} 条
         </div>
         ${tableContent}
@@ -3827,27 +3827,27 @@ function renderPayablePaymentHistoryModal(finance, paymentRows, relatedRows) {
                 const date = parseFinanceDate(item?.transaction_date);
                 return `
                     <tr>
-                        <td>${date ? date.toLocaleString('zh-CN') : '-'}</td>
-                        <td>${formatCurrency(Math.abs(Number(item?.amount || 0)))}</td>
-                        <td>${escapeHtmlText(item?.description || '-')}</td>
-                        <td>${item?.id || '-'}</td>
+                        <td class="erp-cell-nowrap">${date ? date.toLocaleString('zh-CN') : '-'}</td>
+                        <td><span class="erp-amount-text is-expense">${formatCurrency(Math.abs(Number(item?.amount || 0)))}</span></td>
+                        <td><span class="erp-cell-ellipsis">${escapeHtmlText(item?.description || '-')}</span></td>
+                        <td class="erp-cell-nowrap">${item?.id || '-'}</td>
                     </tr>
                 `;
             }).join('')
-        : '<tr><td colspan="4" style="text-align:center;color:#999;padding:16px;">暂无付款记录</td></tr>';
+        : '<tr><td colspan="4" class="erp-history-empty-cell">暂无付款记录</td></tr>';
 
     bodyEl.innerHTML = `
-        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
-            <div style="padding:10px 12px;border:1px solid #d6e4ff;border-radius:8px;background:#f0f5ff;min-width:180px;">
-                <div style="font-size:12px;color:#8c8c8c;">累计已付款</div>
-                <div style="font-size:18px;font-weight:600;color:#1d39c4;">${formatCurrency(totalPaid)}</div>
+        <div class="erp-history-summary-grid">
+            <div class="erp-history-summary-card">
+                <div class="erp-history-summary-label">累计已付款</div>
+                <div class="erp-history-summary-value is-paid">${formatCurrency(totalPaid)}</div>
             </div>
-            <div style="padding:10px 12px;border:1px solid #ffd6e7;border-radius:8px;background:#fff1f8;min-width:180px;">
-                <div style="font-size:12px;color:#8c8c8c;">当前剩余应付</div>
-                <div style="font-size:18px;font-weight:600;color:#cf1322;">${formatCurrency(remainingAmount)}</div>
+            <div class="erp-history-summary-card is-warning">
+                <div class="erp-history-summary-label">当前剩余应付</div>
+                <div class="erp-history-summary-value is-payable">${formatCurrency(remainingAmount)}</div>
             </div>
         </div>
-        <div class="ant-table-wrapper">
+        <div class="ant-table-wrapper erp-block-card erp-history-table">
             <div class="ant-table">
                 <table>
                     <thead class="ant-table-thead">

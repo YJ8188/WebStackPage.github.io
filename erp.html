@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="assets/css/fonts/fontawesome/css/font-awesome.min.css">
 
     <!-- Ant Design Style Clone -->
-    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260218-63">
+    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260218-64">
 
     <script>
         (function () {
@@ -863,7 +863,7 @@
             <div class="modal-body">
                 <form id="customerForm" class="erp-modal-form">
                     <input type="hidden" id="customerId">
-                    <div class="erp-form-section">
+                    <div class="erp-form-section erp-section-grid-2">
                         <div class="erp-form-section-title">基础资料</div>
                     <div class="form-group">
                         <label>客户名称 <span class="erp-required-star">*</span></label>
@@ -881,7 +881,7 @@
                         <label>邮箱</label>
                         <input type="email" id="customerEmail" class="ant-input">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group erp-col-span-2">
                         <label>状态</label>
                         <select id="customerStatus" class="ant-select" style="width: 100%;">
                             <option value="active">活跃</option>
@@ -911,7 +911,7 @@
                         <input type="number" id="customerPaymentTermDays" class="ant-input" min="0" step="1" placeholder="如 30">
                     </div>
                     </div>
-                    <div class="erp-form-section">
+                    <div class="erp-form-section erp-section-grid-2">
                         <div class="erp-form-section-title">补充信息</div>
                     <div class="form-group">
                         <label>备注</label>
@@ -983,9 +983,9 @@
             <div class="modal-body">
                 <form id="productForm" class="erp-modal-form">
                     <input type="hidden" id="productId">
-                    <div class="erp-form-section">
+                    <div class="erp-form-section erp-section-grid-2">
                         <div class="erp-form-section-title">基础资料</div>
-                    <div class="form-group">
+                    <div class="form-group erp-col-span-2">
                         <label>产品名称 <span class="erp-required-star">*</span></label>
                         <input type="text" id="productName" class="ant-input" data-validate="required" data-error-message="产品名称不能为空">
                     </div>
@@ -1021,7 +1021,7 @@
                         </div>
                     </div>
                     </div>
-                    <div class="erp-form-section">
+                    <div class="erp-form-section erp-section-grid-2">
                         <div class="erp-form-section-title">单位与状态</div>
                     <div class="form-group">
                         <label>单位</label>

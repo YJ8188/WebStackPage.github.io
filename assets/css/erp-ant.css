@@ -2545,8 +2545,38 @@ select.ant-select option {
 #financeTrendSummary>div:last-child,
 #financeMonthlyProfitChart>div {
     border-radius: 10px !important;
-    max-height: 340px;
-    overflow: auto;
+    max-height: none;
+    overflow: visible;
+}
+
+.erp-finance-monthly-legend {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 8px;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.erp-finance-monthly-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.erp-finance-monthly-legend i {
+    width: 16px;
+    height: 3px;
+    border-radius: 999px;
+    display: inline-block;
+}
+
+.erp-finance-monthly-legend .line i {
+    background: #1677ff;
+}
+
+.erp-finance-monthly-legend .zero i {
+    background: #dbeafe;
 }
 
 @media (max-width: 992px) {

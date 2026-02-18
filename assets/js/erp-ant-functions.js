@@ -1026,6 +1026,21 @@ function formatCurrency(value) {
     return `¥${amount.toFixed(2)}`;
 }
 
+function formatChartAxisCurrency(value) {
+    const amount = Number(value);
+    if (!Number.isFinite(amount)) {
+        return '¥0';
+    }
+    const abs = Math.abs(amount);
+    if (abs >= 10000) {
+        return `¥${(amount / 10000).toFixed(1)}万`;
+    }
+    if (abs >= 1000) {
+        return `¥${Math.round(amount)}`;
+    }
+    return `¥${amount.toFixed(2)}`;
+}
+
 function getCurrentYearMonthText() {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -9380,9 +9395,9 @@ function buildFinanceTrendLineChart(rows = []) {
         const y = (paddingTop + innerHeight * fraction).toFixed(1);
         return `<line x1="${paddingLeft}" y1="${y}" x2="${paddingLeft + innerWidth}" y2="${y}" stroke="#eef2f7" stroke-width="1"></line>`;
     }).join('');
-    const yLabels = [1, 0.5, 0].map(scale => {
+    const yLabels = [1, 0.75, 0.5, 0.25, 0].map(scale => {
         const y = yFor(maxValue * scale).toFixed(1);
-        return `<text x="${paddingLeft - 6}" y="${y}" text-anchor="end" dominant-baseline="middle" fill="#94a3b8" font-size="11">${formatCurrency(maxValue * scale)}</text>`;
+        return `<text x="${paddingLeft - 6}" y="${y}" text-anchor="end" dominant-baseline="middle" fill="#94a3b8" font-size="11">${formatChartAxisCurrency(maxValue * scale)}</text>`;
     }).join('');
 
     const xLabelIndexes = Array.from(new Set([
@@ -9419,6 +9434,89 @@ function buildFinanceTrendLineChart(rows = []) {
                 <polyline points="${expensePoints}" fill="none" stroke="#52c41a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></polyline>
                 <circle cx="${latestIncomeX}" cy="${latestIncomeY}" r="3.5" fill="#f5227b"></circle>
                 <circle cx="${latestIncomeX}" cy="${latestExpenseY}" r="3.5" fill="#52c41a"></circle>
+                ${xLabels}
+            </svg>
+        </div>
+    `;
+}
+
+function buildFinanceMonthlyProfitLineChart(rows = []) {
+    const safeRows = Array.isArray(rows) ? rows : [];
+    if (!safeRows.length) {
+        return '<div style="font-size:12px;color:#999;">暂无数据</div>';
+    }
+
+    const width = 860;
+    const height = 220;
+    const paddingLeft = 48;
+    const paddingRight = 16;
+    const paddingTop = 14;
+    const paddingBottom = 28;
+    const innerWidth = Math.max(1, width - paddingLeft - paddingRight);
+    const innerHeight = Math.max(1, height - paddingTop - paddingBottom);
+    const maxAbs = Math.max(1, ...safeRows.map(item => Math.abs(Number(item?.net || 0))));
+    const chartMax = maxAbs * 1.15;
+    const chartMin = -chartMax;
+    const range = chartMax - chartMin;
+
+    const xFor = index => (
+        paddingLeft + (safeRows.length <= 1 ? (innerWidth / 2) : (index / (safeRows.length - 1)) * innerWidth)
+    );
+    const yFor = value => {
+        const normalized = (Number(value || 0) - chartMin) / range;
+        return paddingTop + (1 - normalized) * innerHeight;
+    };
+
+    const netPoints = safeRows
+        .map((item, index) => `${xFor(index).toFixed(1)},${yFor(item?.net || 0).toFixed(1)}`)
+        .join(' ');
+
+    const zeroY = yFor(0).toFixed(1);
+    const gridFractions = [0, 0.25, 0.5, 0.75, 1];
+    const gridLines = gridFractions.map(fraction => {
+        const y = (paddingTop + innerHeight * fraction).toFixed(1);
+        return `<line x1="${paddingLeft}" y1="${y}" x2="${paddingLeft + innerWidth}" y2="${y}" stroke="#eef2f7" stroke-width="1"></line>`;
+    }).join('');
+    const yTicks = [chartMax, chartMax / 2, 0, chartMin / 2, chartMin];
+    const yLabels = yTicks.map(value => {
+        const y = yFor(value).toFixed(1);
+        return `<text x="${paddingLeft - 6}" y="${y}" text-anchor="end" dominant-baseline="middle" fill="#94a3b8" font-size="11">${formatChartAxisCurrency(value)}</text>`;
+    }).join('');
+
+    const xLabelIndexes = Array.from(new Set([
+        0,
+        Math.max(0, Math.floor((safeRows.length - 1) * 0.25)),
+        Math.max(0, Math.floor((safeRows.length - 1) * 0.5)),
+        Math.max(0, Math.floor((safeRows.length - 1) * 0.75)),
+        safeRows.length - 1
+    ]))
+        .filter(index => index >= 0 && index < safeRows.length);
+    const xLabels = xLabelIndexes.map(index => {
+        const row = safeRows[index];
+        return `<text x="${xFor(index).toFixed(1)}" y="${height - 8}" text-anchor="middle" fill="#94a3b8" font-size="11">${escapeHtmlText(row?.label || '')}</text>`;
+    }).join('');
+
+    const latestRow = safeRows[safeRows.length - 1] || { net: 0 };
+    const latestX = xFor(safeRows.length - 1).toFixed(1);
+    const latestY = yFor(latestRow.net || 0).toFixed(1);
+    const strokeColor = Number(latestRow.net || 0) >= 0 ? '#1677ff' : '#fa8c16';
+    const posFill = Number(latestRow.net || 0) >= 0 ? 'rgba(22,119,255,0.10)' : 'rgba(250,140,22,0.10)';
+
+    const areaPoints = `${paddingLeft},${zeroY} ${netPoints} ${paddingLeft + innerWidth},${zeroY}`;
+
+    return `
+        <div class="erp-finance-monthly-legend">
+            <span class="line"><i></i>净利润走势</span>
+            <span class="zero"><i></i>零轴</span>
+        </div>
+        <div class="erp-finance-trend-chart-wrap">
+            <svg class="erp-finance-trend-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-label="月度净利润走势图">
+                ${gridLines}
+                <line x1="${paddingLeft}" y1="${zeroY}" x2="${paddingLeft + innerWidth}" y2="${zeroY}" stroke="#dbeafe" stroke-width="1.5" stroke-dasharray="4 3"></line>
+                ${yLabels}
+                <polygon points="${areaPoints}" fill="${posFill}"></polygon>
+                <polyline points="${netPoints}" fill="none" stroke="${strokeColor}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></polyline>
+                <circle cx="${latestX}" cy="${latestY}" r="3.8" fill="${strokeColor}"></circle>
                 ${xLabels}
             </svg>
         </div>
@@ -9557,30 +9655,18 @@ function renderFinanceMonthlyProfitChart(finances = null) {
     const scopeText = scopeValue === 'filtered' ? '当前筛选' : '全部数据';
     const monthRange = Math.max(3, parseInt(document.getElementById('financeMonthlyRange')?.value || '6', 10));
     const rows = buildMonthlyProfitRows(source, monthRange);
-    const maxNet = Math.max(1, ...rows.map(item => Math.abs(item.net)));
-
-    const rowsHtml = rows.map(item => {
-        const ratio = Math.round((Math.abs(item.net) / maxNet) * 100);
-        const netPositive = item.net >= 0;
-        const barColor = netPositive ? '#1677ff' : '#fa8c16';
-        return `
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-                <div style="width:72px;color:#595959;font-size:12px;">${item.label}</div>
-                <div style="flex:1;height:10px;background:#f5f5f5;border-radius:999px;overflow:hidden;">
-                    <div style="height:10px;background:${barColor};width:${ratio}%;min-width:${Math.abs(item.net) > 0 ? '12px' : '0'};"></div>
-                </div>
-                <div style="width:120px;text-align:right;font-size:12px;color:${netPositive ? '#1677ff' : '#d46b08'};">
-                    ${netPositive ? '+' : '-'}${formatCurrency(Math.abs(item.net))}
-                </div>
-            </div>
-        `;
-    }).join('');
+    const chartHtml = buildFinanceMonthlyProfitLineChart(rows);
+    const latest = rows[rows.length - 1] || { net: 0 };
+    const latestPositive = Number(latest.net || 0) >= 0;
 
     container.innerHTML = `
         <div style="padding:10px;border:1px solid #f0f0f0;border-radius:8px;background:#fff;">
-            <div style="font-size:13px;font-weight:500;color:#262626;margin-bottom:8px;">月度利润图（近${monthRange}个月，${scopeText}）</div>
-            ${rowsHtml || '<div style="font-size:12px;color:#999;">暂无数据</div>'}
-            <div style="margin-top:8px;font-size:12px;color:#8c8c8c;">蓝色为正利润，橙色为负利润（按收入-支出）</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+                <div style="font-size:13px;font-weight:500;color:#262626;">月度利润走势图（近${monthRange}个月，${scopeText}）</div>
+                <div style="font-size:12px;color:${latestPositive ? '#1677ff' : '#d46b08'};">最新月净利润：${latestPositive ? '+' : '-'}${formatCurrency(Math.abs(Number(latest.net || 0)))}</div>
+            </div>
+            ${chartHtml}
+            <div style="margin-top:8px;font-size:12px;color:#8c8c8c;">蓝线为净利润走势，虚线为零轴（按收入-支出）</div>
         </div>
     `;
 }

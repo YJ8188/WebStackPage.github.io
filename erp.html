@@ -1464,14 +1464,16 @@
     <script src="assets/js/user-data.js?v=20260212-14"></script>
     <script src="assets/js/erp.js?v=20260218-37"></script>
     <script src="assets/js/vendor/echarts.min.js?v=5.5.0"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260218-76"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260218-77"></script>
     <script src="assets/js/pwa-register.js?v=20260218-3" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->
     <script>
         // Ant Design specific logic (Tab Switching, Sidebar Active State)
         function switchTab(moduleName) {
-            
+            if (window.ERP && ERP.config) {
+                ERP.config.currentModule = moduleName;
+            }
 
             // Update Menu
             document.querySelectorAll('.ant-menu-item').forEach(item => item.classList.remove('ant-menu-item-selected'));
@@ -1512,6 +1514,12 @@
                 targetView.classList.add('active');
             } else {
                 console.error('[switchTab] 找不到目标视图:', moduleName + 'View');
+            }
+
+            if (moduleName === 'finance' && typeof window.refreshFinanceCharts === 'function') {
+                requestAnimationFrame(() => {
+                    window.refreshFinanceCharts();
+                });
             }
 
             // Trigger Data Load
@@ -1566,6 +1574,9 @@
                             await ERP.loadFinances(false);
                         }
                         if (window.renderFinances) renderFinances();
+                        if (typeof window.refreshFinanceCharts === 'function') {
+                            window.refreshFinanceCharts();
+                        }
                         break;
                 }
             } catch (error) {

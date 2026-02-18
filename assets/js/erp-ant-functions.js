@@ -1763,11 +1763,9 @@ function updateStatistics(data) {
 
     const currentOrders = Array.isArray(ERP.state?.orders) ? ERP.state.orders : [];
     renderOrderWorkflowSummary(currentOrders, getFilteredOrdersForView());
-    renderFinanceAgingSummary();
-    renderFinanceTrendSummary();
-    renderFinanceMonthlyProfitChart();
-    renderFinanceCashflowOverview();
-    renderFinanceRiskAlerts();
+    if (isFinanceModuleActive()) {
+        refreshFinanceCharts();
+    }
 
     const isDashboardModule = ERP?.config?.currentModule === 'dashboard';
     const dashboardNeedRefresh = forceRefresh
@@ -8683,12 +8681,22 @@ async function renderDashboardInventoryCapital() {
     });
 
     const itemRows = await loadDashboardOrderItems(validOrders);
+    const parseOrderDate = (typeof parseERPDate === 'function')
+        ? parseERPDate
+        : ((typeof parseFinanceDate === 'function')
+            ? parseFinanceDate
+            : (value => {
+                const raw = String(value || '').trim();
+                if (!raw) return null;
+                const date = new Date(raw.includes('T') ? raw : raw.replace(' ', 'T'));
+                return Number.isNaN(date.getTime()) ? null : date;
+            }));
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const recentOrderSet = new Set(
         validOrders
             .filter(order => {
-                const date = parseERPDate(order?.order_date || null);
+                const date = parseOrderDate(order?.order_date || null);
                 return date && date >= thirtyDaysAgo;
             })
             .map(order => String(order?.id || ''))
@@ -9445,6 +9453,10 @@ const ERP_FINANCE_CHART_INSTANCES = {
     monthly: null
 };
 let erpFinanceChartResizeBound = false;
+const ERP_FINANCE_CHART_RETRY_TIMERS = {
+    trend: null,
+    monthly: null
+};
 
 function bindFinanceChartResizeOnce() {
     if (erpFinanceChartResizeBound || typeof window === 'undefined') {
@@ -9468,7 +9480,83 @@ function disposeFinanceChartInstance(key) {
     ERP_FINANCE_CHART_INSTANCES[key] = null;
 }
 
-function renderFinanceTrendEChart(rows = []) {
+function isFinanceModuleActive() {
+    const financeView = document.getElementById('financeView');
+    const hasActiveClass = !!(financeView && financeView.classList.contains('active'));
+    const currentModule = String(ERP?.config?.currentModule || '').trim().toLowerCase();
+    return hasActiveClass || currentModule === 'finance';
+}
+
+function isChartHostVisible(element) {
+    if (!element) {
+        return false;
+    }
+    const rect = element.getBoundingClientRect();
+    if (rect.width < 40 || rect.height < 40) {
+        return false;
+    }
+    if (element.offsetParent === null && !element.closest('.module-view.active')) {
+        return false;
+    }
+    return true;
+}
+
+function queueFinanceChartRetry(key, callback, attempt) {
+    if (attempt >= 4) {
+        return false;
+    }
+    const delay = [80, 180, 320, 520][attempt] || 520;
+    if (ERP_FINANCE_CHART_RETRY_TIMERS[key]) {
+        clearTimeout(ERP_FINANCE_CHART_RETRY_TIMERS[key]);
+    }
+    ERP_FINANCE_CHART_RETRY_TIMERS[key] = setTimeout(() => {
+        ERP_FINANCE_CHART_RETRY_TIMERS[key] = null;
+        callback(attempt + 1);
+    }, delay);
+    return true;
+}
+
+function queueFinanceChartResize(key) {
+    const instance = ERP_FINANCE_CHART_INSTANCES[key];
+    if (!instance || typeof instance.resize !== 'function') {
+        return;
+    }
+    requestAnimationFrame(() => {
+        try {
+            instance.resize();
+        } catch (error) {
+            console.error('[ERP] 财务图表 resize 失败:', error?.message || error);
+        }
+    });
+    setTimeout(() => {
+        try {
+            instance.resize();
+        } catch (error) {
+            console.error('[ERP] 财务图表延迟 resize 失败:', error?.message || error);
+        }
+    }, 100);
+    setTimeout(() => {
+        try {
+            instance.resize();
+        } catch (error) {
+            console.error('[ERP] 财务图表二次 resize 失败:', error?.message || error);
+        }
+    }, 260);
+}
+
+function formatTrendAxisLabel(value, index, totalCount) {
+    const total = Math.max(1, Number(totalCount || 0));
+    if (total <= 8) {
+        return value;
+    }
+    const step = Math.max(1, Math.ceil(total / 8));
+    if (index % step === 0 || index === total - 1) {
+        return value;
+    }
+    return '';
+}
+
+function renderFinanceTrendEChart(rows = [], attempt = 0) {
     if (!window.echarts || !Array.isArray(rows) || rows.length === 0) {
         disposeFinanceChartInstance('trend');
         return false;
@@ -9478,6 +9566,10 @@ function renderFinanceTrendEChart(rows = []) {
     if (!chartEl) {
         disposeFinanceChartInstance('trend');
         return false;
+    }
+
+    if (!isChartHostVisible(chartEl)) {
+        return queueFinanceChartRetry('trend', nextAttempt => renderFinanceTrendEChart(rows, nextAttempt), attempt);
     }
 
     bindFinanceChartResizeOnce();
@@ -9492,7 +9584,8 @@ function renderFinanceTrendEChart(rows = []) {
 
     chart.setOption({
         animationDuration: 450,
-        grid: { left: 72, right: 24, top: 26, bottom: 42 },
+        animationEasing: 'cubicOut',
+        grid: { left: 64, right: 24, top: 22, bottom: 52 },
         tooltip: {
             trigger: 'axis',
             backgroundColor: 'rgba(15, 23, 42, 0.92)',
@@ -9517,7 +9610,14 @@ function renderFinanceTrendEChart(rows = []) {
             data: labels,
             axisLine: { lineStyle: { color: '#dbe4f0' } },
             axisTick: { show: false },
-            axisLabel: { color: '#64748b', fontSize: 11 }
+            axisLabel: {
+                color: '#64748b',
+                fontSize: 11,
+                interval: 0,
+                margin: 12,
+                formatter: (value, index) => formatTrendAxisLabel(value, index, labels.length)
+            },
+            splitLine: { show: true, lineStyle: { color: '#f5f8fc', type: 'dashed' } }
         },
         yAxis: {
             type: 'value',
@@ -9531,35 +9631,38 @@ function renderFinanceTrendEChart(rows = []) {
                 fontSize: 11,
                 formatter: value => formatChartAxisCurrency(value)
             },
-            splitLine: { lineStyle: { color: '#edf2f8' } }
+            splitLine: { lineStyle: { color: '#eaf0f8', type: 'dashed' } }
         },
         series: [
             {
                 name: '收入',
                 type: 'line',
-                smooth: 0.25,
-                showSymbol: true,
+                smooth: 0.1,
+                showSymbol: false,
                 symbol: 'circle',
                 symbolSize: 6,
-                lineStyle: { width: 3, color: '#f5227b' },
+                lineStyle: { width: 2.6, color: '#d61f69', shadowColor: 'rgba(214,31,105,0.25)', shadowBlur: 6 },
                 itemStyle: { color: '#f5227b' },
-                areaStyle: { color: 'rgba(245,34,123,0.10)' },
+                areaStyle: { color: 'rgba(245,34,123,0.05)' },
+                emphasis: { focus: 'series' },
                 data: incomeData
             },
             {
                 name: '支出',
                 type: 'line',
-                smooth: 0.25,
-                showSymbol: true,
+                smooth: 0.1,
+                showSymbol: false,
                 symbol: 'circle',
                 symbolSize: 6,
-                lineStyle: { width: 3, color: '#52c41a' },
+                lineStyle: { width: 2.6, color: '#3f9f15', shadowColor: 'rgba(63,159,21,0.25)', shadowBlur: 6 },
                 itemStyle: { color: '#52c41a' },
-                areaStyle: { color: 'rgba(82,196,26,0.10)' },
+                areaStyle: { color: 'rgba(82,196,26,0.05)' },
+                emphasis: { focus: 'series' },
                 data: expenseData
             }
         ]
     }, true);
+    queueFinanceChartResize('trend');
     return true;
 }
 
@@ -9774,7 +9877,7 @@ function buildMonthlyProfitRows(finances, months = 6) {
     return monthRows;
 }
 
-function renderFinanceMonthlyProfitEChart(rows = []) {
+function renderFinanceMonthlyProfitEChart(rows = [], attempt = 0) {
     if (!window.echarts || !Array.isArray(rows) || rows.length === 0) {
         disposeFinanceChartInstance('monthly');
         return false;
@@ -9784,6 +9887,10 @@ function renderFinanceMonthlyProfitEChart(rows = []) {
     if (!chartEl) {
         disposeFinanceChartInstance('monthly');
         return false;
+    }
+
+    if (!isChartHostVisible(chartEl)) {
+        return queueFinanceChartRetry('monthly', nextAttempt => renderFinanceMonthlyProfitEChart(rows, nextAttempt), attempt);
     }
 
     bindFinanceChartResizeOnce();
@@ -9798,7 +9905,8 @@ function renderFinanceMonthlyProfitEChart(rows = []) {
 
     chart.setOption({
         animationDuration: 450,
-        grid: { left: 72, right: 24, top: 26, bottom: 42 },
+        animationEasing: 'cubicOut',
+        grid: { left: 64, right: 24, top: 24, bottom: 52 },
         tooltip: {
             trigger: 'axis',
             backgroundColor: 'rgba(15, 23, 42, 0.92)',
@@ -9823,7 +9931,14 @@ function renderFinanceMonthlyProfitEChart(rows = []) {
             data: labels,
             axisLine: { lineStyle: { color: '#dbe4f0' } },
             axisTick: { show: false },
-            axisLabel: { color: '#64748b', fontSize: 11 }
+            axisLabel: {
+                color: '#64748b',
+                fontSize: 11,
+                interval: 0,
+                margin: 12,
+                formatter: (value, index) => formatTrendAxisLabel(value, index, labels.length)
+            },
+            splitLine: { show: true, lineStyle: { color: '#f5f8fc', type: 'dashed' } }
         },
         yAxis: {
             type: 'value',
@@ -9837,19 +9952,19 @@ function renderFinanceMonthlyProfitEChart(rows = []) {
                 fontSize: 11,
                 formatter: value => formatChartAxisCurrency(value)
             },
-            splitLine: { lineStyle: { color: '#edf2f8' } }
+            splitLine: { lineStyle: { color: '#eaf0f8', type: 'dashed' } }
         },
         series: [
             {
                 name: '净利润',
                 type: 'line',
-                smooth: 0.28,
-                showSymbol: true,
+                smooth: 0.1,
+                showSymbol: false,
                 symbol: 'circle',
                 symbolSize: 6,
-                lineStyle: { width: 3 },
+                lineStyle: { width: 2.8, shadowColor: 'rgba(22,119,255,0.28)', shadowBlur: 7 },
                 itemStyle: { color: '#1677ff' },
-                areaStyle: { color: 'rgba(22,119,255,0.10)' },
+                areaStyle: { color: 'rgba(22,119,255,0.04)' },
                 data: netData,
                 markLine: {
                     silent: true,
@@ -9868,7 +9983,27 @@ function renderFinanceMonthlyProfitEChart(rows = []) {
             ]
         }
     }, true);
+    queueFinanceChartResize('monthly');
     return true;
+}
+
+function refreshFinanceCharts() {
+    if (!isFinanceModuleActive()) {
+        return;
+    }
+    try {
+        renderFinanceAgingSummary();
+        renderFinanceTrendSummary();
+        renderFinanceMonthlyProfitChart();
+        renderFinanceCashflowOverview();
+        renderFinanceRiskAlerts();
+    } catch (error) {
+        console.error('[ERP] 财务看板刷新失败:', error?.message || error);
+    }
+}
+
+if (typeof window !== 'undefined') {
+    window.refreshFinanceCharts = refreshFinanceCharts;
 }
 
 function renderFinanceMonthlyProfitChart(finances = null) {

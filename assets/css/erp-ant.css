@@ -786,9 +786,60 @@ select.ant-select option {
     min-width: 4px;
 }
 
+.erp-finance-trend-legend {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 8px;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.erp-finance-trend-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.erp-finance-trend-legend i {
+    width: 16px;
+    height: 3px;
+    border-radius: 999px;
+    display: inline-block;
+}
+
+.erp-finance-trend-legend .income i {
+    background: #f5227b;
+}
+
+.erp-finance-trend-legend .expense i {
+    background: #52c41a;
+}
+
+.erp-finance-trend-chart-wrap {
+    width: 100%;
+    min-height: 220px;
+    border: 1px solid #f1f5f9;
+    border-radius: 8px;
+    background: #fcfdff;
+    overflow: hidden;
+}
+
+.erp-finance-trend-chart {
+    width: 100%;
+    height: 220px;
+    display: block;
+}
+
 @media (max-width: 992px) {
     .erp-dashboard-chart-body {
         grid-template-columns: 1fr;
+    }
+
+    .erp-finance-trend-chart-wrap,
+    .erp-finance-trend-chart {
+        min-height: 180px;
+        height: 180px;
     }
 }
 

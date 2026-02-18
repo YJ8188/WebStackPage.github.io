@@ -6481,18 +6481,32 @@ function calculateOrderDeliveryPerformance(orders = [], logs = []) {
             return;
         }
         const status = normalizeOrderStatusValue(order?.status || '');
+        const shippingStatus = normalizeShippingStatusValue(order?.shipping_status || 'not_shipped');
         const orderLogs = logMap.get(orderId) || [];
 
         const signedLog = orderLogs.find(item => item?.toStatus === 'signed')
             || orderLogs.find(item => item?.toStatus === 'completed');
 
-        if (signedLog && (status === 'signed' || status === 'completed')) {
+        if (signedLog && (status === 'signed' || status === 'completed' || shippingStatus === 'delivered')) {
             const diffDays = Math.max(0, Math.floor((signedLog.createdAt.getTime() - orderDate.getTime()) / (24 * 60 * 60 * 1000)));
             deliveredDays.push(diffDays);
             return;
         }
 
-        if (status === 'shipped' || status === 'signed') {
+        const fallbackCompletedAt = parseFinanceDate(
+            order?.signed_at
+            || order?.delivered_at
+            || order?.updated_at
+            || order?.modified_at
+            || order?.created_at
+        );
+        if ((status === 'signed' || status === 'completed' || shippingStatus === 'delivered') && fallbackCompletedAt) {
+            const diffDays = Math.max(0, Math.floor((fallbackCompletedAt.getTime() - orderDate.getTime()) / (24 * 60 * 60 * 1000)));
+            deliveredDays.push(diffDays);
+            return;
+        }
+
+        if (status === 'shipped' || ['shipped', 'in_transit'].includes(shippingStatus)) {
             inTransitCount += 1;
             const openDays = getAgingDays(order?.order_date);
             if (Number.isFinite(openDays) && openDays > 5) {
@@ -6608,7 +6622,7 @@ async function renderDashboardDeliveryPerformance() {
                     ${bar('2-3天签收', perf.bucket.d3, '#13c2c2')}
                     ${bar('4-7天签收', perf.bucket.d7, '#faad14')}
                     ${bar('7天以上签收', perf.bucket.d7p, '#f5222d')}
-                    <div class="erp-dashboard-chart-subtitle">在途订单 ${perf.inTransitCount} 单；基于订单状态变更日志计算</div>
+                    <div class="erp-dashboard-chart-subtitle">在途订单 ${perf.inTransitCount} 单；基于状态日志 + 订单更新时间兜底计算</div>
                 </div>
             </div>
         </div>
@@ -9326,6 +9340,91 @@ function calcFinanceSummaryFromRows(rows) {
     }, { income: 0, expense: 0, net: 0 });
 }
 
+function buildFinanceTrendLineChart(rows = []) {
+    const safeRows = Array.isArray(rows) ? rows : [];
+    if (!safeRows.length) {
+        return '<div style="font-size:12px;color:#999;">暂无数据</div>';
+    }
+
+    const width = 860;
+    const height = 220;
+    const paddingLeft = 48;
+    const paddingRight = 16;
+    const paddingTop = 14;
+    const paddingBottom = 28;
+    const innerWidth = Math.max(1, width - paddingLeft - paddingRight);
+    const innerHeight = Math.max(1, height - paddingTop - paddingBottom);
+    const maxValue = Math.max(
+        1,
+        ...safeRows.map(row => Math.max(Number(row?.income || 0), Number(row?.expense || 0)))
+    );
+
+    const xFor = index => (
+        paddingLeft + (safeRows.length <= 1 ? (innerWidth / 2) : (index / (safeRows.length - 1)) * innerWidth)
+    );
+    const yFor = value => (
+        paddingTop + (1 - (Math.max(0, Number(value || 0)) / maxValue)) * innerHeight
+    );
+    const toPoints = getter => safeRows
+        .map((row, index) => `${xFor(index).toFixed(1)},${yFor(getter(row)).toFixed(1)}`)
+        .join(' ');
+
+    const incomePoints = toPoints(row => row?.income || 0);
+    const expensePoints = toPoints(row => row?.expense || 0);
+    const baselineY = paddingTop + innerHeight;
+    const incomeAreaPoints = `${paddingLeft},${baselineY} ${incomePoints} ${paddingLeft + innerWidth},${baselineY}`;
+    const expenseAreaPoints = `${paddingLeft},${baselineY} ${expensePoints} ${paddingLeft + innerWidth},${baselineY}`;
+
+    const gridFractions = [0, 0.25, 0.5, 0.75, 1];
+    const gridLines = gridFractions.map(fraction => {
+        const y = (paddingTop + innerHeight * fraction).toFixed(1);
+        return `<line x1="${paddingLeft}" y1="${y}" x2="${paddingLeft + innerWidth}" y2="${y}" stroke="#eef2f7" stroke-width="1"></line>`;
+    }).join('');
+    const yLabels = [1, 0.5, 0].map(scale => {
+        const y = yFor(maxValue * scale).toFixed(1);
+        return `<text x="${paddingLeft - 6}" y="${y}" text-anchor="end" dominant-baseline="middle" fill="#94a3b8" font-size="11">${formatCurrency(maxValue * scale)}</text>`;
+    }).join('');
+
+    const xLabelIndexes = Array.from(new Set([
+        0,
+        Math.max(0, Math.floor((safeRows.length - 1) * 0.25)),
+        Math.max(0, Math.floor((safeRows.length - 1) * 0.5)),
+        Math.max(0, Math.floor((safeRows.length - 1) * 0.75)),
+        safeRows.length - 1
+    ]))
+        .filter(index => index >= 0 && index < safeRows.length);
+    const xLabels = xLabelIndexes.map(index => {
+        const row = safeRows[index];
+        return `<text x="${xFor(index).toFixed(1)}" y="${height - 8}" text-anchor="middle" fill="#94a3b8" font-size="11">${escapeHtmlText(row?.label || '')}</text>`;
+    }).join('');
+
+    const latestRow = safeRows[safeRows.length - 1] || {};
+    const latestIndex = safeRows.length - 1;
+    const latestIncomeX = xFor(latestIndex).toFixed(1);
+    const latestIncomeY = yFor(latestRow?.income || 0).toFixed(1);
+    const latestExpenseY = yFor(latestRow?.expense || 0).toFixed(1);
+
+    return `
+        <div class="erp-finance-trend-legend">
+            <span class="income"><i></i>收入</span>
+            <span class="expense"><i></i>支出</span>
+        </div>
+        <div class="erp-finance-trend-chart-wrap">
+            <svg class="erp-finance-trend-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-label="收支趋势折线图">
+                ${gridLines}
+                ${yLabels}
+                <polygon points="${incomeAreaPoints}" fill="rgba(245,34,123,0.12)"></polygon>
+                <polygon points="${expenseAreaPoints}" fill="rgba(82,196,26,0.12)"></polygon>
+                <polyline points="${incomePoints}" fill="none" stroke="#f5227b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></polyline>
+                <polyline points="${expensePoints}" fill="none" stroke="#52c41a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></polyline>
+                <circle cx="${latestIncomeX}" cy="${latestIncomeY}" r="3.5" fill="#f5227b"></circle>
+                <circle cx="${latestIncomeX}" cy="${latestExpenseY}" r="3.5" fill="#52c41a"></circle>
+                ${xLabels}
+            </svg>
+        </div>
+    `;
+}
+
 function renderFinanceTrendSummary(finances = null) {
     const container = document.getElementById('financeTrendSummary');
     if (!container) {
@@ -9359,27 +9458,7 @@ function renderFinanceTrendSummary(finances = null) {
         ? '#8c8c8c'
         : (targetRate >= 1 ? '#237804' : (targetRate >= 0.7 ? '#d46b08' : '#cf1322'));
 
-    const maxDaily = Math.max(
-        1,
-        ...rowsSelected.map(row => Math.max(row.income, row.expense))
-    );
-
-    const barsHtml = rowsSelected.map(row => {
-        const incomeWidth = Math.round((row.income / maxDaily) * 100);
-        const expenseWidth = Math.round((row.expense / maxDaily) * 100);
-        return `
-            <div style="margin-bottom:8px;">
-                <div style="display:flex;justify-content:space-between;font-size:12px;color:#595959;">
-                    <span>${row.label}</span>
-                    <span>净额 ${formatCurrency(row.net)}</span>
-                </div>
-                <div style="display:flex;gap:6px;margin-top:4px;">
-                    <div style="height:8px;background:#ffd6e7;border-radius:999px;width:${incomeWidth}%;min-width:${row.income > 0 ? '10px' : '0'};" title="收入 ${formatCurrency(row.income)}"></div>
-                    <div style="height:8px;background:#d9f7be;border-radius:999px;width:${expenseWidth}%;min-width:${row.expense > 0 ? '10px' : '0'};" title="支出 ${formatCurrency(row.expense)}"></div>
-                </div>
-            </div>
-        `;
-    }).join('');
+    const chartHtml = buildFinanceTrendLineChart(rowsSelected);
 
     container.innerHTML = `
         <div style="display:flex;flex-wrap:wrap;gap:12px;">
@@ -9413,8 +9492,8 @@ function renderFinanceTrendSummary(finances = null) {
             </div>
         </div>
         <div style="margin-top:10px;padding:10px;border:1px solid #f0f0f0;border-radius:8px;background:#fff;">
-            <div style="font-size:13px;font-weight:500;color:#262626;margin-bottom:8px;">近${selectedRange}天收支趋势（${scopeText}，粉=收入，绿=支出）</div>
-            ${barsHtml || '<div style="font-size:12px;color:#999;">暂无数据</div>'}
+            <div style="font-size:13px;font-weight:500;color:#262626;margin-bottom:8px;">近${selectedRange}天收支走势图（${scopeText}）</div>
+            ${chartHtml}
         </div>
     `;
 }

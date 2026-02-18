@@ -844,6 +844,24 @@ select.ant-select option {
     animation: zoomIn 0.3s cubic-bezier(0.08, 0.82, 0.17, 1);
 }
 
+.erp-modal {
+    border-radius: 12px;
+    border: 1px solid #dbe3ef;
+    box-shadow: 0 18px 42px rgba(15, 23, 42, 0.2);
+}
+
+.erp-modal.erp-modal-md {
+    width: 560px;
+}
+
+.erp-modal.erp-modal-lg {
+    width: 680px;
+}
+
+.erp-modal.erp-modal-xl {
+    width: min(860px, 96vw);
+}
+
 @keyframes zoomIn {
     from {
         transform: scale(0.2);
@@ -866,6 +884,13 @@ select.ant-select option {
     font-weight: 500;
     font-size: 16px;
     line-height: 22px;
+}
+
+.erp-modal .modal-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid #e2e8f0;
+    background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+    border-radius: 12px 12px 0 0;
 }
 
 .modal-header h3 {
@@ -897,12 +922,23 @@ select.ant-select option {
     max-height: calc(100vh - 200px);
 }
 
+.erp-modal .modal-body {
+    padding: 14px 16px;
+    max-height: calc(100vh - 180px);
+}
+
 .modal-footer {
     padding: 10px 16px;
     text-align: right;
     background: transparent;
     border-top: 1px solid #f0f0f0;
     border-radius: 0 0 4px 4px;
+}
+
+.erp-modal .modal-footer {
+    border-top: 1px solid #e2e8f0;
+    border-radius: 0 0 12px 12px;
+    padding: 10px 14px;
 }
 
 .modal-footer button+button {
@@ -915,6 +951,10 @@ select.ant-select option {
     margin-bottom: 24px;
 }
 
+.erp-modal-form .form-group {
+    margin-bottom: 12px;
+}
+
 .form-group label {
     display: block;
     margin-bottom: 8px;
@@ -924,6 +964,45 @@ select.ant-select option {
 .form-group .form-control {
     width: 100%;
     /* Full width in forms */
+}
+
+.erp-modal-form .form-group label {
+    margin-bottom: 6px;
+    font-size: 13px;
+    color: #334155;
+}
+
+.erp-form-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.erp-form-col {
+    min-width: 0;
+}
+
+.erp-modal-form #orderItems {
+    background: #f8fbff !important;
+    border: 1px solid #dbeafe;
+    border-radius: 10px !important;
+}
+
+.erp-modal-form #orderRiskPanel {
+    border-color: #dbeafe !important;
+    background: #f8fbff !important;
+    color: #475569 !important;
+}
+
+.erp-modal-form .order-logistics-toolbar .ant-btn {
+    border-color: #91caff;
+    color: #0958d9;
+}
+
+.erp-modal-form #orderTrackingQueryBtn {
+    background: #1677ff !important;
+    color: #fff !important;
+    border-color: #1677ff !important;
 }
 
 /* Secondary Button (Cancel) */
@@ -950,6 +1029,12 @@ select.ant-select option {
 .btn-secondary:hover {
     color: #40a9ff;
     border-color: #40a9ff;
+}
+
+@media (max-width: 768px) {
+    .erp-form-grid-2 {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* Header Actions */
@@ -1671,6 +1756,58 @@ select.ant-select option {
 #inventoryView [data-table-col="inventory:min_stock"],
 #inventoryView [data-table-cell="inventory:min_stock"] {
     min-width: 96px;
+}
+
+#inventoryView [data-table-col="purchase:date"],
+#inventoryView [data-table-cell="purchase:date"] {
+    min-width: 150px;
+    white-space: nowrap;
+}
+
+#inventoryView [data-table-col="purchase:order_no"],
+#inventoryView [data-table-cell="purchase:order_no"] {
+    min-width: 128px;
+}
+
+#inventoryView [data-table-col="purchase:product"],
+#inventoryView [data-table-cell="purchase:product"] {
+    min-width: 150px;
+}
+
+#inventoryView [data-table-col="purchase:qty"],
+#inventoryView [data-table-cell="purchase:qty"] {
+    min-width: 72px;
+    white-space: nowrap;
+}
+
+#inventoryView [data-table-col="purchase:unit_cost"],
+#inventoryView [data-table-cell="purchase:unit_cost"],
+#inventoryView [data-table-col="purchase:amount"],
+#inventoryView [data-table-cell="purchase:amount"] {
+    min-width: 112px;
+    white-space: nowrap;
+}
+
+#inventoryView [data-table-col="purchase:supplier"],
+#inventoryView [data-table-cell="purchase:supplier"] {
+    min-width: 110px;
+}
+
+#inventoryView [data-table-col="purchase:payment"],
+#inventoryView [data-table-cell="purchase:payment"],
+#inventoryView [data-table-col="purchase:approval"],
+#inventoryView [data-table-cell="purchase:approval"] {
+    min-width: 96px;
+}
+
+#inventoryView [data-table-col="purchase:notes"],
+#inventoryView [data-table-cell="purchase:notes"] {
+    min-width: 180px;
+}
+
+.erp-action-note {
+    font-size: 12px;
+    color: #8c8c8c;
 }
 
 #financeView [data-finance-col="type"],

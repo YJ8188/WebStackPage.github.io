@@ -4707,6 +4707,9 @@ function renderPurchaseRecords(records = []) {
         const paymentStatus = String(meta['付款'] || 'paid');
         const paymentTextMap = { paid: '已付款', unpaid: '未付款', partial: '部分付款' };
         const paymentText = paymentTextMap[paymentStatus] || paymentStatus;
+        const paymentPillClass = paymentStatus === 'paid'
+            ? 'is-active'
+            : (paymentStatus === 'unpaid' ? 'is-inactive' : 'is-system');
         const approvalStatus = normalizePurchaseApprovalStatus(meta['审批'] || 'approved');
         const approvalText = formatPurchaseApprovalStatus(approvalStatus);
         const approvalColor = approvalStatus === 'approved' ? '#237804' : (approvalStatus === 'rejected' ? '#cf1322' : '#d46b08');
@@ -4737,13 +4740,13 @@ function renderPurchaseRecords(records = []) {
                     <button class="ant-btn erp-btn-compact erp-btn-danger"
                         onclick='setPurchaseApprovalStatus(${JSON.stringify(record?.id)}, "rejected")'>驳回</button>
                 `
-                : `<span style="font-size:12px;color:#8c8c8c;">仅管理员可审批</span>`)
+                : `<span class="erp-action-note">仅管理员可审批</span>`)
             : (canApprovePurchase
                 ? `
                     <button class="ant-btn erp-btn-compact erp-btn-warning"
                         onclick='setPurchaseApprovalStatus(${JSON.stringify(record?.id)}, "pending")'>改待审</button>
                 `
-                : `<span style="font-size:12px;color:#8c8c8c;">仅管理员可改审</span>`);
+                : `<span class="erp-action-note">仅管理员可改审</span>`);
         const extraAction = `
             <button class="ant-btn erp-btn-compact erp-btn-purple"
                 onclick='showPurchaseApprovalLog(${JSON.stringify(record?.id)})'>日志</button>
@@ -4751,21 +4754,22 @@ function renderPurchaseRecords(records = []) {
 
         return `
             <tr>
-                <td>${displayTime ? displayTime.toLocaleString('zh-CN') : '-'}</td>
-                <td>${escapeHtmlText(purchaseOrderNo)}</td>
-                <td>${escapeHtmlText(productName)}</td>
-                <td>${Number.isFinite(quantity) ? quantity : '-'}</td>
-                <td>${formatCurrency(unitCost)}</td>
-                <td>${formatCurrency(amount)}</td>
-                <td>${escapeHtmlText(supplier)}</td>
-                <td>${escapeHtmlText(paymentText)}</td>
-                <td>
-                    <span style="display:inline-block;padding:1px 8px;border-radius:999px;border:1px solid ${approvalBorder};background:${approvalBg};color:${approvalColor};font-size:12px;"
+                <td data-table-cell="purchase:date" class="erp-cell-nowrap">${displayTime ? displayTime.toLocaleString('zh-CN') : '-'}</td>
+                <td data-table-cell="purchase:order_no">${escapeHtmlText(purchaseOrderNo)}</td>
+                <td data-table-cell="purchase:product">${escapeHtmlText(productName)}</td>
+                <td data-table-cell="purchase:qty"><span class="erp-qty-text is-safe">${Number.isFinite(quantity) ? quantity : '-'}</span></td>
+                <td data-table-cell="purchase:unit_cost"><span class="erp-amount-text is-expense">${formatCurrency(unitCost)}</span></td>
+                <td data-table-cell="purchase:amount"><span class="erp-amount-text is-expense">${formatCurrency(amount)}</span></td>
+                <td data-table-cell="purchase:supplier">${escapeHtmlText(supplier)}</td>
+                <td data-table-cell="purchase:payment"><span class="erp-type-pill ${paymentPillClass}">${escapeHtmlText(paymentText)}</span></td>
+                <td data-table-cell="purchase:approval">
+                    <span class="erp-status-pill"
+                        style="--erp-pill-color:${approvalColor};--erp-pill-bg:${approvalBg};--erp-pill-border:${approvalBorder};"
                         title="${escapeHtmlText(approvalTagTitle || '-')}"
                     >${escapeHtmlText(approvalText)}</span>
                 </td>
-                <td title="${escapeHtmlText(noteText)}">${escapeHtmlText(noteText)}</td>
-                <td class="erp-action-cell"><div class="erp-row-actions">${approvalActions}${extraAction}</div></td>
+                <td data-table-cell="purchase:notes" title="${escapeHtmlText(noteText)}"><span class="erp-cell-ellipsis">${escapeHtmlText(noteText)}</span></td>
+                <td data-table-cell="purchase:actions" class="erp-action-cell"><div class="erp-row-actions">${approvalActions}${extraAction}</div></td>
             </tr>
         `;
     }).join('');

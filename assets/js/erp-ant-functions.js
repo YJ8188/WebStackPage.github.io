@@ -1891,17 +1891,101 @@ function clearModalFieldValidation(modalId) {
         return;
     }
     modal.querySelectorAll('.erp-field-invalid').forEach(node => node.classList.remove('erp-field-invalid'));
+    modal.querySelectorAll('.erp-field-error').forEach(node => node.remove());
+}
+
+function getFieldErrorMessageNode(target) {
+    if (!target || !target.parentElement) {
+        return null;
+    }
+    const next = target.nextElementSibling;
+    if (next && next.classList && next.classList.contains('erp-field-error')) {
+        return next;
+    }
+    return null;
+}
+
+function setFieldError(target, message = '') {
+    if (!target || !target.classList) {
+        return;
+    }
+    target.classList.add('erp-field-invalid');
+
+    let node = getFieldErrorMessageNode(target);
+    if (!node && target.parentElement) {
+        node = document.createElement('div');
+        node.className = 'erp-field-error';
+        target.insertAdjacentElement('afterend', node);
+    }
+    if (node) {
+        node.textContent = String(message || '').trim() || '该字段填写不正确';
+    }
+}
+
+function clearFieldError(target) {
+    if (!target || !target.classList) {
+        return;
+    }
+    target.classList.remove('erp-field-invalid');
+    const node = getFieldErrorMessageNode(target);
+    if (node) {
+        node.remove();
+    }
+}
+
+function validateFieldElement(target, options = {}) {
+    if (!target) {
+        return true;
+    }
+    const rule = String(target.getAttribute('data-validate') || '').trim().toLowerCase();
+    if (!rule) {
+        return true;
+    }
+
+    const silent = options?.silent === true;
+    const message = String(target.getAttribute('data-error-message') || '').trim() || '该字段填写不正确';
+    const value = String(target.value || '').trim();
+
+    let valid = true;
+    if (rule === 'required') {
+        valid = value.length > 0;
+    } else if (rule === 'positive') {
+        valid = Number.isFinite(Number(value)) && Number(value) > 0;
+    } else if (rule === 'nonzero') {
+        valid = Number.isFinite(Number(value)) && Number(value) !== 0;
+    }
+
+    if (valid) {
+        clearFieldError(target);
+        return true;
+    }
+
+    setFieldError(target, message);
+    if (!silent) {
+        if (typeof showToast === 'function') {
+            showToast(message, 'warning');
+        } else {
+            alert(message);
+        }
+    }
+    return false;
 }
 
 function markFieldInvalid(fieldId, message = '') {
     const target = document.getElementById(fieldId);
     if (target && target.classList) {
-        target.classList.add('erp-field-invalid');
+        setFieldError(target, message);
         if (typeof target.focus === 'function') {
             target.focus();
         }
+    } else if (message) {
+        if (typeof showToast === 'function') {
+            showToast(message, 'warning');
+        } else {
+            alert(message);
+        }
     }
-    if (message) {
+    if (message && !target) {
         if (typeof showToast === 'function') {
             showToast(message, 'warning');
         } else {
@@ -1914,13 +1998,72 @@ function markFieldInvalid(fieldId, message = '') {
 if (!window.__erpFieldValidationBound) {
     const clearInvalidClass = (event) => {
         const node = event?.target;
+        if (node && node.classList && node.getAttribute('data-validate')) {
+            validateFieldElement(node, { silent: true });
+            return;
+        }
         if (node && node.classList && node.classList.contains('erp-field-invalid')) {
-            node.classList.remove('erp-field-invalid');
+            clearFieldError(node);
         }
     };
     document.addEventListener('input', clearInvalidClass, true);
     document.addEventListener('change', clearInvalidClass, true);
+    document.addEventListener('blur', clearInvalidClass, true);
     window.__erpFieldValidationBound = true;
+}
+
+function isElementVisible(node) {
+    if (!node) {
+        return false;
+    }
+    if (node.type === 'hidden') {
+        return false;
+    }
+    if (node.closest('[style*="display: none"]')) {
+        return false;
+    }
+    return node.offsetParent !== null || getComputedStyle(node).position === 'fixed';
+}
+
+function getModalFocusableFields(current) {
+    const modalForm = current?.closest?.('.erp-modal-form');
+    if (!modalForm) {
+        return [];
+    }
+    return Array.from(modalForm.querySelectorAll('input, select, textarea, button'))
+        .filter(node => !node.disabled && isElementVisible(node));
+}
+
+if (!window.__erpEnterNavigateBound) {
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' || event.shiftKey) {
+            return;
+        }
+        const target = event.target;
+        if (!target || !target.closest || !target.closest('.erp-modal-form')) {
+            return;
+        }
+        if (target.tagName === 'TEXTAREA' || target.tagName === 'BUTTON') {
+            return;
+        }
+        event.preventDefault();
+        const fields = getModalFocusableFields(target);
+        const currentIndex = fields.indexOf(target);
+        if (currentIndex < 0) {
+            return;
+        }
+        for (let index = currentIndex + 1; index < fields.length; index += 1) {
+            const next = fields[index];
+            if (next && typeof next.focus === 'function') {
+                next.focus();
+                if (next.tagName === 'INPUT' && next.type !== 'checkbox' && next.type !== 'radio') {
+                    next.select?.();
+                }
+                break;
+            }
+        }
+    }, true);
+    window.__erpEnterNavigateBound = true;
 }
 
 // ==================== 客户管理 ====================

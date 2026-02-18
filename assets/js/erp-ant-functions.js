@@ -2499,7 +2499,7 @@ const ERP_ORDER_STATUS_META = {
 
 const ERP_ORDER_STATUS_TRANSITIONS = {
     pending: ['confirmed', 'cancelled'],
-    confirmed: ['shipped', 'signed', 'cancelled'],
+    confirmed: ['shipped', 'signed', 'completed', 'cancelled'],
     shipped: ['signed', 'refunded'],
     signed: ['completed', 'refunded'],
     completed: [],
@@ -2968,11 +2968,16 @@ function applyLogisticsStatusToOrderForm(suggestion = null) {
 
     const orderStatusSelect = document.getElementById('orderStatus');
     const shippingStatusSelect = document.getElementById('orderShippingStatus');
+    const paymentStatusSelect = document.getElementById('orderPaymentStatus');
     const currentOrderStatus = normalizeOrderStatusValue(orderStatusSelect?.value || 'pending');
     const currentShippingStatus = normalizeShippingStatusValue(shippingStatusSelect?.value || 'not_shipped');
+    const currentPaymentStatus = String(paymentStatusSelect?.value || 'unpaid').trim().toLowerCase();
 
-    const nextOrderStatus = resolveNextOrderStatusByTarget(currentOrderStatus, suggestion.orderStatus || currentOrderStatus);
     const nextShippingStatus = normalizeShippingStatusValue(suggestion.shippingStatus || currentShippingStatus);
+    let nextOrderStatus = resolveNextOrderStatusByTarget(currentOrderStatus, suggestion.orderStatus || currentOrderStatus);
+    if (nextShippingStatus === 'delivered' && currentPaymentStatus === 'paid') {
+        nextOrderStatus = resolveNextOrderStatusByTarget(nextOrderStatus, 'completed');
+    }
     const changed = nextOrderStatus !== currentOrderStatus || nextShippingStatus !== currentShippingStatus;
 
     if (shippingStatusSelect && shippingStatusSelect.querySelector(`option[value="${nextShippingStatus}"]`)) {
@@ -3010,8 +3015,12 @@ async function persistOrderFulfillmentAutoSync(updatePayload = {}) {
 
     const currentOrderStatus = normalizeOrderStatusValue(currentOrder?.status || 'pending');
     const currentShippingStatus = normalizeShippingStatusValue(currentOrder?.shipping_status || 'not_shipped');
-    const nextOrderStatus = resolveNextOrderStatusByTarget(currentOrderStatus, updatePayload?.orderStatus || currentOrderStatus);
     const nextShippingStatus = normalizeShippingStatusValue(updatePayload?.shippingStatus || currentShippingStatus);
+    const paymentStatusFromForm = String(document.getElementById('orderPaymentStatus')?.value || currentOrder?.payment_status || 'unpaid').trim().toLowerCase();
+    let nextOrderStatus = resolveNextOrderStatusByTarget(currentOrderStatus, updatePayload?.orderStatus || currentOrderStatus);
+    if (nextShippingStatus === 'delivered' && paymentStatusFromForm === 'paid') {
+        nextOrderStatus = resolveNextOrderStatusByTarget(nextOrderStatus, 'completed');
+    }
 
     if (nextOrderStatus === currentOrderStatus && nextShippingStatus === currentShippingStatus) {
         return false;
@@ -3024,7 +3033,7 @@ async function persistOrderFulfillmentAutoSync(updatePayload = {}) {
         customer_id: normalizeEntityId(currentOrder?.customer_id),
         notes: String(currentOrder?.notes || ''),
         status: nextOrderStatus,
-        payment_status: String(currentOrder?.payment_status || 'unpaid'),
+        payment_status: paymentStatusFromForm,
         shipping_company: shippingCompanyFromForm || String(currentOrder?.shipping_company || ''),
         tracking_number: trackingNumberFromForm || String(currentOrder?.tracking_number || ''),
         shipping_status: nextShippingStatus,
@@ -4533,6 +4542,7 @@ function openOrderApprovalHistoryModal() {
     if (!modal) {
         return;
     }
+    modal.style.zIndex = '1300';
     modal.classList.add('active');
     modal.style.display = 'flex';
 }

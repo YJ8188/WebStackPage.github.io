@@ -833,6 +833,11 @@ select.ant-select option {
     display: flex;
 }
 
+#orderApprovalHistoryModal,
+#payablePaymentHistoryModal {
+    z-index: 1300;
+}
+
 .modal {
     background: #fff;
     border-radius: 4px;

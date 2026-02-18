@@ -9150,6 +9150,9 @@ if (typeof window !== 'undefined') {
         }
 
         const products = await ERP.loadProducts(true);
+        if (typeof renderProducts === 'function') {
+            renderProducts(products);
+        }
         if (typeof renderInventory === 'function') {
             renderInventory(products);
             populateInventoryProducts();

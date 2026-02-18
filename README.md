@@ -123,6 +123,17 @@ python -m http.server 8000
 - 文件：`docs/sql/erp_sme_upgrade.sql`
 - 用途：给 `customers` 增加结构化字段（客户等级/信用额度/账期）并创建企业经营设置表
 
+### Supabase 安全告警修复（Security Advisor）
+- 文件：`docs/sql/erp_security_hardening.sql`
+- 对应修复项：
+  - `RLS Disabled in Public`（`public.erp_business_settings`）
+  - `Security Definer View`（`public.erp_product_stock`、`public.erp_order_stats`）
+- 执行方式：
+  1. 打开 Supabase -> SQL Editor
+  2. 粘贴并执行 `docs/sql/erp_security_hardening.sql`
+  3. 回到 Security Advisor 点 `Refresh`
+- 说明：脚本是幂等的，可重复执行。
+
 ## 物流轨迹（17TRACK）
 - ERP 订单弹窗已支持“查询轨迹”，展示最新状态与时间线
 - 前端通过 Supabase Edge Function 代理 17TRACK，避免在网页暴露 API Key
@@ -154,6 +165,14 @@ TRACK17_API_KEY=你的17TRACK_API_KEY
 - 填写快递公司与单号，点击“查询轨迹”  
 - 若提示需要校验参数（如部分顺丰单号），填写“手机号后4位”再查询  
 - 系统会显示最新物流状态与轨迹时间线
+
+## 首页看板说明（你截图那两块）
+- `订单交付时效`：统计从“下单时间”到“签收/完成”的耗时分布（1天内、2-3天、4-7天、7天以上）。
+- `毛利异常检测`：按订单维度检查三类异常：负毛利、低毛利（<10%）、成本缺失。
+- 如果你看到“0单/0%”：
+  - 可能是订单未写入完整状态流转日志；
+  - 或订单还未进入可统计状态（未签收/未完成）；
+  - 可先在订单详情里执行一次物流查询并保存，系统会重新计算看板。
 
 ## Supabase 配置
 编辑：`assets/js/supabase-config.js`

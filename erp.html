@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="assets/css/fonts/fontawesome/css/font-awesome.min.css">
 
     <!-- Ant Design Style Clone -->
-    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260216-46">
+    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260218-47">
 
     <script>
         (function () {
@@ -495,9 +495,9 @@
                                         <label class="search-label">结束:</label>
                                         <input type="date" id="orderDateEnd" class="ant-input" onchange="searchOrders()" disabled>
                                     </div>
-                                    <div class="search-item">
+                                    <div class="search-item search-item-actions">
                                         <button class="ant-btn ant-btn-primary" onclick="searchOrders()">查询</button>
-                                        <button class="ant-btn" onclick="resetOrderFilters()" style="margin-left:8px;">重置</button>
+                                        <button class="ant-btn" onclick="resetOrderFilters()">重置</button>
                                     </div>
                                 </div>
                                 <div class="erp-finance-quick-range">
@@ -512,14 +512,14 @@
 
                             <div id="orderWorkflowSummary" style="margin: 10px 0 14px;"></div>
 
-                            <div class="table-operator">
+                            <div class="table-operator erp-toolbar">
                                 <button class="ant-btn ant-btn-primary" onclick="showOrderModal()">
                                     <i class="fa fa-plus"></i> 创建订单
                                 </button>
-                                <button class="ant-btn" onclick="exportOrdersCsv()" style="margin-left:8px; color:#1677ff; border-color:#91caff;">
+                                <button class="ant-btn" onclick="exportOrdersCsv()" style="color:#1677ff; border-color:#91caff;">
                                     <i class="fa fa-download"></i> 导出当前列表
                                 </button>
-                                <button class="ant-btn" onclick="bulkCompleteSignedOrders()" style="margin-left:8px; color:#722ed1; border-color:#d3adf7;">
+                                <button class="ant-btn" onclick="bulkCompleteSignedOrders()" style="color:#722ed1; border-color:#d3adf7;">
                                     <i class="fa fa-check-circle"></i> 一键完结已签收
                                 </button>
                                 <button class="ant-btn" type="button" onclick="toggleModuleColumnSettings('orders')">
@@ -576,7 +576,7 @@
                                 </div>
                             </div>
 
-                            <div class="table-operator">
+                            <div class="table-operator erp-toolbar">
                                 <button class="ant-btn ant-btn-primary" onclick="showInventoryModal()">
                                     <i class="fa fa-sliders"></i> 库存调整
                                 </button>
@@ -607,7 +607,7 @@
                             <div id="inventoryPager"></div>
 
                             <div class="ant-table-wrapper erp-table-scroll" style="margin-top: 16px;">
-                                <div style="font-weight: 500; margin-bottom: 8px; color: #262626;">采购入库记录</div>
+                                <div class="erp-subsection-title">采购入库记录</div>
                                 <div class="ant-table">
                                     <table>
                                         <thead class="ant-table-thead">
@@ -662,7 +662,7 @@
                                         <input type="text" id="financeSearch" class="ant-input" placeholder="订单号/描述/分类"
                                             oninput="searchFinances()">
                                     </div>
-                                    <div class="search-item">
+                                    <div class="search-item search-item-actions">
                                         <button class="ant-btn" type="button" onclick="resetFinanceFilters()">重置筛选</button>
                                     </div>
                                 </div>
@@ -676,7 +676,7 @@
                                 </div>
                             </div>
 
-                            <div class="table-operator">
+                            <div class="table-operator erp-toolbar">
                                 <button class="ant-btn ant-btn-primary" onclick="showFinanceModal()">
                                     <i class="fa fa-plus"></i> 记一笔
                                 </button>
@@ -698,8 +698,8 @@
                                     <option value="all" selected>图表范围: 全部</option>
                                     <option value="filtered">图表范围: 当前筛选</option>
                                 </select>
-                                <input type="date" id="financeDailyReportDate" class="ant-input" style="width: 150px;">
-                                <input type="month" id="financeReportMonth" class="ant-input" onchange="onFinanceReportMonthChange()" style="width: 150px;">
+                                <input type="date" id="financeDailyReportDate" class="ant-input erp-compact-input">
+                                <input type="month" id="financeReportMonth" class="ant-input erp-compact-input" onchange="onFinanceReportMonthChange()">
                                 <button class="ant-btn" onclick="exportFinanceCsvByCurrentView()">
                                     <i class="fa fa-file-excel-o"></i> 导出Excel(CSV)
                                 </button>
@@ -724,41 +724,30 @@
                             <div id="financeColumnSettingsPanel" class="erp-inline-settings hidden"></div>
 
                             <!-- Finance Stats Summary inside Card -->
-                            <div id="financeSummary" class="ant-row"
-                                style="margin-bottom: 20px; background: #f9f9f9; padding: 10px; border-radius: 4px;">
-                                <div class="ant-col"
-                                    style="flex: 1; text-align: center; border-right: 1px solid #e8e8e8;">
-                                    <div style="color: #666; font-size: 12px;">总收入</div>
-                                    <div id="totalIncome" style="color: #cf1322; font-size: 18px; font-weight: 500;">
-                                        ¥0.00</div>
+                            <div id="financeSummary" class="erp-finance-summary-strip">
+                                <div class="erp-finance-summary-item">
+                                    <div class="erp-finance-summary-label">总收入</div>
+                                    <div id="totalIncome" class="erp-finance-summary-value is-income">¥0.00</div>
                                 </div>
-                                <div class="ant-col"
-                                    style="flex: 1; text-align: center; border-right: 1px solid #e8e8e8;">
-                                    <div style="color: #666; font-size: 12px;">总支出</div>
-                                    <div id="totalExpense" style="color: #3f8600; font-size: 18px; font-weight: 500;">
-                                        ¥0.00</div>
+                                <div class="erp-finance-summary-item">
+                                    <div class="erp-finance-summary-label">总支出</div>
+                                    <div id="totalExpense" class="erp-finance-summary-value is-expense">¥0.00</div>
                                 </div>
-                                <div class="ant-col" style="flex: 1; text-align: center;">
-                                    <div style="color: #666; font-size: 12px;">净收入</div>
-                                    <div id="netIncome" style="color: #1890ff; font-size: 18px; font-weight: 500;">¥0.00
-                                    </div>
+                                <div class="erp-finance-summary-item">
+                                    <div class="erp-finance-summary-label">净收入</div>
+                                    <div id="netIncome" class="erp-finance-summary-value is-net">¥0.00</div>
                                 </div>
                             </div>
 
-                            <div id="financeCashflowOverview" class="ant-row"
-                                style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom: 16px;"></div>
+                            <div id="financeCashflowOverview" class="erp-finance-block"></div>
 
-                            <div id="financeRiskAlerts" class="ant-row"
-                                style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom: 16px;"></div>
+                            <div id="financeRiskAlerts" class="erp-finance-block"></div>
 
-                            <div id="financeAgingSummary" class="ant-row"
-                                style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom: 16px;"></div>
+                            <div id="financeAgingSummary" class="erp-finance-block"></div>
 
-                            <div id="financeTrendSummary" class="ant-row"
-                                style="margin-bottom: 16px;"></div>
+                            <div id="financeTrendSummary" class="erp-finance-block"></div>
 
-                            <div id="financeMonthlyProfitChart" class="ant-row"
-                                style="margin-bottom: 16px;"></div>
+                            <div id="financeMonthlyProfitChart" class="erp-finance-block"></div>
 
                             <div class="ant-table-wrapper erp-table-scroll">
                                 <div class="ant-table">

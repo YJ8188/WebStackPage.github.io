@@ -1098,3 +1098,228 @@ select.ant-select option {
     height: 14px;
     cursor: pointer;
 }
+
+/* ==================== ERP UI Unified Layout ==================== */
+.content-card {
+    min-height: auto;
+}
+
+.table-page-search-wrapper {
+    margin-bottom: 16px;
+    padding: 14px 16px;
+    border: 1px solid #edf1f7;
+    border-radius: 10px;
+    background: #fafcff;
+}
+
+.table-page-search-wrapper .search-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 10px 14px;
+    align-items: end;
+}
+
+.search-item {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.search-item.search-item-actions {
+    grid-template-columns: 1fr;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.search-label {
+    margin-right: 0;
+    color: #334155;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.search-item .ant-input,
+.search-item .ant-select {
+    width: 100%;
+}
+
+.erp-finance-quick-range {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px dashed #e2e8f0;
+}
+
+.table-operator.erp-toolbar {
+    margin: 0 0 14px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.table-operator.erp-toolbar .ant-btn,
+.table-operator.erp-toolbar .ant-select,
+.table-operator.erp-toolbar .ant-input {
+    margin-right: 0;
+}
+
+.erp-compact-input {
+    width: 138px !important;
+}
+
+.erp-subsection-title {
+    margin: 0 0 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.ant-table-thead>tr>th,
+.ant-table-tbody>tr>td {
+    padding: 12px 12px;
+}
+
+.erp-action-cell {
+    min-width: 160px;
+}
+
+[data-table-cell="orders:actions"] .erp-row-actions {
+    flex-wrap: nowrap;
+}
+
+[data-table-cell="orders:actions"] .erp-row-actions .ant-btn {
+    min-width: 52px;
+    height: 28px;
+    line-height: 26px;
+    padding: 0 8px;
+    font-size: 12px;
+}
+
+#orderWorkflowSummary {
+    margin: 6px 0 12px !important;
+    padding: 8px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
+.erp-finance-summary-strip {
+    margin-bottom: 14px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.erp-finance-summary-item {
+    text-align: center;
+    padding: 12px 10px;
+    border-right: 1px solid #e2e8f0;
+}
+
+.erp-finance-summary-item:last-child {
+    border-right: none;
+}
+
+.erp-finance-summary-label {
+    font-size: 12px;
+    color: #64748b;
+}
+
+.erp-finance-summary-value {
+    margin-top: 4px;
+    font-size: 30px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.erp-finance-summary-value.is-income {
+    color: #cf1322;
+}
+
+.erp-finance-summary-value.is-expense {
+    color: #237804;
+}
+
+.erp-finance-summary-value.is-net {
+    color: #1677ff;
+}
+
+.erp-finance-block {
+    margin-bottom: 14px;
+}
+
+#financeCashflowOverview>div,
+#financeAgingSummary,
+#financeRiskAlerts,
+#financeTrendSummary>div:first-child {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 10px !important;
+}
+
+#financeCashflowOverview>div>div,
+#financeAgingSummary>div,
+#financeRiskAlerts>div,
+#financeTrendSummary>div:first-child>div {
+    min-height: 94px;
+    border-radius: 10px !important;
+}
+
+#financeTrendSummary>div:last-child,
+#financeMonthlyProfitChart>div {
+    border-radius: 10px !important;
+    max-height: 340px;
+    overflow: auto;
+}
+
+@media (max-width: 992px) {
+    .table-page-search-wrapper .search-form {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+
+    .erp-action-cell {
+        min-width: 148px;
+    }
+}
+
+@media (max-width: 768px) {
+    .table-page-search-wrapper {
+        padding: 12px;
+    }
+
+    .table-page-search-wrapper .search-form {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .search-item {
+        grid-template-columns: 72px minmax(0, 1fr);
+    }
+
+    .search-item.search-item-actions {
+        justify-content: flex-start;
+    }
+
+    .erp-finance-summary-strip {
+        grid-template-columns: 1fr;
+    }
+
+    .erp-finance-summary-item {
+        border-right: none;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .erp-finance-summary-item:last-child {
+        border-bottom: none;
+    }
+
+    [data-table-cell="orders:actions"] .erp-row-actions {
+        flex-wrap: wrap;
+    }
+}

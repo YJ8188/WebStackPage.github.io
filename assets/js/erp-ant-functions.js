@@ -1770,9 +1770,6 @@ function showCustomerModal(customer = null) {
         return;
     }
 
-    modal.classList.add('active');
-    modal.style.display = 'flex';
-
     const title = document.getElementById('customerModalTitle');
     const form = document.getElementById('customerForm');
 
@@ -3049,7 +3046,14 @@ async function saveOrder() {
     const originalNotes = String(document.getElementById('orderNotes').value || '').trim();
     const baseNotes = originalNotes
         .split('\n')
-        .filter(line => !String(line || '').trim().startsWith('[风控审批]'))
+        .filter(line => {
+            const text = String(line || '').trim();
+            return text
+                && !text.startsWith('[风控审批]')
+                && !text.startsWith('[订单账期]')
+                && !text.startsWith('[预计回款]')
+                && !text.startsWith('[订单金额]');
+        })
         .join('\n')
         .trim();
     const notesWithPaymentMeta = appendOrderPaymentTermNotes(baseNotes, customerMeta, totalAmount);
@@ -4056,7 +4060,7 @@ function isOrderSignDelayRisk(order) {
     if (!['shipped', 'signed'].includes(status) && !['shipped'].includes(shippingStatus)) {
         return false;
     }
-    if (['completed', 'refunded', 'cancelled'].includes(status) || shippingStatus === 'signed') {
+    if (['signed', 'completed', 'refunded', 'cancelled'].includes(status) || shippingStatus === 'signed') {
         return false;
     }
     const orderDate = parseOrderDateForFilter(order?.order_date);

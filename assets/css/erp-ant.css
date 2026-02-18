@@ -1492,6 +1492,18 @@ select.ant-select option {
     background: #eff6ff;
 }
 
+.erp-type-pill.is-active {
+    color: #237804;
+    border-color: #b7eb8f;
+    background: #f6ffed;
+}
+
+.erp-type-pill.is-inactive {
+    color: #8c8c8c;
+    border-color: #d9d9d9;
+    background: #fafafa;
+}
+
 .erp-amount-text {
     font-weight: 700;
     white-space: nowrap;
@@ -1516,6 +1528,30 @@ select.ant-select option {
 
 .erp-cell-nowrap {
     white-space: nowrap;
+}
+
+.erp-cell-link {
+    font-weight: 600;
+    color: #1677ff;
+    text-decoration: none;
+}
+
+.erp-cell-link:hover {
+    color: #0958d9;
+    text-decoration: underline;
+}
+
+.erp-qty-text {
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.erp-qty-text.is-risk {
+    color: #cf1322;
+}
+
+.erp-qty-text.is-safe {
+    color: #237804;
 }
 
 .erp-row-actions .erp-btn-compact {
@@ -1561,6 +1597,80 @@ select.ant-select option {
 #ordersView [data-table-col="orders:logistics"],
 #ordersView [data-table-cell="orders:logistics"] {
     min-width: 170px;
+}
+
+#customersView [data-table-col="customers:name"],
+#customersView [data-table-cell="customers:name"] {
+    min-width: 130px;
+}
+
+#customersView [data-table-col="customers:contact"],
+#customersView [data-table-cell="customers:contact"],
+#customersView [data-table-col="customers:phone"],
+#customersView [data-table-cell="customers:phone"] {
+    min-width: 110px;
+}
+
+#customersView [data-table-col="customers:email"],
+#customersView [data-table-cell="customers:email"] {
+    min-width: 180px;
+}
+
+#customersView [data-table-col="customers:address"],
+#customersView [data-table-cell="customers:address"],
+#customersView [data-table-col="customers:notes"],
+#customersView [data-table-cell="customers:notes"] {
+    min-width: 160px;
+}
+
+#customersView [data-table-col="customers:status"],
+#customersView [data-table-cell="customers:status"] {
+    min-width: 96px;
+}
+
+#productsView [data-table-col="products:name"],
+#productsView [data-table-cell="products:name"],
+#inventoryView [data-table-col="inventory:name"],
+#inventoryView [data-table-cell="inventory:name"] {
+    min-width: 140px;
+}
+
+#productsView [data-table-col="products:sku"],
+#productsView [data-table-cell="products:sku"],
+#inventoryView [data-table-col="inventory:sku"],
+#inventoryView [data-table-cell="inventory:sku"] {
+    min-width: 120px;
+}
+
+#productsView [data-table-col="products:category"],
+#productsView [data-table-cell="products:category"],
+#inventoryView [data-table-col="inventory:category"],
+#inventoryView [data-table-cell="inventory:category"] {
+    min-width: 100px;
+}
+
+#productsView [data-table-col="products:price"],
+#productsView [data-table-cell="products:price"] {
+    min-width: 118px;
+}
+
+#productsView [data-table-col="products:stock"],
+#productsView [data-table-cell="products:stock"],
+#inventoryView [data-table-col="inventory:stock"],
+#inventoryView [data-table-cell="inventory:stock"] {
+    min-width: 96px;
+}
+
+#productsView [data-table-col="products:status"],
+#productsView [data-table-cell="products:status"],
+#inventoryView [data-table-col="inventory:status"],
+#inventoryView [data-table-cell="inventory:status"] {
+    min-width: 92px;
+}
+
+#inventoryView [data-table-col="inventory:min_stock"],
+#inventoryView [data-table-cell="inventory:min_stock"] {
+    min-width: 96px;
 }
 
 #financeView [data-finance-col="type"],

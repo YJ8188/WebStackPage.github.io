@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="assets/css/fonts/fontawesome/css/font-awesome.min.css">
 
     <!-- Ant Design Style Clone -->
-    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260218-51">
+    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260218-52">
 
     <script>
         (function () {
@@ -524,7 +524,8 @@
                     <!-- Customers View -->
                     <div id="customersView" class="module-view">
                         <div class="content-card">
-                            <div class="table-page-search-wrapper">
+                            <div class="erp-module-section-title">客户筛选</div>
+                            <div class="table-page-search-wrapper erp-block-card erp-block-filter">
                                 <div class="search-form">
                                     <div class="search-item">
                                         <label class="search-label">客户搜索:</label>
@@ -540,7 +541,8 @@
                                 </div>
                             </div>
 
-                            <div class="table-operator">
+                            <div class="erp-module-section-title">客户操作</div>
+                            <div class="table-operator erp-toolbar erp-block-card erp-block-toolbar">
                                 <button class="ant-btn ant-btn-primary" onclick="showCustomerModal()">
                                     <i class="fa fa-plus"></i> 新建客户
                                 </button>
@@ -557,7 +559,8 @@
                             </div>
                             <div id="customersColumnSettingsPanel" class="erp-inline-settings hidden"></div>
 
-                            <div class="ant-table-wrapper erp-table-scroll">
+                            <div class="erp-module-section-title">客户列表</div>
+                            <div class="ant-table-wrapper erp-table-scroll erp-block-card erp-block-table">
                                 <div class="ant-table">
                                     <table id="customersTable">
                                         <thead class="ant-table-thead">
@@ -589,7 +592,8 @@
                     <!-- Products View -->
                     <div id="productsView" class="module-view">
                         <div class="content-card">
-                            <div class="table-page-search-wrapper">
+                            <div class="erp-module-section-title">产品筛选</div>
+                            <div class="table-page-search-wrapper erp-block-card erp-block-filter">
                                 <div class="search-form">
                                     <div class="search-item">
                                         <label class="search-label">产品搜索:</label>
@@ -599,25 +603,27 @@
                                 </div>
                             </div>
 
-                            <div class="table-operator">
+                            <div class="erp-module-section-title">产品操作</div>
+                            <div class="table-operator erp-toolbar erp-block-card erp-block-toolbar">
                                 <button class="ant-btn ant-btn-primary" onclick="showProductModal()">
                                     <i class="fa fa-plus"></i> 新建产品
                                 </button>
                             </div>
 
-                            <div class="ant-table-wrapper erp-table-scroll">
+                            <div class="erp-module-section-title">产品列表</div>
+                            <div class="ant-table-wrapper erp-table-scroll erp-block-card erp-block-table">
                                 <div class="ant-table">
                                     <table id="productsTable">
                                         <thead class="ant-table-thead">
                                             <tr>
-                                                <th>产品名称</th>
-                                                <th>编码</th>
-                                                <th>分类</th>
-                                                <th>价格</th>
-                                                <th>库存</th>
-                                                <th>单位</th>
-                                                <th>状态</th>
-                                                <th>操作</th>
+                                                <th data-table-col="products:name">产品名称</th>
+                                                <th data-table-col="products:sku">编码</th>
+                                                <th data-table-col="products:category">分类</th>
+                                                <th data-table-col="products:price">价格</th>
+                                                <th data-table-col="products:stock">库存</th>
+                                                <th data-table-col="products:unit">单位</th>
+                                                <th data-table-col="products:status">状态</th>
+                                                <th data-table-col="products:actions">操作</th>
                                             </tr>
                                         </thead>
                                         <tbody class="ant-table-tbody" id="productsTableBody"></tbody>
@@ -773,7 +779,8 @@
                     <!-- Inventory View -->
                     <div id="inventoryView" class="module-view">
                         <div class="content-card">
-                            <div class="table-page-search-wrapper">
+                            <div class="erp-module-section-title">库存筛选</div>
+                            <div class="table-page-search-wrapper erp-block-card erp-block-filter">
                                 <div class="search-form">
                                     <div class="search-item">
                                         <label class="search-label">库存搜索:</label>
@@ -783,7 +790,8 @@
                                 </div>
                             </div>
 
-                            <div class="table-operator erp-toolbar">
+                            <div class="erp-module-section-title">库存操作</div>
+                            <div class="table-operator erp-toolbar erp-block-card erp-block-toolbar">
                                 <button class="ant-btn ant-btn-primary" onclick="showInventoryModal()">
                                     <i class="fa fa-sliders"></i> 库存调整
                                 </button>
@@ -792,19 +800,20 @@
                                 </button>
                             </div>
 
-                            <div class="ant-table-wrapper erp-table-scroll">
+                            <div class="erp-module-section-title">库存列表</div>
+                            <div class="ant-table-wrapper erp-table-scroll erp-block-card erp-block-table">
                                 <div class="ant-table">
                                     <table>
                                         <thead class="ant-table-thead">
                                             <tr>
-                                                <th>产品名称</th>
-                                                <th>编码</th>
-                                                <th>分类</th>
-                                                <th>当前库存</th>
-                                                <th>单位</th>
-                                                <th>预警值</th>
-                                                <th>状态</th>
-                                                <th>操作</th>
+                                                <th data-table-col="inventory:name">产品名称</th>
+                                                <th data-table-col="inventory:sku">编码</th>
+                                                <th data-table-col="inventory:category">分类</th>
+                                                <th data-table-col="inventory:stock">当前库存</th>
+                                                <th data-table-col="inventory:unit">单位</th>
+                                                <th data-table-col="inventory:min_stock">预警值</th>
+                                                <th data-table-col="inventory:status">状态</th>
+                                                <th data-table-col="inventory:actions">操作</th>
                                             </tr>
                                         </thead>
                                         <tbody class="ant-table-tbody" id="inventoryTableBody"></tbody>
@@ -813,8 +822,8 @@
                             </div>
                             <div id="inventoryPager"></div>
 
-                            <div class="ant-table-wrapper erp-table-scroll" style="margin-top: 16px;">
-                                <div class="erp-subsection-title">采购入库记录</div>
+                            <div class="erp-module-section-title">采购入库记录</div>
+                            <div class="ant-table-wrapper erp-table-scroll erp-block-card erp-block-table" style="margin-top: 6px;">
                                 <div class="ant-table">
                                     <table>
                                         <thead class="ant-table-thead">
@@ -1737,17 +1746,17 @@
                             ${isModuleRowSelected('customers', customer.id) ? 'checked' : ''}
                             onchange="onModuleRowCheckedChange('customers', this.getAttribute('data-id'), this.checked)">
                     </td>
-                    <td data-table-cell="customers:name"><a href="#" class="customer-profile-link" data-customer-profile-id="${String(customer.id).replace(/\"/g, '&quot;')}" onclick="return handleCustomerProfileLink(event, ${JSON.stringify(customer.id)})" style="font-weight:500;">${customer.name}</a></td>
+                    <td data-table-cell="customers:name"><a href="#" class="customer-profile-link erp-cell-link" data-customer-profile-id="${String(customer.id).replace(/\"/g, '&quot;')}" onclick="return handleCustomerProfileLink(event, ${JSON.stringify(customer.id)})">${customer.name}</a></td>
                     <td data-table-cell="customers:contact">${customer.contact_person || '-'}</td>
                     <td data-table-cell="customers:phone">${customer.phone || '-'}</td>
                     <td data-table-cell="customers:email">${customer.email || '-'}</td>
                     <td data-table-cell="customers:address" title="${customer.address || '-'}"><span class="erp-cell-ellipsis">${customer.address || '-'}</span></td>
                     <td data-table-cell="customers:notes" title="${customer.notes || '-'}"><span class="erp-cell-ellipsis">${customer.notes || '-'}</span></td>
-                    <td data-table-cell="customers:status">${customer.status === 'active' ? '活跃' : '停用'}</td>
+                    <td data-table-cell="customers:status"><span class="erp-type-pill ${customer.status === 'active' ? 'is-active' : 'is-inactive'}">${customer.status === 'active' ? '活跃' : '停用'}</span></td>
                     <td class="erp-action-cell" data-table-cell="customers:actions">
                         <div class="erp-row-actions">
-                            <button class="ant-btn" onclick='editCustomer(${JSON.stringify(customer.id)})'>编辑</button>
-                            <button class="ant-btn erp-btn-danger" onclick='deleteCustomer(${JSON.stringify(customer.id)})'>删除</button>
+                            <button class="ant-btn erp-btn-blue erp-btn-compact" onclick='editCustomer(${JSON.stringify(customer.id)})'>编辑</button>
+                            <button class="ant-btn erp-btn-danger erp-btn-compact" onclick='deleteCustomer(${JSON.stringify(customer.id)})'>删除</button>
                         </div>
                     </td>
                 </tr>
@@ -1789,21 +1798,24 @@
 
             tbody.innerHTML = visibleRows.map(product => `
                 <tr>
-                    <td><strong>${product.name}</strong></td>
-                    <td>${product.sku || '-'}</td>
-                    <td>${product.category || '-'}</td>
-                    <td>
-                        <span style="${getProductPriceStyle(product)}">¥${parseFloat(product.price || 0).toFixed(2)}</span>
+                    <td data-table-cell="products:name"><strong>${product.name}</strong></td>
+                    <td data-table-cell="products:sku">${product.sku || '-'}</td>
+                    <td data-table-cell="products:category">${product.category || '-'}</td>
+                    <td data-table-cell="products:price"><span class="erp-amount-text is-income">¥${parseFloat(product.price || 0).toFixed(2)}</span></td>
+                    <td data-table-cell="products:stock">
+                        <span class="erp-qty-text ${(() => {
+                            const stock = Number(product?.stock_quantity || 0);
+                            const minStock = Number(product?.min_stock || 0);
+                            const threshold = minStock > 0 ? minStock : 3;
+                            return stock <= threshold ? 'is-risk' : 'is-safe';
+                        })()}">${Number(product.stock_quantity || 0).toLocaleString()}</span>
                     </td>
-                    <td>
-                        <span style="${getProductStockStyle(product)}">${Number(product.stock_quantity || 0).toLocaleString()}</span>
-                    </td>
-                    <td>${getUnitText(product.unit)}</td>
-                     <td>${product.status === 'active' ? '上架' : '下架'}</td>
-                    <td class="erp-action-cell">
+                    <td data-table-cell="products:unit">${getUnitText(product.unit)}</td>
+                    <td data-table-cell="products:status"><span class="erp-type-pill ${product.status === 'active' ? 'is-active' : 'is-inactive'}">${product.status === 'active' ? '上架' : '下架'}</span></td>
+                    <td class="erp-action-cell" data-table-cell="products:actions">
                         <div class="erp-row-actions">
-                            <button class="ant-btn" onclick='editProduct(${JSON.stringify(product.id)})'>编辑</button>
-                            <button class="ant-btn erp-btn-danger" onclick='deleteProduct(${JSON.stringify(product.id)})'>删除</button>
+                            <button class="ant-btn erp-btn-blue erp-btn-compact" onclick='editProduct(${JSON.stringify(product.id)})'>编辑</button>
+                            <button class="ant-btn erp-btn-danger erp-btn-compact" onclick='deleteProduct(${JSON.stringify(product.id)})'>删除</button>
                         </div>
                     </td>
                 </tr>
@@ -1918,26 +1930,26 @@
 
             tbody.innerHTML = visibleRows.map(product => `
                 <tr>
-                    <td>${product.name}</td>
-                    <td>${product.sku || '-'}</td>
-                    <td>${product.category || '-'}</td>
-                    <td style="font-weight:bold; color: ${(() => {
+                    <td data-table-cell="inventory:name">${product.name}</td>
+                    <td data-table-cell="inventory:sku">${product.sku || '-'}</td>
+                    <td data-table-cell="inventory:category">${product.category || '-'}</td>
+                    <td data-table-cell="inventory:stock"><span class="erp-qty-text ${(() => {
                         if (typeof isInventoryRiskProduct === 'function') {
-                            return isInventoryRiskProduct(product) ? '#cf1322' : '#3f8600';
+                            return isInventoryRiskProduct(product) ? 'is-risk' : 'is-safe';
                         }
                         const stock = Number(product?.stock_quantity);
                         const minStock = Number(product?.min_stock);
                         const safeStock = Number.isFinite(stock) ? stock : 0;
                         const safeMinStock = Number.isFinite(minStock) ? minStock : 0;
-                        return (safeMinStock > 0 ? safeStock <= safeMinStock : safeStock <= 3) ? '#cf1322' : '#3f8600';
-                    })()}">${product.stock_quantity ?? 0}</td>
-                    <td>${getUnitText(product.unit)}</td>
-                    <td>${product.min_stock ?? '-'}</td>
-                     <td>${product.status === 'active' ? '正常' : '停用'}</td>
-                    <td class="erp-action-cell">
+                        return (safeMinStock > 0 ? safeStock <= safeMinStock : safeStock <= 3) ? 'is-risk' : 'is-safe';
+                    })()}">${product.stock_quantity ?? 0}</span></td>
+                    <td data-table-cell="inventory:unit">${getUnitText(product.unit)}</td>
+                    <td data-table-cell="inventory:min_stock">${product.min_stock ?? '-'}</td>
+                    <td data-table-cell="inventory:status"><span class="erp-type-pill ${product.status === 'active' ? 'is-active' : 'is-inactive'}">${product.status === 'active' ? '正常' : '停用'}</span></td>
+                    <td class="erp-action-cell" data-table-cell="inventory:actions">
                         <div class="erp-row-actions">
-                            <button class="ant-btn ant-btn-primary" onclick='showInventoryAdjustModal(${JSON.stringify(product.id)})' style="background:#faad14; border-color:#faad14;">调整</button>
-                            <button class="ant-btn" onclick='showInventoryPurchaseModal(${JSON.stringify(product.id)})'>采购</button>
+                            <button class="ant-btn erp-btn-warning erp-btn-compact" onclick='showInventoryAdjustModal(${JSON.stringify(product.id)})'>调整</button>
+                            <button class="ant-btn erp-btn-blue erp-btn-compact" onclick='showInventoryPurchaseModal(${JSON.stringify(product.id)})'>采购</button>
                         </div>
                     </td>
                 </tr>

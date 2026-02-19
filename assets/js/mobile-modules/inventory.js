@@ -7,12 +7,19 @@ window.InventoryModule = {
   currentType: '',
   currentPage: 1,
   pageSize: 20,
+  rawRecords: [],
+  filteredRecords: [],
   records: [],
   hasMore: true,
+  eventsBound: false,
 
   async init() {
-    this.bindEvents();
-    await this.loadRecords();
+    if (!this.eventsBound) {
+      this.bindEvents();
+      this.eventsBound = true;
+    }
+    this.currentPage = 1;
+    await this.loadRecords(true);
   },
 
   bindEvents() {
@@ -23,6 +30,7 @@ window.InventoryModule = {
         tab.classList.add('active');
         this.currentType = tab.dataset.type;
         this.currentPage = 1;
+        this.filteredRecords = [];
         this.records = [];
         this.hasMore = true;
         this.loadRecords();
@@ -45,25 +53,30 @@ window.InventoryModule = {
     }
   },
 
-  async loadRecords() {
+  async loadRecords(forceRefresh = false) {
     try {
       window.Loading.show('加载库存记录...');
 
       if (this.currentType === 'warning') {
         await this.loadWarningProducts();
+        this.hasMore = false;
       } else {
-        const offset = (this.currentPage - 1) * this.pageSize;
-        const newRecords = await window.API.getInventoryRecords({
-          type: this.currentType,
-          limit: this.pageSize,
-          offset
-        });
-
-        if (newRecords.length < this.pageSize) {
-          this.hasMore = false;
+        if (forceRefresh || !Array.isArray(this.rawRecords) || this.rawRecords.length === 0) {
+          const fetched = await window.API.getInventoryRecords({
+            limit: 1000,
+            offset: 0
+          });
+          this.rawRecords = Array.isArray(fetched) ? fetched : [];
         }
 
-        this.records = this.currentPage === 1 ? newRecords : [...this.records, ...newRecords];
+        const filtered = this.currentType
+          ? this.rawRecords.filter(record => this.normalizeRecordType(record) === this.currentType)
+          : [...this.rawRecords];
+
+        this.filteredRecords = filtered;
+        const visibleCount = this.currentPage * this.pageSize;
+        this.records = filtered.slice(0, visibleCount);
+        this.hasMore = filtered.length > visibleCount;
         this.renderRecords();
       }
 
@@ -89,7 +102,25 @@ window.InventoryModule = {
   async loadMore() {
     if (!this.hasMore || this.currentType === 'warning') return;
     this.currentPage++;
-    await this.loadRecords();
+    await this.loadRecords(false);
+  },
+
+  resolveQuantityChange(record) {
+    const quantityValue = Number(record?.quantity_change ?? record?.quantity ?? 0);
+    return Number.isFinite(quantityValue) ? quantityValue : 0;
+  },
+
+  normalizeRecordType(record) {
+    const rawType = String(record?.type || '').trim().toLowerCase();
+    const inTypes = new Set(['in', 'purchase', 'inbound', 'restock', 'order_release', 'sale_reversal', 'refund_in', 'manual_in', 'adjust_in']);
+    const outTypes = new Set(['out', 'sale', 'order_lock', 'consumption', 'outbound', 'manual_out', 'adjust_out']);
+
+    if (inTypes.has(rawType)) return 'in';
+    if (outTypes.has(rawType)) return 'out';
+
+    const quantityChange = this.resolveQuantityChange(record);
+    if (quantityChange < 0) return 'out';
+    return 'in';
   },
 
   renderRecords() {
@@ -115,15 +146,13 @@ window.InventoryModule = {
   },
 
   renderRecordCard(record) {
-    const rawType = String(record.type || '').toLowerCase();
-    const quantityChange = Number(record.quantity_change ?? record.quantity ?? 0);
-    const inferredType = quantityChange >= 0 ? 'in' : 'out';
-    const type = ['in', 'out'].includes(rawType) ? rawType : inferredType;
+    const type = this.normalizeRecordType(record);
+    const quantityChange = this.resolveQuantityChange(record);
     const typeText = type === 'in' ? '入库' : '出库';
     const typeIcon = type === 'in' ? 'fa-arrow-down' : 'fa-arrow-up';
     const productName = record.product?.name || '未知产品';
     const productSku = record.product?.sku || '';
-    const quantity = Math.abs(Number.isFinite(quantityChange) ? quantityChange : 0);
+    const quantity = Math.abs(quantityChange);
     const time = window.Utils.formatRelativeTime(record.created_at);
 
     return `
@@ -234,4 +263,3 @@ window.InventoryModule = {
     window.Toast.info('补货功能开发中');
   }
 };
-

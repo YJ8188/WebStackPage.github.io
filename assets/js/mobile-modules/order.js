@@ -240,7 +240,7 @@ window.OrderModule = {
       <!-- 产品列表 -->
       <div class="order-detail-section">
         <div class="order-detail-title">
-          <i class="fa fa-shopping-bag"></i>
+          <i class="fa fa-cubes"></i>
           产品明细
         </div>
         ${order.items && order.items.length > 0 ? order.items.map(item => `
@@ -348,5 +348,4 @@ window.OrderModule = {
     }
   }
 };
-
 

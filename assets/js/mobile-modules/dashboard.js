@@ -76,7 +76,7 @@ window.DashboardModule = {
           </div>
           <div class="dashboard-shortcut-item" data-action="products">
             <div class="dashboard-shortcut-icon green">
-              <i class="fa fa-shopping-bag"></i>
+              <i class="fa fa-cubes"></i>
             </div>
             <div class="dashboard-shortcut-label">产品管理</div>
           </div>
@@ -218,7 +218,7 @@ window.DashboardModule = {
 
   handleShortcut(action) {
     const actions = {
-      newOrder: () => window.Router.push('/order/create'),
+      newOrder: () => window.Router.push('/orders'),
       inventory: () => window.Router.push('/inventory'),
       customers: () => window.Router.push('/customers'),
       products: () => window.Router.push('/products')
@@ -230,4 +230,3 @@ window.DashboardModule = {
     }
   }
 };
-

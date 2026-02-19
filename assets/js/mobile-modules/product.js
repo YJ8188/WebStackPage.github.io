@@ -87,7 +87,7 @@ window.ProductModule = {
     if (this.products.length === 0) {
       container.innerHTML = `
         <div class="empty-state">
-          <div class="empty-icon"><i class="fa fa-shopping-bag"></i></div>
+          <div class="empty-icon"><i class="fa fa-cubes"></i></div>
           <div class="empty-text">${this.searchKeyword ? '未找到相关产品' : '暂无产品'}</div>
         </div>
       `;
@@ -146,5 +146,4 @@ window.ProductModule = {
     window.Toast.info('添加产品功能开发中');
   }
 };
-
 

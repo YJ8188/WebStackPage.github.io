@@ -1002,6 +1002,15 @@ window.OrderModule = {
         );
       }
 
+      actions.push({
+        text: '删除订单',
+        icon: 'trash',
+        danger: true,
+        handler: async () => {
+          await this.deleteOrder(currentId, order);
+        }
+      });
+
       await window.ActionSheet.show({
         title: `订单 ${order.order_number || ''}`,
         actions
@@ -1009,6 +1018,38 @@ window.OrderModule = {
     } catch (error) {
       console.error('打开订单更多操作失败:', error);
       window.Toast.error('打开更多操作失败');
+    }
+  },
+
+  async deleteOrder(orderId, order = null) {
+    const safeOrderId = String(orderId || '').trim();
+    if (!safeOrderId) {
+      window.Toast.error('订单ID无效');
+      return;
+    }
+
+    const orderNumber = String(order?.order_number || '').trim();
+    const confirmed = await window.Modal.confirm(
+      `确认删除订单${orderNumber ? `「${orderNumber}」` : ''}？<br><span style="color:#dc2626;">删除后将回补库存并清理关联财务记录。</span>`,
+      '删除订单'
+    );
+    if (!confirmed) return;
+
+    try {
+      await window.API.deleteOrder(safeOrderId);
+      window.Toast.success('订单已删除');
+
+      this.currentDetailOrderId = '';
+      this.currentDetailOrder = null;
+      this.currentPage = 1;
+      this.orders = [];
+      this.hasMore = true;
+      this.emptyHintShown = false;
+
+      window.Router.push('/orders');
+    } catch (error) {
+      console.error('删除订单失败:', error);
+      window.Toast.error(error?.message || '删除订单失败');
     }
   },
 

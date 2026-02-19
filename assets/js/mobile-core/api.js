@@ -597,6 +597,180 @@ class API {
     return this.updateOrder(id, { status });
   }
 
+  async deleteOrder(id) {
+    return this.request(async () => {
+      const client = this.ensureSupabaseClient();
+      const userId = this.getCurrentUserId();
+      const orderId = String(id || '').trim();
+      if (!orderId) {
+        throw new Error('订单ID无效');
+      }
+
+      let orderQuery = client
+        .from(this.tableNames.orders)
+        .select(`
+          id,
+          order_number,
+          user_id,
+          items:erp_order_items(id, product_id, quantity)
+        `)
+        .eq('id', orderId);
+      if (userId) {
+        orderQuery = orderQuery.eq('user_id', userId);
+      }
+      const { data: orderRow, error: orderError } = await orderQuery.single();
+      if (orderError) throw orderError;
+      if (!orderRow) {
+        throw new Error('订单不存在或无权限删除');
+      }
+
+      const normalizedItems = (Array.isArray(orderRow.items) ? orderRow.items : [])
+        .map(item => ({
+          product_id: String(item?.product_id || '').trim(),
+          quantity: Math.max(0, Number(item?.quantity || 0))
+        }))
+        .filter(item => item.product_id && item.quantity > 0);
+
+      const restoredRecords = [];
+      const rollbackRestoredStock = async () => {
+        for (const item of restoredRecords) {
+          try {
+            const rollbackStock = Math.max(0, Number(item?.before_stock || 0));
+            let rollbackProductQuery = client
+              .from(this.tableNames.products)
+              .update({ stock_quantity: rollbackStock })
+              .eq('id', item.product_id);
+            if (userId) {
+              rollbackProductQuery = rollbackProductQuery.eq('user_id', userId);
+            }
+            await rollbackProductQuery;
+
+            await client
+              .from(this.tableNames.inventoryRecords)
+              .insert([{
+                user_id: userId || null,
+                product_id: item.product_id,
+                quantity_change: -Math.abs(Number(item?.quantity || 0)),
+                current_quantity: rollbackStock,
+                type: 'order_lock',
+                reference_id: orderId,
+                notes: `删除订单失败，回滚库存回补（${orderRow.order_number || orderId}）`
+              }]);
+          } catch (rollbackError) {
+            console.error('库存回滚失败:', rollbackError);
+          }
+        }
+      };
+
+      for (const item of normalizedItems) {
+        let productQuery = client
+          .from(this.tableNames.products)
+          .select('id, stock_quantity')
+          .eq('id', item.product_id);
+        if (userId) {
+          productQuery = productQuery.eq('user_id', userId);
+        }
+        const { data: productRow, error: productError } = await productQuery.single();
+        if (productError) throw productError;
+
+        const beforeStock = Number(productRow?.stock_quantity || 0);
+        const nextStock = Math.max(0, beforeStock + Math.abs(Number(item.quantity || 0)));
+
+        let updateProductQuery = client
+          .from(this.tableNames.products)
+          .update({ stock_quantity: nextStock })
+          .eq('id', item.product_id);
+        if (userId) {
+          updateProductQuery = updateProductQuery.eq('user_id', userId);
+        }
+        const { error: updateProductError } = await updateProductQuery;
+        if (updateProductError) throw updateProductError;
+
+        const { error: stockLogError } = await client
+          .from(this.tableNames.inventoryRecords)
+          .insert([{
+            user_id: userId || null,
+            product_id: item.product_id,
+            quantity_change: Math.abs(Number(item.quantity || 0)),
+            current_quantity: nextStock,
+            type: 'sale_reversal',
+            reference_id: orderId,
+            notes: `删除订单回补库存（${orderRow.order_number || orderId}）`
+          }]);
+        if (stockLogError) throw stockLogError;
+
+        restoredRecords.push({
+          product_id: item.product_id,
+          quantity: Math.abs(Number(item.quantity || 0)),
+          before_stock: beforeStock
+        });
+      }
+
+      let financeRefQuery = client
+        .from(this.tableNames.financeRecords)
+        .delete()
+        .eq('reference_id', orderId);
+      if (userId) {
+        financeRefQuery = financeRefQuery.eq('user_id', userId);
+      }
+      const { error: financeRefError } = await financeRefQuery;
+      if (financeRefError) {
+        await rollbackRestoredStock();
+        throw financeRefError;
+      }
+
+      let financeOrderQuery = client
+        .from(this.tableNames.financeRecords)
+        .delete()
+        .eq('order_id', orderId);
+      if (userId) {
+        financeOrderQuery = financeOrderQuery.eq('user_id', userId);
+      }
+      const { error: financeOrderError } = await financeOrderQuery;
+      if (financeOrderError && financeOrderError.code !== '42703') {
+        await rollbackRestoredStock();
+        throw financeOrderError;
+      }
+
+      let deleteOrderQuery = client
+        .from(this.tableNames.orders)
+        .delete()
+        .eq('id', orderId);
+      if (userId) {
+        deleteOrderQuery = deleteOrderQuery.eq('user_id', userId);
+      }
+      let { error: deleteOrderError } = await deleteOrderQuery;
+
+      if (deleteOrderError && (deleteOrderError.code === '23503' || String(deleteOrderError.message || '').toLowerCase().includes('foreign key'))) {
+        const { error: deleteItemsError } = await client
+          .from(this.tableNames.orderItems)
+          .delete()
+          .eq('order_id', orderId);
+        if (deleteItemsError) {
+          await rollbackRestoredStock();
+          throw deleteItemsError;
+        }
+
+        let retryDeleteOrderQuery = client
+          .from(this.tableNames.orders)
+          .delete()
+          .eq('id', orderId);
+        if (userId) {
+          retryDeleteOrderQuery = retryDeleteOrderQuery.eq('user_id', userId);
+        }
+        const retryResult = await retryDeleteOrderQuery;
+        deleteOrderError = retryResult.error;
+      }
+
+      if (deleteOrderError) {
+        await rollbackRestoredStock();
+        throw deleteOrderError;
+      }
+
+      return true;
+    }, { showLoading: true, showError: true });
+  }
+
   async queryLogistics(trackingNumber, shippingCompany = '', options = {}) {
     return this.request(async () => {
       const client = this.ensureSupabaseClient();

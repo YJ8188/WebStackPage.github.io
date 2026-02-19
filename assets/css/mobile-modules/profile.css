@@ -1,0 +1,58 @@
+/**
+ * 移动端ERP - 个人中心模块样式
+ */
+
+/* 个人中心头部 */
+.profile-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: var(--spacing-xl);
+  text-align: center;
+  color: #fff;
+  margin-bottom: var(--spacing-lg);
+}
+
+.profile-avatar {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  font-size: 32px;
+  font-weight: 600;
+  margin: 0 auto var(--spacing-md);
+}
+
+.profile-name {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  margin-bottom: var(--spacing-xs);
+}
+
+.profile-role {
+  font-size: var(--font-size-sm);
+  opacity: 0.9;
+}
+
+/* 功能菜单 */
+.profile-menu {
+  padding: 0 var(--spacing-md);
+}
+
+.profile-menu-section {
+  margin-bottom: var(--spacing-lg);
+}
+
+.profile-menu-title {
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+  margin-bottom: var(--spacing-sm);
+  padding: 0 var(--spacing-xs);
+}
+
+/* 退出登录 */
+.profile-logout {
+  padding: var(--spacing-xl) var(--spacing-md);
+  padding-bottom: calc(var(--spacing-xl) + 60px);
+}

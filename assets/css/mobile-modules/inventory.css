@@ -1,0 +1,270 @@
+/**
+ * 移动端ERP - 库存模块样式
+ */
+
+/* 库存列表 */
+.inventory-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.inventory-card {
+  background-color: var(--bg-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.inventory-card-header {
+  padding: var(--spacing-md) var(--spacing-lg);
+  background-color: var(--bg-gray);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.inventory-type {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.inventory-type-icon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 12px;
+}
+
+.inventory-type-icon.in {
+  background-color: #f6ffed;
+  color: var(--success-color);
+}
+
+.inventory-type-icon.out {
+  background-color: #fff1f0;
+  color: var(--error-color);
+}
+
+.inventory-time {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.inventory-card-body {
+  padding: var(--spacing-lg);
+}
+
+.inventory-product {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.inventory-product-image {
+  width: 60px;
+  height: 60px;
+  background-color: var(--bg-gray);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.inventory-product-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.inventory-product-placeholder {
+  font-size: 24px;
+  color: var(--text-disabled);
+}
+
+.inventory-product-info {
+  flex: 1;
+  overflow: hidden;
+}
+
+.inventory-product-name {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.inventory-product-sku {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.inventory-quantity {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-md);
+  background-color: var(--bg-gray);
+  border-radius: var(--radius-md);
+}
+
+.inventory-quantity-label {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.inventory-quantity-value {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+}
+
+.inventory-quantity-value.in {
+  color: var(--success-color);
+}
+
+.inventory-quantity-value.out {
+  color: var(--error-color);
+}
+
+.inventory-notes {
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--divider-color);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* 库存预警 */
+.inventory-warning-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.inventory-warning-card {
+  background-color: var(--bg-color);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  border-left: 4px solid var(--error-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.inventory-warning-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+}
+
+.inventory-warning-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #fff1f0;
+  color: var(--error-color);
+  border-radius: 50%;
+  font-size: 16px;
+}
+
+.inventory-warning-title {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.inventory-warning-product {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-sm);
+}
+
+.inventory-warning-product-name {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.inventory-warning-stock {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.inventory-warning-stock-current {
+  font-size: var(--font-size-sm);
+  color: var(--error-color);
+  font-weight: 600;
+}
+
+.inventory-warning-stock-min {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.inventory-warning-action {
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--divider-color);
+}
+
+/* 库存操作表单 */
+.inventory-form {
+  padding: var(--spacing-lg);
+}
+
+.inventory-form-type-selector {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.inventory-form-type-option {
+  padding: var(--spacing-lg);
+  background-color: var(--bg-gray);
+  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  text-align: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.inventory-form-type-option:active {
+  opacity: 0.6;
+}
+
+.inventory-form-type-option.active {
+  background-color: #e6f7ff;
+  border-color: var(--primary-color);
+}
+
+.inventory-form-type-icon {
+  font-size: 32px;
+  margin-bottom: var(--spacing-sm);
+}
+
+.inventory-form-type-option.in .inventory-form-type-icon {
+  color: var(--success-color);
+}
+
+.inventory-form-type-option.out .inventory-form-type-icon {
+  color: var(--error-color);
+}
+
+.inventory-form-type-label {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-primary);
+}

@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="format-detection" content="telephone=no">
+    <title>何哥ERP移动版</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="assets/images/favicon.png">
+    <link rel="apple-touch-icon" href="assets/images/favicon.png">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="assets/css/fonts/fontawesome/css/font-awesome.min.css">
+
+    <!-- 移动端样式 -->
+    <link rel="stylesheet" href="assets/css/mobile-base.css">
+    <link rel="stylesheet" href="assets/css/mobile-layout.css">
+    <link rel="stylesheet" href="assets/css/mobile-components.css">
+    <link rel="stylesheet" href="assets/css/mobile-modules/dashboard.css">
+    <link rel="stylesheet" href="assets/css/mobile-modules/order.css">
+    <link rel="stylesheet" href="assets/css/mobile-modules/customer.css">
+    <link rel="stylesheet" href="assets/css/mobile-modules/product.css">
+    <link rel="stylesheet" href="assets/css/mobile-modules/inventory.css">
+    <link rel="stylesheet" href="assets/css/mobile-modules/profile.css">
+
+    <!-- Supabase -->
+    <script src="assets/js/supabase.min.js"></script>
+    <script src="assets/js/supabase-config.js"></script>
+
+    <script>
+        (function () {
+            const host = String(window.location.hostname || '').toLowerCase();
+            const isLocalHost = host === 'localhost' || host === '127.0.0.1';
+            const debugEnabled = localStorage.getItem('debugMode') === '1' && isLocalHost;
+            window.__DEBUG_MODE__ = debugEnabled;
+
+            if (!debugEnabled && typeof console !== 'undefined') {
+                console.log = function () { };
+                console.info = function () { };
+                console.debug = function () { };
+                console.warn = function () { };
+            }
+        })();
+    </script>
+</head>
+<body>
+    <div class="mobile-app" id="app">
+        <!-- 加载中 -->
+        <div id="loadingContainer" class="loading-state">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">加载中...</div>
+        </div>
+
+        <!-- 未登录 -->
+        <div id="notLoggedIn" class="hidden" style="padding: 40px 20px; text-align: center;">
+            <div style="font-size: 64px; color: #d9d9d9; margin-bottom: 20px;">
+                <i class="fa fa-lock"></i>
+            </div>
+            <h3 style="margin-bottom: 10px;">请先登录</h3>
+            <p style="color: #8c8c8c; margin-bottom: 30px;">您需要登录后才能使用ERP系统</p>
+            <a href="mobile-login-simple.html" class="btn btn-primary btn-lg">前往登录</a>
+        </div>
+
+        <!-- 主内容 -->
+        <div id="erpContent" class="hidden">
+            <!-- 仪表盘页面 -->
+            <div id="dashboardPage" class="mobile-page hidden">
+                <div class="navbar">
+                    <div class="navbar-left">
+                        <div class="navbar-icon" id="menuBtn">
+                            <i class="fa fa-bars"></i>
+                        </div>
+                    </div>
+                    <div class="navbar-center">
+                        <div class="navbar-title">何哥ERP</div>
+                    </div>
+                    <div class="navbar-right">
+                        <div class="navbar-icon" id="notificationBtn">
+                            <i class="fa fa-bell-o"></i>
+                            <span class="badge badge-dot" style="position: absolute; top: 8px; right: 8px;"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="page-content">
+                    <!-- 内容由 dashboard.js 渲染 -->
+                </div>
+            </div>
+
+            <!-- 订单列表页面 -->
+            <div id="ordersPage" class="mobile-page hidden">
+                <div class="navbar">
+                    <div class="navbar-left">
+                        <div class="navbar-icon" id="ordersBackBtn">
+                            <i class="fa fa-arrow-left"></i>
+                        </div>
+                    </div>
+                    <div class="navbar-center">
+                        <div class="navbar-title">订单管理</div>
+                    </div>
+                    <div class="navbar-right">
+                        <div class="navbar-icon" id="ordersSearchBtn">
+                            <i class="fa fa-search"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="tabs" id="orderTabs">
+                    <div class="tab-item active" data-status="">全部</div>
+                    <div class="tab-item" data-status="pending">待审核</div>
+                    <div class="tab-item" data-status="approved">待发货</div>
+                    <div class="tab-item" data-status="shipped">已发货</div>
+                    <div class="tab-item" data-status="completed">已完成</div>
+                </div>
+                <div class="page-content" id="ordersContent">
+                    <!-- 内容由 order.js 渲染 -->
+                </div>
+            </div>
+
+            <!-- 订单详情页面 -->
+            <div id="orderDetailPage" class="mobile-page hidden">
+                <div class="navbar">
+                    <div class="navbar-left">
+                        <div class="navbar-icon" id="orderDetailBackBtn">
+                            <i class="fa fa-arrow-left"></i>
+                        </div>
+                    </div>
+                    <div class="navbar-center">
+                        <div class="navbar-title">订单详情</div>
+                    </div>
+                    <div class="navbar-right">
+                        <div class="navbar-icon" id="orderDetailMoreBtn">
+                            <i class="fa fa-ellipsis-v"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="page-content" id="orderDetailContent">
+                    <!-- 内容由 order.js 渲染 -->
+                </div>
+            </div>
+
+            <!-- 客户列表页面 -->
+            <div id="customersPage" class="mobile-page hidden">
+                <div class="navbar">
+                    <div class="navbar-left">
+                        <div class="navbar-icon" id="customersBackBtn">
+                            <i class="fa fa-arrow-left"></i>
+                        </div>
+                    </div>
+                    <div class="navbar-center">
+                        <div class="navbar-title">客户管理</div>
+                    </div>
+                    <div class="navbar-right">
+                        <div class="navbar-icon" id="customersAddBtn">
+                            <i class="fa fa-plus"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="search-bar">
+                    <div class="search-input-wrapper">
+                        <i class="fa fa-search"></i>
+                        <input type="text" class="search-input" placeholder="搜索客户名称、联系人、电话" id="customersSearchInput">
+                    </div>
+                </div>
+                <div class="page-content page-content-no-padding" id="customersContent">
+                    <!-- 内容由 customer.js 渲染 -->
+                </div>
+            </div>
+
+            <!-- 产品列表页面 -->
+            <div id="productsPage" class="mobile-page hidden">
+                <div class="navbar">
+                    <div class="navbar-left">
+                        <div class="navbar-icon" id="productsBackBtn">
+                            <i class="fa fa-arrow-left"></i>
+                        </div>
+                    </div>
+                    <div class="navbar-center">
+                        <div class="navbar-title">产品管理</div>
+                    </div>
+                    <div class="navbar-right">
+                        <div class="navbar-icon" id="productsAddBtn">
+                            <i class="fa fa-plus"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="search-bar">
+                    <div class="search-input-wrapper">
+                        <i class="fa fa-search"></i>
+                        <input type="text" class="search-input" placeholder="搜索产品名称、SKU" id="productsSearchInput">
+                    </div>
+                </div>
+                <div class="page-content page-content-no-padding" id="productsContent">
+                    <!-- 内容由 product.js 渲染 -->
+                </div>
+            </div>
+
+            <!-- 库存管理页面 -->
+            <div id="inventoryPage" class="mobile-page hidden">
+                <div class="navbar">
+                    <div class="navbar-left">
+                        <div class="navbar-icon" id="inventoryBackBtn">
+                            <i class="fa fa-arrow-left"></i>
+                        </div>
+                    </div>
+                    <div class="navbar-center">
+                        <div class="navbar-title">库存管理</div>
+                    </div>
+                    <div class="navbar-right">
+                        <div class="navbar-icon" id="inventoryAddBtn">
+                            <i class="fa fa-plus"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="tabs" id="inventoryTabs">
+                    <div class="tab-item active" data-type="">全部</div>
+                    <div class="tab-item" data-type="in">入库</div>
+                    <div class="tab-item" data-type="out">出库</div>
+                    <div class="tab-item" data-type="warning">预警</div>
+                </div>
+                <div class="page-content" id="inventoryContent">
+                    <!-- 内容由 inventory.js 渲染 -->
+                </div>
+            </div>
+
+            <!-- 我的页面 -->
+            <div id="profilePage" class="mobile-page hidden">
+                <div class="navbar">
+                    <div class="navbar-left"></div>
+                    <div class="navbar-center">
+                        <div class="navbar-title">我的</div>
+                    </div>
+                    <div class="navbar-right">
+                        <div class="navbar-icon" id="settingsBtn">
+                            <i class="fa fa-cog"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="page-content" id="profileContent">
+                    <!-- 内容由 profile.js 渲染 -->
+                </div>
+            </div>
+
+            <!-- 底部标签栏 -->
+            <div class="tabbar">
+                <div class="tabbar-item active" data-page="dashboard">
+                    <div class="tabbar-icon">
+                        <i class="fa fa-home"></i>
+                    </div>
+                    <div class="tabbar-label">首页</div>
+                </div>
+                <div class="tabbar-item" data-page="orders">
+                    <div class="tabbar-icon">
+                        <i class="fa fa-file-text-o"></i>
+                        <span class="tabbar-badge badge badge-dot hidden"></span>
+                    </div>
+                    <div class="tabbar-label">订单</div>
+                </div>
+                <div class="tabbar-item" data-page="inventory">
+                    <div class="tabbar-icon">
+                        <i class="fa fa-cube"></i>
+                        <span class="tabbar-badge badge badge-dot hidden"></span>
+                    </div>
+                    <div class="tabbar-label">库存</div>
+                </div>
+                <div class="tabbar-item" data-page="profile">
+                    <div class="tabbar-icon">
+                        <i class="fa fa-user-o"></i>
+                    </div>
+                    <div class="tabbar-label">我的</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 核心模块 -->
+    <script src="assets/js/mobile-core/utils.js"></script>
+    <script src="assets/js/mobile-core/storage.js"></script>
+    <script src="assets/js/mobile-core/api.js"></script>
+    <script src="assets/js/mobile-core/router.js"></script>
+    <script src="assets/js/mobile-core/app.js"></script>
+
+    <!-- UI组件 -->
+    <script src="assets/js/mobile-components/toast.js"></script>
+    <script src="assets/js/mobile-components/modal.js"></script>
+    <script src="assets/js/mobile-components/loading.js"></script>
+    <script src="assets/js/mobile-components/actionsheet.js"></script>
+    <script src="assets/js/mobile-components/picker.js"></script>
+
+    <!-- 业务模块 -->
+    <script src="assets/js/mobile-modules/dashboard.js"></script>
+    <script src="assets/js/mobile-modules/order.js"></script>
+    <script src="assets/js/mobile-modules/customer.js"></script>
+    <script src="assets/js/mobile-modules/product.js"></script>
+    <script src="assets/js/mobile-modules/inventory.js"></script>
+    <script src="assets/js/mobile-modules/profile.js"></script>
+
+    <!-- 主入口 -->
+    <script>
+        let mobileAppBootstrapped = false;
+
+        async function bootstrapMobileERP() {
+            if (mobileAppBootstrapped) return;
+            mobileAppBootstrapped = true;
+            console.log('应用已就绪');
+
+            // 检查登录状态
+            const isAuthenticated = MobileERP.isAuthenticated();
+
+            if (!isAuthenticated) {
+                document.getElementById('loadingContainer').classList.add('hidden');
+                document.getElementById('notLoggedIn').classList.remove('hidden');
+                return;
+            }
+
+            // 显示主内容
+            document.getElementById('loadingContainer').classList.add('hidden');
+            document.getElementById('erpContent').classList.remove('hidden');
+
+            // 注册路由
+            window.Router.registerRoutes({
+                '/dashboard': async () => {
+                    await window.DashboardModule.init();
+                    updateTabbar('dashboard');
+                },
+                '/orders': async () => {
+                    document.getElementById('ordersPage').classList.remove('hidden');
+                    await window.OrderModule.init();
+                    updateTabbar('orders');
+                },
+                '/order/detail': async (params) => {
+                    document.getElementById('orderDetailPage').classList.remove('hidden');
+                    await window.OrderModule.loadOrderDetail(params.id);
+                },
+                '/order/create': async () => {
+                    window.Toast.info('创建订单功能开发中');
+                },
+                '/customers': async () => {
+                    document.getElementById('customersPage').classList.remove('hidden');
+                    await window.CustomerModule.init();
+                },
+                '/customer/detail': async (params) => {
+                    window.Toast.info('客户详情功能开发中');
+                },
+                '/products': async () => {
+                    document.getElementById('productsPage').classList.remove('hidden');
+                    await window.ProductModule.init();
+                },
+                '/product/detail': async (params) => {
+                    window.Toast.info('产品详情功能开发中');
+                },
+                '/inventory': async () => {
+                    document.getElementById('inventoryPage').classList.remove('hidden');
+                    await window.InventoryModule.init();
+                    updateTabbar('inventory');
+                },
+                '/profile': async () => {
+                    document.getElementById('profilePage').classList.remove('hidden');
+                    await window.ProfileModule.init();
+                    updateTabbar('profile');
+                }
+            });
+
+            // 底部标签栏切换
+            document.querySelectorAll('.tabbar-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const page = item.dataset.page;
+                    window.Router.push(`/${page}`);
+                });
+            });
+
+            // 返回按钮
+            document.querySelectorAll('[id$="BackBtn"]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    window.Router.back();
+                });
+            });
+
+            // 初始化路由
+            if (!window.location.hash) {
+                window.Router.push('/dashboard');
+            } else {
+                window.Router.handleRouteChange();
+            }
+        }
+
+        if (window.MobileERP && typeof window.MobileERP.onReady === 'function') {
+            window.MobileERP.onReady(bootstrapMobileERP);
+        } else if (window.EventBus && typeof window.EventBus.on === 'function') {
+            window.EventBus.on('app:ready', bootstrapMobileERP);
+        } else {
+            setTimeout(bootstrapMobileERP, 0);
+        }
+
+        // 更新底部标签栏状态
+        function updateTabbar(activePage) {
+            document.querySelectorAll('.tabbar-item').forEach(item => {
+                if (item.dataset.page === activePage) {
+                    item.classList.add('active');
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+        }
+    </script>
+</body>
+</html>

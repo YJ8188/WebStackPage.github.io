@@ -1,0 +1,334 @@
+/**
+ * 移动端ERP - 订单模块样式
+ */
+
+/* 订单列表 */
+.order-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.order-card {
+  background-color: var(--bg-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.order-card-header {
+  padding: var(--spacing-md) var(--spacing-lg);
+  background-color: var(--bg-gray);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.order-number {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.order-status-tag {
+  font-size: var(--font-size-xs);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+}
+
+.order-card-body {
+  padding: var(--spacing-lg);
+}
+
+.order-customer {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.order-customer-avatar {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--primary-color);
+  color: #fff;
+  border-radius: 50%;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.order-customer-info {
+  flex: 1;
+  overflow: hidden;
+}
+
+.order-customer-name {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.order-customer-phone {
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+}
+
+.order-items {
+  margin-bottom: var(--spacing-md);
+}
+
+.order-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) 0;
+}
+
+.order-item-name {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.order-item-quantity {
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+}
+
+.order-item-price {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.order-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--divider-color);
+}
+
+.order-total-label {
+  font-size: var(--font-size-base);
+  color: var(--text-secondary);
+}
+
+.order-total-amount {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--error-color);
+}
+
+.order-card-footer {
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-top: 1px solid var(--divider-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.order-time {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.order-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+/* 订单详情 */
+.order-detail-section {
+  background-color: var(--bg-color);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-md);
+}
+
+.order-detail-title {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-md);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.order-detail-title i {
+  color: var(--primary-color);
+}
+
+.order-detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm) 0;
+}
+
+.order-detail-label {
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+}
+
+.order-detail-value {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  text-align: right;
+}
+
+/* 物流信息 */
+.order-logistics {
+  background-color: var(--bg-color);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-md);
+}
+
+.order-logistics-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-md);
+}
+
+.order-logistics-title {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.order-logistics-status {
+  font-size: var(--font-size-sm);
+  color: var(--success-color);
+  font-weight: 500;
+}
+
+.order-logistics-info {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background-color: var(--bg-gray);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.order-logistics-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-color);
+  border-radius: var(--radius-md);
+  font-size: 20px;
+  color: var(--primary-color);
+}
+
+.order-logistics-detail {
+  flex: 1;
+}
+
+.order-logistics-company {
+  font-size: var(--font-size-base);
+  color: var(--text-primary);
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.order-logistics-number {
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+}
+
+.order-logistics-timeline {
+  position: relative;
+  padding-left: 24px;
+}
+
+.order-logistics-timeline-item {
+  position: relative;
+  padding-bottom: var(--spacing-md);
+}
+
+.order-logistics-timeline-item:last-child {
+  padding-bottom: 0;
+}
+
+.order-logistics-timeline-item::before {
+  content: '';
+  position: absolute;
+  left: -20px;
+  top: 6px;
+  width: 8px;
+  height: 8px;
+  background-color: var(--border-color);
+  border-radius: 50%;
+}
+
+.order-logistics-timeline-item.active::before {
+  background-color: var(--primary-color);
+  box-shadow: 0 0 0 4px rgba(24, 144, 255, 0.2);
+}
+
+.order-logistics-timeline-item::after {
+  content: '';
+  position: absolute;
+  left: -16px;
+  top: 14px;
+  width: 1px;
+  height: calc(100% - 6px);
+  background-color: var(--divider-color);
+}
+
+.order-logistics-timeline-item:last-child::after {
+  display: none;
+}
+
+.order-logistics-timeline-time {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-bottom: 4px;
+}
+
+.order-logistics-timeline-desc {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.order-logistics-timeline-item.active .order-logistics-timeline-time,
+.order-logistics-timeline-item.active .order-logistics-timeline-desc {
+  color: var(--primary-color);
+  font-weight: 500;
+}
+
+/* 订单操作按钮 */
+.order-action-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: var(--bg-color);
+  border-top: 1px solid var(--divider-color);
+  padding: var(--spacing-md);
+  padding-bottom: calc(var(--spacing-md) + var(--safe-area-inset-bottom));
+  display: flex;
+  gap: var(--spacing-md);
+  z-index: 99;
+}
+
+@media (min-width: 768px) {
+  .order-action-bar {
+    max-width: 768px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}

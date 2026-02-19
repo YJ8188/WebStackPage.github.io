@@ -1,0 +1,234 @@
+/**
+ * 移动端ERP - 仪表盘模块样式
+ */
+
+.dashboard-page {
+  background-color: var(--bg-gray);
+}
+
+/* 统计卡片网格 */
+.dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.dashboard-stat-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+}
+
+.dashboard-stat-card:nth-child(2) {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.dashboard-stat-card:nth-child(3) {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.dashboard-stat-card:nth-child(4) {
+  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+}
+
+.dashboard-stat-label {
+  font-size: var(--font-size-sm);
+  opacity: 0.9;
+  margin-bottom: var(--spacing-xs);
+}
+
+.dashboard-stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: var(--spacing-xs);
+}
+
+.dashboard-stat-trend {
+  font-size: var(--font-size-xs);
+  opacity: 0.8;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 快捷操作 */
+.dashboard-shortcuts {
+  background-color: var(--bg-color);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+}
+
+.dashboard-shortcuts-title {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-md);
+}
+
+.dashboard-shortcuts-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--spacing-md);
+}
+
+.dashboard-shortcut-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md) 0;
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.dashboard-shortcut-item:active {
+  opacity: 0.6;
+}
+
+.dashboard-shortcut-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: #fff;
+  border-radius: var(--radius-md);
+}
+
+.dashboard-shortcut-icon.blue {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.dashboard-shortcut-icon.pink {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.dashboard-shortcut-icon.cyan {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.dashboard-shortcut-icon.green {
+  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+}
+
+.dashboard-shortcut-label {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+/* 待办事项 */
+.dashboard-todos {
+  background-color: var(--bg-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-bottom: var(--spacing-lg);
+}
+
+.dashboard-todos-header {
+  padding: var(--spacing-lg);
+  border-bottom: 1px solid var(--divider-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dashboard-todos-title {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.dashboard-todos-count {
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+}
+
+.dashboard-todo-item {
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-bottom: 1px solid var(--divider-color);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.dashboard-todo-item:last-child {
+  border-bottom: none;
+}
+
+.dashboard-todo-item:active {
+  background-color: var(--bg-gray);
+}
+
+.dashboard-todo-icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+}
+
+.dashboard-todo-icon.warning {
+  background-color: #fff7e6;
+  color: var(--warning-color);
+}
+
+.dashboard-todo-icon.error {
+  background-color: #fff1f0;
+  color: var(--error-color);
+}
+
+.dashboard-todo-icon.info {
+  background-color: #e6f7ff;
+  color: var(--info-color);
+}
+
+.dashboard-todo-content {
+  flex: 1;
+  overflow: hidden;
+}
+
+.dashboard-todo-title {
+  font-size: var(--font-size-base);
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.dashboard-todo-desc {
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+}
+
+.dashboard-todo-badge {
+  flex-shrink: 0;
+}
+
+/* 图表容器 */
+.dashboard-chart {
+  background-color: var(--bg-color);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+}
+
+.dashboard-chart-title {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-md);
+}
+
+.dashboard-chart-container {
+  width: 100%;
+  height: 200px;
+}

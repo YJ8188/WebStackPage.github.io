@@ -118,20 +118,10 @@ python -m http.server 8000
 - 客户授信与账期：支持客户等级、信用额度、账期天数字段（前端已兼容无结构模式）
 - 订单授信风控：保存订单前自动校验客户授信占用，超限二次确认
 
-### 可选数据库升级脚本
-- 文件：`docs/sql/erp_sme_upgrade.sql`
-- 用途：给 `customers` 增加结构化字段（客户等级/信用额度/账期）并创建企业经营设置表
-
-### Supabase 安全告警修复（Security Advisor）
-- 文件：`docs/sql/erp_security_hardening.sql`
-- 对应修复项：
-  - `RLS Disabled in Public`（`public.erp_business_settings`）
-  - `Security Definer View`（`public.erp_product_stock`、`public.erp_order_stats`）
-- 执行方式：
-  1. 打开 Supabase -> SQL Editor
-  2. 粘贴并执行 `docs/sql/erp_security_hardening.sql`
-  3. 回到 Security Advisor 点 `Refresh`
-- 说明：脚本是幂等的，可重复执行。
+### 数据库升级与安全修复
+- 当前仓库不再保留独立 SQL 文档文件。
+- 如需升级结构（授信/账期/经营设置）或修复 Security Advisor 提示，请在 Supabase SQL Editor 按现网表结构执行对应 SQL。
+- 建议先在测试库验证，再应用到生产库。
 
 ## 物流轨迹（17TRACK）
 - ERP 订单弹窗已支持“查询轨迹”，展示最新状态与时间线

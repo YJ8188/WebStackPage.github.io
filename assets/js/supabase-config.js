@@ -32,13 +32,17 @@
 const supabaseUrl = 'https://yzyhtqiwcbpqsglfbvqa.supabase.co';
 const supabaseKey = 'sb_publishable_hgJCIbPhEyiCOWHV1hJMeg_QArg-t_v';
 
-const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey, {
-    auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-        storageKey: 'hg_webstack_auth'
-    }
-});
+if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+    console.error('Supabase SDK 未加载，无法初始化客户端');
+} else {
+    const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey, {
+        auth: {
+            persistSession: true,
+            autoRefreshToken: true,
+            detectSessionInUrl: true,
+            storageKey: 'hg_webstack_auth'
+        }
+    });
 
-window.supabaseClient = supabaseClient;
+    window.supabaseClient = supabaseClient;
+}

@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>登录 - 何哥ERP移动版</title>
+
+    <link rel="icon" type="image/png" href="assets/images/favicon.png">
+    <link rel="stylesheet" href="assets/css/fonts/fontawesome/css/font-awesome.min.css">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .login-container {
+            width: 100%;
+            max-width: 400px;
+            background: white;
+            border-radius: 20px;
+            padding: 40px 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 28px;
+            margin-bottom: 15px;
+        }
+
+        .logo-text {
+            font-size: 24px;
+            font-weight: 700;
+            color: #262626;
+            margin-bottom: 5px;
+        }
+
+        .logo-subtitle {
+            font-size: 14px;
+            color: #8c8c8c;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #262626;
+            margin-bottom: 8px;
+        }
+
+        .form-input {
+            width: 100%;
+            height: 48px;
+            padding: 0 15px;
+            font-size: 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            transition: all 0.3s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn-login {
+            width: 100%;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 10px;
+        }
+
+        .btn-login:active {
+            transform: scale(0.98);
+        }
+
+        .btn-login:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .divider {
+            text-align: center;
+            margin: 25px 0;
+            position: relative;
+        }
+
+        .divider::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            width: 100%;
+            height: 1px;
+            background: #e5e7eb;
+        }
+
+        .divider-text {
+            position: relative;
+            display: inline-block;
+            padding: 0 15px;
+            background: white;
+            color: #8c8c8c;
+            font-size: 14px;
+        }
+
+        .btn-register {
+            width: 100%;
+            height: 48px;
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-register:active {
+            background: #f5f7ff;
+        }
+
+        .alert {
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert-error {
+            background: #fff1f0;
+            color: #f5222d;
+            border: 1px solid #ffccc7;
+        }
+
+        .alert-success {
+            background: #f6ffed;
+            color: #52c41a;
+            border: 1px solid #b7eb8f;
+        }
+
+        .back-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .back-link a {
+            color: #8c8c8c;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logo">
+            <div class="logo-icon">
+                <i class="fa fa-cube"></i>
+            </div>
+            <div class="logo-text">何哥ERP</div>
+            <div class="logo-subtitle">移动端管理系统</div>
+        </div>
+
+        <div id="alertBox" class="alert"></div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label class="form-label">邮箱</label>
+                <input type="email" class="form-input" id="email" placeholder="your@email.com" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">密码</label>
+                <input type="password" class="form-input" id="password" placeholder="输入密码" required>
+            </div>
+
+            <button type="submit" class="btn-login" id="loginBtn">
+                登录
+            </button>
+        </form>
+
+        <div class="divider">
+            <span class="divider-text">或</span>
+        </div>
+
+        <button class="btn-register" id="registerBtn">
+            注册新账号
+        </button>
+
+        <div class="back-link">
+            <a href="index.html">
+                <i class="fa fa-arrow-left"></i> 返回首页
+            </a>
+        </div>
+    </div>
+
+    <script src="assets/js/supabase.min.js"></script>
+    <script src="assets/js/supabase-config.js"></script>
+    <script>
+        const loginForm = document.getElementById('loginForm');
+        const loginBtn = document.getElementById('loginBtn');
+        const registerBtn = document.getElementById('registerBtn');
+        const alertBox = document.getElementById('alertBox');
+
+        let isLogin = true;
+
+        function getAuthClient() {
+            const client = window.supabaseClient || window.supabase;
+            if (client && client.auth) return client;
+            return null;
+        }
+
+        function showAlert(message, type = 'error') {
+            alertBox.textContent = message;
+            alertBox.className = `alert alert-${type} show`;
+            setTimeout(() => {
+                alertBox.classList.remove('show');
+            }, 5000);
+        }
+
+        function setLoading(loading) {
+            if (loading) {
+                loginBtn.disabled = true;
+                loginBtn.innerHTML = '<span class="loading"></span>登录中...';
+            } else {
+                loginBtn.disabled = false;
+                loginBtn.innerHTML = isLogin ? '登录' : '注册';
+            }
+        }
+
+        registerBtn.addEventListener('click', () => {
+            isLogin = !isLogin;
+            if (isLogin) {
+                loginBtn.textContent = '登录';
+                registerBtn.textContent = '注册新账号';
+                document.querySelector('.logo-subtitle').textContent = '移动端管理系统';
+            } else {
+                loginBtn.textContent = '注册';
+                registerBtn.textContent = '已有账号？登录';
+                document.querySelector('.logo-subtitle').textContent = '创建新账号';
+            }
+        });
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            if (!email || !password) {
+                showAlert('请填写邮箱和密码');
+                return;
+            }
+
+            setLoading(true);
+
+            try {
+                const authClient = getAuthClient();
+                if (!authClient) {
+                    throw new Error('登录服务未初始化，请刷新后重试');
+                }
+
+                let result;
+                if (isLogin) {
+                    result = await authClient.auth.signInWithPassword({
+                        email,
+                        password
+                    });
+                } else {
+                    result = await authClient.auth.signUp({
+                        email,
+                        password
+                    });
+                }
+
+                if (result.error) {
+                    throw result.error;
+                }
+
+                if (isLogin) {
+                    showAlert('登录成功！', 'success');
+                    setTimeout(() => {
+                        window.location.href = 'mobile-erp.html';
+                    }, 1000);
+                } else {
+                    showAlert('注册成功！请查收邮件验证', 'success');
+                    setTimeout(() => {
+                        isLogin = true;
+                        loginBtn.textContent = '登录';
+                        registerBtn.textContent = '注册新账号';
+                    }, 2000);
+                }
+            } catch (error) {
+                console.error('认证错误:', error);
+                showAlert(error.message || '操作失败，请重试');
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        // 检查是否已登录
+        const authClient = getAuthClient();
+        if (authClient) {
+            authClient.auth.getSession().then(({ data: { session } }) => {
+                if (session) {
+                    window.location.href = 'mobile-erp.html';
+                }
+            }).catch(() => {
+            });
+        }
+    </script>
+</body>
+</html>

@@ -16,12 +16,20 @@ window.FinanceModule = {
   records: [],
   hasMore: true,
   eventsBound: false,
+  syncEventsBound: false,
+  realtimeChannel: null,
+  realtimeRefreshTimer: null,
 
   async init() {
     if (!this.eventsBound) {
       this.bindEvents();
       this.eventsBound = true;
     }
+    if (!this.syncEventsBound) {
+      this.bindSyncEvents();
+      this.syncEventsBound = true;
+    }
+    this.startRealtimeSync();
     this.currentPage = 1;
     this.records = [];
     this.hasMore = true;
@@ -45,6 +53,10 @@ window.FinanceModule = {
       this.showFilterModal();
     });
 
+    document.getElementById('financeAddBtn')?.addEventListener('click', () => {
+      this.showAddFinanceModal();
+    });
+
     const content = document.getElementById('financeContent');
     if (content) {
       content.addEventListener('scroll', window.Utils.throttle(() => {
@@ -52,6 +64,85 @@ window.FinanceModule = {
           this.loadMore();
         }
       }, 300));
+    }
+  },
+
+  bindSyncEvents() {
+    window.addEventListener('focus', () => {
+      this.scheduleRealtimeRefresh('focus');
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        this.scheduleRealtimeRefresh('visibility');
+      }
+    });
+
+    if (window.EventBus?.on) {
+      window.EventBus.on('network:online', () => {
+        this.scheduleRealtimeRefresh('network-online');
+      });
+    }
+  },
+
+  isPageActive() {
+    const page = document.getElementById('financePage');
+    return !!page && !page.classList.contains('hidden');
+  },
+
+  scheduleRealtimeRefresh() {
+    if (this.realtimeRefreshTimer) {
+      clearTimeout(this.realtimeRefreshTimer);
+      this.realtimeRefreshTimer = null;
+    }
+
+    this.realtimeRefreshTimer = setTimeout(async () => {
+      if (!this.isPageActive()) return;
+      this.currentPage = 1;
+      this.records = [];
+      this.hasMore = true;
+      await this.loadRecords();
+    }, 260);
+  },
+
+  startRealtimeSync() {
+    if (this.realtimeChannel) {
+      return;
+    }
+
+    const client = window.supabaseClient || window.supabase;
+    if (!client || typeof client.channel !== 'function') {
+      return;
+    }
+
+    const userId = window.MobileERP?.getCurrentUser?.()?.id || '';
+    const channelName = `mobile-erp-finance-${userId || 'guest'}`;
+
+    const refreshIfNeeded = payload => {
+      const row = payload?.new || payload?.old || {};
+      const rowUserId = String(row?.user_id || '').trim();
+      if (userId && rowUserId && rowUserId !== String(userId)) {
+        return;
+      }
+      this.scheduleRealtimeRefresh('realtime-change');
+    };
+
+    this.realtimeChannel = client
+      .channel(channelName)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'erp_finances' }, refreshIfNeeded)
+      .subscribe();
+  },
+
+  setActiveTypeTab(type = '') {
+    this.currentType = String(type || '').trim();
+    document.querySelectorAll('#financeTabs .tab-item').forEach(tab => {
+      const matched = String(tab.dataset.type || '') === this.currentType;
+      tab.classList.toggle('active', matched);
+    });
+    if (!document.querySelector('#financeTabs .tab-item.active')) {
+      const defaultTab = document.querySelector('#financeTabs .tab-item[data-type=""]');
+      if (defaultTab) defaultTab.classList.add('active');
+      this.currentType = '';
     }
   },
 
@@ -90,6 +181,86 @@ window.FinanceModule = {
     if (!this.hasMore) return;
     this.currentPage += 1;
     await this.loadRecords();
+  },
+
+  async showAddFinanceModal() {
+    const today = new Date();
+    const defaultDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+    await window.Modal.show({
+      title: '财务记一笔',
+      confirmText: '保存',
+      cancelText: '取消',
+      content: `
+        <div style="text-align:left;">
+          <div style="margin-bottom:10px;">
+            <div style="margin-bottom:6px;color:#475569;font-size:12px;">类型</div>
+            <select id="mobileFinanceTypeInput" style="width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;">
+              <option value="income">收入</option>
+              <option value="expense">支出</option>
+            </select>
+          </div>
+          <div style="margin-bottom:10px;">
+            <div style="margin-bottom:6px;color:#475569;font-size:12px;">分类 <span style="color:#dc2626;">*</span></div>
+            <input id="mobileFinanceCategoryInput" type="text" maxlength="60" placeholder="例如：销售订单、办公支出"
+              style="width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;" />
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:10px;">
+            <div style="flex:1;min-width:0;">
+              <div style="margin-bottom:6px;color:#475569;font-size:12px;">金额 <span style="color:#dc2626;">*</span></div>
+              <input id="mobileFinanceAmountInput" type="number" min="0.01" step="0.01" placeholder="0.00"
+                style="width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;" />
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="margin-bottom:6px;color:#475569;font-size:12px;">日期</div>
+              <input id="mobileFinanceDateInput" type="date" value="${defaultDate}"
+                style="width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;" />
+            </div>
+          </div>
+          <div>
+            <div style="margin-bottom:6px;color:#475569;font-size:12px;">描述</div>
+            <textarea id="mobileFinanceDescInput" rows="2" placeholder="选填：本次收支说明"
+              style="width:100%;border:1px solid #d9d9d9;border-radius:8px;padding:8px 10px;resize:none;"></textarea>
+          </div>
+        </div>
+      `,
+      onConfirm: async () => {
+        const type = String(document.getElementById('mobileFinanceTypeInput')?.value || '').trim();
+        const category = String(document.getElementById('mobileFinanceCategoryInput')?.value || '').trim();
+        const amount = Number(document.getElementById('mobileFinanceAmountInput')?.value || 0);
+        const transactionDate = String(document.getElementById('mobileFinanceDateInput')?.value || '').trim();
+        const description = String(document.getElementById('mobileFinanceDescInput')?.value || '').trim();
+
+        if (!['income', 'expense'].includes(type)) {
+          window.Toast.error('请选择正确的收支类型');
+          return false;
+        }
+        if (!category) {
+          window.Toast.error('请输入分类');
+          return false;
+        }
+        if (!Number.isFinite(amount) || amount <= 0) {
+          window.Toast.error('金额必须大于0');
+          return false;
+        }
+
+        await window.API.createFinanceRecord({
+          type,
+          category,
+          amount,
+          description,
+          transaction_date: transactionDate || new Date().toISOString()
+        });
+
+        window.Toast.success('财务记录已保存');
+        this.setActiveTypeTab('');
+        this.currentPage = 1;
+        this.records = [];
+        this.hasMore = true;
+        await this.loadRecords();
+        return true;
+      }
+    });
   },
 
   getTypeText(type) {

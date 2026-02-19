@@ -941,6 +941,47 @@ class API {
     }, options);
   }
 
+  async createFinanceRecord(financeData = {}) {
+    return this.request(async () => {
+      const userId = this.getCurrentUserId();
+      const normalizedType = String(financeData?.type || '').trim().toLowerCase();
+      const type = ['income', 'expense', 'system'].includes(normalizedType) ? normalizedType : 'expense';
+      const amountValue = Number(financeData?.amount || 0);
+      const amount = Number.isFinite(amountValue) ? Math.abs(amountValue) : 0;
+
+      const insertPayload = {
+        user_id: userId || financeData?.user_id || null,
+        type,
+        category: String(financeData?.category || '').trim(),
+        amount,
+        description: String(financeData?.description || '').trim(),
+        reference_id: financeData?.reference_id || null,
+        order_id: financeData?.order_id || null,
+        transaction_date: financeData?.transaction_date || new Date().toISOString()
+      };
+
+      let { data, error } = await this.supabase
+        .from(this.tableNames.financeRecords)
+        .insert([insertPayload])
+        .select()
+        .single();
+
+      if (error && error.code === '42703') {
+        const { order_id, ...fallbackPayload } = insertPayload;
+        const retry = await this.supabase
+          .from(this.tableNames.financeRecords)
+          .insert([fallbackPayload])
+          .select()
+          .single();
+        data = retry.data;
+        error = retry.error;
+      }
+
+      if (error) throw error;
+      return data;
+    }, { showLoading: true, showError: true });
+  }
+
   // ==================== 统计数据 ====================
 
   async getDashboardStats() {

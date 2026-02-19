@@ -10,6 +10,16 @@
     <link rel="stylesheet" href="assets/css/fonts/fontawesome/css/font-awesome.min.css">
 
     <style>
+        :root {
+            --brand: #1677ff;
+            --brand-dark: #0f5fd1;
+            --text-main: #1f2937;
+            --text-secondary: #6b7280;
+            --line: #dfe4ea;
+            --bg: #f3f5f8;
+            --white: #fff;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -17,152 +27,195 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: radial-gradient(circle at 0 0, #eaf1ff 0, var(--bg) 42%);
             min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
+            padding: 22px 14px;
+            color: var(--text-main);
+        }
+
+        .page-shell {
+            width: 100%;
+            max-width: 420px;
+            margin: 0 auto;
+        }
+
+        .brand-bar {
+            margin-bottom: 14px;
+            background: linear-gradient(135deg, #0f5fd1, var(--brand));
+            border-radius: 14px;
+            padding: 14px 16px;
+            color: #e9f2ff;
+            box-shadow: 0 8px 22px rgba(22, 119, 255, 0.25);
+        }
+
+        .brand-title {
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: .3px;
+        }
+
+        .brand-subtitle {
+            margin-top: 4px;
+            font-size: 12px;
+            opacity: .9;
         }
 
         .login-container {
             width: 100%;
-            max-width: 400px;
-            background: white;
-            border-radius: 20px;
-            padding: 40px 30px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            background: var(--white);
+            border: 1px solid #e8edf3;
+            border-radius: 16px;
+            padding: 20px 16px 18px;
+            box-shadow: 0 10px 32px rgba(15, 23, 42, 0.08);
         }
 
         .logo {
-            text-align: center;
-            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding-bottom: 14px;
+            border-bottom: 1px dashed var(--line);
         }
 
         .logo-icon {
-            width: 60px;
-            height: 60px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 15px;
+            width: 44px;
+            height: 44px;
+            border-radius: 11px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            color: white;
-            font-size: 28px;
-            margin-bottom: 15px;
+            background: #eef4ff;
+            color: var(--brand);
+            font-size: 20px;
         }
 
         .logo-text {
-            font-size: 24px;
+            font-size: 18px;
             font-weight: 700;
-            color: #262626;
-            margin-bottom: 5px;
+            line-height: 1.2;
         }
 
         .logo-subtitle {
-            font-size: 14px;
-            color: #8c8c8c;
+            margin-top: 4px;
+            font-size: 12px;
+            color: var(--text-secondary);
         }
 
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 14px;
         }
 
         .form-label {
             display: block;
-            font-size: 14px;
-            font-weight: 600;
-            color: #262626;
             margin-bottom: 8px;
+            font-size: 13px;
+            color: #4b5563;
+            font-weight: 600;
+        }
+
+        .input-wrap {
+            position: relative;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9aa4b2;
+            font-size: 14px;
+            pointer-events: none;
         }
 
         .form-input {
             width: 100%;
-            height: 48px;
-            padding: 0 15px;
-            font-size: 16px;
-            border: 2px solid #e5e7eb;
+            height: 44px;
+            border: 1px solid var(--line);
             border-radius: 10px;
-            transition: all 0.3s;
+            padding: 0 12px 0 34px;
+            font-size: 15px;
+            background: #fff;
+            color: var(--text-main);
+            transition: border-color .15s, box-shadow .15s;
         }
 
         .form-input:focus {
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            border-color: var(--brand);
+            box-shadow: 0 0 0 3px rgba(22, 119, 255, .14);
         }
 
         .btn-login {
+            margin-top: 6px;
             width: 100%;
-            height: 50px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            height: 44px;
             border: none;
             border-radius: 10px;
-            font-size: 16px;
+            background: var(--brand);
+            color: #fff;
+            font-size: 15px;
             font-weight: 600;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            margin-top: 10px;
+            transition: background .2s, transform .08s;
         }
 
         .btn-login:active {
-            transform: scale(0.98);
+            transform: translateY(1px);
+        }
+
+        .btn-login:hover {
+            background: var(--brand-dark);
         }
 
         .btn-login:disabled {
-            opacity: 0.6;
+            opacity: .7;
             cursor: not-allowed;
         }
 
         .divider {
-            text-align: center;
-            margin: 25px 0;
-            position: relative;
+            margin: 16px 0 14px;
+            display: flex;
+            align-items: center;
+            color: #9ca3af;
+            font-size: 12px;
         }
 
-        .divider::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 50%;
-            width: 100%;
+        .divider::before,
+        .divider::after {
+            content: "";
+            flex: 1;
             height: 1px;
             background: #e5e7eb;
         }
 
         .divider-text {
-            position: relative;
-            display: inline-block;
-            padding: 0 15px;
-            background: white;
-            color: #8c8c8c;
-            font-size: 14px;
+            margin: 0 10px;
         }
 
         .btn-register {
             width: 100%;
-            height: 48px;
-            background: white;
-            color: #667eea;
-            border: 2px solid #667eea;
+            height: 42px;
             border-radius: 10px;
-            font-size: 16px;
+            border: 1px solid #bfd5ff;
+            background: #f5f9ff;
+            color: var(--brand);
+            font-size: 14px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
         }
 
         .btn-register:active {
-            background: #f5f7ff;
+            transform: translateY(1px);
         }
 
         .alert {
-            padding: 12px 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-size: 14px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            margin-bottom: 12px;
+            font-size: 13px;
+            line-height: 1.5;
             display: none;
         }
 
@@ -172,83 +225,101 @@
 
         .alert-error {
             background: #fff1f0;
-            color: #f5222d;
-            border: 1px solid #ffccc7;
+            color: #cf1322;
+            border: 1px solid #ffc9c4;
         }
 
         .alert-success {
             background: #f6ffed;
-            color: #52c41a;
-            border: 1px solid #b7eb8f;
+            color: #389e0d;
+            border: 1px solid #c2ef9f;
         }
 
         .back-link {
+            margin-top: 14px;
             text-align: center;
-            margin-top: 20px;
         }
 
         .back-link a {
-            color: #8c8c8c;
+            color: #6b7280;
+            font-size: 13px;
             text-decoration: none;
-            font-size: 14px;
         }
 
         .loading {
             display: inline-block;
-            width: 16px;
-            height: 16px;
-            border: 2px solid rgba(255,255,255,0.3);
-            border-top-color: white;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, .35);
+            border-top-color: #fff;
             border-radius: 50%;
-            animation: spin 0.6s linear infinite;
-            margin-right: 8px;
+            animation: spin .6s linear infinite;
+            margin-right: 7px;
+            vertical-align: -2px;
         }
 
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
         }
     </style>
 </head>
 <body>
-    <div class="login-container">
-        <div class="logo">
-            <div class="logo-icon">
-                <i class="fa fa-cube"></i>
-            </div>
-            <div class="logo-text">何哥ERP</div>
-            <div class="logo-subtitle">移动端管理系统</div>
+    <div class="page-shell">
+        <div class="brand-bar">
+            <div class="brand-title">何哥 ERP · 移动端</div>
+            <div class="brand-subtitle">订单、库存、客户、财务一体协同</div>
         </div>
 
-        <div id="alertBox" class="alert"></div>
-
-        <form id="loginForm">
-            <div class="form-group">
-                <label class="form-label">邮箱</label>
-                <input type="email" class="form-input" id="email" placeholder="your@email.com" required>
+        <div class="login-container">
+            <div class="logo">
+                <div class="logo-icon">
+                    <i class="fa fa-cube"></i>
+                </div>
+                <div>
+                    <div class="logo-text">账号登录</div>
+                    <div class="logo-subtitle">请输入账号信息以进入系统</div>
+                </div>
             </div>
 
-            <div class="form-group">
-                <label class="form-label">密码</label>
-                <input type="password" class="form-input" id="password" placeholder="输入密码" required>
+            <div id="alertBox" class="alert"></div>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label class="form-label">邮箱</label>
+                    <div class="input-wrap">
+                        <i class="fa fa-envelope input-icon"></i>
+                        <input type="email" class="form-input" id="email" placeholder="请输入邮箱地址" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">密码</label>
+                    <div class="input-wrap">
+                        <i class="fa fa-lock input-icon"></i>
+                        <input type="password" class="form-input" id="password" placeholder="请输入密码" required>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-login" id="loginBtn">
+                    登录
+                </button>
+            </form>
+
+            <div class="divider">
+                <span class="divider-text">或</span>
             </div>
 
-            <button type="submit" class="btn-login" id="loginBtn">
-                登录
+            <button class="btn-register" id="registerBtn">
+                注册新账号
             </button>
-        </form>
 
-        <div class="divider">
-            <span class="divider-text">或</span>
-        </div>
-
-        <button class="btn-register" id="registerBtn">
-            注册新账号
-        </button>
-
-        <div class="back-link">
-            <a href="index.html">
-                <i class="fa fa-arrow-left"></i> 返回首页
-            </a>
+            <div class="back-link">
+                <a href="index.html">
+                    <i class="fa fa-arrow-left"></i> 返回首页
+                </a>
+            </div>
         </div>
     </div>
 
@@ -291,11 +362,13 @@
             if (isLogin) {
                 loginBtn.textContent = '登录';
                 registerBtn.textContent = '注册新账号';
-                document.querySelector('.logo-subtitle').textContent = '移动端管理系统';
+                document.querySelector('.logo-text').textContent = '账号登录';
+                document.querySelector('.logo-subtitle').textContent = '请输入账号信息以进入系统';
             } else {
                 loginBtn.textContent = '注册';
                 registerBtn.textContent = '已有账号？登录';
-                document.querySelector('.logo-subtitle').textContent = '创建新账号';
+                document.querySelector('.logo-text').textContent = '账号注册';
+                document.querySelector('.logo-subtitle').textContent = '创建新账号后即可同步你的业务数据';
             }
         });
 

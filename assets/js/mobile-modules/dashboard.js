@@ -84,6 +84,12 @@ window.DashboardModule = {
             </div>
             <div class="dashboard-shortcut-label">产品管理</div>
           </div>
+          <div class="dashboard-shortcut-item" data-action="finance">
+            <div class="dashboard-shortcut-icon purple">
+              <i class="fa fa-line-chart"></i>
+            </div>
+            <div class="dashboard-shortcut-label">财务管理</div>
+          </div>
         </div>
       </div>
 
@@ -225,7 +231,8 @@ window.DashboardModule = {
       newOrder: () => window.OrderModule.showCreateOrderModal(),
       inventory: () => window.Router.push('/inventory'),
       customers: () => window.Router.push('/customers'),
-      products: () => window.Router.push('/products')
+      products: () => window.Router.push('/products'),
+      finance: () => window.Router.push('/finance')
     };
 
     const handler = actions[action];

@@ -16,19 +16,20 @@
     <link rel="stylesheet" href="assets/css/fonts/fontawesome/css/font-awesome.min.css">
 
     <!-- 移动端样式 -->
-    <link rel="stylesheet" href="assets/css/mobile-base.css?v=20260219-5">
-    <link rel="stylesheet" href="assets/css/mobile-layout.css?v=20260219-5">
-    <link rel="stylesheet" href="assets/css/mobile-components.css?v=20260219-5">
-    <link rel="stylesheet" href="assets/css/mobile-modules/dashboard.css?v=20260219-5">
-    <link rel="stylesheet" href="assets/css/mobile-modules/order.css?v=20260219-5">
-    <link rel="stylesheet" href="assets/css/mobile-modules/customer.css?v=20260219-5">
-    <link rel="stylesheet" href="assets/css/mobile-modules/product.css?v=20260219-5">
-    <link rel="stylesheet" href="assets/css/mobile-modules/inventory.css?v=20260219-5">
-    <link rel="stylesheet" href="assets/css/mobile-modules/profile.css?v=20260219-5">
+    <link rel="stylesheet" href="assets/css/mobile-base.css?v=20260219-6">
+    <link rel="stylesheet" href="assets/css/mobile-layout.css?v=20260219-6">
+    <link rel="stylesheet" href="assets/css/mobile-components.css?v=20260219-6">
+    <link rel="stylesheet" href="assets/css/mobile-modules/dashboard.css?v=20260219-6">
+    <link rel="stylesheet" href="assets/css/mobile-modules/order.css?v=20260219-6">
+    <link rel="stylesheet" href="assets/css/mobile-modules/customer.css?v=20260219-6">
+    <link rel="stylesheet" href="assets/css/mobile-modules/product.css?v=20260219-6">
+    <link rel="stylesheet" href="assets/css/mobile-modules/inventory.css?v=20260219-6">
+    <link rel="stylesheet" href="assets/css/mobile-modules/finance.css?v=20260219-6">
+    <link rel="stylesheet" href="assets/css/mobile-modules/profile.css?v=20260219-6">
 
     <!-- Supabase -->
-    <script src="assets/js/supabase.min.js?v=20260219-5"></script>
-    <script src="assets/js/supabase-config.js?v=20260219-5"></script>
+    <script src="assets/js/supabase.min.js?v=20260219-6"></script>
+    <script src="assets/js/supabase-config.js?v=20260219-6"></script>
 
     <script>
         (function () {
@@ -225,6 +226,29 @@
                 </div>
             </div>
 
+            <!-- 财务管理页面 -->
+            <div id="financePage" class="mobile-page hidden">
+                <div class="navbar">
+                    <div class="navbar-left">
+                        <div class="navbar-icon" id="financeBackBtn">
+                            <i class="fa fa-arrow-left"></i>
+                        </div>
+                    </div>
+                    <div class="navbar-center">
+                        <div class="navbar-title">财务管理</div>
+                    </div>
+                    <div class="navbar-right"></div>
+                </div>
+                <div class="tabs" id="financeTabs">
+                    <div class="tab-item active" data-type="">全部</div>
+                    <div class="tab-item" data-type="income">收入</div>
+                    <div class="tab-item" data-type="expense">支出</div>
+                </div>
+                <div class="page-content" id="financeContent">
+                    <!-- 内容由 finance.js 渲染 -->
+                </div>
+            </div>
+
             <!-- 我的页面 -->
             <div id="profilePage" class="mobile-page hidden">
                 <div class="navbar">
@@ -265,6 +289,12 @@
                     </div>
                     <div class="tabbar-label">库存</div>
                 </div>
+                <div class="tabbar-item" data-page="finance">
+                    <div class="tabbar-icon">
+                        <i class="fa fa-line-chart"></i>
+                    </div>
+                    <div class="tabbar-label">财务</div>
+                </div>
                 <div class="tabbar-item" data-page="profile">
                     <div class="tabbar-icon">
                         <i class="fa fa-user"></i>
@@ -276,26 +306,27 @@
     </div>
 
     <!-- 核心模块 -->
-    <script src="assets/js/mobile-core/utils.js?v=20260219-5"></script>
-    <script src="assets/js/mobile-core/storage.js?v=20260219-5"></script>
-    <script src="assets/js/mobile-core/api.js?v=20260219-5"></script>
-    <script src="assets/js/mobile-core/router.js?v=20260219-5"></script>
-    <script src="assets/js/mobile-core/app.js?v=20260219-5"></script>
+    <script src="assets/js/mobile-core/utils.js?v=20260219-6"></script>
+    <script src="assets/js/mobile-core/storage.js?v=20260219-6"></script>
+    <script src="assets/js/mobile-core/api.js?v=20260219-6"></script>
+    <script src="assets/js/mobile-core/router.js?v=20260219-6"></script>
+    <script src="assets/js/mobile-core/app.js?v=20260219-6"></script>
 
     <!-- UI组件 -->
-    <script src="assets/js/mobile-components/toast.js?v=20260219-5"></script>
-    <script src="assets/js/mobile-components/modal.js?v=20260219-5"></script>
-    <script src="assets/js/mobile-components/loading.js?v=20260219-5"></script>
-    <script src="assets/js/mobile-components/actionsheet.js?v=20260219-5"></script>
-    <script src="assets/js/mobile-components/picker.js?v=20260219-5"></script>
+    <script src="assets/js/mobile-components/toast.js?v=20260219-6"></script>
+    <script src="assets/js/mobile-components/modal.js?v=20260219-6"></script>
+    <script src="assets/js/mobile-components/loading.js?v=20260219-6"></script>
+    <script src="assets/js/mobile-components/actionsheet.js?v=20260219-6"></script>
+    <script src="assets/js/mobile-components/picker.js?v=20260219-6"></script>
 
     <!-- 业务模块 -->
-    <script src="assets/js/mobile-modules/dashboard.js?v=20260219-5"></script>
-    <script src="assets/js/mobile-modules/order.js?v=20260219-5"></script>
-    <script src="assets/js/mobile-modules/customer.js?v=20260219-5"></script>
-    <script src="assets/js/mobile-modules/product.js?v=20260219-5"></script>
-    <script src="assets/js/mobile-modules/inventory.js?v=20260219-5"></script>
-    <script src="assets/js/mobile-modules/profile.js?v=20260219-5"></script>
+    <script src="assets/js/mobile-modules/dashboard.js?v=20260219-6"></script>
+    <script src="assets/js/mobile-modules/order.js?v=20260219-6"></script>
+    <script src="assets/js/mobile-modules/customer.js?v=20260219-6"></script>
+    <script src="assets/js/mobile-modules/product.js?v=20260219-6"></script>
+    <script src="assets/js/mobile-modules/inventory.js?v=20260219-6"></script>
+    <script src="assets/js/mobile-modules/finance.js?v=20260219-6"></script>
+    <script src="assets/js/mobile-modules/profile.js?v=20260219-6"></script>
 
     <!-- 主入口 -->
     <script>
@@ -358,6 +389,11 @@
                     document.getElementById('inventoryPage').classList.remove('hidden');
                     await window.InventoryModule.init();
                     updateTabbar('inventory');
+                },
+                '/finance': async () => {
+                    document.getElementById('financePage').classList.remove('hidden');
+                    await window.FinanceModule.init();
+                    updateTabbar('finance');
                 },
                 '/profile': async () => {
                     document.getElementById('profilePage').classList.remove('hidden');

@@ -8,6 +8,7 @@ class API {
     this.supabase = null;
     this.requestQueue = [];
     this.isProcessingQueue = false;
+    this.logisticsCache = new Map();
     this.tableNames = {
       customers: 'erp_customers',
       products: 'erp_products',
@@ -474,6 +475,64 @@ class API {
 
   async updateOrderStatus(id, status) {
     return this.updateOrder(id, { status });
+  }
+
+  async queryLogistics(trackingNumber, shippingCompany = '', options = {}) {
+    return this.request(async () => {
+      const client = this.ensureSupabaseClient();
+      if (!client.functions || typeof client.functions.invoke !== 'function') {
+        throw new Error('未检测到物流服务客户端，请刷新页面后重试');
+      }
+
+      const normalizedTracking = String(trackingNumber || '').trim();
+      const normalizedCompany = String(shippingCompany || '').trim();
+      const normalizedParam = String(options?.param || '').trim();
+      const forceRefresh = options?.forceRefresh === true;
+
+      if (!normalizedTracking) {
+        throw new Error('请先填写快递单号');
+      }
+
+      const cacheKey = `${normalizedTracking}|${normalizedCompany}|${normalizedParam}`;
+      if (!forceRefresh && this.logisticsCache.has(cacheKey)) {
+        return this.logisticsCache.get(cacheKey);
+      }
+
+      const { data, error } = await client.functions.invoke('logistics-track', {
+        body: {
+          trackingNumber: normalizedTracking,
+          shippingCompany: normalizedCompany,
+          param: normalizedParam
+        }
+      });
+
+      if (error) {
+        let errorMessage = String(error?.message || '物流查询失败');
+        const context = error?.context;
+        if (context && typeof context.json === 'function') {
+          try {
+            const payload = await context.json();
+            const serverMessage = payload?.message || payload?.error || payload?.msg;
+            if (serverMessage) {
+              errorMessage = String(serverMessage);
+            }
+          } catch (contextParseError) {
+            const parseMessage = String(contextParseError?.message || '').trim();
+            if (parseMessage) {
+              errorMessage = `${errorMessage}（${parseMessage}）`;
+            }
+          }
+        }
+        throw new Error(errorMessage);
+      }
+
+      if (!data || data.ok !== true) {
+        throw new Error(data?.message || '物流查询失败');
+      }
+
+      this.logisticsCache.set(cacheKey, data);
+      return data;
+    }, { showLoading: options?.showLoading === true, showError: true });
   }
 
   // ==================== 库存管理 ====================

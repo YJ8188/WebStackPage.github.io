@@ -75,8 +75,14 @@
 
 .dashboard-shortcuts-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
+}
+
+@media (max-width: 420px) {
+  .dashboard-shortcuts-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .dashboard-shortcut-item {
@@ -123,6 +129,11 @@
 .dashboard-shortcut-icon.green {
   background: #ecfdf3;
   color: #16a34a;
+}
+
+.dashboard-shortcut-icon.purple {
+  background: #f5f3ff;
+  color: #7c3aed;
 }
 
 .dashboard-shortcut-label {

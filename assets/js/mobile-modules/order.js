@@ -173,6 +173,163 @@ window.OrderModule = {
       .replace(/'/g, '&#39;');
   },
 
+  normalizeOrderStatusValue(status) {
+    const raw = String(status || '').trim().toLowerCase();
+    const aliasMap = {
+      approved: 'confirmed',
+      delivered: 'signed'
+    };
+    const normalized = aliasMap[raw] || raw || 'pending';
+    const validSet = new Set(['pending', 'confirmed', 'shipped', 'signed', 'completed', 'cancelled', 'refunded']);
+    return validSet.has(normalized) ? normalized : 'pending';
+  },
+
+  normalizeShippingStatusValue(status) {
+    const raw = String(status || '').trim().toLowerCase();
+    const aliasMap = {
+      signed: 'delivered',
+      sign: 'delivered',
+      intransit: 'in_transit',
+      transit: 'in_transit'
+    };
+    const normalized = aliasMap[raw] || raw || 'not_shipped';
+    const validSet = new Set(['not_shipped', 'shipped', 'in_transit', 'delivered', 'rejected', 'returned']);
+    return validSet.has(normalized) ? normalized : 'not_shipped';
+  },
+
+  getShippingStatusText(status) {
+    const map = {
+      not_shipped: '未发货',
+      shipped: '已发货',
+      in_transit: '运输中',
+      delivered: '已签收',
+      rejected: '已拒收',
+      returned: '已退回'
+    };
+    const normalized = this.normalizeShippingStatusValue(status);
+    return map[normalized] || '未知状态';
+  },
+
+  inferFulfillmentFromLogisticsResult(result = {}, timeline = []) {
+    const firstEvent = Array.isArray(timeline) && timeline.length > 0 ? timeline[0] : null;
+    const sourceText = [
+      result?.latestStatusText,
+      result?.latestStatusCode,
+      firstEvent?.displayText,
+      firstEvent?.status,
+      firstEvent?.description,
+      firstEvent?.location
+    ]
+      .map(value => String(value || '').trim().toLowerCase())
+      .join(' ');
+
+    if (!sourceText) return null;
+    const includesAny = keywords => keywords.some(keyword => sourceText.includes(keyword));
+
+    if (includesAny(['签收', '妥投', '已送达', '投递成功', 'delivered', 'signed'])) {
+      return { shippingStatus: 'delivered', orderStatus: 'signed' };
+    }
+    if (includesAny(['拒收', 'rejected'])) {
+      return { shippingStatus: 'rejected', orderStatus: 'shipped' };
+    }
+    if (includesAny(['退回', '退货', '返回', 'returned', 'return'])) {
+      return { shippingStatus: 'returned', orderStatus: 'shipped' };
+    }
+    if (includesAny(['运输中', '在途', '派送中', '中转', 'in transit', 'transit'])) {
+      return { shippingStatus: 'in_transit', orderStatus: 'shipped' };
+    }
+    if (includesAny(['已发货', '已揽收', '揽件', '出库', 'shipped', 'picked up'])) {
+      return { shippingStatus: 'shipped', orderStatus: 'shipped' };
+    }
+    return null;
+  },
+
+  resolveNextOrderStatus(currentStatus, targetStatus) {
+    const current = this.normalizeOrderStatusValue(currentStatus);
+    const target = this.normalizeOrderStatusValue(targetStatus);
+    if (current === target) return current;
+    if (['completed', 'cancelled', 'refunded'].includes(current)) return current;
+
+    const stageFlow = ['pending', 'confirmed', 'shipped', 'signed', 'completed'];
+    const currentIndex = stageFlow.indexOf(current);
+    const targetIndex = stageFlow.indexOf(target);
+    if (currentIndex < 0 || targetIndex < 0) return current;
+    return targetIndex > currentIndex ? target : current;
+  },
+
+  shouldApplyShippingStatus(currentStatus, nextStatus) {
+    const current = this.normalizeShippingStatusValue(currentStatus);
+    const next = this.normalizeShippingStatusValue(nextStatus);
+    if (current === next) return false;
+    if (current === 'delivered') return false;
+
+    const rankMap = {
+      not_shipped: 0,
+      shipped: 1,
+      in_transit: 2,
+      rejected: 3,
+      returned: 3,
+      delivered: 4
+    };
+
+    if (['rejected', 'returned'].includes(next)) {
+      return current !== 'delivered';
+    }
+
+    return (rankMap[next] ?? 0) > (rankMap[current] ?? 0);
+  },
+
+  async promptTrackingParam() {
+    let inputValue = '';
+    const confirmed = await window.Modal.show({
+      title: '补充物流校验参数',
+      confirmText: '继续查询',
+      cancelText: '取消',
+      content: `
+        <div style="text-align:left;">
+          <div style="font-size:12px;color:#64748b;margin-bottom:8px;">顺丰等快递可能需要收件人手机号后4位。</div>
+          <input id="mobileTrackingParamInput" type="text" maxlength="8" placeholder="请输入后4位（仅数字）"
+            style="width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;" />
+        </div>
+      `,
+      onConfirm: async () => {
+        inputValue = String(document.getElementById('mobileTrackingParamInput')?.value || '').trim();
+        if (!inputValue) {
+          window.Toast.error('请输入校验参数后再查询');
+          return false;
+        }
+        return true;
+      }
+    });
+
+    return confirmed ? inputValue : '';
+  },
+
+  async queryLogisticsWithFallback(trackingNumber, shippingCompany = '', options = {}) {
+    const normalizedTracking = String(trackingNumber || '').trim();
+    const normalizedCompany = String(shippingCompany || '').trim();
+    let param = String(options?.param || '').trim();
+
+    const invokeQuery = (forceRefresh = false) => window.API.queryLogistics(
+      normalizedTracking,
+      normalizedCompany,
+      { param, forceRefresh }
+    );
+
+    try {
+      return await invokeQuery(options?.forceRefresh === true);
+    } catch (error) {
+      const message = String(error?.message || error || '');
+      const needParam = /后4位|手机号|校验|param/i.test(message);
+      if (!param && needParam) {
+        param = await this.promptTrackingParam();
+        if (!param) throw error;
+        return await invokeQuery(true);
+      }
+      throw error;
+    }
+  },
+
   async showCreateOrderModal() {
     try {
       const [customers, products] = await Promise.all([
@@ -191,12 +348,22 @@ window.OrderModule = {
       const customerMap = new Map(customerList.map(item => [String(item.id), item]));
       const productMap = new Map(productList.map(item => [String(item.id), item]));
       const defaultProduct = productList[0];
-      const defaultProductId = String(defaultProduct.id);
       const defaultUnitPrice = Number(defaultProduct.price || 0).toFixed(2);
 
       const customerOptions = [
         '<option value="">不指定客户（散客）</option>',
         ...customerList.map(item => `<option value="${this.escapeHtml(item.id)}">${this.escapeHtml(item.name || `客户#${item.id}`)}</option>`)
+      ].join('');
+
+      const shippingOptions = [
+        '<option value="">自动识别快递公司</option>',
+        '<option value="顺丰速运">顺丰速运</option>',
+        '<option value="中通快递">中通快递</option>',
+        '<option value="圆通速递">圆通速递</option>',
+        '<option value="申通快递">申通快递</option>',
+        '<option value="韵达快递">韵达快递</option>',
+        '<option value="京东快递">京东快递</option>',
+        '<option value="邮政快递">邮政快递</option>'
       ].join('');
 
       const productOptions = productList.map(item => {
@@ -235,6 +402,18 @@ window.OrderModule = {
               <div style="margin-bottom:6px;color:#475569;font-size:12px;">备注</div>
               <textarea id="createOrderNotes" rows="2" placeholder="选填" style="width:100%;border:1px solid #d9d9d9;border-radius:8px;padding:8px 10px;resize:none;"></textarea>
             </div>
+            <div style="margin-bottom:10px;border-top:1px solid #eef2f7;padding-top:10px;">
+              <div style="font-size:12px;color:#475569;margin-bottom:6px;">快递公司（可选）</div>
+              <select id="createOrderShippingCompany" style="width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;">${shippingOptions}</select>
+            </div>
+            <div style="margin-bottom:10px;">
+              <div style="font-size:12px;color:#475569;margin-bottom:6px;">快递单号（可选）</div>
+              <input id="createOrderTrackingNumber" type="text" placeholder="填写后将自动识别物流状态" style="width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;" />
+            </div>
+            <div id="createOrderTrackingParamGroup" style="display:none;margin-bottom:10px;">
+              <div style="font-size:12px;color:#475569;margin-bottom:6px;">物流校验参数（顺丰可选）</div>
+              <input id="createOrderTrackingParam" type="text" placeholder="顺丰可填收件人手机号后4位" style="width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;" />
+            </div>
             <div id="createOrderStockHint" style="font-size:12px;color:#64748b;">当前库存：${Number(defaultProduct.stock_quantity || 0)}</div>
           </div>
         `,
@@ -244,6 +423,9 @@ window.OrderModule = {
           const quantity = parseInt(document.getElementById('createOrderQuantity')?.value, 10);
           const unitPrice = Number(document.getElementById('createOrderUnitPrice')?.value);
           const notes = String(document.getElementById('createOrderNotes')?.value || '').trim();
+          const shippingCompany = String(document.getElementById('createOrderShippingCompany')?.value || '').trim();
+          const trackingNumber = String(document.getElementById('createOrderTrackingNumber')?.value || '').trim();
+          const trackingParam = String(document.getElementById('createOrderTrackingParam')?.value || '').trim();
 
           if (!productId) {
             window.Toast.error('请选择商品');
@@ -271,14 +453,17 @@ window.OrderModule = {
           }
 
           const customer = customerId ? customerMap.get(customerId) : null;
+          const initialShippingStatus = trackingNumber ? 'shipped' : 'not_shipped';
 
-          const result = await window.API.createOrderWithItems({
+          let result = await window.API.createOrderWithItems({
             customer_id: customerId || null,
             customer_name: customer?.name || '',
             notes,
             status: 'pending',
             payment_status: 'unpaid',
-            shipping_status: 'not_shipped',
+            shipping_status: initialShippingStatus,
+            shipping_company: shippingCompany || null,
+            tracking_number: trackingNumber || null,
             items: [{
               product_id: product.id,
               product_name: product.name || '未命名商品',
@@ -290,6 +475,40 @@ window.OrderModule = {
           if (!result) {
             window.Toast.error('创建订单失败');
             return false;
+          }
+
+          if (trackingNumber) {
+            try {
+              const logisticsResult = await this.queryLogisticsWithFallback(
+                trackingNumber,
+                shippingCompany,
+                { param: trackingParam, forceRefresh: true }
+              );
+              const suggestion = this.inferFulfillmentFromLogisticsResult(
+                logisticsResult,
+                Array.isArray(logisticsResult?.timeline) ? logisticsResult.timeline : []
+              );
+
+              if (suggestion) {
+                const nextOrderStatus = this.resolveNextOrderStatus(result?.status, suggestion.orderStatus);
+                const nextShippingStatus = this.normalizeShippingStatusValue(suggestion.shippingStatus);
+                const updatePayload = {};
+
+                if (nextOrderStatus !== this.normalizeOrderStatusValue(result?.status)) {
+                  updatePayload.status = nextOrderStatus;
+                }
+                if (this.shouldApplyShippingStatus(result?.shipping_status, nextShippingStatus)) {
+                  updatePayload.shipping_status = nextShippingStatus;
+                }
+
+                if (Object.keys(updatePayload).length > 0) {
+                  const updatedOrder = await window.API.updateOrder(result.id, updatePayload);
+                  result = { ...result, ...updatedOrder };
+                }
+              }
+            } catch (logisticsError) {
+              window.Toast.info(`订单已创建，物流待稍后同步：${String(logisticsError?.message || logisticsError)}`);
+            }
           }
 
           if (result._inventorySyncWarning) {
@@ -311,7 +530,10 @@ window.OrderModule = {
         const productSelect = document.getElementById('createOrderProduct');
         const unitPriceInput = document.getElementById('createOrderUnitPrice');
         const stockHint = document.getElementById('createOrderStockHint');
-        if (!productSelect || !unitPriceInput || !stockHint) return;
+        const shippingCompanySelect = document.getElementById('createOrderShippingCompany');
+        const trackingParamGroup = document.getElementById('createOrderTrackingParamGroup');
+        const trackingParamInput = document.getElementById('createOrderTrackingParam');
+        if (!productSelect || !unitPriceInput || !stockHint || !shippingCompanySelect || !trackingParamGroup || !trackingParamInput) return;
 
         const refreshProductFields = () => {
           const currentProduct = productMap.get(String(productSelect.value || ''));
@@ -320,8 +542,19 @@ window.OrderModule = {
           stockHint.textContent = `当前库存：${Number(currentProduct.stock_quantity || 0)}`;
         };
 
+        const refreshTrackingParamVisibility = () => {
+          const company = String(shippingCompanySelect.value || '').trim();
+          const showParam = /顺丰|sf/i.test(company);
+          trackingParamGroup.style.display = showParam ? '' : 'none';
+          if (!showParam) {
+            trackingParamInput.value = '';
+          }
+        };
+
         productSelect.addEventListener('change', refreshProductFields);
+        shippingCompanySelect.addEventListener('change', refreshTrackingParamVisibility);
         refreshProductFields();
+        refreshTrackingParamVisibility();
       }, 0);
 
       await modalPromise;
@@ -433,7 +666,7 @@ window.OrderModule = {
         <div class="order-logistics">
           <div class="order-logistics-header">
             <div class="order-logistics-title">物流信息</div>
-            <div class="order-logistics-status">运输中</div>
+            <div class="order-logistics-status">${this.getShippingStatusText(order.shipping_status || 'not_shipped')}</div>
           </div>
           <div class="order-logistics-info">
             <div class="order-logistics-icon">
@@ -444,6 +677,11 @@ window.OrderModule = {
               <div class="order-logistics-number">${order.tracking_number || '-'}</div>
             </div>
           </div>
+          ${order.tracking_number ? `
+            <button class="btn btn-default btn-block" onclick="OrderModule.syncOrderLogistics('${order.id}')">
+              <i class="fa fa-refresh"></i> 同步物流状态
+            </button>
+          ` : ''}
         </div>
       ` : ''}
 
@@ -464,6 +702,54 @@ window.OrderModule = {
         ` : ''}
       </div>
     `;
+  },
+
+  async syncOrderLogistics(orderId) {
+    try {
+      window.Loading.show('同步物流中...');
+      const order = await window.API.getOrder(orderId);
+      const trackingNumber = String(order?.tracking_number || '').trim();
+      const shippingCompany = String(order?.shipping_company || '').trim();
+
+      if (!trackingNumber) {
+        throw new Error('该订单未填写快递单号');
+      }
+
+      const logisticsResult = await this.queryLogisticsWithFallback(
+        trackingNumber,
+        shippingCompany,
+        { forceRefresh: true }
+      );
+      const suggestion = this.inferFulfillmentFromLogisticsResult(
+        logisticsResult,
+        Array.isArray(logisticsResult?.timeline) ? logisticsResult.timeline : []
+      );
+
+      if (suggestion) {
+        const nextOrderStatus = this.resolveNextOrderStatus(order?.status, suggestion.orderStatus);
+        const nextShippingStatus = this.normalizeShippingStatusValue(suggestion.shippingStatus);
+        const updatePayload = {};
+
+        if (nextOrderStatus !== this.normalizeOrderStatusValue(order?.status)) {
+          updatePayload.status = nextOrderStatus;
+        }
+        if (this.shouldApplyShippingStatus(order?.shipping_status, nextShippingStatus)) {
+          updatePayload.shipping_status = nextShippingStatus;
+        }
+
+        if (Object.keys(updatePayload).length > 0) {
+          await window.API.updateOrder(orderId, updatePayload);
+        }
+      }
+
+      await this.loadOrderDetail(orderId);
+      window.Loading.hide();
+      window.Toast.success('物流状态已同步');
+    } catch (error) {
+      window.Loading.hide();
+      console.error('同步物流状态失败:', error);
+      window.Toast.error(error?.message || '同步物流状态失败');
+    }
   },
 
   async approveOrder(orderId) {
@@ -499,7 +785,10 @@ window.OrderModule = {
     if (!confirmed) return;
 
     try {
-      await window.API.updateOrderStatus(orderId, 'shipped');
+      await window.API.updateOrder(orderId, {
+        status: 'shipped',
+        shipping_status: 'shipped'
+      });
       window.Toast.success('已标记发货');
       await this.loadOrderDetail(orderId);
     } catch (error) {
@@ -513,7 +802,10 @@ window.OrderModule = {
     if (!confirmed) return;
 
     try {
-      await window.API.updateOrderStatus(orderId, 'signed');
+      await window.API.updateOrder(orderId, {
+        status: 'signed',
+        shipping_status: 'delivered'
+      });
       window.Toast.success('已标记签收');
       await this.loadOrderDetail(orderId);
     } catch (error) {

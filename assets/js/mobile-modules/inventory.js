@@ -115,12 +115,15 @@ window.InventoryModule = {
   },
 
   renderRecordCard(record) {
-    const type = record.type || 'in';
+    const rawType = String(record.type || '').toLowerCase();
+    const quantityChange = Number(record.quantity_change ?? record.quantity ?? 0);
+    const inferredType = quantityChange >= 0 ? 'in' : 'out';
+    const type = ['in', 'out'].includes(rawType) ? rawType : inferredType;
     const typeText = type === 'in' ? '入库' : '出库';
     const typeIcon = type === 'in' ? 'fa-arrow-down' : 'fa-arrow-up';
     const productName = record.product?.name || '未知产品';
     const productSku = record.product?.sku || '';
-    const quantity = Math.abs(Number(record.quantity) || 0);
+    const quantity = Math.abs(Number.isFinite(quantityChange) ? quantityChange : 0);
     const time = window.Utils.formatRelativeTime(record.created_at);
 
     return `
@@ -231,5 +234,4 @@ window.InventoryModule = {
     window.Toast.info('补货功能开发中');
   }
 };
-
 

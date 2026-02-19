@@ -8,6 +8,14 @@ class API {
     this.supabase = null;
     this.requestQueue = [];
     this.isProcessingQueue = false;
+    this.tableNames = {
+      customers: 'erp_customers',
+      products: 'erp_products',
+      orders: 'erp_orders',
+      orderItems: 'erp_order_items',
+      inventoryRecords: 'erp_inventory_logs',
+      financeRecords: 'erp_finances'
+    };
     this.init();
   }
 
@@ -84,7 +92,7 @@ class API {
 
     return this.request(async () => {
       let query = this.supabase
-        .from('customers')
+        .from(this.tableNames.customers)
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -104,7 +112,7 @@ class API {
   async getCustomer(id) {
     return this.request(async () => {
       const { data, error } = await this.supabase
-        .from('customers')
+        .from(this.tableNames.customers)
         .select('*')
         .eq('id', id)
         .single();
@@ -117,7 +125,7 @@ class API {
   async createCustomer(customer) {
     return this.request(async () => {
       const { data, error } = await this.supabase
-        .from('customers')
+        .from(this.tableNames.customers)
         .insert([customer])
         .select()
         .single();
@@ -130,7 +138,7 @@ class API {
   async updateCustomer(id, updates) {
     return this.request(async () => {
       const { data, error } = await this.supabase
-        .from('customers')
+        .from(this.tableNames.customers)
         .update(updates)
         .eq('id', id)
         .select()
@@ -144,7 +152,7 @@ class API {
   async deleteCustomer(id) {
     return this.request(async () => {
       const { error } = await this.supabase
-        .from('customers')
+        .from(this.tableNames.customers)
         .delete()
         .eq('id', id);
 
@@ -159,7 +167,7 @@ class API {
 
     return this.request(async () => {
       let query = this.supabase
-        .from('products')
+        .from(this.tableNames.products)
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -183,7 +191,7 @@ class API {
   async getProduct(id) {
     return this.request(async () => {
       const { data, error } = await this.supabase
-        .from('products')
+        .from(this.tableNames.products)
         .select('*')
         .eq('id', id)
         .single();
@@ -196,7 +204,7 @@ class API {
   async createProduct(product) {
     return this.request(async () => {
       const { data, error } = await this.supabase
-        .from('products')
+        .from(this.tableNames.products)
         .insert([product])
         .select()
         .single();
@@ -209,7 +217,7 @@ class API {
   async updateProduct(id, updates) {
     return this.request(async () => {
       const { data, error } = await this.supabase
-        .from('products')
+        .from(this.tableNames.products)
         .update(updates)
         .eq('id', id)
         .select()
@@ -227,11 +235,11 @@ class API {
 
     return this.request(async () => {
       let query = this.supabase
-        .from('orders')
+        .from(this.tableNames.orders)
         .select(`
           *,
-          customer:customers(id, name),
-          items:order_items(*)
+          customer:erp_customers(id, name, phone, contact_person),
+          items:erp_order_items(*)
         `)
         .order('created_at', { ascending: false });
 
@@ -255,13 +263,13 @@ class API {
   async getOrder(id) {
     return this.request(async () => {
       const { data, error } = await this.supabase
-        .from('orders')
+        .from(this.tableNames.orders)
         .select(`
           *,
-          customer:customers(*),
-          items:order_items(
+          customer:erp_customers(*),
+          items:erp_order_items(
             *,
-            product:products(*)
+            product:erp_products(*)
           )
         `)
         .eq('id', id)
@@ -275,7 +283,7 @@ class API {
   async createOrder(order) {
     return this.request(async () => {
       const { data, error } = await this.supabase
-        .from('orders')
+        .from(this.tableNames.orders)
         .insert([order])
         .select()
         .single();
@@ -288,7 +296,7 @@ class API {
   async updateOrder(id, updates) {
     return this.request(async () => {
       const { data, error } = await this.supabase
-        .from('orders')
+        .from(this.tableNames.orders)
         .update(updates)
         .eq('id', id)
         .select()
@@ -310,10 +318,10 @@ class API {
 
     return this.request(async () => {
       let query = this.supabase
-        .from('inventory_records')
+        .from(this.tableNames.inventoryRecords)
         .select(`
           *,
-          product:products(*)
+          product:erp_products(*)
         `)
         .order('created_at', { ascending: false });
 
@@ -333,7 +341,7 @@ class API {
   async createInventoryRecord(record) {
     return this.request(async () => {
       const { data, error } = await this.supabase
-        .from('inventory_records')
+        .from(this.tableNames.inventoryRecords)
         .insert([record])
         .select()
         .single();
@@ -350,9 +358,9 @@ class API {
 
     return this.request(async () => {
       let query = this.supabase
-        .from('finance_records')
+        .from(this.tableNames.financeRecords)
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('transaction_date', { ascending: false });
 
       if (type) {
         query = query.eq('type', type);
@@ -373,9 +381,9 @@ class API {
     return this.request(async () => {
       // 并行请求多个统计数据
       const [ordersResult, productsResult, customersResult] = await Promise.all([
-        this.supabase.from('orders').select('id, total_amount, status'),
-        this.supabase.from('products').select('id, stock_quantity, min_stock'),
-        this.supabase.from('customers').select('id')
+        this.supabase.from(this.tableNames.orders).select('id, total_amount, status, created_at'),
+        this.supabase.from(this.tableNames.products).select('id, stock_quantity, min_stock'),
+        this.supabase.from(this.tableNames.customers).select('id')
       ]);
 
       const orders = ordersResult.data || [];

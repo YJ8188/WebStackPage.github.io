@@ -120,7 +120,7 @@ window.DashboardModule = {
       const todos = [];
 
       // 获取待审核订单
-      const pendingOrders = await window.window.API.getOrders({ status: 'pending', limit: 5 });
+      const pendingOrders = await window.API.getOrders({ status: 'pending', limit: 5 });
       pendingOrders.forEach(order => {
         todos.push({
           type: 'warning',
@@ -128,13 +128,13 @@ window.DashboardModule = {
           title: '待审核订单',
           desc: `订单号: ${order.order_number}`,
           badge: order.customer?.name || '',
-          action: () => window.window.Router.push('/order/detail', { id: order.id })
+          action: () => window.Router.push('/order/detail', { id: order.id })
         });
       });
 
       // 获取库存预警产品
-      const products = await window.window.API.getProducts({ limit: 100 });
-      const lowStockProducts = products.filter(p => window.window.Utils.checkStockWarning(p));
+      const products = await window.API.getProducts({ limit: 100 });
+      const lowStockProducts = products.filter(p => window.Utils.checkStockWarning(p));
       if (lowStockProducts.length > 0) {
         todos.push({
           type: 'error',
@@ -142,12 +142,12 @@ window.DashboardModule = {
           title: '库存预警',
           desc: `${lowStockProducts.length}个产品库存不足`,
           badge: lowStockProducts.length,
-          action: () => window.window.Router.push('/inventory')
+          action: () => window.Router.push('/inventory')
         });
       }
 
       // 获取待发货订单
-      const shippingOrders = await window.window.API.getOrders({ status: 'approved', limit: 5 });
+      const shippingOrders = await window.API.getOrders({ status: 'approved', limit: 5 });
       shippingOrders.forEach(order => {
         todos.push({
           type: 'info',
@@ -155,7 +155,7 @@ window.DashboardModule = {
           title: '待发货订单',
           desc: `订单号: ${order.order_number}`,
           badge: order.customer?.name || '',
-          action: () => window.window.Router.push('/order/detail', { id: order.id })
+          action: () => window.Router.push('/order/detail', { id: order.id })
         });
       });
 
@@ -230,5 +230,4 @@ window.DashboardModule = {
     }
   }
 };
-
 

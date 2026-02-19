@@ -379,10 +379,89 @@ window.InventoryModule = {
         const productId = String(card.dataset.productId || '').trim();
         const product = rows.find(item => String(item?.id) === productId);
         if (product) {
-          this.showProductActions(product);
+          this.showInventoryProductDetail(product);
         }
       });
     });
+  },
+
+  async showInventoryProductDetail(product) {
+    try {
+      const productId = String(product?.id || '').trim();
+      if (!productId) {
+        window.Toast.error('产品数据异常');
+        return;
+      }
+
+      const latestProduct = await window.API.getProduct(productId);
+      const records = await window.API.getInventoryRecords({
+        productId,
+        limit: 20,
+        offset: 0
+      });
+
+      const rows = (Array.isArray(records) ? records : [])
+        .filter(item => this.shouldDisplayInventoryRecord(item))
+        .slice(0, 6);
+      const stock = Number(latestProduct?.stock_quantity || 0);
+      const minStock = Number(latestProduct?.min_stock || 0);
+      const isWarning = window.Utils.checkStockWarning(latestProduct);
+
+      const timelineHtml = rows.length > 0
+        ? rows.map(item => {
+          const type = this.normalizeRecordType(item);
+          const quantity = Math.abs(this.resolveQuantityChange(item));
+          const typeText = type === 'out' ? '出库' : '入库';
+          const typeColor = type === 'out' ? '#dc2626' : '#16a34a';
+          const timeText = window.Utils.formatDate(item?.created_at || new Date(), 'YYYY-MM-DD HH:mm');
+          const notesText = String(item?.notes || '').trim();
+          return `
+            <div style="padding:8px 0;border-bottom:1px solid #f1f5f9;">
+              <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
+                <span style="font-size:12px;color:${typeColor};font-weight:600;">${typeText} ${type === 'out' ? '-' : '+'}${quantity}</span>
+                <span style="font-size:12px;color:#94a3b8;">${timeText}</span>
+              </div>
+              ${notesText ? `<div style="margin-top:4px;font-size:12px;color:#64748b;line-height:1.4;">${this.escapeHtml(notesText)}</div>` : ''}
+            </div>
+          `;
+        }).join('')
+        : '<div style="padding:8px 0;font-size:12px;color:#94a3b8;">暂无库存变动记录</div>';
+
+      let shouldAdjust = false;
+      await window.Modal.show({
+        title: '库存详情',
+        confirmText: '库存调整',
+        cancelText: '关闭',
+        content: `
+          <div style="text-align:left;">
+            <div style="padding:10px;border:1px solid #e5e7eb;border-radius:10px;background:#f8fafc;margin-bottom:10px;">
+              <div style="font-size:14px;font-weight:600;color:#0f172a;line-height:1.5;margin-bottom:8px;">${this.escapeHtml(latestProduct?.name || '未命名产品')}</div>
+              <div style="font-size:12px;color:#64748b;line-height:1.9;">
+                <div>SKU：${this.escapeHtml(latestProduct?.sku || '-')}</div>
+                <div>当前库存：<strong>${stock}</strong></div>
+                <div>最小库存：${minStock}</div>
+                <div>状态：<span style="color:${isWarning ? '#dc2626' : '#16a34a'};font-weight:600;">${isWarning ? '库存预警' : '库存正常'}</span></div>
+              </div>
+            </div>
+            <div style="font-size:12px;color:#475569;margin-bottom:6px;">最近库存记录</div>
+            <div style="max-height:200px;overflow:auto;border:1px solid #e5e7eb;border-radius:8px;padding:0 10px;background:#fff;">
+              ${timelineHtml}
+            </div>
+          </div>
+        `,
+        onConfirm: async () => {
+          shouldAdjust = true;
+          return true;
+        }
+      });
+
+      if (shouldAdjust) {
+        await this.showProductActions(latestProduct);
+      }
+    } catch (error) {
+      console.error('加载库存详情失败:', error);
+      window.Toast.error(error?.message || '加载库存详情失败');
+    }
   },
 
   renderWarningProducts(products) {

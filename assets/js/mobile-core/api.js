@@ -658,7 +658,7 @@ class API {
   // ==================== 库存管理 ====================
 
   async getInventoryRecords(options = {}) {
-    const { type = '', limit = 20, offset = 0 } = options;
+    const { type = '', productId = '', limit = 20, offset = 0 } = options;
 
     return this.request(async () => {
       const userId = this.getCurrentUserId();
@@ -676,6 +676,10 @@ class API {
 
       if (type) {
         query = query.eq('type', type);
+      }
+
+      if (productId !== '' && productId !== null && productId !== undefined) {
+        query = query.eq('product_id', productId);
       }
 
       query = query.range(offset, offset + limit - 1);

@@ -5,6 +5,7 @@
 window.DashboardModule = {
   name: 'dashboard',
   eventsBound: false,
+  latestStats: null,
 
   async init() {
     await this.render();
@@ -22,15 +23,15 @@ window.DashboardModule = {
     page.innerHTML = `
       <!-- 统计卡片 -->
       <div class="dashboard-stats">
-        <div class="dashboard-stat-card">
+        <div class="dashboard-stat-card" data-stat="todayOrders">
           <div class="dashboard-stat-label">今日订单</div>
           <div class="dashboard-stat-value" id="todayOrders">-</div>
           <div class="dashboard-stat-trend">
             <i class="fa fa-arrow-up"></i>
-            <span>较昨日</span>
+            <span>按今日</span>
           </div>
         </div>
-        <div class="dashboard-stat-card">
+        <div class="dashboard-stat-card" data-stat="pendingOrders">
           <div class="dashboard-stat-label">待发货</div>
           <div class="dashboard-stat-value" id="pendingOrders">-</div>
           <div class="dashboard-stat-trend">
@@ -38,7 +39,7 @@ window.DashboardModule = {
             <span>待处理</span>
           </div>
         </div>
-        <div class="dashboard-stat-card">
+        <div class="dashboard-stat-card" data-stat="lowStockProducts">
           <div class="dashboard-stat-label">库存预警</div>
           <div class="dashboard-stat-value" id="lowStockProducts">-</div>
           <div class="dashboard-stat-trend">
@@ -46,12 +47,12 @@ window.DashboardModule = {
             <span>需补货</span>
           </div>
         </div>
-        <div class="dashboard-stat-card">
+        <div class="dashboard-stat-card" data-stat="totalCustomers">
           <div class="dashboard-stat-label">客户总数</div>
           <div class="dashboard-stat-value" id="totalCustomers">-</div>
           <div class="dashboard-stat-trend">
             <i class="fa fa-users"></i>
-            <span>活跃客户</span>
+            <span>客户管理</span>
           </div>
         </div>
       </div>
@@ -110,11 +111,22 @@ window.DashboardModule = {
     try {
       // 加载统计数据
       const stats = await window.API.getDashboardStats();
+      this.latestStats = stats;
 
       document.getElementById('todayOrders').textContent = stats.todayOrders || 0;
       document.getElementById('pendingOrders').textContent = stats.pendingOrders || 0;
       document.getElementById('lowStockProducts').textContent = stats.lowStockProducts || 0;
       document.getElementById('totalCustomers').textContent = stats.totalCustomers || 0;
+
+      const pendingTrendText = document.querySelector('.dashboard-stat-card[data-stat="pendingOrders"] .dashboard-stat-trend span');
+      if (pendingTrendText) {
+        pendingTrendText.textContent = stats.pendingOrders > 0 ? '待处理' : '无待发货';
+      }
+
+      const lowStockTrendText = document.querySelector('.dashboard-stat-card[data-stat="lowStockProducts"] .dashboard-stat-trend span');
+      if (lowStockTrendText) {
+        lowStockTrendText.textContent = stats.lowStockProducts > 0 ? '需补货' : '库存正常';
+      }
 
       // 加载待办事项
       await this.loadTodos();
@@ -223,9 +235,16 @@ window.DashboardModule = {
 
     page.addEventListener('click', (event) => {
       const shortcutItem = event.target.closest('.dashboard-shortcut-item');
-      if (!shortcutItem || !page.contains(shortcutItem)) return;
-      const action = shortcutItem.dataset.action;
-      this.handleShortcut(action);
+      if (shortcutItem && page.contains(shortcutItem)) {
+        const action = shortcutItem.dataset.action;
+        this.handleShortcut(action);
+        return;
+      }
+
+      const statCard = event.target.closest('.dashboard-stat-card');
+      if (!statCard || !page.contains(statCard)) return;
+      const statType = statCard.dataset.stat;
+      this.handleStatCard(statType);
     });
 
     page.dataset.shortcutBound = '1';
@@ -241,6 +260,45 @@ window.DashboardModule = {
     };
 
     const handler = actions[action];
+    if (handler) {
+      handler();
+    }
+  },
+
+  handleStatCard(statType) {
+    const stats = this.latestStats || {};
+    const actions = {
+      todayOrders: () => {
+        if (!Number(stats.todayOrders || 0)) {
+          window.Toast.info('当前日期暂无订单');
+          return;
+        }
+        window.Router.push('/orders', { quick: 'today' });
+      },
+      pendingOrders: () => {
+        if (!Number(stats.pendingOrders || 0)) {
+          window.Toast.info('当前没有待发货订单');
+          return;
+        }
+        window.Router.push('/orders', { quick: 'to_ship' });
+      },
+      lowStockProducts: () => {
+        if (!Number(stats.lowStockProducts || 0)) {
+          window.Toast.info('当前没有库存预警，无需补货');
+          return;
+        }
+        window.Router.push('/inventory', { type: 'warning' });
+      },
+      totalCustomers: () => {
+        if (!Number(stats.totalCustomers || 0)) {
+          window.Toast.info('当前没有客户数据');
+          return;
+        }
+        window.Router.push('/customers');
+      }
+    };
+
+    const handler = actions[statType];
     if (handler) {
       handler();
     }

@@ -5,17 +5,23 @@
 window.OrderModule = {
   name: 'order',
   currentStatus: '',
+  routeFilter: {
+    quick: '',
+    customerId: ''
+  },
   currentPage: 1,
   pageSize: 20,
   orders: [],
   hasMore: true,
   eventsBound: false,
+  emptyHintShown: false,
 
-  async init() {
+  async init(routeParams = {}) {
     if (!this.eventsBound) {
       this.bindEvents();
       this.eventsBound = true;
     }
+    this.applyRouteFilters(routeParams);
     await this.loadOrders();
   },
 
@@ -26,9 +32,13 @@ window.OrderModule = {
         document.querySelectorAll('#orderTabs .tab-item').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
         this.currentStatus = tab.dataset.status;
+        if (this.routeFilter.quick === 'to_ship') {
+          this.routeFilter.quick = '';
+        }
         this.currentPage = 1;
         this.orders = [];
         this.hasMore = true;
+        this.emptyHintShown = false;
         this.loadOrders();
       });
     });
@@ -49,16 +59,72 @@ window.OrderModule = {
     }
   },
 
+  applyRouteFilters(routeParams = {}) {
+    const params = routeParams && typeof routeParams === 'object' ? routeParams : {};
+    const quick = String(params.quick || '').trim().toLowerCase();
+    const customerId = String(params.customer_id || '').trim();
+
+    this.routeFilter = {
+      quick,
+      customerId
+    };
+
+    if (params.status !== undefined) {
+      this.currentStatus = String(params.status || '').trim();
+    } else if (customerId) {
+      this.currentStatus = '';
+    } else if (quick === 'to_ship' || quick === 'today') {
+      this.currentStatus = '';
+    }
+
+    document.querySelectorAll('#orderTabs .tab-item').forEach(tab => {
+      const matched = String(tab.dataset.status || '') === String(this.currentStatus || '');
+      tab.classList.toggle('active', matched);
+    });
+
+    if (!document.querySelector('#orderTabs .tab-item.active')) {
+      const defaultTab = document.querySelector('#orderTabs .tab-item[data-status=""]');
+      if (defaultTab) defaultTab.classList.add('active');
+    }
+
+    this.currentPage = 1;
+    this.orders = [];
+    this.hasMore = true;
+    this.emptyHintShown = false;
+  },
+
   async loadOrders() {
     try {
       window.Loading.show('加载订单...');
 
       const offset = (this.currentPage - 1) * this.pageSize;
-      const newOrders = await window.API.getOrders({
+      const requestOptions = {
         status: this.currentStatus,
         limit: this.pageSize,
         offset
-      });
+      };
+
+      if (this.routeFilter.customerId) {
+        requestOptions.customerId = this.routeFilter.customerId;
+      }
+
+      if (this.routeFilter.quick === 'today') {
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+        const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+        requestOptions.dateFrom = start.toISOString();
+        requestOptions.dateTo = end.toISOString();
+      }
+
+      if (this.routeFilter.quick === 'to_ship') {
+        requestOptions.shippingStatus = 'not_shipped';
+        if (!this.currentStatus) {
+          requestOptions.statuses = ['pending', 'confirmed', 'approved', 'processing'];
+          delete requestOptions.status;
+        }
+      }
+
+      const newOrders = await window.API.getOrders(requestOptions);
 
       if (newOrders.length < this.pageSize) {
         this.hasMore = false;
@@ -66,6 +132,17 @@ window.OrderModule = {
 
       this.orders = this.currentPage === 1 ? newOrders : [...this.orders, ...newOrders];
       this.renderOrders();
+
+      if (this.currentPage === 1 && this.orders.length === 0 && !this.emptyHintShown) {
+        if (this.routeFilter.quick === 'today') {
+          window.Toast.info('当前日期暂无订单');
+        } else if (this.routeFilter.quick === 'to_ship') {
+          window.Toast.info('当前没有待发货订单');
+        } else if (this.routeFilter.customerId) {
+          window.Toast.info('该客户当前暂无订单');
+        }
+        this.emptyHintShown = true;
+      }
 
       window.Loading.hide();
     } catch (error) {

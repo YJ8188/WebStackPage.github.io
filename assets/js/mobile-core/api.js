@@ -232,7 +232,17 @@ class API {
   // ==================== 订单管理 ====================
 
   async getOrders(options = {}) {
-    const { status = '', keyword = '', limit = 20, offset = 0 } = options;
+    const {
+      status = '',
+      statuses = null,
+      keyword = '',
+      customerId = '',
+      shippingStatus = '',
+      dateFrom = '',
+      dateTo = '',
+      limit = 20,
+      offset = 0
+    } = options;
 
     return this.request(async () => {
       let query = this.supabase
@@ -244,7 +254,13 @@ class API {
         `)
         .order('created_at', { ascending: false });
 
-      if (status) {
+      const statusList = Array.isArray(statuses)
+        ? statuses.map(item => String(item || '').trim().toLowerCase()).filter(Boolean)
+        : [];
+
+      if (statusList.length > 0) {
+        query = query.in('status', statusList);
+      } else if (status) {
         const normalizedStatus = String(status || '').trim().toLowerCase();
         const statusAliasMap = {
           confirmed: ['confirmed', 'approved'],
@@ -260,6 +276,22 @@ class API {
 
       if (keyword) {
         query = query.or(`order_number.ilike.%${keyword}%`);
+      }
+
+      if (customerId !== '' && customerId !== null && customerId !== undefined) {
+        query = query.eq('customer_id', customerId);
+      }
+
+      if (shippingStatus) {
+        query = query.eq('shipping_status', String(shippingStatus || '').trim().toLowerCase());
+      }
+
+      if (dateFrom) {
+        query = query.gte('order_date', dateFrom);
+      }
+
+      if (dateTo) {
+        query = query.lte('order_date', dateTo);
       }
 
       query = query.range(offset, offset + limit - 1);

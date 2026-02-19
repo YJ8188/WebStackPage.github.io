@@ -13,12 +13,33 @@ window.InventoryModule = {
   hasMore: true,
   eventsBound: false,
 
-  async init() {
+  async init(routeParams = {}) {
     if (!this.eventsBound) {
       this.bindEvents();
       this.eventsBound = true;
     }
+
+    if (routeParams && Object.prototype.hasOwnProperty.call(routeParams, 'type')) {
+      this.currentType = String(routeParams.type || '').trim();
+      document.querySelectorAll('#inventoryTabs .tab-item').forEach(tab => {
+        const matched = String(tab.dataset.type || '') === this.currentType;
+        tab.classList.toggle('active', matched);
+      });
+      if (!document.querySelector('#inventoryTabs .tab-item.active')) {
+        const defaultTab = document.querySelector('#inventoryTabs .tab-item[data-type=""]');
+        if (defaultTab) defaultTab.classList.add('active');
+      }
+    } else {
+      this.currentType = '';
+      document.querySelectorAll('#inventoryTabs .tab-item').forEach(tab => {
+        tab.classList.toggle('active', String(tab.dataset.type || '') === '');
+      });
+    }
+
     this.currentPage = 1;
+    this.filteredRecords = [];
+    this.records = [];
+    this.hasMore = true;
     await this.loadRecords(true);
   },
 

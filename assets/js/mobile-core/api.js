@@ -46,6 +46,10 @@ class API {
     }
   }
 
+  getCurrentUserId() {
+    return window.MobileERP?.getCurrentUser?.()?.id || null;
+  }
+
   // 通用请求方法
   async request(fn, options = {}) {
     const { showLoading = false, showError = true, offline = false } = options;
@@ -92,10 +96,15 @@ class API {
     const { keyword = '', limit = 20, offset = 0 } = options;
 
     return this.request(async () => {
+      const userId = this.getCurrentUserId();
       let query = this.supabase
         .from(this.tableNames.customers)
         .select('*')
         .order('created_at', { ascending: false });
+
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
 
       if (keyword) {
         query = query.or(`name.ilike.%${keyword}%,contact_person.ilike.%${keyword}%,phone.ilike.%${keyword}%`);
@@ -112,11 +121,17 @@ class API {
 
   async getCustomer(id) {
     return this.request(async () => {
-      const { data, error } = await this.supabase
+      const userId = this.getCurrentUserId();
+      let query = this.supabase
         .from(this.tableNames.customers)
         .select('*')
-        .eq('id', id)
-        .single();
+        .eq('id', id);
+
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+
+      const { data, error } = await query.single();
 
       if (error) throw error;
       return data;
@@ -125,9 +140,13 @@ class API {
 
   async createCustomer(customer) {
     return this.request(async () => {
+      const userId = this.getCurrentUserId();
       const { data, error } = await this.supabase
         .from(this.tableNames.customers)
-        .insert([customer])
+        .insert([{
+          ...customer,
+          user_id: userId || customer?.user_id || null
+        }])
         .select()
         .single();
 
@@ -138,10 +157,17 @@ class API {
 
   async updateCustomer(id, updates) {
     return this.request(async () => {
-      const { data, error } = await this.supabase
+      const userId = this.getCurrentUserId();
+      let query = this.supabase
         .from(this.tableNames.customers)
         .update(updates)
-        .eq('id', id)
+        .eq('id', id);
+
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+
+      const { data, error } = await query
         .select()
         .single();
 
@@ -152,10 +178,17 @@ class API {
 
   async deleteCustomer(id) {
     return this.request(async () => {
-      const { error } = await this.supabase
+      const userId = this.getCurrentUserId();
+      let query = this.supabase
         .from(this.tableNames.customers)
         .delete()
         .eq('id', id);
+
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+
+      const { error } = await query;
 
       if (error) throw error;
     }, { showLoading: true, showError: true });
@@ -167,10 +200,15 @@ class API {
     const { keyword = '', category = '', limit = 20, offset = 0 } = options;
 
     return this.request(async () => {
+      const userId = this.getCurrentUserId();
       let query = this.supabase
         .from(this.tableNames.products)
         .select('*')
         .order('created_at', { ascending: false });
+
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
 
       if (keyword) {
         query = query.or(`name.ilike.%${keyword}%,sku.ilike.%${keyword}%`);
@@ -191,11 +229,17 @@ class API {
 
   async getProduct(id) {
     return this.request(async () => {
-      const { data, error } = await this.supabase
+      const userId = this.getCurrentUserId();
+      let query = this.supabase
         .from(this.tableNames.products)
         .select('*')
-        .eq('id', id)
-        .single();
+        .eq('id', id);
+
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+
+      const { data, error } = await query.single();
 
       if (error) throw error;
       return data;
@@ -204,9 +248,13 @@ class API {
 
   async createProduct(product) {
     return this.request(async () => {
+      const userId = this.getCurrentUserId();
       const { data, error } = await this.supabase
         .from(this.tableNames.products)
-        .insert([product])
+        .insert([{
+          ...product,
+          user_id: userId || product?.user_id || null
+        }])
         .select()
         .single();
 
@@ -217,10 +265,17 @@ class API {
 
   async updateProduct(id, updates) {
     return this.request(async () => {
-      const { data, error } = await this.supabase
+      const userId = this.getCurrentUserId();
+      let query = this.supabase
         .from(this.tableNames.products)
         .update(updates)
-        .eq('id', id)
+        .eq('id', id);
+
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+
+      const { data, error } = await query
         .select()
         .single();
 
@@ -245,6 +300,7 @@ class API {
     } = options;
 
     return this.request(async () => {
+      const userId = this.getCurrentUserId();
       let query = this.supabase
         .from(this.tableNames.orders)
         .select(`
@@ -253,6 +309,10 @@ class API {
           items:erp_order_items(*)
         `)
         .order('created_at', { ascending: false });
+
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
 
       const statusList = Array.isArray(statuses)
         ? statuses.map(item => String(item || '').trim().toLowerCase()).filter(Boolean)
@@ -305,7 +365,8 @@ class API {
 
   async getOrder(id) {
     return this.request(async () => {
-      const { data, error } = await this.supabase
+      const userId = this.getCurrentUserId();
+      let query = this.supabase
         .from(this.tableNames.orders)
         .select(`
           *,
@@ -315,8 +376,13 @@ class API {
             product:erp_products(*)
           )
         `)
-        .eq('id', id)
-        .single();
+        .eq('id', id);
+
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+
+      const { data, error } = await query.single();
 
       if (error) throw error;
       return data;
@@ -325,9 +391,13 @@ class API {
 
   async createOrder(order) {
     return this.request(async () => {
+      const userId = this.getCurrentUserId();
       const { data, error } = await this.supabase
         .from(this.tableNames.orders)
-        .insert([order])
+        .insert([{
+          ...order,
+          user_id: userId || order?.user_id || null
+        }])
         .select()
         .single();
 
@@ -354,10 +424,13 @@ class API {
         throw new Error('商品信息不完整');
       }
 
-      const { data: productRows, error: productError } = await client
+      let productQuery = client
         .from(this.tableNames.products)
-        .select('id, name, price, cost, stock_quantity')
-        .in('id', productIds);
+        .select('id, name, price, cost, stock_quantity');
+      if (currentUser?.id) {
+        productQuery = productQuery.eq('user_id', currentUser.id);
+      }
+      const { data: productRows, error: productError } = await productQuery.in('id', productIds);
 
       if (productError) throw productError;
 
@@ -453,15 +526,20 @@ class API {
 
       const inventoryTasks = normalizedItems.map(async (item) => {
         const nextStock = Math.max(0, Number(item.current_stock || 0) - Number(item.quantity || 0));
-        const { error: updateStockError } = await client
+        let updateStockQuery = client
           .from(this.tableNames.products)
           .update({ stock_quantity: nextStock })
           .eq('id', item.product_id);
+        if (currentUser?.id) {
+          updateStockQuery = updateStockQuery.eq('user_id', currentUser.id);
+        }
+        const { error: updateStockError } = await updateStockQuery;
         if (updateStockError) throw updateStockError;
 
         const { error: logError } = await client
           .from(this.tableNames.inventoryRecords)
           .insert([{
+            user_id: currentUser?.id || null,
             product_id: item.product_id,
             quantity_change: -Math.abs(Number(item.quantity || 0)),
             type: 'order_lock',
@@ -474,15 +552,18 @@ class API {
       const inventoryResults = await Promise.allSettled(inventoryTasks);
       const inventoryFailed = inventoryResults.some(result => result.status === 'rejected');
 
-      const { data: fullOrder } = await client
+      let fullOrderQuery = client
         .from(this.tableNames.orders)
         .select(`
           *,
           customer:erp_customers(id, name, phone, contact_person),
           items:erp_order_items(*)
         `)
-        .eq('id', orderRow.id)
-        .single();
+        .eq('id', orderRow.id);
+      if (currentUser?.id) {
+        fullOrderQuery = fullOrderQuery.eq('user_id', currentUser.id);
+      }
+      const { data: fullOrder } = await fullOrderQuery.single();
 
       return {
         ...(fullOrder || orderRow),
@@ -493,10 +574,17 @@ class API {
 
   async updateOrder(id, updates) {
     return this.request(async () => {
-      const { data, error } = await this.supabase
+      const userId = this.getCurrentUserId();
+      let query = this.supabase
         .from(this.tableNames.orders)
         .update(updates)
-        .eq('id', id)
+        .eq('id', id);
+
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+
+      const { data, error } = await query
         .select()
         .single();
 
@@ -573,6 +661,7 @@ class API {
     const { type = '', limit = 20, offset = 0 } = options;
 
     return this.request(async () => {
+      const userId = this.getCurrentUserId();
       let query = this.supabase
         .from(this.tableNames.inventoryRecords)
         .select(`
@@ -580,6 +669,10 @@ class API {
           product:erp_products(*)
         `)
         .order('created_at', { ascending: false });
+
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
 
       if (type) {
         query = query.eq('type', type);
@@ -596,9 +689,13 @@ class API {
 
   async createInventoryRecord(record) {
     return this.request(async () => {
+      const userId = this.getCurrentUserId();
       const { data, error } = await this.supabase
         .from(this.tableNames.inventoryRecords)
-        .insert([record])
+        .insert([{
+          ...record,
+          user_id: userId || record?.user_id || null
+        }])
         .select()
         .single();
 
@@ -613,10 +710,15 @@ class API {
     const { type = '', limit = 20, offset = 0 } = options;
 
     return this.request(async () => {
+      const userId = this.getCurrentUserId();
       let query = this.supabase
         .from(this.tableNames.financeRecords)
         .select('*')
         .order('transaction_date', { ascending: false });
+
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
 
       if (type) {
         query = query.eq('type', type);
@@ -635,11 +737,18 @@ class API {
 
   async getDashboardStats() {
     return this.request(async () => {
+      const userId = this.getCurrentUserId();
       // 并行请求多个统计数据
       const [ordersResult, productsResult, customersResult] = await Promise.all([
-        this.supabase.from(this.tableNames.orders).select('id, total_amount, status, shipping_status, order_date, created_at'),
-        this.supabase.from(this.tableNames.products).select('id, stock_quantity, min_stock'),
-        this.supabase.from(this.tableNames.customers).select('id')
+        (userId
+          ? this.supabase.from(this.tableNames.orders).select('id, total_amount, status, shipping_status, order_date, created_at').eq('user_id', userId)
+          : this.supabase.from(this.tableNames.orders).select('id, total_amount, status, shipping_status, order_date, created_at')),
+        (userId
+          ? this.supabase.from(this.tableNames.products).select('id, stock_quantity, min_stock').eq('user_id', userId)
+          : this.supabase.from(this.tableNames.products).select('id, stock_quantity, min_stock')),
+        (userId
+          ? this.supabase.from(this.tableNames.customers).select('id').eq('user_id', userId)
+          : this.supabase.from(this.tableNames.customers).select('id'))
       ]);
 
       const orders = ordersResult.data || [];

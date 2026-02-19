@@ -12,12 +12,20 @@ window.InventoryModule = {
   records: [],
   hasMore: true,
   eventsBound: false,
+  syncEventsBound: false,
+  realtimeChannel: null,
+  realtimeRefreshTimer: null,
 
   async init(routeParams = {}) {
     if (!this.eventsBound) {
       this.bindEvents();
       this.eventsBound = true;
     }
+    if (!this.syncEventsBound) {
+      this.bindSyncEvents();
+      this.syncEventsBound = true;
+    }
+    this.startRealtimeSync();
 
     if (routeParams && Object.prototype.hasOwnProperty.call(routeParams, 'type')) {
       this.currentType = String(routeParams.type || '').trim();
@@ -72,6 +80,77 @@ window.InventoryModule = {
         }
       }, 300));
     }
+  },
+
+  bindSyncEvents() {
+    window.addEventListener('focus', () => {
+      this.scheduleRealtimeRefresh('focus');
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        this.scheduleRealtimeRefresh('visibility');
+      }
+    });
+
+    if (window.EventBus?.on) {
+      window.EventBus.on('network:online', () => {
+        this.scheduleRealtimeRefresh('network-online');
+      });
+    }
+  },
+
+  isPageActive() {
+    const page = document.getElementById('inventoryPage');
+    return !!page && !page.classList.contains('hidden');
+  },
+
+  scheduleRealtimeRefresh(reason = '') {
+    if (this.realtimeRefreshTimer) {
+      clearTimeout(this.realtimeRefreshTimer);
+      this.realtimeRefreshTimer = null;
+    }
+
+    this.realtimeRefreshTimer = setTimeout(async () => {
+      if (!this.isPageActive()) return;
+      this.currentPage = 1;
+      this.filteredRecords = [];
+      this.records = [];
+      this.hasMore = true;
+      await this.loadRecords(true);
+    }, 260);
+  },
+
+  startRealtimeSync() {
+    if (this.realtimeChannel) {
+      return;
+    }
+
+    const client = window.supabaseClient || window.supabase;
+    if (!client || typeof client.channel !== 'function') {
+      return;
+    }
+
+    const userId = window.MobileERP?.getCurrentUser?.()?.id || '';
+    const channelName = `mobile-erp-inventory-${userId || 'guest'}`;
+
+    const canHandlePayload = payload => {
+      const row = payload?.new || payload?.old || {};
+      const rowUserId = String(row?.user_id || '').trim();
+      if (!userId) return true;
+      return rowUserId === '' || rowUserId === String(userId);
+    };
+
+    const refreshIfNeeded = payload => {
+      if (!canHandlePayload(payload)) return;
+      this.scheduleRealtimeRefresh('realtime-change');
+    };
+
+    this.realtimeChannel = client
+      .channel(channelName)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'erp_inventory_logs' }, refreshIfNeeded)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'erp_products' }, refreshIfNeeded)
+      .subscribe();
   },
 
   async loadRecords(forceRefresh = false) {

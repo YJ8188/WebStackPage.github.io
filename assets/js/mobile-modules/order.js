@@ -5,6 +5,7 @@
 window.OrderModule = {
   name: 'order',
   currentStatus: '',
+  searchKeyword: '',
   routeFilter: {
     quick: '',
     customerId: ''
@@ -63,11 +64,13 @@ window.OrderModule = {
     const params = routeParams && typeof routeParams === 'object' ? routeParams : {};
     const quick = String(params.quick || '').trim().toLowerCase();
     const customerId = String(params.customer_id || '').trim();
+    const keyword = String(params.keyword || '').trim();
 
     this.routeFilter = {
       quick,
       customerId
     };
+    this.searchKeyword = keyword;
 
     if (params.status !== undefined) {
       this.currentStatus = String(params.status || '').trim();
@@ -98,6 +101,7 @@ window.OrderModule = {
       window.Loading.show('加载订单...');
 
       const offset = (this.currentPage - 1) * this.pageSize;
+      const keyword = String(this.searchKeyword || '').trim();
       const requestOptions = {
         status: this.currentStatus,
         limit: this.pageSize,
@@ -124,17 +128,29 @@ window.OrderModule = {
         }
       }
 
-      const newOrders = await window.API.getOrders(requestOptions);
-
-      if (newOrders.length < this.pageSize) {
-        this.hasMore = false;
+      if (keyword) {
+        requestOptions.limit = 300;
+        requestOptions.offset = 0;
       }
 
-      this.orders = this.currentPage === 1 ? newOrders : [...this.orders, ...newOrders];
+      const newOrders = await window.API.getOrders(requestOptions);
+      const orderRows = Array.isArray(newOrders) ? newOrders : [];
+
+      if (keyword) {
+        this.hasMore = false;
+        this.orders = this.filterOrdersByKeyword(orderRows, keyword);
+      } else {
+        if (orderRows.length < this.pageSize) {
+          this.hasMore = false;
+        }
+        this.orders = this.currentPage === 1 ? orderRows : [...this.orders, ...orderRows];
+      }
       this.renderOrders();
 
       if (this.currentPage === 1 && this.orders.length === 0 && !this.emptyHintShown) {
-        if (this.routeFilter.quick === 'today') {
+        if (keyword) {
+          window.Toast.info('未找到匹配的订单');
+        } else if (this.routeFilter.quick === 'today') {
           window.Toast.info('当前日期暂无订单');
         } else if (this.routeFilter.quick === 'to_ship') {
           window.Toast.info('当前没有待发货订单');
@@ -153,6 +169,7 @@ window.OrderModule = {
   },
 
   async loadMore() {
+    if (String(this.searchKeyword || '').trim()) return;
     if (!this.hasMore) return;
     this.currentPage++;
     await this.loadOrders();
@@ -172,12 +189,36 @@ window.OrderModule = {
       return;
     }
 
+    const keyword = String(this.searchKeyword || '').trim();
+    const searchInfo = keyword
+      ? `
+      <div style="margin:0 0 10px 0;padding:8px 10px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <span style="font-size:12px;color:#1d4ed8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">搜索：${this.escapeHtml(keyword)}</span>
+        <button id="clearOrderSearchBtn" type="button" style="border:none;background:none;color:#2563eb;font-size:12px;font-weight:600;cursor:pointer;">清除</button>
+      </div>
+      `
+      : '';
+
     container.innerHTML = `
+      ${searchInfo}
       <div class="order-list">
         ${this.orders.map(order => this.renderOrderCard(order)).join('')}
       </div>
       ${this.hasMore ? '<div class="infinite-scroll-loading">加载更多...</div>' : '<div class="infinite-scroll-finished">没有更多了</div>'}
     `;
+
+    const clearSearchBtn = container.querySelector('#clearOrderSearchBtn');
+    if (clearSearchBtn) {
+      clearSearchBtn.addEventListener('click', async (event) => {
+        event.stopPropagation();
+        this.searchKeyword = '';
+        this.currentPage = 1;
+        this.orders = [];
+        this.hasMore = true;
+        this.emptyHintShown = false;
+        await this.loadOrders();
+      });
+    }
 
     // 绑定点击事件
     container.querySelectorAll('.order-card').forEach((card, index) => {
@@ -237,8 +278,79 @@ window.OrderModule = {
   },
 
   async showSearchModal() {
-    // TODO: 实现搜索功能
-    window.Toast.info('搜索功能开发中');
+    const currentKeyword = String(this.searchKeyword || '').trim();
+    const modalPromise = window.Modal.show({
+      title: '订单搜索',
+      confirmText: '搜索',
+      cancelText: '取消',
+      content: `
+        <div style="text-align:left;">
+          <div style="margin-bottom:8px;color:#475569;font-size:12px;">关键词</div>
+          <input id="mobileOrderSearchInput" type="text" maxlength="60" placeholder="订单号 / 客户名 / 手机号 / 商品名"
+            value="${this.escapeHtml(currentKeyword)}"
+            style="width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;" />
+          <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+            <span style="font-size:12px;color:#94a3b8;">支持组合状态筛选</span>
+            <button id="clearOrderSearchInputBtn" type="button"
+              style="height:28px;padding:0 10px;border:1px solid #e2e8f0;border-radius:999px;background:#fff;color:#475569;font-size:12px;cursor:pointer;">清空</button>
+          </div>
+        </div>
+      `,
+      onConfirm: async () => {
+        const keyword = String(document.getElementById('mobileOrderSearchInput')?.value || '').trim();
+        this.searchKeyword = keyword;
+        this.currentPage = 1;
+        this.orders = [];
+        this.hasMore = true;
+        this.emptyHintShown = false;
+        await this.loadOrders();
+        return true;
+      }
+    });
+
+    setTimeout(() => {
+      const input = document.getElementById('mobileOrderSearchInput');
+      const clearBtn = document.getElementById('clearOrderSearchInputBtn');
+      if (input) {
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+        input.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape') {
+            input.value = '';
+          }
+        });
+      }
+      clearBtn?.addEventListener('click', () => {
+        if (!input) return;
+        input.value = '';
+        input.focus();
+      });
+    }, 0);
+
+    await modalPromise;
+  },
+
+  filterOrdersByKeyword(orders = [], keyword = '') {
+    const normalizedKeyword = String(keyword || '').trim().toLowerCase();
+    if (!normalizedKeyword) return Array.isArray(orders) ? orders : [];
+
+    const rows = Array.isArray(orders) ? orders : [];
+    return rows.filter(order => {
+      const searchableTexts = [
+        order?.order_number,
+        order?.tracking_number,
+        order?.shipping_company,
+        order?.notes,
+        order?.customer?.name,
+        order?.customer?.phone,
+        order?.customer?.contact_person,
+        ...(Array.isArray(order?.items) ? order.items.map(item => item?.product_name) : [])
+      ]
+        .map(item => String(item || '').toLowerCase())
+        .filter(Boolean);
+
+      return searchableTexts.some(text => text.includes(normalizedKeyword));
+    });
   },
 
   escapeHtml(text) {

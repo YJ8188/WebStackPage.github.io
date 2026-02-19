@@ -449,10 +449,30 @@ window.InventoryModule = {
       window.Toast.info('暂无产品，请先新增产品');
       return;
     }
-    await this.showInventoryAdjustModal({
+    await window.ActionSheet.show({
       title: '库存调整',
-      products: productRows,
-      defaultType: 'in'
+      actions: [
+        {
+          text: '入库调整',
+          icon: 'arrow-down',
+          handler: () => this.showInventoryAdjustModal({
+            title: '入库调整',
+            products: productRows,
+            defaultType: 'in',
+            lockType: true
+          })
+        },
+        {
+          text: '出库调整',
+          icon: 'arrow-up',
+          handler: () => this.showInventoryAdjustModal({
+            title: '出库调整',
+            products: productRows,
+            defaultType: 'out',
+            lockType: true
+          })
+        }
+      ]
     });
   },
 
@@ -461,7 +481,8 @@ window.InventoryModule = {
       title: `补货入库 - ${product?.name || ''}`,
       products: [product],
       defaultProductId: product?.id,
-      defaultType: 'in'
+      defaultType: 'in',
+      lockType: true
     });
   },
 
@@ -485,7 +506,8 @@ window.InventoryModule = {
             title: '入库调整',
             products: [product],
             defaultProductId: product?.id,
-            defaultType: 'in'
+            defaultType: 'in',
+            lockType: true
           })
         },
         {
@@ -495,7 +517,8 @@ window.InventoryModule = {
             title: '出库调整',
             products: [product],
             defaultProductId: product?.id,
-            defaultType: 'out'
+            defaultType: 'out',
+            lockType: true
           })
         }
       ]
@@ -510,7 +533,9 @@ window.InventoryModule = {
     }
 
     const defaultType = String(options.defaultType || 'in').trim() === 'out' ? 'out' : 'in';
+    const lockType = options.lockType !== false;
     const defaultProductId = String(options.defaultProductId || products[0]?.id || '').trim();
+    const defaultTypeTitle = defaultType === 'out' ? '出库调整' : '入库调整';
     const optionHtml = products.map(item => {
       const idText = this.escapeHtml(item?.id);
       const nameText = this.escapeHtml(item?.name || `产品#${item?.id}`);
@@ -519,7 +544,7 @@ window.InventoryModule = {
     }).join('');
 
     await window.Modal.show({
-      title: options.title || '库存调整',
+      title: options.title || (lockType ? defaultTypeTitle : '库存调整'),
       confirmText: '保存',
       cancelText: '取消',
       content: `
@@ -528,11 +553,24 @@ window.InventoryModule = {
             <div style="margin-bottom:6px;color:#475569;font-size:12px;">产品</div>
             <select id="inventoryAdjustProduct" style="width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;">${optionHtml}</select>
           </div>
-          <div style="display:flex;gap:8px;margin-bottom:10px;">
-            <button id="inventoryTypeIn" type="button" style="flex:1;height:34px;border-radius:8px;border:1px solid #16a34a;background:${defaultType === 'in' ? '#ecfdf3' : '#fff'};color:#166534;">入库</button>
-            <button id="inventoryTypeOut" type="button" style="flex:1;height:34px;border-radius:8px;border:1px solid #ef4444;background:${defaultType === 'out' ? '#fff1f2' : '#fff'};color:#b91c1c;">出库</button>
-          </div>
+          ${lockType
+            ? `<div style="margin-bottom:10px;">
+                 <div style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:999px;border:1px solid ${defaultType === 'out' ? '#fecaca' : '#bbf7d0'};background:${defaultType === 'out' ? '#fff1f2' : '#ecfdf3'};color:${defaultType === 'out' ? '#b91c1c' : '#166534'};font-size:12px;">
+                   <i class="fa ${defaultType === 'out' ? 'fa-arrow-up' : 'fa-arrow-down'}"></i>
+                   <span>${defaultType === 'out' ? '出库模式' : '入库模式'}</span>
+                 </div>
+               </div>`
+            : `<div style="display:flex;gap:8px;margin-bottom:10px;">
+                 <button id="inventoryTypeIn" type="button" style="flex:1;height:34px;border-radius:8px;border:1px solid #16a34a;background:${defaultType === 'in' ? '#ecfdf3' : '#fff'};color:#166534;">入库</button>
+                 <button id="inventoryTypeOut" type="button" style="flex:1;height:34px;border-radius:8px;border:1px solid #ef4444;background:${defaultType === 'out' ? '#fff1f2' : '#fff'};color:#b91c1c;">出库</button>
+               </div>`
+          }
           <input id="inventoryAdjustType" type="hidden" value="${defaultType}" />
+          <div id="inventoryAdjustReceiverWrap" style="margin-bottom:10px;${defaultType === 'out' ? '' : 'display:none;'}">
+            <div style="margin-bottom:6px;color:#475569;font-size:12px;">出库对象</div>
+            <input id="inventoryAdjustReceiver" type="text" maxlength="50" placeholder="例如：张三 / 门店A / 1688客户"
+              style="width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;" />
+          </div>
           <div style="margin-bottom:10px;">
             <div style="margin-bottom:6px;color:#475569;font-size:12px;">数量</div>
             <input id="inventoryAdjustQuantity" type="number" min="1" step="1" placeholder="请输入数量" style="width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;" />
@@ -548,6 +586,7 @@ window.InventoryModule = {
         const type = String(document.getElementById('inventoryAdjustType')?.value || 'in').trim() === 'out' ? 'out' : 'in';
         const quantity = parseInt(document.getElementById('inventoryAdjustQuantity')?.value, 10);
         const notes = String(document.getElementById('inventoryAdjustNotes')?.value || '').trim();
+        const receiver = String(document.getElementById('inventoryAdjustReceiver')?.value || '').trim();
 
         if (!productId) {
           window.Toast.error('请选择产品');
@@ -557,8 +596,16 @@ window.InventoryModule = {
           window.Toast.error('数量必须大于0');
           return false;
         }
+        if (type === 'out' && !receiver) {
+          window.Toast.error('请填写出库对象');
+          return false;
+        }
 
-        await this.applyInventoryAdjust(productId, type, quantity, notes);
+        const finalNotes = type === 'out'
+          ? ['出库对象:' + receiver, notes].filter(Boolean).join('；')
+          : notes;
+
+        await this.applyInventoryAdjust(productId, type, quantity, finalNotes, receiver);
         return true;
       }
     });
@@ -567,6 +614,7 @@ window.InventoryModule = {
       const typeInput = document.getElementById('inventoryAdjustType');
       const inBtn = document.getElementById('inventoryTypeIn');
       const outBtn = document.getElementById('inventoryTypeOut');
+      const receiverWrap = document.getElementById('inventoryAdjustReceiverWrap');
       const applyStyle = (nextType) => {
         if (!typeInput) return;
         typeInput.value = nextType;
@@ -576,9 +624,14 @@ window.InventoryModule = {
         if (outBtn) {
           outBtn.style.background = nextType === 'out' ? '#fff1f2' : '#fff';
         }
+        if (receiverWrap) {
+          receiverWrap.style.display = nextType === 'out' ? '' : 'none';
+        }
       };
-      inBtn?.addEventListener('click', () => applyStyle('in'));
-      outBtn?.addEventListener('click', () => applyStyle('out'));
+      if (!lockType) {
+        inBtn?.addEventListener('click', () => applyStyle('in'));
+        outBtn?.addEventListener('click', () => applyStyle('out'));
+      }
       const selected = String(typeInput?.value || defaultType) === 'out' ? 'out' : 'in';
       applyStyle(selected);
 
@@ -589,7 +642,7 @@ window.InventoryModule = {
     }, 0);
   },
 
-  async applyInventoryAdjust(productId, type, quantity, notes = '') {
+  async applyInventoryAdjust(productId, type, quantity, notes = '', receiver = '') {
     try {
       const latest = await window.API.getProduct(productId);
       if (!latest) {
@@ -614,7 +667,9 @@ window.InventoryModule = {
         quantity_change: delta,
         type: type === 'out' ? 'manual_out' : 'manual_in',
         current_quantity: nextStock,
-        notes: notes || `${type === 'out' ? '移动端出库调整' : '移动端入库调整'}`
+        notes: notes || (type === 'out'
+          ? `移动端出库调整${receiver ? `（对象:${receiver}）` : ''}`
+          : '移动端入库调整')
       });
 
       window.Toast.success(type === 'out' ? '出库调整成功' : '入库调整成功');

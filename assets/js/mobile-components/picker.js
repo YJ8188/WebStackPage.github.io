@@ -251,6 +251,10 @@ pickerStyle.textContent = `
   z-index: 9995;
   opacity: 0;
   transition: opacity 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
 }
 
 .picker-overlay.show {
@@ -258,19 +262,18 @@ pickerStyle.textContent = `
 }
 
 .picker-container {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  position: relative;
+  width: 100%;
+  max-width: 360px;
   background-color: #fff;
-  border-radius: 12px 12px 0 0;
-  transform: translateY(100%);
-  transition: transform 0.3s;
-  padding-bottom: env(safe-area-inset-bottom);
+  border-radius: 12px;
+  transform: scale(0.96);
+  transition: transform 0.2s;
+  padding-bottom: calc(env(safe-area-inset-bottom) * 0.5);
 }
 
 .picker-overlay.show .picker-container {
-  transform: translateY(0);
+  transform: scale(1);
 }
 
 .picker-header {
@@ -347,13 +350,7 @@ pickerStyle.textContent = `
 
 @media (min-width: 768px) {
   .picker-container {
-    max-width: 768px;
-    left: 50%;
-    transform: translateX(-50%) translateY(100%);
-  }
-
-  .picker-overlay.show .picker-container {
-    transform: translateX(-50%) translateY(0);
+    max-width: 420px;
   }
 }
 `;

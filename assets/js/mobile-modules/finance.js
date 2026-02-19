@@ -185,7 +185,8 @@ window.FinanceModule = {
 
   async showAddFinanceModal() {
     const today = new Date();
-    const defaultDateTime = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}T${String(today.getHours()).padStart(2, '0')}:${String(today.getMinutes()).padStart(2, '0')}`;
+    const defaultDateTimeIso = today.toISOString();
+    const defaultDateTimeText = window.Utils.formatDate(today, 'YYYY-MM-DD HH:mm');
 
     await window.Modal.show({
       title: '财务记一笔',
@@ -212,8 +213,12 @@ window.FinanceModule = {
           </div>
           <div style="margin-bottom:10px;">
             <div style="margin-bottom:6px;color:#475569;font-size:12px;">交易时间</div>
-            <input id="mobileFinanceDateInput" type="datetime-local" value="${defaultDateTime}"
-              style="width:100%;max-width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;box-sizing:border-box;" />
+            <input id="mobileFinanceDateIsoInput" type="hidden" value="${defaultDateTimeIso}" />
+            <button id="mobileFinanceDatePickerBtn" type="button"
+              style="width:100%;max-width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;box-sizing:border-box;background:#fff;color:#334155;text-align:left;display:flex;align-items:center;justify-content:space-between;">
+              <span id="mobileFinanceDatePickerText">${defaultDateTimeText}</span>
+              <i class="fa fa-calendar" style="color:#94a3b8;"></i>
+            </button>
           </div>
           <div>
             <div style="margin-bottom:6px;color:#475569;font-size:12px;">描述</div>
@@ -226,7 +231,7 @@ window.FinanceModule = {
         const type = String(document.getElementById('mobileFinanceTypeInput')?.value || '').trim();
         const category = String(document.getElementById('mobileFinanceCategoryInput')?.value || '').trim();
         const amount = Number(document.getElementById('mobileFinanceAmountInput')?.value || 0);
-        const transactionDate = String(document.getElementById('mobileFinanceDateInput')?.value || '').trim();
+        const transactionDateIso = String(document.getElementById('mobileFinanceDateIsoInput')?.value || '').trim();
         const description = String(document.getElementById('mobileFinanceDescInput')?.value || '').trim();
 
         if (!['income', 'expense'].includes(type)) {
@@ -243,8 +248,8 @@ window.FinanceModule = {
         }
 
         let transactionDateValue = new Date().toISOString();
-        if (transactionDate) {
-          const parsedDate = new Date(transactionDate);
+        if (transactionDateIso) {
+          const parsedDate = new Date(transactionDateIso);
           if (Number.isNaN(parsedDate.getTime())) {
             window.Toast.error('交易时间格式不正确');
             return false;
@@ -269,6 +274,51 @@ window.FinanceModule = {
         return true;
       }
     });
+
+    setTimeout(() => {
+      const datePickerBtn = document.getElementById('mobileFinanceDatePickerBtn');
+      const datePickerText = document.getElementById('mobileFinanceDatePickerText');
+      const dateIsoInput = document.getElementById('mobileFinanceDateIsoInput');
+      if (!datePickerBtn || !datePickerText || !dateIsoInput || !window.Picker) return;
+
+      datePickerBtn.addEventListener('click', async () => {
+        try {
+          const baseDate = new Date(String(dateIsoInput.value || ''));
+          const currentDate = Number.isNaN(baseDate.getTime()) ? new Date() : baseDate;
+
+          const pickedDate = await window.Picker.showDatePicker({
+            title: '选择日期',
+            value: currentDate
+          });
+          if (!pickedDate) return;
+
+          const pickedTime = await window.Picker.showTimePicker({
+            title: '选择时间',
+            value: currentDate
+          });
+          if (!pickedTime || !Number.isFinite(pickedTime.hour) || !Number.isFinite(pickedTime.minute)) return;
+
+          const mergedDate = new Date(
+            pickedDate.getFullYear(),
+            pickedDate.getMonth(),
+            pickedDate.getDate(),
+            Number(pickedTime.hour),
+            Number(pickedTime.minute),
+            0
+          );
+          if (Number.isNaN(mergedDate.getTime())) {
+            window.Toast.error('交易时间格式不正确');
+            return;
+          }
+
+          dateIsoInput.value = mergedDate.toISOString();
+          datePickerText.textContent = window.Utils.formatDate(mergedDate, 'YYYY-MM-DD HH:mm');
+        } catch (error) {
+          console.error('交易时间选择失败:', error);
+          window.Toast.error('交易时间选择失败');
+        }
+      });
+    }, 0);
   },
 
   getTypeText(type) {

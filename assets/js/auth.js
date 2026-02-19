@@ -126,7 +126,8 @@ async function getSessionWithRetry(client, maxAttempts = 3) {
 function getRedirectTarget() {
     const params = new URLSearchParams(window.location.search);
     const raw = params.get('returnTo');
-    const fallback = 'index.html';
+    const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || '') || window.innerWidth <= 900;
+    const fallback = isMobileDevice ? 'mobile-erp.html' : 'index.html';
 
     if (!raw) {
         return fallback;
@@ -136,6 +137,9 @@ function getRedirectTarget() {
         const value = decodeURIComponent(raw).trim();
         if (!value || /^(https?:|\/\/|javascript:)/i.test(value) || value.includes('..')) {
             return fallback;
+        }
+        if (isMobileDevice && /(^|\/)(erp-ant\.html|erp\.html)$/i.test(value)) {
+            return 'mobile-erp.html';
         }
         return value;
     } catch (error) {

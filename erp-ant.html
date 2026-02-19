@@ -20,6 +20,42 @@
 
     <script>
         (function () {
+            const params = new URLSearchParams(window.location.search || '');
+            const forceDesktop = params.get('forceDesktop') === '1';
+            const isMobileLikeViewport = () => {
+                const mobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || '');
+                const viewportWidth = Math.min(
+                    window.innerWidth || Number.MAX_SAFE_INTEGER,
+                    (window.visualViewport && window.visualViewport.width) || Number.MAX_SAFE_INTEGER
+                );
+                return mobileUA || viewportWidth <= 900;
+            };
+
+            const redirectToMobileERP = () => {
+                if (forceDesktop || !isMobileLikeViewport()) {
+                    return;
+                }
+                const target = new URL('mobile-erp.html', window.location.href);
+                if (window.location.hash) {
+                    target.hash = window.location.hash;
+                }
+                window.location.replace(target.toString());
+            };
+
+            redirectToMobileERP();
+
+            let resizeTimer = null;
+            const scheduleMobileCheck = () => {
+                if (forceDesktop) return;
+                if (resizeTimer) clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(redirectToMobileERP, 120);
+            };
+
+            window.addEventListener('resize', scheduleMobileCheck, { passive: true });
+            if (window.visualViewport) {
+                window.visualViewport.addEventListener('resize', scheduleMobileCheck, { passive: true });
+            }
+
             const host = String(window.location.hostname || '').toLowerCase();
             const isLocalHost = host === 'localhost' || host === '127.0.0.1';
             const debugEnabled = localStorage.getItem('debugMode') === '1' && isLocalHost;

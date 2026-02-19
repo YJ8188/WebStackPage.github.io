@@ -783,8 +783,8 @@
                             <span class="title">金价行情</span>
                         </a>
                     </li>
-                                                                                                                                                                                                                                                                                                                                                                                                                <li>
-                        <a href="erp-ant.html" target="_blank">
+                    <li>
+                        <a href="erp-ant.html" target="_blank" id="erpEntryLink">
                             <i class="fa fa-tachometer"></i>
                             <span class="title">何哥ERP系统</span>
                             <span class="label label-success pull-right hidden-collapsed">New</span>
@@ -8735,6 +8735,23 @@
             });
         }
 
+        function normalizeErpMobileEntry() {
+            const erpLink = document.getElementById('erpEntryLink');
+            if (!erpLink) return;
+
+            const mobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || '');
+            const smallScreen = window.innerWidth <= 900;
+            const shouldUseMobile = mobileUA || smallScreen;
+
+            if (shouldUseMobile) {
+                erpLink.setAttribute('href', 'mobile-erp.html');
+                erpLink.setAttribute('target', '_self');
+            } else {
+                erpLink.setAttribute('href', 'erp-ant.html');
+                erpLink.setAttribute('target', '_blank');
+            }
+        }
+
         // 检查是否需要显示弹窗
         function checkMobileRedirect() {
             // 只在移动端显示
@@ -8753,10 +8770,22 @@
 
         // 页面加载完成后检查
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', checkMobileRedirect);
+            document.addEventListener('DOMContentLoaded', function () {
+                normalizeErpMobileEntry();
+                checkMobileRedirect();
+            });
         } else {
+            normalizeErpMobileEntry();
             checkMobileRedirect();
         }
+
+        let erpEntryResizeTimer = null;
+        window.addEventListener('resize', function () {
+            if (erpEntryResizeTimer) {
+                clearTimeout(erpEntryResizeTimer);
+            }
+            erpEntryResizeTimer = setTimeout(normalizeErpMobileEntry, 120);
+        }, { passive: true });
 
         // ==================== 自定义 Toast 功能 ====================
         function showToast(message, type = 'info', duration = 3000) {

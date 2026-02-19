@@ -20,6 +20,97 @@ window.ProfileModule = {
     }
   },
 
+  safeNumber(value) {
+    const parsed = Number(value || 0);
+    return Number.isFinite(parsed) ? parsed : 0;
+  },
+
+  parseDate(value) {
+    if (!value) return null;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  },
+
+  isWithinDays(value, days = 1) {
+    const date = this.parseDate(value);
+    if (!date) return false;
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const from = new Date(start);
+    from.setDate(start.getDate() - Math.max(0, Number(days || 0) - 1));
+    return date.getTime() >= from.getTime() && date.getTime() <= now.getTime();
+  },
+
+  async showStatsReport() {
+    try {
+      window.Loading.show('生成经营报表...');
+
+      const [stats, orders, finances] = await Promise.all([
+        window.API.getDashboardStats(),
+        window.API.getOrders({ limit: 500, offset: 0 }),
+        window.API.getFinanceRecords({ limit: 500, offset: 0 })
+      ]);
+
+      const orderRows = Array.isArray(orders) ? orders : [];
+      const financeRows = Array.isArray(finances) ? finances : [];
+      const completedStatuses = new Set(['completed', 'signed', 'delivered']);
+
+      const orders7d = orderRows.filter(item => this.isWithinDays(item?.order_date || item?.created_at, 7));
+      const orders30d = orderRows.filter(item => this.isWithinDays(item?.order_date || item?.created_at, 30));
+      const completed30d = orders30d.filter(item => completedStatuses.has(String(item?.status || '').toLowerCase()));
+      const sales30d = completed30d.reduce((sum, item) => sum + this.safeNumber(item?.total_amount), 0);
+
+      const finance30d = financeRows.filter(item => this.isWithinDays(item?.transaction_date || item?.created_at, 30));
+      const income30d = finance30d
+        .filter(item => String(item?.type || '').toLowerCase() === 'income')
+        .reduce((sum, item) => sum + Math.abs(this.safeNumber(item?.amount)), 0);
+      const expense30d = finance30d
+        .filter(item => String(item?.type || '').toLowerCase() === 'expense')
+        .reduce((sum, item) => sum + Math.abs(this.safeNumber(item?.amount)), 0);
+      const profit30d = income30d - expense30d;
+
+      window.Loading.hide();
+
+      await window.Modal.show({
+        title: '经营数据报表',
+        confirmText: '查看财务',
+        cancelText: '关闭',
+        content: `
+          <div style="text-align:left;">
+            <div style="padding:10px;border:1px solid #dbeafe;border-radius:10px;background:#eff6ff;margin-bottom:10px;">
+              <div style="font-size:12px;color:#1d4ed8;margin-bottom:6px;">核心指标</div>
+              <div style="font-size:13px;line-height:1.8;color:#1f2937;">
+                <div>今日订单：<strong>${this.safeNumber(stats?.todayOrders)}</strong></div>
+                <div>待发货：<strong>${this.safeNumber(stats?.pendingOrders)}</strong></div>
+                <div>库存预警：<strong>${this.safeNumber(stats?.lowStockProducts)}</strong></div>
+                <div>客户总数：<strong>${this.safeNumber(stats?.totalCustomers)}</strong></div>
+              </div>
+            </div>
+            <div style="padding:10px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;">
+              <div style="font-size:12px;color:#64748b;margin-bottom:6px;">近30天经营</div>
+              <div style="font-size:13px;line-height:1.8;color:#1f2937;">
+                <div>订单数：<strong>${orders30d.length}</strong>（近7天：${orders7d.length}）</div>
+                <div>已完成订单：<strong>${completed30d.length}</strong></div>
+                <div>销售额：<strong>${window.Utils.formatMoney(sales30d)}</strong></div>
+                <div>收入：<strong style="color:#16a34a;">${window.Utils.formatMoney(income30d)}</strong></div>
+                <div>支出：<strong style="color:#dc2626;">${window.Utils.formatMoney(expense30d)}</strong></div>
+                <div>利润：<strong style="color:${profit30d >= 0 ? '#16a34a' : '#dc2626'};">${window.Utils.formatMoney(profit30d)}</strong></div>
+              </div>
+            </div>
+          </div>
+        `,
+        onConfirm: async () => {
+          window.Router.push('/finance');
+          return true;
+        }
+      });
+    } catch (error) {
+      window.Loading.hide();
+      console.error('生成数据报表失败:', error);
+      window.Toast.error(error?.message || '生成报表失败');
+    }
+  },
+
   render() {
     const container = document.getElementById('profileContent');
     if (!container) return;
@@ -108,7 +199,7 @@ window.ProfileModule = {
   bindEvents() {
     // 数据报表
     document.getElementById('profileStatsBtn')?.addEventListener('click', () => {
-      window.Toast.info('数据报表功能开发中');
+      this.showStatsReport();
     });
 
     // 消息通知

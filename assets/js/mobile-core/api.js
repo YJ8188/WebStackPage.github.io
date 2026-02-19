@@ -707,7 +707,15 @@ class API {
   // ==================== 财务管理 ====================
 
   async getFinanceRecords(options = {}) {
-    const { type = '', limit = 20, offset = 0 } = options;
+    const {
+      type = '',
+      keyword = '',
+      category = '',
+      dateFrom = '',
+      dateTo = '',
+      limit = 20,
+      offset = 0
+    } = options;
 
     return this.request(async () => {
       const userId = this.getCurrentUserId();
@@ -722,6 +730,28 @@ class API {
 
       if (type) {
         query = query.eq('type', type);
+      }
+
+      if (keyword) {
+        const safeKeyword = String(keyword || '').trim();
+        if (safeKeyword) {
+          query = query.or(`category.ilike.%${safeKeyword}%,description.ilike.%${safeKeyword}%`);
+        }
+      }
+
+      if (category) {
+        const safeCategory = String(category || '').trim();
+        if (safeCategory) {
+          query = query.ilike('category', `%${safeCategory}%`);
+        }
+      }
+
+      if (dateFrom) {
+        query = query.gte('transaction_date', String(dateFrom).trim());
+      }
+
+      if (dateTo) {
+        query = query.lte('transaction_date', String(dateTo).trim());
       }
 
       query = query.range(offset, offset + limit - 1);

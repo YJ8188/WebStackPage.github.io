@@ -178,11 +178,15 @@ window.InventoryModule = {
           ? this.rawRecords.filter(record => this.normalizeRecordType(record) === this.currentType)
           : [...this.rawRecords];
 
-        this.filteredRecords = filtered;
-        const visibleCount = this.currentPage * this.pageSize;
-        this.records = filtered.slice(0, visibleCount);
-        this.hasMore = filtered.length > visibleCount;
-        this.renderRecords();
+        if (this.currentType === '' && filtered.length === 0) {
+          await this.loadProductSnapshot();
+        } else {
+          this.filteredRecords = filtered;
+          const visibleCount = this.currentPage * this.pageSize;
+          this.records = filtered.slice(0, visibleCount);
+          this.hasMore = filtered.length > visibleCount;
+          this.renderRecords();
+        }
       }
 
       window.Loading.hide();
@@ -202,6 +206,15 @@ window.InventoryModule = {
       console.error('加载预警产品失败:', error);
       window.Toast.error('加载预警产品失败');
     }
+  },
+
+  async loadProductSnapshot() {
+    const products = await window.API.getProducts({ limit: 1000, offset: 0 });
+    const productRows = Array.isArray(products) ? products : [];
+    this.filteredRecords = [];
+    this.records = [];
+    this.hasMore = false;
+    this.renderProductSnapshot(productRows);
   },
 
   async loadMore() {
@@ -296,6 +309,66 @@ window.InventoryModule = {
           </div>
           ${record.notes ? `<div class="inventory-notes">${record.notes}</div>` : ''}
         </div>
+      </div>
+    `;
+  },
+
+  renderProductSnapshot(products = []) {
+    const container = document.getElementById('inventoryContent');
+    if (!container) return;
+
+    const rows = Array.isArray(products) ? products : [];
+    if (rows.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon"><i class="fa fa-cube"></i></div>
+          <div class="empty-text">暂无库存数据</div>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="inventory-list">
+        ${rows.map(product => {
+          const stock = Number(product?.stock_quantity || 0);
+          const minStock = Number(product?.min_stock || 0);
+          const isWarning = window.Utils.checkStockWarning(product);
+          const productName = product?.name || '未命名产品';
+          const sku = product?.sku || '-';
+          const statusText = isWarning ? '预警' : '正常';
+          return `
+            <div class="inventory-card">
+              <div class="inventory-card-header">
+                <div class="inventory-type">
+                  <div class="inventory-type-icon ${isWarning ? 'out' : 'in'}">
+                    <i class="fa ${isWarning ? 'fa-exclamation' : 'fa-check'}"></i>
+                  </div>
+                  <span>${statusText}</span>
+                </div>
+                <div class="inventory-time">最小库存 ${minStock}</div>
+              </div>
+              <div class="inventory-card-body">
+                <div class="inventory-product">
+                  <div class="inventory-product-image">
+                    ${product?.image_url
+                      ? `<img src="${product.image_url}" alt="${productName}">`
+                      : `<div class="inventory-product-placeholder"><i class="fa fa-image"></i></div>`
+                    }
+                  </div>
+                  <div class="inventory-product-info">
+                    <div class="inventory-product-name">${productName}</div>
+                    <div class="inventory-product-sku">SKU: ${sku}</div>
+                  </div>
+                </div>
+                <div class="inventory-quantity">
+                  <div class="inventory-quantity-label">当前库存</div>
+                  <div class="inventory-quantity-value ${isWarning ? 'out' : 'in'}">${stock}</div>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('')}
       </div>
     `;
   },

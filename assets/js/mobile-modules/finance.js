@@ -188,7 +188,7 @@ window.FinanceModule = {
     const defaultDateTimeIso = today.toISOString();
     const defaultDateTimeText = window.Utils.formatDate(today, 'YYYY-MM-DD HH:mm');
 
-    await window.Modal.show({
+    const modalPromise = window.Modal.show({
       title: '财务记一笔',
       confirmText: '保存',
       cancelText: '取消',
@@ -319,6 +319,8 @@ window.FinanceModule = {
         }
       });
     }, 0);
+
+    await modalPromise;
   },
 
   getTypeText(type) {

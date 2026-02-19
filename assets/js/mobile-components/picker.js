@@ -248,7 +248,7 @@ pickerStyle.textContent = `
   right: 0;
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.5);
-  z-index: 9995;
+  z-index: 10020;
   opacity: 0;
   transition: opacity 0.3s;
   display: flex;

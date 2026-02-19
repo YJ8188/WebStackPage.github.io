@@ -16,6 +16,7 @@ window.InventoryModule = {
   realtimeChannel: null,
   realtimeRefreshTimer: null,
   hiddenSystemTypes: new Set(['order_lock', 'order_release', 'sale_reversal', 'order_unlock', 'sale', 'consumption']),
+  snapshotProducts: [],
 
   async init(routeParams = {}) {
     if (!this.eventsBound) {
@@ -211,6 +212,7 @@ window.InventoryModule = {
   async loadProductSnapshot() {
     const products = await window.API.getProducts({ limit: 1000, offset: 0 });
     const productRows = Array.isArray(products) ? products : [];
+    this.snapshotProducts = productRows;
     this.filteredRecords = [];
     this.records = [];
     this.hasMore = false;
@@ -338,7 +340,7 @@ window.InventoryModule = {
           const sku = product?.sku || '-';
           const statusText = isWarning ? '预警' : '正常';
           return `
-            <div class="inventory-card">
+            <div class="inventory-card is-clickable inventory-product-card" data-product-id="${product?.id}">
               <div class="inventory-card-header">
                 <div class="inventory-type">
                   <div class="inventory-type-icon ${isWarning ? 'out' : 'in'}">
@@ -371,6 +373,16 @@ window.InventoryModule = {
         }).join('')}
       </div>
     `;
+
+    container.querySelectorAll('.inventory-product-card').forEach((card) => {
+      card.addEventListener('click', () => {
+        const productId = String(card.dataset.productId || '').trim();
+        const product = rows.find(item => String(item?.id) === productId);
+        if (product) {
+          this.showProductActions(product);
+        }
+      });
+    });
   },
 
   renderWarningProducts(products) {
@@ -431,19 +443,190 @@ window.InventoryModule = {
   },
 
   async showAddRecordModal() {
-    // TODO: 实现添加库存记录表单
-    window.Toast.info('添加库存记录功能开发中');
+    const products = await window.API.getProducts({ limit: 1000, offset: 0 });
+    const productRows = Array.isArray(products) ? products : [];
+    if (productRows.length === 0) {
+      window.Toast.info('暂无产品，请先新增产品');
+      return;
+    }
+    await this.showInventoryAdjustModal({
+      title: '库存调整',
+      products: productRows,
+      defaultType: 'in'
+    });
   },
 
   async showRestockModal(product) {
-    const confirmed = await window.Modal.confirm(
-      `是否为"${product.name}"补货？`,
-      '补货确认'
-    );
+    await this.showInventoryAdjustModal({
+      title: `补货入库 - ${product?.name || ''}`,
+      products: [product],
+      defaultProductId: product?.id,
+      defaultType: 'in'
+    });
+  },
 
-    if (!confirmed) return;
+  escapeHtml(text) {
+    return String(text ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  },
 
-    // TODO: 实现补货表单
-    window.Toast.info('补货功能开发中');
+  async showProductActions(product) {
+    await window.ActionSheet.show({
+      title: product?.name || '库存操作',
+      actions: [
+        {
+          text: '入库调整',
+          icon: 'plus',
+          handler: () => this.showInventoryAdjustModal({
+            title: '入库调整',
+            products: [product],
+            defaultProductId: product?.id,
+            defaultType: 'in'
+          })
+        },
+        {
+          text: '出库调整',
+          icon: 'minus',
+          handler: () => this.showInventoryAdjustModal({
+            title: '出库调整',
+            products: [product],
+            defaultProductId: product?.id,
+            defaultType: 'out'
+          })
+        }
+      ]
+    });
+  },
+
+  async showInventoryAdjustModal(options = {}) {
+    const products = Array.isArray(options.products) ? options.products.filter(Boolean) : [];
+    if (products.length === 0) {
+      window.Toast.error('未找到可调整的产品');
+      return;
+    }
+
+    const defaultType = String(options.defaultType || 'in').trim() === 'out' ? 'out' : 'in';
+    const defaultProductId = String(options.defaultProductId || products[0]?.id || '').trim();
+    const optionHtml = products.map(item => {
+      const idText = this.escapeHtml(item?.id);
+      const nameText = this.escapeHtml(item?.name || `产品#${item?.id}`);
+      const stockText = Number(item?.stock_quantity || 0);
+      return `<option value="${idText}">${nameText}（当前库存:${stockText}）</option>`;
+    }).join('');
+
+    await window.Modal.show({
+      title: options.title || '库存调整',
+      confirmText: '保存',
+      cancelText: '取消',
+      content: `
+        <div style="text-align:left;">
+          <div style="margin-bottom:10px;">
+            <div style="margin-bottom:6px;color:#475569;font-size:12px;">产品</div>
+            <select id="inventoryAdjustProduct" style="width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;">${optionHtml}</select>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:10px;">
+            <button id="inventoryTypeIn" type="button" style="flex:1;height:34px;border-radius:8px;border:1px solid #16a34a;background:${defaultType === 'in' ? '#ecfdf3' : '#fff'};color:#166534;">入库</button>
+            <button id="inventoryTypeOut" type="button" style="flex:1;height:34px;border-radius:8px;border:1px solid #ef4444;background:${defaultType === 'out' ? '#fff1f2' : '#fff'};color:#b91c1c;">出库</button>
+          </div>
+          <input id="inventoryAdjustType" type="hidden" value="${defaultType}" />
+          <div style="margin-bottom:10px;">
+            <div style="margin-bottom:6px;color:#475569;font-size:12px;">数量</div>
+            <input id="inventoryAdjustQuantity" type="number" min="1" step="1" placeholder="请输入数量" style="width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;" />
+          </div>
+          <div>
+            <div style="margin-bottom:6px;color:#475569;font-size:12px;">备注</div>
+            <textarea id="inventoryAdjustNotes" rows="2" placeholder="选填" style="width:100%;border:1px solid #d9d9d9;border-radius:8px;padding:8px 10px;resize:none;"></textarea>
+          </div>
+        </div>
+      `,
+      onConfirm: async () => {
+        const productId = String(document.getElementById('inventoryAdjustProduct')?.value || '').trim();
+        const type = String(document.getElementById('inventoryAdjustType')?.value || 'in').trim() === 'out' ? 'out' : 'in';
+        const quantity = parseInt(document.getElementById('inventoryAdjustQuantity')?.value, 10);
+        const notes = String(document.getElementById('inventoryAdjustNotes')?.value || '').trim();
+
+        if (!productId) {
+          window.Toast.error('请选择产品');
+          return false;
+        }
+        if (!Number.isFinite(quantity) || quantity <= 0) {
+          window.Toast.error('数量必须大于0');
+          return false;
+        }
+
+        await this.applyInventoryAdjust(productId, type, quantity, notes);
+        return true;
+      }
+    });
+
+    setTimeout(() => {
+      const typeInput = document.getElementById('inventoryAdjustType');
+      const inBtn = document.getElementById('inventoryTypeIn');
+      const outBtn = document.getElementById('inventoryTypeOut');
+      const applyStyle = (nextType) => {
+        if (!typeInput) return;
+        typeInput.value = nextType;
+        if (inBtn) {
+          inBtn.style.background = nextType === 'in' ? '#ecfdf3' : '#fff';
+        }
+        if (outBtn) {
+          outBtn.style.background = nextType === 'out' ? '#fff1f2' : '#fff';
+        }
+      };
+      inBtn?.addEventListener('click', () => applyStyle('in'));
+      outBtn?.addEventListener('click', () => applyStyle('out'));
+      const selected = String(typeInput?.value || defaultType) === 'out' ? 'out' : 'in';
+      applyStyle(selected);
+
+      const select = document.getElementById('inventoryAdjustProduct');
+      if (select && defaultProductId) {
+        select.value = defaultProductId;
+      }
+    }, 0);
+  },
+
+  async applyInventoryAdjust(productId, type, quantity, notes = '') {
+    try {
+      const latest = await window.API.getProduct(productId);
+      if (!latest) {
+        throw new Error('产品不存在或已删除');
+      }
+
+      const currentStock = Number(latest?.stock_quantity || 0);
+      const safeQty = Math.max(1, Math.floor(Number(quantity || 0)));
+      const delta = type === 'out' ? -safeQty : safeQty;
+      const nextStock = currentStock + delta;
+
+      if (nextStock < 0) {
+        throw new Error(`库存不足，当前库存 ${currentStock}`);
+      }
+
+      await window.API.updateProduct(productId, {
+        stock_quantity: nextStock
+      });
+
+      await window.API.createInventoryRecord({
+        product_id: latest.id,
+        quantity_change: delta,
+        type: type === 'out' ? 'manual_out' : 'manual_in',
+        current_quantity: nextStock,
+        notes: notes || `${type === 'out' ? '移动端出库调整' : '移动端入库调整'}`
+      });
+
+      window.Toast.success(type === 'out' ? '出库调整成功' : '入库调整成功');
+      this.currentPage = 1;
+      this.filteredRecords = [];
+      this.records = [];
+      this.hasMore = true;
+      await this.loadRecords(true);
+    } catch (error) {
+      console.error('库存调整失败:', error);
+      window.Toast.error(error?.message || '库存调整失败');
+      throw error;
+    }
   }
 };

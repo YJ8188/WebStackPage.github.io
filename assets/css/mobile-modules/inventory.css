@@ -17,6 +17,14 @@
   box-shadow: none;
 }
 
+.inventory-card.is-clickable {
+  cursor: pointer;
+}
+
+.inventory-card.is-clickable:active {
+  opacity: 0.72;
+}
+
 .inventory-card-header {
   padding: var(--spacing-md) var(--spacing-lg);
   background-color: #f8fafc;

@@ -15,6 +15,7 @@ window.InventoryModule = {
   syncEventsBound: false,
   realtimeChannel: null,
   realtimeRefreshTimer: null,
+  hiddenSystemTypes: new Set(['order_lock', 'order_release', 'sale_reversal', 'order_unlock', 'sale', 'consumption']),
 
   async init(routeParams = {}) {
     if (!this.eventsBound) {
@@ -166,7 +167,11 @@ window.InventoryModule = {
             limit: 1000,
             offset: 0
           });
-          this.rawRecords = Array.isArray(fetched) ? fetched : [];
+          this.rawRecords = Array.isArray(fetched)
+            ? fetched.filter(item => this.shouldDisplayInventoryRecord(item))
+            : [];
+        } else {
+          this.rawRecords = this.rawRecords.filter(item => this.shouldDisplayInventoryRecord(item));
         }
 
         const filtered = this.currentType
@@ -210,10 +215,16 @@ window.InventoryModule = {
     return Number.isFinite(quantityValue) ? quantityValue : 0;
   },
 
+  shouldDisplayInventoryRecord(record) {
+    const rawType = String(record?.type || '').trim().toLowerCase();
+    if (!rawType) return true;
+    return !this.hiddenSystemTypes.has(rawType);
+  },
+
   normalizeRecordType(record) {
     const rawType = String(record?.type || '').trim().toLowerCase();
-    const inTypes = new Set(['in', 'purchase', 'inbound', 'restock', 'order_release', 'sale_reversal', 'refund_in', 'manual_in', 'adjust_in']);
-    const outTypes = new Set(['out', 'sale', 'order_lock', 'consumption', 'outbound', 'manual_out', 'adjust_out']);
+    const inTypes = new Set(['in', 'purchase', 'inbound', 'restock', 'refund_in', 'manual_in', 'adjust_in']);
+    const outTypes = new Set(['out', 'outbound', 'manual_out', 'adjust_out']);
 
     if (inTypes.has(rawType)) return 'in';
     if (outTypes.has(rawType)) return 'out';

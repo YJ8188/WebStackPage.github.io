@@ -1996,47 +1996,102 @@ select.ant-select option {
 }
 
 .table-page-search-wrapper.erp-filter-one-line.erp-filter-finance .search-form {
-    grid-template-columns: repeat(4, minmax(260px, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-areas:
+        "date start end search"
+        "type link amount actions";
+    gap: 10px 12px;
 }
 
 .table-page-search-wrapper.erp-filter-one-line.erp-filter-finance .search-item {
-    grid-template-columns: 72px minmax(0, 1fr);
+    grid-template-columns: 80px minmax(0, 1fr);
+    min-width: 0;
+    align-items: center;
 }
 
 .table-page-search-wrapper.erp-filter-one-line.erp-filter-finance .search-item.erp-search-item-amount {
-    grid-column: span 2;
     min-width: 0;
+}
+
+.table-page-search-wrapper.erp-filter-one-line.erp-filter-finance .finance-item-date {
+    grid-area: date;
+}
+
+.table-page-search-wrapper.erp-filter-one-line.erp-filter-finance .finance-item-start {
+    grid-area: start;
+}
+
+.table-page-search-wrapper.erp-filter-one-line.erp-filter-finance .finance-item-end {
+    grid-area: end;
+}
+
+.table-page-search-wrapper.erp-filter-one-line.erp-filter-finance .finance-item-search {
+    grid-area: search;
+}
+
+.table-page-search-wrapper.erp-filter-one-line.erp-filter-finance .finance-item-type {
+    grid-area: type;
+}
+
+.table-page-search-wrapper.erp-filter-one-line.erp-filter-finance .finance-item-link {
+    grid-area: link;
+}
+
+.table-page-search-wrapper.erp-filter-one-line.erp-filter-finance .finance-item-amount {
+    grid-area: amount;
+}
+
+.table-page-search-wrapper.erp-filter-one-line.erp-filter-finance .finance-item-actions {
+    grid-area: actions;
 }
 
 .table-page-search-wrapper.erp-filter-one-line.erp-filter-finance .erp-finance-amount-range {
     display: grid;
-    grid-template-columns: minmax(150px, 1fr) auto minmax(150px, 1fr);
-    gap: 6px;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 8px;
+    align-items: center;
 }
 
 .table-page-search-wrapper.erp-filter-one-line.erp-filter-finance .erp-finance-amount-range .ant-input {
     width: 100%;
+    min-width: 120px;
 }
 
 .table-page-search-wrapper.erp-filter-one-line.erp-filter-finance .search-item.search-item-actions {
-    grid-column: span 1;
-    justify-content: flex-start;
+    grid-template-columns: 1fr;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+}
+
+.table-page-search-wrapper.erp-filter-one-line.erp-filter-finance .search-label {
+    width: 80px;
+    text-align: left;
 }
 
 @media (max-width: 1360px) {
     .table-page-search-wrapper.erp-filter-one-line.erp-filter-finance .search-form {
-        grid-template-columns: repeat(3, minmax(220px, 1fr));
-    }
-
-    .table-page-search-wrapper.erp-filter-one-line.erp-filter-finance .search-item.erp-search-item-amount,
-    .table-page-search-wrapper.erp-filter-one-line.erp-filter-finance .search-item.search-item-actions {
-        grid-column: span 1;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-areas:
+            "date start end"
+            "search type link"
+            "amount amount actions";
     }
 }
 
 @media (max-width: 1100px) {
     .table-page-search-wrapper.erp-filter-one-line.erp-filter-finance .search-form {
-        grid-template-columns: repeat(2, minmax(220px, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-areas:
+            "date start"
+            "end search"
+            "type link"
+            "amount amount"
+            "actions actions";
+    }
+
+    .table-page-search-wrapper.erp-filter-one-line.erp-filter-finance .search-item.search-item-actions {
+        justify-content: flex-start;
     }
 }
 

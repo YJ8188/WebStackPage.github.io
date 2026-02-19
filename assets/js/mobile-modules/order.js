@@ -13,6 +13,8 @@ window.OrderModule = {
   currentPage: 1,
   pageSize: 20,
   orders: [],
+  currentDetailOrderId: '',
+  currentDetailOrder: null,
   hasMore: true,
   eventsBound: false,
   emptyHintShown: false,
@@ -47,6 +49,11 @@ window.OrderModule = {
     // 搜索按钮
     document.getElementById('ordersSearchBtn')?.addEventListener('click', () => {
       this.showSearchModal();
+    });
+
+    // 订单详情更多操作
+    document.getElementById('orderDetailMoreBtn')?.addEventListener('click', () => {
+      this.showOrderDetailMoreActions();
     });
 
     // 滚动加载更多
@@ -759,6 +766,8 @@ window.OrderModule = {
       window.Loading.show('加载详情...');
 
       const order = await window.API.getOrder(orderId);
+      this.currentDetailOrderId = String(orderId || order?.id || '').trim();
+      this.currentDetailOrder = order || null;
       this.renderOrderDetail(order);
 
       window.Loading.hide();
@@ -896,6 +905,111 @@ window.OrderModule = {
         ` : ''}
       </div>
     `;
+  },
+
+  async copyText(text) {
+    const content = String(text || '').trim();
+    if (!content) return false;
+    try {
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        await navigator.clipboard.writeText(content);
+        return true;
+      }
+    } catch (error) {
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = content;
+    textarea.setAttribute('readonly', 'readonly');
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    let copied = false;
+    try {
+      copied = document.execCommand('copy');
+    } catch (error) {
+      copied = false;
+    }
+    document.body.removeChild(textarea);
+    return copied;
+  },
+
+  async showOrderDetailMoreActions() {
+    try {
+      const currentId = String(this.currentDetailOrderId || '').trim();
+      if (!currentId) {
+        window.Toast.info('订单详情尚未加载完成');
+        return;
+      }
+
+      let order = this.currentDetailOrder;
+      if (!order || String(order?.id || '') !== currentId) {
+        order = await window.API.getOrder(currentId);
+        this.currentDetailOrder = order || null;
+      }
+      if (!order) {
+        window.Toast.error('订单数据不存在');
+        return;
+      }
+
+      const trackingNumber = String(order?.tracking_number || '').trim();
+      const actions = [
+        {
+          text: '刷新详情',
+          icon: 'refresh',
+          handler: async () => {
+            await this.loadOrderDetail(currentId);
+            window.Toast.success('订单详情已刷新');
+          }
+        },
+        {
+          text: '复制订单号',
+          icon: 'copy',
+          handler: async () => {
+            const orderNo = String(order?.order_number || '').trim();
+            if (!orderNo) {
+              window.Toast.info('当前订单没有订单号');
+              return;
+            }
+            const copied = await this.copyText(orderNo);
+            if (copied) {
+              window.Toast.success('订单号已复制');
+            } else {
+              window.Toast.error('复制失败，请手动复制');
+            }
+          }
+        }
+      ];
+
+      if (trackingNumber) {
+        actions.push(
+          {
+            text: '查看物流详情',
+            icon: 'list-ul',
+            handler: async () => {
+              await this.showOrderLogisticsDetails(currentId);
+            }
+          },
+          {
+            text: '同步物流状态',
+            icon: 'refresh',
+            handler: async () => {
+              await this.syncOrderLogistics(currentId);
+            }
+          }
+        );
+      }
+
+      await window.ActionSheet.show({
+        title: `订单 ${order.order_number || ''}`,
+        actions
+      });
+    } catch (error) {
+      console.error('打开订单更多操作失败:', error);
+      window.Toast.error('打开更多操作失败');
+    }
   },
 
   buildLogisticsEventText(event) {

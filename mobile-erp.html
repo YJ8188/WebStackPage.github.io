@@ -16,20 +16,20 @@
     <link rel="stylesheet" href="assets/css/fonts/fontawesome/css/font-awesome.min.css">
 
     <!-- 移动端样式 -->
-    <link rel="stylesheet" href="assets/css/mobile-base.css?v=20260219-13">
-    <link rel="stylesheet" href="assets/css/mobile-layout.css?v=20260219-13">
-    <link rel="stylesheet" href="assets/css/mobile-components.css?v=20260219-13">
-    <link rel="stylesheet" href="assets/css/mobile-modules/dashboard.css?v=20260219-13">
-    <link rel="stylesheet" href="assets/css/mobile-modules/order.css?v=20260219-13">
-    <link rel="stylesheet" href="assets/css/mobile-modules/customer.css?v=20260219-13">
-    <link rel="stylesheet" href="assets/css/mobile-modules/product.css?v=20260219-13">
-    <link rel="stylesheet" href="assets/css/mobile-modules/inventory.css?v=20260219-13">
-    <link rel="stylesheet" href="assets/css/mobile-modules/finance.css?v=20260219-13">
-    <link rel="stylesheet" href="assets/css/mobile-modules/profile.css?v=20260219-13">
+    <link rel="stylesheet" href="assets/css/mobile-base.css?v=20260219-14">
+    <link rel="stylesheet" href="assets/css/mobile-layout.css?v=20260219-14">
+    <link rel="stylesheet" href="assets/css/mobile-components.css?v=20260219-14">
+    <link rel="stylesheet" href="assets/css/mobile-modules/dashboard.css?v=20260219-14">
+    <link rel="stylesheet" href="assets/css/mobile-modules/order.css?v=20260219-14">
+    <link rel="stylesheet" href="assets/css/mobile-modules/customer.css?v=20260219-14">
+    <link rel="stylesheet" href="assets/css/mobile-modules/product.css?v=20260219-14">
+    <link rel="stylesheet" href="assets/css/mobile-modules/inventory.css?v=20260219-14">
+    <link rel="stylesheet" href="assets/css/mobile-modules/finance.css?v=20260219-14">
+    <link rel="stylesheet" href="assets/css/mobile-modules/profile.css?v=20260219-14">
 
     <!-- Supabase -->
-    <script src="assets/js/supabase.min.js?v=20260219-13"></script>
-    <script src="assets/js/supabase-config.js?v=20260219-13"></script>
+    <script src="assets/js/supabase.min.js?v=20260219-14"></script>
+    <script src="assets/js/supabase-config.js?v=20260219-14"></script>
 
     <script>
         (function () {
@@ -306,27 +306,27 @@
     </div>
 
     <!-- 核心模块 -->
-    <script src="assets/js/mobile-core/utils.js?v=20260219-13"></script>
-    <script src="assets/js/mobile-core/storage.js?v=20260219-13"></script>
-    <script src="assets/js/mobile-core/api.js?v=20260219-13"></script>
-    <script src="assets/js/mobile-core/router.js?v=20260219-13"></script>
-    <script src="assets/js/mobile-core/app.js?v=20260219-13"></script>
+    <script src="assets/js/mobile-core/utils.js?v=20260219-14"></script>
+    <script src="assets/js/mobile-core/storage.js?v=20260219-14"></script>
+    <script src="assets/js/mobile-core/api.js?v=20260219-14"></script>
+    <script src="assets/js/mobile-core/router.js?v=20260219-14"></script>
+    <script src="assets/js/mobile-core/app.js?v=20260219-14"></script>
 
     <!-- UI组件 -->
-    <script src="assets/js/mobile-components/toast.js?v=20260219-13"></script>
-    <script src="assets/js/mobile-components/modal.js?v=20260219-13"></script>
-    <script src="assets/js/mobile-components/loading.js?v=20260219-13"></script>
-    <script src="assets/js/mobile-components/actionsheet.js?v=20260219-13"></script>
-    <script src="assets/js/mobile-components/picker.js?v=20260219-13"></script>
+    <script src="assets/js/mobile-components/toast.js?v=20260219-14"></script>
+    <script src="assets/js/mobile-components/modal.js?v=20260219-14"></script>
+    <script src="assets/js/mobile-components/loading.js?v=20260219-14"></script>
+    <script src="assets/js/mobile-components/actionsheet.js?v=20260219-14"></script>
+    <script src="assets/js/mobile-components/picker.js?v=20260219-14"></script>
 
     <!-- 业务模块 -->
-    <script src="assets/js/mobile-modules/dashboard.js?v=20260219-13"></script>
-    <script src="assets/js/mobile-modules/order.js?v=20260219-13"></script>
-    <script src="assets/js/mobile-modules/customer.js?v=20260219-13"></script>
-    <script src="assets/js/mobile-modules/product.js?v=20260219-13"></script>
-    <script src="assets/js/mobile-modules/inventory.js?v=20260219-13"></script>
-    <script src="assets/js/mobile-modules/finance.js?v=20260219-13"></script>
-    <script src="assets/js/mobile-modules/profile.js?v=20260219-13"></script>
+    <script src="assets/js/mobile-modules/dashboard.js?v=20260219-14"></script>
+    <script src="assets/js/mobile-modules/order.js?v=20260219-14"></script>
+    <script src="assets/js/mobile-modules/customer.js?v=20260219-14"></script>
+    <script src="assets/js/mobile-modules/product.js?v=20260219-14"></script>
+    <script src="assets/js/mobile-modules/inventory.js?v=20260219-14"></script>
+    <script src="assets/js/mobile-modules/finance.js?v=20260219-14"></script>
+    <script src="assets/js/mobile-modules/profile.js?v=20260219-14"></script>
 
     <!-- 主入口 -->
     <script>
@@ -353,29 +353,35 @@
             // 注册路由
             window.Router.registerRoutes({
                 '/dashboard': async () => {
+                    setTabbarVisible(true);
                     await window.DashboardModule.init();
                     updateTabbar('dashboard');
                 },
                 '/orders': async (params) => {
+                    setTabbarVisible(true);
                     document.getElementById('ordersPage').classList.remove('hidden');
                     await window.OrderModule.init(params || {});
                     updateTabbar('orders');
                 },
                 '/order/detail': async (params) => {
+                    setTabbarVisible(false);
                     document.getElementById('orderDetailPage').classList.remove('hidden');
                     await window.OrderModule.loadOrderDetail(params.id);
                 },
                 '/order/create': async () => {
+                    setTabbarVisible(true);
                     document.getElementById('dashboardPage').classList.remove('hidden');
                     await window.DashboardModule.init();
                     updateTabbar('dashboard');
                     await window.OrderModule.showCreateOrderModal();
                 },
                 '/customers': async () => {
+                    setTabbarVisible(true);
                     document.getElementById('customersPage').classList.remove('hidden');
                     await window.CustomerModule.init();
                 },
                 '/customer/detail': async (params) => {
+                    setTabbarVisible(true);
                     document.getElementById('customersPage').classList.remove('hidden');
                     await window.CustomerModule.init();
                     if (params?.id) {
@@ -383,23 +389,28 @@
                     }
                 },
                 '/products': async () => {
+                    setTabbarVisible(true);
                     document.getElementById('productsPage').classList.remove('hidden');
                     await window.ProductModule.init();
                 },
                 '/product/detail': async (params) => {
+                    setTabbarVisible(true);
                     window.Toast.info('产品详情功能开发中');
                 },
                 '/inventory': async (params) => {
+                    setTabbarVisible(true);
                     document.getElementById('inventoryPage').classList.remove('hidden');
                     await window.InventoryModule.init(params || {});
                     updateTabbar('inventory');
                 },
                 '/finance': async () => {
+                    setTabbarVisible(true);
                     document.getElementById('financePage').classList.remove('hidden');
                     await window.FinanceModule.init();
                     updateTabbar('finance');
                 },
                 '/profile': async () => {
+                    setTabbarVisible(true);
                     document.getElementById('profilePage').classList.remove('hidden');
                     await window.ProfileModule.init();
                     updateTabbar('profile');
@@ -441,6 +452,16 @@
                     item.classList.remove('active');
                 }
             });
+        }
+
+        function setTabbarVisible(visible) {
+            const tabbar = document.querySelector('.tabbar');
+            if (!tabbar) return;
+            if (visible) {
+                tabbar.classList.remove('hidden');
+            } else {
+                tabbar.classList.add('hidden');
+            }
         }
     </script>
 </body>

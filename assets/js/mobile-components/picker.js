@@ -60,7 +60,7 @@ class Picker {
 
       // 取消按钮
       overlay.querySelector('.picker-cancel').addEventListener('click', () => {
-        this.hide();
+        this.hide(overlay);
         if (onCancel) onCancel();
         resolve(null);
       });
@@ -72,7 +72,7 @@ class Picker {
         const day = parseInt(overlay.querySelector('[data-type="day"] .picker-item.active').dataset.value);
 
         const result = new Date(year, month - 1, day);
-        this.hide();
+        this.hide(overlay);
 
         if (onConfirm) onConfirm(result);
         resolve(result);
@@ -135,7 +135,7 @@ class Picker {
       setTimeout(() => overlay.classList.add('show'), 10);
 
       overlay.querySelector('.picker-cancel').addEventListener('click', () => {
-        this.hide();
+        this.hide(overlay);
         if (onCancel) onCancel();
         resolve(null);
       });
@@ -145,7 +145,7 @@ class Picker {
         const minute = parseInt(overlay.querySelector('[data-type="minute"] .picker-item.active').dataset.value);
 
         const result = { hour, minute };
-        this.hide();
+        this.hide(overlay);
 
         if (onConfirm) onConfirm(result);
         resolve(result);
@@ -223,18 +223,21 @@ class Picker {
     });
   }
 
-  async hide() {
-    if (!this.overlay) return;
+  async hide(targetOverlay = null) {
+    const overlay = targetOverlay || this.overlay;
+    if (!overlay) return;
 
-    this.overlay.classList.remove('show');
+    overlay.classList.remove('show');
     await Utils.sleep(300);
 
-    if (this.overlay && this.overlay.parentNode) {
-      document.body.removeChild(this.overlay);
+    if (overlay && overlay.parentNode) {
+      document.body.removeChild(overlay);
     }
 
-    this.overlay = null;
-    this.isShowing = false;
+    if (this.overlay === overlay) {
+      this.overlay = null;
+      this.isShowing = false;
+    }
   }
 }
 

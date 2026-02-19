@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="assets/css/fonts/fontawesome/css/font-awesome.min.css">
 
     <!-- Ant Design Style Clone -->
-    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260218-74">
+    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260218-78">
 
     <script>
         (function () {
@@ -860,7 +860,7 @@
                             <div class="erp-module-section-title">财务筛选</div>
                             <div class="table-page-search-wrapper erp-block-card erp-block-filter erp-filter-one-line erp-filter-finance">
                                 <div class="search-form">
-                                    <div class="search-item">
+                                    <div class="search-item finance-item-date">
                                         <label class="search-label">日期:</label>
                                         <select id="financeDateRange" class="ant-select" onchange="onFinanceDateRangeChange()">
                                             <option value="all">全部</option>
@@ -873,20 +873,20 @@
                                             <option value="custom">自定义</option>
                                         </select>
                                     </div>
-                                    <div class="search-item">
+                                    <div class="search-item finance-item-start">
                                         <label class="search-label">开始:</label>
                                         <input type="date" id="financeDateStart" class="ant-input" onchange="searchFinances()" disabled>
                                     </div>
-                                    <div class="search-item">
+                                    <div class="search-item finance-item-end">
                                         <label class="search-label">结束:</label>
                                         <input type="date" id="financeDateEnd" class="ant-input" onchange="searchFinances()" disabled>
                                     </div>
-                                    <div class="search-item">
+                                    <div class="search-item finance-item-search">
                                         <label class="search-label">搜索:</label>
                                         <input type="text" id="financeSearch" class="ant-input" placeholder="订单号/描述/分类"
                                             oninput="searchFinances()">
                                     </div>
-                                    <div class="search-item">
+                                    <div class="search-item finance-item-type">
                                         <label class="search-label">类型:</label>
                                         <select id="financeTypeFilter" class="ant-select" onchange="searchFinances()">
                                             <option value="all">全部</option>
@@ -895,7 +895,7 @@
                                             <option value="system">系统</option>
                                         </select>
                                     </div>
-                                    <div class="search-item">
+                                    <div class="search-item finance-item-link">
                                         <label class="search-label">关联订单:</label>
                                         <select id="financeOrderLinkFilter" class="ant-select" onchange="searchFinances()">
                                             <option value="all">全部</option>
@@ -903,7 +903,7 @@
                                             <option value="unlinked">仅未关联</option>
                                         </select>
                                     </div>
-                                    <div class="search-item erp-search-item-amount">
+                                    <div class="search-item erp-search-item-amount finance-item-amount">
                                         <label class="search-label">金额区间:</label>
                                         <div class="erp-finance-amount-range">
                                             <input type="number" id="financeAmountMin" class="ant-input" placeholder="最小金额" step="0.01" min="0" oninput="searchFinances()">
@@ -911,7 +911,7 @@
                                             <input type="number" id="financeAmountMax" class="ant-input" placeholder="最大金额" step="0.01" min="0" oninput="searchFinances()">
                                         </div>
                                     </div>
-                                    <div class="search-item search-item-actions">
+                                    <div class="search-item search-item-actions finance-item-actions">
                                         <button class="ant-btn ant-btn-primary" type="button" onclick="searchFinances()">查询</button>
                                         <button class="ant-btn" type="button" onclick="resetFinanceFilters()">重置</button>
                                     </div>

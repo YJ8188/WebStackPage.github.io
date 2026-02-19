@@ -7,7 +7,6 @@ const CORE_ASSETS = [
     '/login.html',
     '/about.html',
     '/erp-ant.html',
-    '/erp.html',
     '/404.html',
     '/offline.html',
     '/manifest.webmanifest',

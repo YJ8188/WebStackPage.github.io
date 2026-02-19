@@ -190,15 +190,15 @@ window.FinanceModule = {
             </select>
           </div>
           <div style="display:flex;gap:8px;">
-            <div style="flex:1;">
+            <div style="flex:1;min-width:0;">
               <div style="margin-bottom:6px;color:#475569;font-size:12px;">开始日期</div>
               <input id="financeFilterDateFrom" type="date" value="${this.escapeHtml(dateFrom)}"
-                style="width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;" />
+                style="width:100%;min-width:0;box-sizing:border-box;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;" />
             </div>
-            <div style="flex:1;">
+            <div style="flex:1;min-width:0;">
               <div style="margin-bottom:6px;color:#475569;font-size:12px;">结束日期</div>
               <input id="financeFilterDateTo" type="date" value="${this.escapeHtml(dateTo)}"
-                style="width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;" />
+                style="width:100%;min-width:0;box-sizing:border-box;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;" />
             </div>
           </div>
           <button id="financeFilterResetBtn" type="button"

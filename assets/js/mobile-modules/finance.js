@@ -185,7 +185,7 @@ window.FinanceModule = {
 
   async showAddFinanceModal() {
     const today = new Date();
-    const defaultDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const defaultDateTime = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}T${String(today.getHours()).padStart(2, '0')}:${String(today.getMinutes()).padStart(2, '0')}`;
 
     await window.Modal.show({
       title: '财务记一笔',
@@ -212,8 +212,8 @@ window.FinanceModule = {
                 style="width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;" />
             </div>
             <div style="flex:1;min-width:0;">
-              <div style="margin-bottom:6px;color:#475569;font-size:12px;">日期</div>
-              <input id="mobileFinanceDateInput" type="date" value="${defaultDate}"
+              <div style="margin-bottom:6px;color:#475569;font-size:12px;">交易时间</div>
+              <input id="mobileFinanceDateInput" type="datetime-local" value="${defaultDateTime}"
                 style="width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;" />
             </div>
           </div>
@@ -244,12 +244,22 @@ window.FinanceModule = {
           return false;
         }
 
+        let transactionDateValue = new Date().toISOString();
+        if (transactionDate) {
+          const parsedDate = new Date(transactionDate);
+          if (Number.isNaN(parsedDate.getTime())) {
+            window.Toast.error('交易时间格式不正确');
+            return false;
+          }
+          transactionDateValue = parsedDate.toISOString();
+        }
+
         await window.API.createFinanceRecord({
           type,
           category,
           amount,
           description,
-          transaction_date: transactionDate || new Date().toISOString()
+          transaction_date: transactionDateValue
         });
 
         window.Toast.success('财务记录已保存');
@@ -491,7 +501,7 @@ window.FinanceModule = {
           const typeTag = this.getTypeTag(item?.type);
           const amount = Number(item?.amount || 0);
           const amountText = window.Utils.formatMoney(Math.abs(amount));
-          const dateText = window.Utils.formatDate(item?.transaction_date || item?.created_at || new Date(), 'YYYY-MM-DD');
+          const dateText = window.Utils.formatDate(item?.transaction_date || item?.created_at || new Date(), 'YYYY-MM-DD HH:mm:ss');
           const amountClass = lowerType === 'income' ? 'is-income' : (lowerType === 'expense' ? 'is-expense' : '');
           const amountPrefix = lowerType === 'expense' ? '-' : (lowerType === 'income' ? '+' : '');
           return `

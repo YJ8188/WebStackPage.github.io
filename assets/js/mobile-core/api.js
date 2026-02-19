@@ -925,11 +925,15 @@ class API {
       }
 
       if (dateFrom) {
-        query = query.gte('transaction_date', String(dateFrom).trim());
+        const fromText = String(dateFrom).trim();
+        const normalizedFrom = fromText.length === 10 ? `${fromText}T00:00:00` : fromText;
+        query = query.gte('transaction_date', normalizedFrom);
       }
 
       if (dateTo) {
-        query = query.lte('transaction_date', String(dateTo).trim());
+        const toText = String(dateTo).trim();
+        const normalizedTo = toText.length === 10 ? `${toText}T23:59:59` : toText;
+        query = query.lte('transaction_date', normalizedTo);
       }
 
       query = query.range(offset, offset + limit - 1);

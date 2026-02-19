@@ -755,9 +755,14 @@ window.OrderModule = {
             </div>
           </div>
           ${order.tracking_number ? `
-            <button class="btn btn-default btn-block" onclick="OrderModule.syncOrderLogistics('${order.id}')">
-              <i class="fa fa-refresh"></i> 同步物流状态
-            </button>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-default flex-1" onclick="OrderModule.showOrderLogisticsDetails('${order.id}')">
+                <i class="fa fa-list-ul"></i> 查看物流详情
+              </button>
+              <button class="btn btn-default flex-1" onclick="OrderModule.syncOrderLogistics('${order.id}')">
+                <i class="fa fa-refresh"></i> 同步状态
+              </button>
+            </div>
           ` : ''}
         </div>
       ` : ''}
@@ -781,6 +786,102 @@ window.OrderModule = {
     `;
   },
 
+  buildLogisticsEventText(event) {
+    const rawDisplayText = String(event?.displayText || '').trim();
+    if (rawDisplayText) return rawDisplayText;
+    const statusText = String(event?.status || '').trim();
+    const descText = String(event?.description || '').trim();
+    const locationText = String(event?.location || '').trim();
+    return [statusText, descText, locationText].filter(Boolean).join(' ｜ ') || '状态更新';
+  },
+
+  async applyLogisticsSuggestion(order, logisticsResult) {
+    if (!order || !order.id) return false;
+    const timeline = Array.isArray(logisticsResult?.timeline) ? logisticsResult.timeline : [];
+    const suggestion = this.inferFulfillmentFromLogisticsResult(logisticsResult, timeline);
+    if (!suggestion) return false;
+
+    const nextOrderStatus = this.resolveNextOrderStatus(order?.status, suggestion.orderStatus);
+    const nextShippingStatus = this.normalizeShippingStatusValue(suggestion.shippingStatus);
+    const updatePayload = {};
+
+    if (nextOrderStatus !== this.normalizeOrderStatusValue(order?.status)) {
+      updatePayload.status = nextOrderStatus;
+    }
+    if (this.shouldApplyShippingStatus(order?.shipping_status, nextShippingStatus)) {
+      updatePayload.shipping_status = nextShippingStatus;
+    }
+
+    if (Object.keys(updatePayload).length === 0) {
+      return false;
+    }
+
+    await window.API.updateOrder(order.id, updatePayload);
+    return true;
+  },
+
+  async showOrderLogisticsDetails(orderId) {
+    try {
+      window.Loading.show('加载物流轨迹...');
+      const order = await window.API.getOrder(orderId);
+      const trackingNumber = String(order?.tracking_number || '').trim();
+      const shippingCompany = String(order?.shipping_company || '').trim();
+      if (!trackingNumber) {
+        throw new Error('该订单未填写快递单号');
+      }
+
+      const logisticsResult = await this.queryLogisticsWithFallback(
+        trackingNumber,
+        shippingCompany,
+        { forceRefresh: true }
+      );
+      const timeline = Array.isArray(logisticsResult?.timeline) ? logisticsResult.timeline : [];
+      await this.applyLogisticsSuggestion(order, logisticsResult);
+      window.Loading.hide();
+
+      const providerName = this.escapeHtml(String(logisticsResult?.providerName || shippingCompany || '17TRACK'));
+      const latestStatus = this.escapeHtml(String(logisticsResult?.latestStatusText || logisticsResult?.latestStatusCode || '已同步'));
+
+      const timelineHtml = timeline.length > 0
+        ? timeline.slice(0, 30).map((item, index) => {
+          const displayText = this.escapeHtml(this.buildLogisticsEventText(item));
+          const timeText = this.escapeHtml(String(item?.time || '-'));
+          return `
+            <div style="position:relative;padding-left:18px;padding-bottom:10px;">
+              <span style="position:absolute;left:0;top:5px;width:8px;height:8px;border-radius:50%;background:${index === 0 ? '#16a34a' : '#cbd5e1'};"></span>
+              <div style="font-size:13px;color:${index === 0 ? '#0f172a' : '#475569'};line-height:1.5;">${displayText}</div>
+              <div style="font-size:12px;color:#94a3b8;margin-top:2px;">${timeText}</div>
+            </div>
+          `;
+        }).join('')
+        : '<div style="font-size:12px;color:#94a3b8;padding:8px 0;">暂无物流轨迹</div>';
+
+      await window.Modal.show({
+        title: '物流轨迹详情',
+        confirmText: '关闭',
+        showCancel: false,
+        content: `
+          <div style="text-align:left;">
+            <div style="padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;background:#f8fafc;margin-bottom:10px;">
+              <div style="font-size:13px;color:#334155;"><strong>快递：</strong>${providerName}</div>
+              <div style="font-size:13px;color:#334155;"><strong>单号：</strong>${this.escapeHtml(trackingNumber)}</div>
+              <div style="font-size:13px;color:#334155;"><strong>最新状态：</strong>${latestStatus}</div>
+            </div>
+            <div style="max-height:320px;overflow:auto;border:1px solid #e5e7eb;border-radius:8px;padding:10px;background:#fff;">
+              ${timelineHtml}
+            </div>
+          </div>
+        `
+      });
+
+      await this.loadOrderDetail(orderId);
+    } catch (error) {
+      window.Loading.hide();
+      console.error('加载物流详情失败:', error);
+      window.Toast.error(error?.message || '加载物流详情失败');
+    }
+  },
+
   async syncOrderLogistics(orderId) {
     try {
       window.Loading.show('同步物流中...');
@@ -797,27 +898,7 @@ window.OrderModule = {
         shippingCompany,
         { forceRefresh: true }
       );
-      const suggestion = this.inferFulfillmentFromLogisticsResult(
-        logisticsResult,
-        Array.isArray(logisticsResult?.timeline) ? logisticsResult.timeline : []
-      );
-
-      if (suggestion) {
-        const nextOrderStatus = this.resolveNextOrderStatus(order?.status, suggestion.orderStatus);
-        const nextShippingStatus = this.normalizeShippingStatusValue(suggestion.shippingStatus);
-        const updatePayload = {};
-
-        if (nextOrderStatus !== this.normalizeOrderStatusValue(order?.status)) {
-          updatePayload.status = nextOrderStatus;
-        }
-        if (this.shouldApplyShippingStatus(order?.shipping_status, nextShippingStatus)) {
-          updatePayload.shipping_status = nextShippingStatus;
-        }
-
-        if (Object.keys(updatePayload).length > 0) {
-          await window.API.updateOrder(orderId, updatePayload);
-        }
-      }
+      await this.applyLogisticsSuggestion(order, logisticsResult);
 
       await this.loadOrderDetail(orderId);
       window.Loading.hide();

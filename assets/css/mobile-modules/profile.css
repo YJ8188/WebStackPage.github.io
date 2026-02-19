@@ -4,11 +4,14 @@
 
 /* 个人中心头部 */
 .profile-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #ffffff;
+  border: 1px solid #e8edf5;
+  border-top: 3px solid #2f6fed;
   padding: var(--spacing-xl);
   text-align: center;
-  color: #fff;
+  color: #0f172a;
   margin-bottom: var(--spacing-lg);
+  border-radius: var(--radius-lg);
 }
 
 .profile-avatar {
@@ -17,7 +20,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: #eef4ff;
+  color: #2f6fed;
   border-radius: 50%;
   font-size: 32px;
   font-weight: 600;
@@ -32,7 +36,7 @@
 
 .profile-role {
   font-size: var(--font-size-sm);
-  opacity: 0.9;
+  color: #64748b;
 }
 
 /* 功能菜单 */
@@ -46,7 +50,8 @@
 
 .profile-menu-title {
   font-size: var(--font-size-sm);
-  color: var(--text-tertiary);
+  color: #6b7280;
+  font-weight: 600;
   margin-bottom: var(--spacing-sm);
   padding: 0 var(--spacing-xs);
 }

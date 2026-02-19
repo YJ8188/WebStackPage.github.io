@@ -38,7 +38,7 @@ window.ProfileModule = {
       <!-- 功能菜单 -->
       <div class="profile-menu">
         <div class="profile-menu-section">
-          <div class="profile-menu-title">数据统计</div>
+          <div class="profile-menu-title">工作区</div>
           <div class="list">
             <div class="list-item" id="profileStatsBtn">
               <div class="list-item-icon" style="background-color: #e6f7ff;">
@@ -47,16 +47,6 @@ window.ProfileModule = {
               <div class="list-item-content">
                 <div class="list-item-title">数据报表</div>
                 <div class="list-item-desc">查看经营数据分析</div>
-              </div>
-              <i class="fa fa-angle-right list-item-arrow"></i>
-            </div>
-            <div class="list-item" id="profileExportBtn">
-              <div class="list-item-icon" style="background-color: #f6ffed;">
-                <i class="fa fa-download" style="color: #52c41a;"></i>
-              </div>
-              <div class="list-item-content">
-                <div class="list-item-title">数据导出</div>
-                <div class="list-item-desc">导出订单、客户等数据</div>
               </div>
               <i class="fa fa-angle-right list-item-arrow"></i>
             </div>
@@ -121,11 +111,6 @@ window.ProfileModule = {
       window.Toast.info('数据报表功能开发中');
     });
 
-    // 数据导出
-    document.getElementById('profileExportBtn')?.addEventListener('click', () => {
-      window.Toast.info('数据导出功能开发中');
-    });
-
     // 消息通知
     document.getElementById('profileNotificationBtn')?.addEventListener('click', () => {
       window.Toast.info('消息通知功能开发中');
@@ -176,4 +161,3 @@ window.ProfileModule = {
     });
   }
 };
-

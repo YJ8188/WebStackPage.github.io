@@ -205,17 +205,15 @@ window.FinanceModule = {
             <input id="mobileFinanceCategoryInput" type="text" maxlength="60" placeholder="例如：销售订单、办公支出"
               style="width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;" />
           </div>
-          <div style="display:flex;gap:8px;margin-bottom:10px;">
-            <div style="flex:1;min-width:0;">
-              <div style="margin-bottom:6px;color:#475569;font-size:12px;">金额 <span style="color:#dc2626;">*</span></div>
-              <input id="mobileFinanceAmountInput" type="number" min="0.01" step="0.01" placeholder="0.00"
-                style="width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;" />
-            </div>
-            <div style="flex:1;min-width:0;">
-              <div style="margin-bottom:6px;color:#475569;font-size:12px;">交易时间</div>
-              <input id="mobileFinanceDateInput" type="datetime-local" value="${defaultDateTime}"
-                style="width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;" />
-            </div>
+          <div style="margin-bottom:10px;">
+            <div style="margin-bottom:6px;color:#475569;font-size:12px;">金额 <span style="color:#dc2626;">*</span></div>
+            <input id="mobileFinanceAmountInput" type="number" min="0.01" step="0.01" placeholder="0.00"
+              style="width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;box-sizing:border-box;" />
+          </div>
+          <div style="margin-bottom:10px;">
+            <div style="margin-bottom:6px;color:#475569;font-size:12px;">交易时间</div>
+            <input id="mobileFinanceDateInput" type="datetime-local" value="${defaultDateTime}"
+              style="width:100%;max-width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;box-sizing:border-box;" />
           </div>
           <div>
             <div style="margin-bottom:6px;color:#475569;font-size:12px;">描述</div>

@@ -217,13 +217,18 @@ window.DashboardModule = {
   },
 
   bindEvents() {
-    // 快捷操作
-    document.querySelectorAll('.dashboard-shortcut-item').forEach(item => {
-      item.addEventListener('click', () => {
-        const action = item.dataset.action;
-        this.handleShortcut(action);
-      });
+    const page = document.getElementById('dashboardPage');
+    if (!page) return;
+    if (page.dataset.shortcutBound === '1') return;
+
+    page.addEventListener('click', (event) => {
+      const shortcutItem = event.target.closest('.dashboard-shortcut-item');
+      if (!shortcutItem || !page.contains(shortcutItem)) return;
+      const action = shortcutItem.dataset.action;
+      this.handleShortcut(action);
     });
+
+    page.dataset.shortcutBound = '1';
   },
 
   handleShortcut(action) {

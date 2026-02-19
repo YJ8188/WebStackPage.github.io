@@ -605,7 +605,7 @@ class API {
     return this.request(async () => {
       // 并行请求多个统计数据
       const [ordersResult, productsResult, customersResult] = await Promise.all([
-        this.supabase.from(this.tableNames.orders).select('id, total_amount, status, created_at'),
+        this.supabase.from(this.tableNames.orders).select('id, total_amount, status, shipping_status, order_date, created_at'),
         this.supabase.from(this.tableNames.products).select('id, stock_quantity, min_stock'),
         this.supabase.from(this.tableNames.customers).select('id')
       ]);
@@ -614,17 +614,51 @@ class API {
       const products = productsResult.data || [];
       const customers = customersResult.data || [];
 
+      const normalizeShippingStatus = (value) => {
+        const raw = String(value || '').trim().toLowerCase();
+        const aliasMap = {
+          signed: 'delivered',
+          sign: 'delivered',
+          intransit: 'in_transit',
+          transit: 'in_transit'
+        };
+        const normalized = aliasMap[raw] || raw || 'not_shipped';
+        const validSet = new Set(['not_shipped', 'shipped', 'in_transit', 'delivered', 'rejected', 'returned']);
+        return validSet.has(normalized) ? normalized : 'not_shipped';
+      };
+
+      const isSameDay = (value) => {
+        if (!value) return false;
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return false;
+        const now = new Date();
+        return date.getFullYear() === now.getFullYear()
+          && date.getMonth() === now.getMonth()
+          && date.getDate() === now.getDate();
+      };
+
       // 计算统计数据
       const stats = {
         todayOrders: orders.filter(o => {
-          const today = new Date().toDateString();
-          return new Date(o.created_at).toDateString() === today;
+          return isSameDay(o.order_date || o.created_at);
         }).length,
-        pendingOrders: orders.filter(o => ['confirmed', 'approved'].includes(String(o.status || '').toLowerCase())).length,
-        lowStockProducts: products.filter(p => p.stock_quantity <= (p.min_stock || 0)).length,
+        pendingOrders: orders.filter(o => {
+          const status = String(o.status || '').trim().toLowerCase();
+          if (['cancelled', 'completed', 'refunded', 'signed', 'delivered'].includes(status)) {
+            return false;
+          }
+          const shippingStatus = normalizeShippingStatus(o.shipping_status);
+          return ['pending', 'confirmed', 'approved', 'processing'].includes(status)
+            && shippingStatus === 'not_shipped';
+        }).length,
+        lowStockProducts: products.filter(p => {
+          const stock = Number(p?.stock_quantity || 0);
+          const minStock = Number(p?.min_stock || 0);
+          return minStock > 0 ? stock <= minStock : stock <= 3;
+        }).length,
         totalCustomers: customers.length,
         totalRevenue: orders
-          .filter(o => o.status === 'completed')
+          .filter(o => String(o.status || '').toLowerCase() === 'completed')
           .reduce((sum, o) => sum + (o.total_amount || 0), 0)
       };
 

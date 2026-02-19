@@ -303,11 +303,13 @@ const Utils = {
   // 获取订单状态文本
   getOrderStatusText(status) {
     const statusMap = {
-      'pending': '待审核',
-      'approved': '已审核',
+      'pending': '待处理',
+      'approved': '已确认',
+      'confirmed': '已确认',
       'processing': '处理中',
       'shipped': '已发货',
       'delivered': '已送达',
+      'signed': '已签收',
       'completed': '已完成',
       'cancelled': '已取消'
     };
@@ -319,9 +321,11 @@ const Utils = {
     const colorMap = {
       'pending': 'warning',
       'approved': 'info',
+      'confirmed': 'info',
       'processing': 'primary',
       'shipped': 'primary',
       'delivered': 'success',
+      'signed': 'success',
       'completed': 'success',
       'cancelled': 'error'
     };

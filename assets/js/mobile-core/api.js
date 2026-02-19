@@ -244,7 +244,17 @@ class API {
         .order('created_at', { ascending: false });
 
       if (status) {
-        query = query.eq('status', status);
+        const normalizedStatus = String(status || '').trim().toLowerCase();
+        const statusAliasMap = {
+          confirmed: ['confirmed', 'approved'],
+          signed: ['signed', 'delivered']
+        };
+        const aliasStatus = statusAliasMap[normalizedStatus];
+        if (Array.isArray(aliasStatus) && aliasStatus.length > 1) {
+          query = query.in('status', aliasStatus);
+        } else {
+          query = query.eq('status', normalizedStatus);
+        }
       }
 
       if (keyword) {
@@ -290,6 +300,161 @@ class API {
 
       if (error) throw error;
       return data;
+    }, { showLoading: true, showError: true });
+  }
+
+  async createOrderWithItems(payload = {}) {
+    return this.request(async () => {
+      const client = this.ensureSupabaseClient();
+      const orderItems = Array.isArray(payload.items) ? payload.items : [];
+      if (orderItems.length === 0) {
+        throw new Error('请至少选择一个商品');
+      }
+
+      const productIds = [...new Set(
+        orderItems
+          .map(item => item?.product_id)
+          .filter(id => id !== null && id !== undefined && String(id).trim() !== '')
+      )];
+
+      if (productIds.length === 0) {
+        throw new Error('商品信息不完整');
+      }
+
+      const { data: productRows, error: productError } = await client
+        .from(this.tableNames.products)
+        .select('id, name, price, cost, stock_quantity')
+        .in('id', productIds);
+
+      if (productError) throw productError;
+
+      const productMap = new Map((productRows || []).map(item => [String(item.id), item]));
+      const normalizedItems = [];
+      let totalAmount = 0;
+      let totalCost = 0;
+
+      for (const item of orderItems) {
+        const productId = String(item?.product_id || '').trim();
+        const quantity = parseInt(item?.quantity, 10);
+        const product = productMap.get(productId);
+
+        if (!product) {
+          throw new Error('部分商品不存在或已被删除');
+        }
+        if (!Number.isFinite(quantity) || quantity <= 0) {
+          throw new Error(`商品「${product.name || productId}」数量不合法`);
+        }
+
+        const currentStock = Number(product?.stock_quantity || 0);
+        if (currentStock < quantity) {
+          throw new Error(`商品「${product.name || productId}」库存不足，当前库存：${currentStock}`);
+        }
+
+        const unitPrice = Number(item?.unit_price ?? product?.price ?? 0);
+        const unitCost = Number(product?.cost || 0);
+        const itemTotalPrice = unitPrice * quantity;
+        const itemTotalCost = unitCost * quantity;
+
+        totalAmount += itemTotalPrice;
+        totalCost += itemTotalCost;
+        normalizedItems.push({
+          product_id: product.id,
+          product_name: item?.product_name || product?.name || '未命名商品',
+          quantity,
+          unit_price: unitPrice,
+          unit_cost: unitCost,
+          total_cost: itemTotalCost,
+          net_profit: itemTotalPrice - itemTotalCost,
+          current_stock: currentStock
+        });
+      }
+
+      let orderNumber = `ORD-${Date.now()}`;
+      const { data: orderNumberData, error: orderNumberError } = await client.rpc('generate_order_number');
+      if (!orderNumberError && orderNumberData) {
+        orderNumber = orderNumberData;
+      }
+
+      const currentUser = window.MobileERP?.getCurrentUser?.() || null;
+      const status = String(payload.status || 'pending').trim().toLowerCase() || 'pending';
+      const paymentStatus = String(payload.payment_status || 'unpaid').trim().toLowerCase() || 'unpaid';
+      const shippingStatus = String(payload.shipping_status || 'not_shipped').trim().toLowerCase() || 'not_shipped';
+
+      const { data: orderRow, error: orderError } = await client
+        .from(this.tableNames.orders)
+        .insert([{
+          user_id: currentUser?.id || null,
+          customer_id: payload.customer_id || null,
+          order_number: orderNumber,
+          order_date: new Date().toISOString(),
+          total_amount: totalAmount,
+          total_cost: totalCost,
+          net_profit: totalAmount - totalCost,
+          status,
+          payment_status: paymentStatus,
+          notes: payload.notes || '',
+          shipping_company: payload.shipping_company || null,
+          tracking_number: payload.tracking_number || null,
+          shipping_status: shippingStatus
+        }])
+        .select('*')
+        .single();
+
+      if (orderError) throw orderError;
+
+      const rows = normalizedItems.map(item => ({
+        order_id: orderRow.id,
+        product_id: item.product_id,
+        product_name: item.product_name,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        unit_cost: item.unit_cost,
+        total_cost: item.total_cost,
+        net_profit: item.net_profit
+      }));
+
+      const { error: orderItemsError } = await client
+        .from(this.tableNames.orderItems)
+        .insert(rows);
+      if (orderItemsError) throw orderItemsError;
+
+      const inventoryTasks = normalizedItems.map(async (item) => {
+        const nextStock = Math.max(0, Number(item.current_stock || 0) - Number(item.quantity || 0));
+        const { error: updateStockError } = await client
+          .from(this.tableNames.products)
+          .update({ stock_quantity: nextStock })
+          .eq('id', item.product_id);
+        if (updateStockError) throw updateStockError;
+
+        const { error: logError } = await client
+          .from(this.tableNames.inventoryRecords)
+          .insert([{
+            product_id: item.product_id,
+            quantity_change: -Math.abs(Number(item.quantity || 0)),
+            type: 'order_lock',
+            reference_id: orderRow.id,
+            notes: `订单${orderNumber}创建锁定库存`
+          }]);
+        if (logError) throw logError;
+      });
+
+      const inventoryResults = await Promise.allSettled(inventoryTasks);
+      const inventoryFailed = inventoryResults.some(result => result.status === 'rejected');
+
+      const { data: fullOrder } = await client
+        .from(this.tableNames.orders)
+        .select(`
+          *,
+          customer:erp_customers(id, name, phone, contact_person),
+          items:erp_order_items(*)
+        `)
+        .eq('id', orderRow.id)
+        .single();
+
+      return {
+        ...(fullOrder || orderRow),
+        _inventorySyncWarning: inventoryFailed
+      };
     }, { showLoading: true, showError: true });
   }
 
@@ -396,7 +561,7 @@ class API {
           const today = new Date().toDateString();
           return new Date(o.created_at).toDateString() === today;
         }).length,
-        pendingOrders: orders.filter(o => o.status === 'pending').length,
+        pendingOrders: orders.filter(o => ['confirmed', 'approved'].includes(String(o.status || '').toLowerCase())).length,
         lowStockProducts: products.filter(p => p.stock_quantity <= (p.min_stock || 0)).length,
         totalCustomers: customers.length,
         totalRevenue: orders

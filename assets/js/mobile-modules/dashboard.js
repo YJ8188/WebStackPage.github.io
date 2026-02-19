@@ -4,11 +4,15 @@
 
 window.DashboardModule = {
   name: 'dashboard',
+  eventsBound: false,
 
   async init() {
     await this.render();
     await this.loadData();
-    this.bindEvents();
+    if (!this.eventsBound) {
+      this.bindEvents();
+      this.eventsBound = true;
+    }
   },
 
   async render() {
@@ -119,13 +123,13 @@ window.DashboardModule = {
     try {
       const todos = [];
 
-      // 获取待审核订单
+      // 获取待处理订单
       const pendingOrders = await window.API.getOrders({ status: 'pending', limit: 5 });
       pendingOrders.forEach(order => {
         todos.push({
           type: 'warning',
           icon: 'fa-file-text-o',
-          title: '待审核订单',
+          title: '待处理订单',
           desc: `订单号: ${order.order_number}`,
           badge: order.customer?.name || '',
           action: () => window.Router.push('/order/detail', { id: order.id })
@@ -147,7 +151,7 @@ window.DashboardModule = {
       }
 
       // 获取待发货订单
-      const shippingOrders = await window.API.getOrders({ status: 'approved', limit: 5 });
+      const shippingOrders = await window.API.getOrders({ status: 'confirmed', limit: 5 });
       shippingOrders.forEach(order => {
         todos.push({
           type: 'info',
@@ -218,7 +222,7 @@ window.DashboardModule = {
 
   handleShortcut(action) {
     const actions = {
-      newOrder: () => window.Router.push('/orders'),
+      newOrder: () => window.OrderModule.showCreateOrderModal(),
       inventory: () => window.Router.push('/inventory'),
       customers: () => window.Router.push('/customers'),
       products: () => window.Router.push('/products')

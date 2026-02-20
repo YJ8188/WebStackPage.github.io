@@ -98,12 +98,17 @@ const financeViewState = {
     currentRows: [],
     source: 'all'
 };
+const bankBusinessViewState = {
+    currentRows: [],
+    source: 'all'
+};
 const tablePaginationState = {
     customers: { page: 1, pageSize: 10 },
     products: { page: 1, pageSize: 10 },
     orders: { page: 1, pageSize: 10 },
     inventory: { page: 1, pageSize: 10 },
     finances: { page: 1, pageSize: 10 },
+    banking: { page: 1, pageSize: 10 },
     purchaseRecords: { page: 1, pageSize: 10 }
 };
 const tableRenderCacheState = {
@@ -112,6 +117,7 @@ const tableRenderCacheState = {
     orders: [],
     inventory: [],
     finances: [],
+    banking: [],
     purchaseRecords: []
 };
 const dashboardItemCacheState = {
@@ -992,7 +998,10 @@ function formatFileTimestamp(date = new Date()) {
 }
 
 function syncFinanceViewRows(rows = [], source = 'all') {
-    financeViewState.currentRows = Array.isArray(rows) ? [...rows] : [];
+    const sourceRows = Array.isArray(rows) ? rows : [];
+    financeViewState.currentRows = (typeof getGeneralFinanceRecords === 'function')
+        ? getGeneralFinanceRecords(sourceRows)
+        : [...sourceRows];
     financeViewState.source = source;
 }
 
@@ -1135,7 +1144,7 @@ function getFinanceReferenceMeta(finance) {
 
 function getFinanceChartSourceRows(preferredRows = null) {
     const scopeValue = String(document.getElementById('financeChartScope')?.value || 'all').toLowerCase();
-    const allRows = Array.isArray(ERP.state?.finances) ? ERP.state.finances : [];
+    const allRows = getGeneralFinanceRecords(Array.isArray(ERP.state?.finances) ? ERP.state.finances : []);
 
     if (scopeValue === 'filtered') {
         if (Array.isArray(preferredRows)) {
@@ -5554,6 +5563,522 @@ function searchInventory() {
 }
 
 // ==================== 财务管理 ====================
+const ERP_CREDIT_CARD_BANKS = [
+    '中国工商银行', '中国农业银行', '中国银行', '中国建设银行', '交通银行', '中国邮政储蓄银行',
+    '招商银行', '浦发银行', '中信银行', '中国民生银行', '兴业银行', '平安银行', '华夏银行',
+    '广发银行', '光大银行', '浙商银行', '渤海银行', '恒丰银行',
+    '北京银行', '上海银行', '江苏银行', '南京银行', '宁波银行', '杭州银行', '徽商银行',
+    '广州银行', '东莞银行', '天津银行', '重庆银行', '成都银行', '长沙银行', '青岛银行',
+    '郑州银行', '兰州银行', '西安银行', '厦门银行', '苏州银行', '齐鲁银行', '江西银行',
+    '哈尔滨银行', '盛京银行', '吉林银行', '汉口银行', '中原银行', '渤海银行', '桂林银行',
+    '农商银行信用卡', '其他银行'
+];
+
+const ERP_FINANCE_BUSINESS_PRESET = {
+    life_expense: { type: 'expense', category: '生活消费' },
+    salary_income: { type: 'income', category: '工资到账' }
+};
+
+function toValidDay(rawValue, fallback = 1) {
+    const day = Math.floor(Number(rawValue));
+    if (!Number.isFinite(day)) {
+        return fallback;
+    }
+    return Math.min(31, Math.max(1, day));
+}
+
+function toAmount(value, fallback = 0) {
+    const amount = Number(value);
+    return Number.isFinite(amount) ? amount : fallback;
+}
+
+function formatFinanceDateText(value) {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function getCreditReminderDate(transactionDateText, repaymentDay, reminderDaysBefore = 0) {
+    const baseDate = transactionDateText ? new Date(transactionDateText) : new Date();
+    if (Number.isNaN(baseDate.getTime())) {
+        return null;
+    }
+
+    const year = baseDate.getFullYear();
+    const month = baseDate.getMonth();
+    const repayment = toValidDay(repaymentDay, 1);
+    const currentMonthLastDay = new Date(year, month + 1, 0).getDate();
+    let dueDate = new Date(year, month, Math.min(repayment, currentMonthLastDay), 9, 0, 0);
+    if (dueDate.getTime() < baseDate.getTime()) {
+        const nextMonthLastDay = new Date(year, month + 2, 0).getDate();
+        dueDate = new Date(year, month + 1, Math.min(repayment, nextMonthLastDay), 9, 0, 0);
+    }
+
+    const reminderDate = new Date(dueDate);
+    reminderDate.setDate(dueDate.getDate() - Math.max(0, Math.floor(Number(reminderDaysBefore) || 0)));
+    return Number.isNaN(reminderDate.getTime()) ? null : reminderDate;
+}
+
+function populateCreditCardBanks(selectId) {
+    const bankSelect = document.getElementById(selectId);
+    if (!bankSelect || bankSelect.dataset.initialized === '1') {
+        return;
+    }
+    bankSelect.innerHTML = '<option value="">请选择银行</option>' + ERP_CREDIT_CARD_BANKS.map(name => `<option value="${name}">${name}</option>`).join('');
+    bankSelect.dataset.initialized = '1';
+}
+
+function normalizeFinanceDateTimeForDb(dateValue) {
+    let transactionDate = String(dateValue || '').trim();
+    if (!transactionDate) {
+        transactionDate = new Date().toISOString();
+    }
+    if (!transactionDate.includes('T')) {
+        return transactionDate;
+    }
+    const date = new Date(transactionDate);
+    if (Number.isNaN(date.getTime())) {
+        return '';
+    }
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
+function toMoneyText(value) {
+    const amount = Number(value || 0);
+    const safe = Number.isFinite(amount) ? amount : 0;
+    return `¥${safe.toFixed(2)}`;
+}
+
+function isBankBusinessFinanceRecord(record) {
+    const businessType = String(record?.business_type || '').trim().toLowerCase();
+    const category = String(record?.category || '').trim();
+    const description = String(record?.description || '').trim();
+    if (businessType === 'credit_card') return true;
+    if (category.includes('信用卡业务')) return true;
+    return /银行[:：]/.test(description) && /刷卡[:：]/.test(description);
+}
+
+function getBankBusinessRecords(rows = null) {
+    const sourceRows = Array.isArray(rows)
+        ? rows
+        : (Array.isArray(ERP.state?.finances) ? ERP.state.finances : []);
+    return sourceRows.filter(isBankBusinessFinanceRecord);
+}
+
+function getGeneralFinanceRecords(rows = null) {
+    const sourceRows = Array.isArray(rows)
+        ? rows
+        : (Array.isArray(ERP.state?.finances) ? ERP.state.finances : []);
+    return sourceRows.filter(item => !isBankBusinessFinanceRecord(item));
+}
+
+if (typeof window !== 'undefined') {
+    window.isBankBusinessFinanceRecord = isBankBusinessFinanceRecord;
+    window.getBankBusinessRecords = getBankBusinessRecords;
+    window.getGeneralFinanceRecords = getGeneralFinanceRecords;
+}
+
+function parseBankBusinessAmount(record, fieldName, regex) {
+    const value = Number(record?.[fieldName]);
+    if (Number.isFinite(value)) {
+        return value;
+    }
+    const description = String(record?.description || '');
+    const match = description.match(regex);
+    if (!match) {
+        return NaN;
+    }
+    const parsed = Number(match[1]);
+    return Number.isFinite(parsed) ? parsed : NaN;
+}
+
+function parseBankBusinessRecord(record) {
+    const description = String(record?.description || '');
+    const bankMatch = description.match(/银行[:：]\s*([^；\n]+)/);
+    const billMatch = description.match(/账单日[:：](?:每月)?\s*(\d{1,2})日?/);
+    const repaymentMatch = description.match(/还款日[:：](?:每月)?\s*(\d{1,2})日?/);
+    const reminderDayMatch = description.match(/提前\s*(\d+)\s*天/);
+    const reminderDateMatch = description.match(/(\d{4}-\d{2}-\d{2})/);
+
+    const swipeAmount = parseBankBusinessAmount(record, 'card_swipe_amount', /刷卡[:：]\s*[¥￥]?\s*([0-9]+(?:\.[0-9]+)?)/);
+    const actualAmount = parseBankBusinessAmount(record, 'card_actual_amount', /到账[:：]\s*[¥￥]?\s*([0-9]+(?:\.[0-9]+)?)/);
+    const feeAmountRaw = parseBankBusinessAmount(record, 'card_fee_amount', /手续费[:：]\s*[¥￥]?\s*([0-9]+(?:\.[0-9]+)?)/);
+    const feeAmount = Number.isFinite(feeAmountRaw)
+        ? feeAmountRaw
+        : (Number.isFinite(swipeAmount) && Number.isFinite(actualAmount) ? Math.max(0, swipeAmount - actualAmount) : 0);
+
+    let reminderEnabled = record?.reminder_enabled;
+    if (typeof reminderEnabled !== 'boolean') {
+        reminderEnabled = !/提醒[:：]\s*关闭/.test(description);
+    }
+
+    const reminderDate = parseFinanceDate(record?.reminder_date || reminderDateMatch?.[1] || null);
+    return {
+        id: record?.id,
+        bank: String(record?.card_bank || bankMatch?.[1] || '未识别银行').trim(),
+        billDay: toValidDay(record?.card_bill_day || billMatch?.[1], 0),
+        repaymentDay: toValidDay(record?.card_repayment_day || repaymentMatch?.[1], 0),
+        reminderEnabled,
+        reminderDaysBefore: Math.max(0, Math.floor(toAmount(record?.reminder_days_before || reminderDayMatch?.[1], 0))),
+        reminderDate,
+        swipeAmount: Number.isFinite(swipeAmount) ? swipeAmount : 0,
+        actualAmount: Number.isFinite(actualAmount) ? actualAmount : Math.abs(Number(record?.amount || 0)),
+        feeAmount: Number.isFinite(feeAmount) ? feeAmount : 0,
+        transactionDate: parseFinanceDate(record?.transaction_date || record?.created_at || new Date()),
+        description: description.replace(/\s*银行[:：][^；\n]+/g, '').trim() || '-',
+        raw: record
+    };
+}
+
+function getBankReminderStatus(record) {
+    if (!record.reminderEnabled) {
+        return { text: '已关闭', className: 'is-off', isDue: false };
+    }
+    if (!record.reminderDate) {
+        return { text: `已开启（提前${record.reminderDaysBefore}天）`, className: 'is-on', isDue: false };
+    }
+    const now = new Date();
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    if (record.reminderDate.getTime() <= todayEnd.getTime()) {
+        return { text: `待处理：${formatFinanceDateText(record.reminderDate)}`, className: 'is-due', isDue: true };
+    }
+    return { text: `提醒日：${formatFinanceDateText(record.reminderDate)}`, className: 'is-on', isDue: false };
+}
+
+function syncBankBusinessRows(rows = [], source = 'all') {
+    bankBusinessViewState.currentRows = Array.isArray(rows) ? [...rows] : [];
+    bankBusinessViewState.source = source;
+}
+
+function updateBankBusinessSummary(rows = []) {
+    const list = Array.isArray(rows) ? rows : [];
+    const totalSwipe = list.reduce((sum, row) => sum + Number(row?.swipeAmount || 0), 0);
+    const totalActual = list.reduce((sum, row) => sum + Number(row?.actualAmount || 0), 0);
+    const totalFee = list.reduce((sum, row) => sum + Number(row?.feeAmount || 0), 0);
+    const dueCount = list.filter(row => getBankReminderStatus(row).isDue).length;
+
+    const swipeEl = document.getElementById('bankingSummarySwipe');
+    const actualEl = document.getElementById('bankingSummaryActual');
+    const feeEl = document.getElementById('bankingSummaryFee');
+    const dueEl = document.getElementById('bankingSummaryDue');
+    if (swipeEl) swipeEl.textContent = toMoneyText(totalSwipe);
+    if (actualEl) actualEl.textContent = toMoneyText(totalActual);
+    if (feeEl) feeEl.textContent = toMoneyText(totalFee);
+    if (dueEl) dueEl.textContent = String(dueCount);
+}
+
+function renderBankBusiness(rows = null) {
+    const tbody = document.getElementById('bankingTableBody');
+    if (!tbody) return;
+
+    const source = Array.isArray(rows)
+        ? rows
+        : (Array.isArray(bankBusinessViewState.currentRows) && bankBusinessViewState.currentRows.length
+            ? bankBusinessViewState.currentRows
+            : getBankBusinessRecords().map(parseBankBusinessRecord));
+
+    const sorted = [...source].sort((a, b) => {
+        const left = a?.transactionDate instanceof Date ? a.transactionDate.getTime() : 0;
+        const right = b?.transactionDate instanceof Date ? b.transactionDate.getTime() : 0;
+        return right - left;
+    });
+
+    updateBankBusinessSummary(sorted);
+    if (!sorted.length) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px; color:#999;">暂无银行业务数据</td></tr>';
+        if (typeof renderTablePagination === 'function') {
+            renderTablePagination('banking', 'bankingPager', { total: 0 });
+        }
+        return;
+    }
+
+    if (typeof cacheTableRenderRows === 'function') {
+        cacheTableRenderRows('banking', sorted);
+    }
+    const pageData = (typeof getPaginatedRows === 'function')
+        ? getPaginatedRows('banking', sorted)
+        : { rows: sorted };
+    const visibleRows = Array.isArray(pageData.rows) ? pageData.rows : sorted;
+
+    tbody.innerHTML = visibleRows.map(item => {
+        const reminderMeta = getBankReminderStatus(item);
+        const dateText = item?.transactionDate ? item.transactionDate.toLocaleString('zh-CN') : '-';
+        const billText = item.billDay ? `${item.billDay}日` : '-';
+        const repayText = item.repaymentDay ? `${item.repaymentDay}日` : '-';
+        const reminderClass = `erp-bank-reminder ${reminderMeta.className}`;
+        return `
+            <tr>
+                <td class="erp-cell-nowrap">${safeText(dateText)}</td>
+                <td>${safeText(item.bank)}</td>
+                <td><span class="erp-amount-text">${toMoneyText(item.swipeAmount)}</span></td>
+                <td><span class="erp-amount-text is-income">${toMoneyText(item.actualAmount)}</span></td>
+                <td><span class="erp-amount-text is-expense">${toMoneyText(item.feeAmount)}</span></td>
+                <td>${safeText(`${billText} / ${repayText}`)}</td>
+                <td><span class="${reminderClass}">${safeText(reminderMeta.text)}</span></td>
+                <td class="erp-cell-ellipsis" title="${safeText(item.description)}">${safeText(item.description)}</td>
+                <td class="erp-action-cell">
+                    <div class="erp-row-actions">
+                        <button class="ant-btn erp-btn-danger erp-btn-compact" onclick='deleteBankBusiness(${JSON.stringify(item.id)})'>删除</button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    if (typeof renderTablePagination === 'function') {
+        renderTablePagination('banking', 'bankingPager', pageData);
+    }
+}
+
+function applyBankBusinessFilters() {
+    const bankKeyword = String(document.getElementById('bankingSearchBank')?.value || '').trim().toLowerCase();
+    const reminderFilter = String(document.getElementById('bankingReminderFilter')?.value || 'all').trim();
+    const dateStartText = String(document.getElementById('bankingDateStart')?.value || '').trim();
+    const dateEndText = String(document.getElementById('bankingDateEnd')?.value || '').trim();
+    const startDate = dateStartText ? new Date(`${dateStartText}T00:00:00`) : null;
+    const endDate = dateEndText ? new Date(`${dateEndText}T23:59:59.999`) : null;
+
+    const sourceRows = getBankBusinessRecords().map(parseBankBusinessRecord);
+    const filtered = sourceRows.filter(item => {
+        const bankMatch = !bankKeyword
+            || String(item.bank || '').toLowerCase().includes(bankKeyword)
+            || String(item.description || '').toLowerCase().includes(bankKeyword);
+
+        const date = item.transactionDate;
+        const dateMatch = (!startDate || (date && date >= startDate))
+            && (!endDate || (date && date <= endDate));
+
+        const reminderMeta = getBankReminderStatus(item);
+        const reminderMatch = reminderFilter === 'all'
+            || (reminderFilter === 'enabled' && item.reminderEnabled)
+            || (reminderFilter === 'disabled' && !item.reminderEnabled)
+            || (reminderFilter === 'due' && reminderMeta.isDue)
+            || (reminderFilter === 'future' && item.reminderEnabled && !reminderMeta.isDue);
+
+        return bankMatch && dateMatch && reminderMatch;
+    });
+
+    syncBankBusinessRows(filtered, 'filtered');
+    renderBankBusiness(filtered);
+}
+
+function resetBankBusinessFilters() {
+    const bankInput = document.getElementById('bankingSearchBank');
+    const reminderInput = document.getElementById('bankingReminderFilter');
+    const startInput = document.getElementById('bankingDateStart');
+    const endInput = document.getElementById('bankingDateEnd');
+    if (bankInput) bankInput.value = '';
+    if (reminderInput) reminderInput.value = 'all';
+    if (startInput) startInput.value = '';
+    if (endInput) endInput.value = '';
+    applyBankBusinessFilters();
+}
+
+async function refreshBankBusinessModule() {
+    await ERP.loadFinances(true);
+    applyBankBusinessFilters();
+}
+
+function recalculateBankBusinessFee() {
+    const swipeInput = document.getElementById('bankingSwipeAmount');
+    const actualInput = document.getElementById('bankingActualAmount');
+    const feeInput = document.getElementById('bankingFeeAmount');
+    if (!swipeInput || !actualInput || !feeInput) return;
+    const swipe = Math.max(0, toAmount(swipeInput.value, 0));
+    const actual = Math.max(0, toAmount(actualInput.value, 0));
+    const fee = Math.max(0, swipe - actual);
+    feeInput.value = fee.toFixed(2);
+}
+
+function showBankBusinessModal() {
+    const modal = document.getElementById('bankingModal');
+    const form = document.getElementById('bankingForm');
+    if (!modal || !form) {
+        return;
+    }
+    form.reset();
+
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    document.getElementById('bankingTransactionDate').value = `${year}-${month}-${day}T${hours}:${minutes}`;
+    document.getElementById('bankingCardBillDay').value = '20';
+    document.getElementById('bankingCardRepaymentDay').value = '5';
+    document.getElementById('bankingReminderEnabled').value = '1';
+    document.getElementById('bankingReminderDaysBefore').value = '3';
+    document.getElementById('bankingFeeAmount').value = '0.00';
+
+    populateCreditCardBanks('bankingCardBank');
+    if (form.dataset.bindFeeListener !== '1') {
+        document.getElementById('bankingSwipeAmount')?.addEventListener('input', recalculateBankBusinessFee);
+        document.getElementById('bankingActualAmount')?.addEventListener('input', recalculateBankBusinessFee);
+        form.dataset.bindFeeListener = '1';
+    }
+    clearModalFieldValidation('bankingModal');
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+}
+
+function hideBankBusinessModal() {
+    const modal = document.getElementById('bankingModal');
+    if (!modal) return;
+    modal.classList.remove('active');
+    modal.style.display = '';
+}
+
+async function saveBankBusiness() {
+    clearModalFieldValidation('bankingModal');
+    const transactionDateRaw = document.getElementById('bankingTransactionDate')?.value;
+    const bank = String(document.getElementById('bankingCardBank')?.value || '').trim();
+    const billDay = toValidDay(document.getElementById('bankingCardBillDay')?.value, 0);
+    const repaymentDay = toValidDay(document.getElementById('bankingCardRepaymentDay')?.value, 0);
+    const reminderEnabled = String(document.getElementById('bankingReminderEnabled')?.value || '1') === '1';
+    const reminderDaysBefore = Math.max(0, Math.floor(toAmount(document.getElementById('bankingReminderDaysBefore')?.value, 3)));
+    const swipeAmount = Math.max(0, toAmount(document.getElementById('bankingSwipeAmount')?.value, NaN));
+    const actualAmount = Math.max(0, toAmount(document.getElementById('bankingActualAmount')?.value, NaN));
+    const feeAmount = Math.max(0, toAmount(document.getElementById('bankingFeeAmount')?.value, swipeAmount - actualAmount));
+    const customDescription = String(document.getElementById('bankingDescription')?.value || '').trim();
+
+    if (!bank) {
+        markFieldInvalid('bankingCardBank', '请选择发卡银行');
+        return;
+    }
+    if (!billDay) {
+        markFieldInvalid('bankingCardBillDay', '账单日需在 1-31 之间');
+        return;
+    }
+    if (!repaymentDay) {
+        markFieldInvalid('bankingCardRepaymentDay', '还款日需在 1-31 之间');
+        return;
+    }
+    if (!Number.isFinite(swipeAmount) || swipeAmount <= 0) {
+        markFieldInvalid('bankingSwipeAmount', '请输入刷卡金额');
+        return;
+    }
+    if (!Number.isFinite(actualAmount) || actualAmount <= 0) {
+        markFieldInvalid('bankingActualAmount', '请输入实际到账金额');
+        return;
+    }
+    if (actualAmount > swipeAmount) {
+        markFieldInvalid('bankingActualAmount', '到账金额不能大于刷卡金额');
+        return;
+    }
+
+    const transactionDate = normalizeFinanceDateTimeForDb(transactionDateRaw);
+    if (!transactionDate) {
+        showToast('交易时间格式错误', 'error');
+        return;
+    }
+    const reminderDate = reminderEnabled
+        ? getCreditReminderDate(transactionDate, repaymentDay, reminderDaysBefore)
+        : null;
+    const reminderText = reminderEnabled
+        ? `提醒：提前${reminderDaysBefore}天（${reminderDate ? formatFinanceDateText(reminderDate) : '待计算'}）`
+        : '提醒：关闭';
+
+    const financeData = {
+        business_type: 'credit_card',
+        type: 'income',
+        category: '信用卡业务',
+        amount: actualAmount,
+        description: [
+            customDescription,
+            `银行：${bank}`,
+            `刷卡：${toMoneyText(swipeAmount)}`,
+            `到账：${toMoneyText(actualAmount)}`,
+            `手续费：${toMoneyText(feeAmount)}`,
+            `账单日：每月${billDay}日`,
+            `还款日：每月${repaymentDay}日`,
+            reminderText
+        ].filter(Boolean).join('；'),
+        transaction_date: transactionDate,
+        card_bank: bank,
+        card_bill_day: billDay,
+        card_repayment_day: repaymentDay,
+        card_swipe_amount: swipeAmount,
+        card_actual_amount: actualAmount,
+        card_fee_amount: feeAmount,
+        reminder_enabled: reminderEnabled,
+        reminder_days_before: reminderDaysBefore,
+        reminder_date: reminderDate ? reminderDate.toISOString() : null
+    };
+
+    const saveBtn = document.querySelector('#bankingModal .ant-btn-primary');
+    const originalText = saveBtn ? saveBtn.textContent : '';
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = '保存中...';
+    }
+
+    try {
+        hideBankBusinessModal();
+        const result = await ERP.addFinance(financeData);
+        if (result) {
+            await ERP.loadFinances(true);
+            syncFinanceViewRows(getGeneralFinanceRecords(), 'all');
+            renderFinances(getGeneralFinanceRecords());
+            applyBankBusinessFilters();
+            updateStatistics();
+            showToast('银行业务保存成功', 'success');
+        }
+    } catch (error) {
+        console.error('[ERP Ant] 保存银行业务失败:', error);
+        showToast('保存失败：' + (error?.message || '网络错误，请稍后重试'), 'error');
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = originalText;
+        }
+    }
+}
+
+function deleteBankBusiness(financeId) {
+    deleteFinance(financeId);
+}
+
+function applyFinanceBusinessPreset() {
+    const businessType = String(document.getElementById('financeBusinessType')?.value || '').trim();
+    const preset = ERP_FINANCE_BUSINESS_PRESET[businessType] || ERP_FINANCE_BUSINESS_PRESET.life_expense;
+    const typeSelect = document.getElementById('financeType');
+    const categoryInput = document.getElementById('financeCategory');
+
+    if (typeSelect) {
+        typeSelect.disabled = false;
+        typeSelect.value = preset.type;
+    }
+    if (categoryInput && !String(categoryInput.value || '').trim()) {
+        categoryInput.value = preset.category;
+    }
+}
+
+function bindFinanceModalBusinessEvents() {
+    const form = document.getElementById('financeForm');
+    if (!form || form.dataset.businessEventsBound === '1') {
+        return;
+    }
+
+    document.getElementById('financeBusinessType')?.addEventListener('change', () => {
+        const categoryInput = document.getElementById('financeCategory');
+        if (categoryInput) {
+            categoryInput.value = '';
+        }
+        applyFinanceBusinessPreset();
+    });
+    form.dataset.businessEventsBound = '1';
+}
+
 function showFinanceModal() {
     const modal = document.getElementById('financeModal');
     if (!modal) {
@@ -5562,10 +6087,12 @@ function showFinanceModal() {
     }
 
     const form = document.getElementById('financeForm');
+    if (!form) {
+        return;
+    }
 
     form.reset();
     document.getElementById('financeId').value = '';
-    // 设置当前日期时间，格式：YYYY-MM-DDTHH:MM (datetime-local格式)
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -5573,8 +6100,12 @@ function showFinanceModal() {
     const hours = String(now.getHours()).padStart(2, '0');
     const minutes = String(now.getMinutes()).padStart(2, '0');
     document.getElementById('financeTransactionDate').value = `${year}-${month}-${day}T${hours}:${minutes}`;
-    document.getElementById('financeType').value = 'income';
+    document.getElementById('financeBusinessType').value = 'life_expense';
+    document.getElementById('financeType').value = 'expense';
+    document.getElementById('financeCategory').value = '生活消费';
 
+    bindFinanceModalBusinessEvents();
+    applyFinanceBusinessPreset();
     modal.classList.add('active');
     modal.style.display = 'flex';
     clearModalFieldValidation('financeModal');
@@ -5582,79 +6113,69 @@ function showFinanceModal() {
 
 function hideFinanceModal() {
     const modal = document.getElementById('financeModal');
+    if (!modal) return;
     modal.classList.remove('active');
     modal.style.display = '';
 }
 
 async function saveFinance() {
     clearModalFieldValidation('financeModal');
-    // 处理日期时间格式，确保使用本地时间
-    let transactionDate = document.getElementById('financeTransactionDate').value;
-    // 如果是 datetime-local 格式 (YYYY-MM-DDTHH:MM)，转换为数据库格式 (YYYY-MM-DD HH:MM:SS)
-    if (transactionDate.includes('T')) {
-        // 使用本地时间，避免时区转换问题
-        const date = new Date(transactionDate);
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
-        const seconds = String(date.getSeconds()).padStart(2, '0');
-        transactionDate = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-        erpDebugLog('info', '[ERP Ant] 保存的本地时间:', transactionDate);
+    const businessType = String(document.getElementById('financeBusinessType')?.value || '').trim() || 'life_expense';
+    const type = String(document.getElementById('financeType')?.value || '').trim() || 'expense';
+    const categoryInput = document.getElementById('financeCategory');
+    const amountInput = document.getElementById('financeAmount');
+    const description = String(document.getElementById('financeDescription')?.value || '').trim();
+    const transactionDateRaw = document.getElementById('financeTransactionDate')?.value;
+    const transactionDate = normalizeFinanceDateTimeForDb(transactionDateRaw);
+    const amount = toAmount(amountInput?.value, NaN);
+
+    if (!transactionDate) {
+        showToast('交易时间格式错误', 'error');
+        return;
     }
-
-    const financeData = {
-        type: document.getElementById('financeType').value,
-        category: document.getElementById('financeCategory').value,
-        amount: parseFloat(document.getElementById('financeAmount').value),
-        description: document.getElementById('financeDescription').value,
-        transaction_date: transactionDate
-    };
-
-    if (!financeData.amount) {
+    if (!Number.isFinite(amount) || amount <= 0) {
         markFieldInvalid('financeAmount', '请输入金额');
         return;
     }
 
+    const preset = ERP_FINANCE_BUSINESS_PRESET[businessType] || ERP_FINANCE_BUSINESS_PRESET.life_expense;
+    const category = String(categoryInput?.value || '').trim() || preset.category;
+    const financeData = {
+        business_type: businessType,
+        type: preset.type || type,
+        category,
+        amount,
+        description,
+        transaction_date: transactionDate
+    };
+
     const saveBtn = document.querySelector('#financeModal .ant-btn-primary');
-    const originalText = saveBtn.textContent;
-    saveBtn.disabled = true;
-    saveBtn.textContent = '保存中...';
+    const originalText = saveBtn ? saveBtn.textContent : '';
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = '保存中...';
+    }
 
     try {
-        // 先关闭模态框，然后异步保存
         hideFinanceModal();
-        
-        // 保存到数据库
         const result = await ERP.addFinance(financeData);
-        erpDebugLog('info', '[ERP Ant] 财务记录已保存: ', result);
-        
         if (result) {
-            // 重新加载数据并更新显示
             const finances = await ERP.loadFinances(true);
-            erpDebugLog('info', '[ERP Ant] 重新加载财务数据条数: ', finances.length);
-            syncFinanceViewRows(finances, 'all');
-            renderFinances(finances);
+            const generalRows = getGeneralFinanceRecords(finances);
+            syncFinanceViewRows(generalRows, 'all');
+            renderFinances(generalRows);
+            applyBankBusinessFilters();
             updateStatistics();
-            
-            if (typeof showToast === 'function') {
-                showToast('财务记录保存成功', 'success');
-            }
+            showToast('财务记录保存成功', 'success');
         }
     } catch (error) {
         console.error('[ERP Ant] 保存财务记录失败:', error);
-        if (typeof showToast === 'function') {
-            showToast('保存失败：' + (error.message || '网络错误，请检查连接'), 'error');
-        }
-        // 重新加载数据
-        const finances = await ERP.loadFinances(true);
-        syncFinanceViewRows(finances, 'all');
-        renderFinances(finances);
-        updateStatistics();
+        showToast('保存失败：' + (error.message || '网络错误，请检查连接'), 'error');
     } finally {
-        saveBtn.disabled = false;
-        saveBtn.textContent = originalText;
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = originalText;
+        }
     }
 }
 
@@ -5676,15 +6197,19 @@ async function deleteFinance(financeId) {
             const finances = await ERP.loadFinances(true);
             erpDebugLog('info', '[ERP Ant] 重新加载财务数据条数: ', finances.length);
             erpDebugLog('info', '[ERP Ant] 调用 renderFinances 函数，数据: ', finances);
+            const generalRows = getGeneralFinanceRecords(finances);
             
             // 检查 renderFinances 函数是否存在
             if (typeof renderFinances === 'function') {
                 erpDebugLog('info', '[ERP Ant] renderFinances 函数存在，正在调用...');
-                syncFinanceViewRows(finances, 'all');
-                renderFinances(finances);
+                syncFinanceViewRows(generalRows, 'all');
+                renderFinances(generalRows);
                 erpDebugLog('info', '[ERP Ant] renderFinances 调用完成');
             } else {
                 console.error('[ERP Ant] renderFinances 函数不存在！');
+            }
+            if (typeof applyBankBusinessFilters === 'function') {
+                applyBankBusinessFilters();
             }
             
             updateStatistics();
@@ -5871,7 +6396,7 @@ function applyFinanceFilters() {
     const orderMap = new Map(orders.map(item => [String(item?.id), item]));
     const customerMap = new Map(customers.map(item => [String(item?.id), item]));
 
-    const sourceRows = Array.isArray(ERP.state.finances) ? ERP.state.finances : [];
+    const sourceRows = getGeneralFinanceRecords(Array.isArray(ERP.state.finances) ? ERP.state.finances : []);
     const filtered = sourceRows.filter(finance => {
         const targetDate = parseFinanceDate(finance?.transaction_date);
         if ((startDate || endDate) && !targetDate) {
@@ -6062,7 +6587,7 @@ function initFinanceFilters() {
     updateFinanceQuickRangeButtons();
     toggleFinanceMoreActions(false);
     syncFinanceMonthlyTargetInput();
-    syncFinanceViewRows(Array.isArray(ERP.state?.finances) ? ERP.state.finances : [], 'all');
+    syncFinanceViewRows(getGeneralFinanceRecords(Array.isArray(ERP.state?.finances) ? ERP.state.finances : []), 'all');
     applyFinanceFilters();
 }
 
@@ -10752,6 +11277,9 @@ async function importERPBackupFromFile(event) {
             syncFinanceViewRows(ERP.state.finances, 'all');
             renderFinances(ERP.state.finances);
         }
+        if (typeof applyBankBusinessFilters === 'function') {
+            applyBankBusinessFilters();
+        }
         updateStatistics();
         await loadPurchaseRecords();
 
@@ -10828,6 +11356,9 @@ if (typeof window !== 'undefined') {
             syncFinanceViewRows(event.detail.finances, 'all');
             renderFinances(event.detail.finances);
         }
+        if (typeof applyBankBusinessFilters === 'function') {
+            applyBankBusinessFilters();
+        }
         loadPurchaseRecords();
         renderFinanceAgingSummary();
     });
@@ -10841,6 +11372,9 @@ if (typeof window !== 'undefined') {
         if (typeof renderFinances === 'function') {
             syncFinanceViewRows(finances, 'all');
             renderFinances(finances);
+        }
+        if (typeof applyBankBusinessFilters === 'function') {
+            applyBankBusinessFilters();
         }
         updateStatistics();
         renderFinanceAgingSummary();
@@ -10898,6 +11432,7 @@ if (typeof window !== 'undefined') {
 
 document.addEventListener('DOMContentLoaded', function () {
     initFinanceFilters();
+    applyBankBusinessFilters();
     initOrderFilters();
     setTimeout(() => refreshLowStockFromLatestData('dom-ready'), 1200);
     setTimeout(() => loadPurchaseRecords(), 1600);

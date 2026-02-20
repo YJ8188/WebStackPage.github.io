@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="assets/css/fonts/fontawesome/css/font-awesome.min.css">
 
     <!-- Ant Design Style Clone -->
-    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260218-78">
+    <link rel="stylesheet" href="assets/css/erp-ant.css?v=20260220-79">
 
     <script>
         (function () {
@@ -345,6 +345,10 @@
                     <i class="fa fa-line-chart"></i>
                     <span>财务管理</span>
                 </li>
+                <li class="ant-menu-item" data-module="banking" onclick="switchTab('banking')">
+                    <i class="fa fa-credit-card"></i>
+                    <span>银行业务</span>
+                </li>
             </ul>
         </aside>
 
@@ -394,6 +398,8 @@
                         style="display:none;">库存管理</span>
                     <span class="ant-tag" id="tab-finance" onclick="switchTab('finance')"
                         style="display:none;">财务管理</span>
+                    <span class="ant-tag" id="tab-banking" onclick="switchTab('banking')"
+                        style="display:none;">银行业务</span>
                 </div>
             </div>
 
@@ -415,6 +421,9 @@
                 </button>
                 <button type="button" class="erp-domain-btn" data-domain="finance" onclick="switchBusinessDomain('finance')">
                     <i class="fa fa-line-chart"></i> 财务报表
+                </button>
+                <button type="button" class="erp-domain-btn" data-domain="banking" onclick="switchBusinessDomain('banking')">
+                    <i class="fa fa-credit-card"></i> 银行业务
                 </button>
             </div>
 
@@ -1079,6 +1088,95 @@
                             <div id="financesPager"></div>
                         </div>
                     </div>
+
+                    <!-- Banking View -->
+                    <div id="bankingView" class="module-view">
+                        <div class="content-card">
+                            <div class="erp-module-section-title">银行业务筛选</div>
+                            <div class="table-page-search-wrapper erp-block-card erp-block-filter">
+                                <div class="search-form">
+                                    <div class="search-item">
+                                        <label class="search-label">银行:</label>
+                                        <input type="text" id="bankingSearchBank" class="ant-input" placeholder="银行名称" oninput="applyBankBusinessFilters()">
+                                    </div>
+                                    <div class="search-item">
+                                        <label class="search-label">提醒:</label>
+                                        <select id="bankingReminderFilter" class="ant-select" onchange="applyBankBusinessFilters()">
+                                            <option value="all">全部</option>
+                                            <option value="enabled">已开启提醒</option>
+                                            <option value="disabled">已关闭提醒</option>
+                                            <option value="due">到期提醒</option>
+                                            <option value="future">未到提醒日</option>
+                                        </select>
+                                    </div>
+                                    <div class="search-item">
+                                        <label class="search-label">开始:</label>
+                                        <input type="date" id="bankingDateStart" class="ant-input" onchange="applyBankBusinessFilters()">
+                                    </div>
+                                    <div class="search-item">
+                                        <label class="search-label">结束:</label>
+                                        <input type="date" id="bankingDateEnd" class="ant-input" onchange="applyBankBusinessFilters()">
+                                    </div>
+                                    <div class="search-item search-item-actions">
+                                        <button class="ant-btn ant-btn-primary" type="button" onclick="applyBankBusinessFilters()">查询</button>
+                                        <button class="ant-btn" type="button" onclick="resetBankBusinessFilters()">重置</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="erp-module-section-title">银行业务操作</div>
+                            <div class="table-operator erp-toolbar erp-block-card erp-block-toolbar">
+                                <button class="ant-btn ant-btn-primary" onclick="showBankBusinessModal()">
+                                    <i class="fa fa-plus"></i> 新增信用卡业务
+                                </button>
+                                <button class="ant-btn" onclick="refreshBankBusinessModule()">
+                                    <i class="fa fa-refresh"></i> 刷新
+                                </button>
+                            </div>
+
+                            <div class="erp-finance-summary-strip">
+                                <div class="erp-finance-summary-item">
+                                    <div class="erp-finance-summary-label">总刷卡金额</div>
+                                    <div id="bankingSummarySwipe" class="erp-finance-summary-value">¥0.00</div>
+                                </div>
+                                <div class="erp-finance-summary-item">
+                                    <div class="erp-finance-summary-label">总到账金额</div>
+                                    <div id="bankingSummaryActual" class="erp-finance-summary-value is-income">¥0.00</div>
+                                </div>
+                                <div class="erp-finance-summary-item">
+                                    <div class="erp-finance-summary-label">总手续费</div>
+                                    <div id="bankingSummaryFee" class="erp-finance-summary-value is-expense">¥0.00</div>
+                                </div>
+                                <div class="erp-finance-summary-item">
+                                    <div class="erp-finance-summary-label">到期提醒</div>
+                                    <div id="bankingSummaryDue" class="erp-finance-summary-value">0</div>
+                                </div>
+                            </div>
+
+                            <div class="erp-module-section-title">信用卡业务流水</div>
+                            <div class="ant-table-wrapper erp-table-scroll erp-block-card erp-block-table">
+                                <div class="ant-table">
+                                    <table>
+                                        <thead class="ant-table-thead">
+                                            <tr>
+                                                <th>交易时间</th>
+                                                <th>发卡银行</th>
+                                                <th>刷卡金额</th>
+                                                <th>到账金额</th>
+                                                <th>手续费</th>
+                                                <th>账单/还款日</th>
+                                                <th>提醒状态</th>
+                                                <th>备注</th>
+                                                <th>操作</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="ant-table-tbody" id="bankingTableBody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div id="bankingPager"></div>
+                        </div>
+                    </div>
                 </div>
             </main>
         </div>
@@ -1621,35 +1719,124 @@
                     <input type="hidden" id="financeId">
                     <div class="erp-form-section">
                         <div class="erp-form-section-title">账务信息</div>
-                    <div class="form-group">
-                        <label>类型</label>
-                        <select id="financeType" class="ant-select" style="width: 100%;">
-                            <option value="income">收入</option>
-                            <option value="expense">支出</option>
-                        </select>
+                        <div class="form-group">
+                            <label>业务类型 <span class="erp-required-star">*</span></label>
+                            <select id="financeBusinessType" class="ant-select" style="width: 100%;">
+                                <option value="life_expense">生活消费</option>
+                                <option value="salary_income">工资到账</option>
+                            </select>
+                        </div>
+                        <div class="erp-form-grid-2">
+                            <div class="form-group erp-form-col">
+                                <label>收支方向</label>
+                                <select id="financeType" class="ant-select" style="width: 100%;">
+                                    <option value="income">收入</option>
+                                    <option value="expense">支出</option>
+                                </select>
+                            </div>
+                            <div class="form-group erp-form-col">
+                                <label>分类</label>
+                                <input type="text" id="financeCategory" class="ant-input" placeholder="例如: 销售回款 / 生活消费">
+                            </div>
+                        </div>
+                        <div class="erp-form-grid-2">
+                            <div class="form-group erp-form-col">
+                                <label>金额 <span class="erp-required-star">*</span></label>
+                                <input type="number" id="financeAmount" class="ant-input" step="0.01" data-validate="positive" data-error-message="请输入有效金额（大于0）">
+                            </div>
+                            <div class="form-group erp-form-col">
+                                <label>交易时间</label>
+                                <input type="datetime-local" id="financeTransactionDate" class="ant-input">
+                            </div>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label>金额 *</label>
-                        <input type="number" id="financeAmount" class="ant-input" step="0.01" data-validate="positive" data-error-message="请输入有效金额（大于0）">
-                    </div>
-                    <div class="form-group">
-                        <label>分类</label>
-                        <input type="text" id="financeCategory" class="ant-input" placeholder="例如: 销售回款 采购支出">
-                    </div>
-                    <div class="form-group">
-                        <label>日期</label>
-                        <input type="datetime-local" id="financeTransactionDate" class="ant-input">
-                    </div>
-                    <div class="form-group">
-                        <label>描述</label>
-                        <input type="text" id="financeDescription" class="ant-input">
-                    </div>
+                    <div class="erp-form-section">
+                        <div class="form-group">
+                            <label>描述</label>
+                            <input type="text" id="financeDescription" class="ant-input" placeholder="可填写备注、用途、收支说明">
+                        </div>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="hideFinanceModal()">取消</button>
                 <button class="ant-btn ant-btn-primary" onclick="saveFinance()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Banking Modal -->
+    <div id="bankingModal" class="modal-overlay">
+        <div class="modal erp-modal erp-modal-md">
+            <div class="modal-header">
+                <h3 id="bankingModalTitle">新增信用卡业务</h3>
+                <button class="btn-close" onclick="hideBankBusinessModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="bankingForm" class="erp-modal-form">
+                    <input type="hidden" id="bankingFinanceId">
+                    <div class="erp-form-section">
+                        <div class="erp-form-section-title">基础信息</div>
+                        <div class="form-group">
+                            <label>交易时间</label>
+                            <input type="datetime-local" id="bankingTransactionDate" class="ant-input">
+                        </div>
+                        <div class="form-group">
+                            <label>发卡银行 <span class="erp-required-star">*</span></label>
+                            <select id="bankingCardBank" class="ant-select" style="width: 100%;">
+                                <option value="">请选择银行</option>
+                            </select>
+                        </div>
+                        <div class="erp-form-grid-2">
+                            <div class="form-group erp-form-col">
+                                <label>账单日（每月）<span class="erp-required-star">*</span></label>
+                                <input type="number" id="bankingCardBillDay" class="ant-input" min="1" max="31" step="1" placeholder="1-31">
+                            </div>
+                            <div class="form-group erp-form-col">
+                                <label>还款日（每月）<span class="erp-required-star">*</span></label>
+                                <input type="number" id="bankingCardRepaymentDay" class="ant-input" min="1" max="31" step="1" placeholder="1-31">
+                            </div>
+                        </div>
+                        <div class="erp-form-grid-2">
+                            <div class="form-group erp-form-col">
+                                <label>提醒设置</label>
+                                <select id="bankingReminderEnabled" class="ant-select">
+                                    <option value="1">开启提醒</option>
+                                    <option value="0">关闭提醒</option>
+                                </select>
+                            </div>
+                            <div class="form-group erp-form-col">
+                                <label>提前天数</label>
+                                <input type="number" id="bankingReminderDaysBefore" class="ant-input" min="0" max="30" step="1" placeholder="如 3">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="erp-form-section">
+                        <div class="erp-form-section-title">金额信息</div>
+                        <div class="erp-form-grid-2">
+                            <div class="form-group erp-form-col">
+                                <label>刷卡金额 <span class="erp-required-star">*</span></label>
+                                <input type="number" id="bankingSwipeAmount" class="ant-input" min="0" step="0.01" placeholder="例如 1000">
+                            </div>
+                            <div class="form-group erp-form-col">
+                                <label>实际到账金额 <span class="erp-required-star">*</span></label>
+                                <input type="number" id="bankingActualAmount" class="ant-input" min="0" step="0.01" placeholder="例如 994">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>扣除费用（自动计算）</label>
+                            <input type="number" id="bankingFeeAmount" class="ant-input" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>备注</label>
+                            <input type="text" id="bankingDescription" class="ant-input" placeholder="可选：记录用途、渠道、备注">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="hideBankBusinessModal()">取消</button>
+                <button class="ant-btn ant-btn-primary" onclick="saveBankBusiness()">保存</button>
             </div>
         </div>
     </div>
@@ -1721,9 +1908,9 @@
     <script src="assets/js/supabase.min.js"></script>
     <script src="assets/js/supabase-config.js?v=20260212-14"></script>
     <script src="assets/js/user-data.js?v=20260214-20"></script>
-    <script src="assets/js/erp.js?v=20260218-38"></script>
+    <script src="assets/js/erp.js?v=20260220-39"></script>
     <script src="assets/js/vendor/echarts.min.js?v=5.5.0"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260218-78"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260220-80"></script>
     <script src="assets/js/pwa-register.js?v=20260218-3" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->
@@ -1851,6 +2038,16 @@
                         if (window.renderFinances) renderFinances();
                         if (typeof window.refreshFinanceCharts === 'function') {
                             window.refreshFinanceCharts();
+                        }
+                        break;
+                    case 'banking':
+                        if (window.ERP && !ERP.state.loaded.finances) {
+                            await ERP.loadFinances(false);
+                        }
+                        if (typeof window.applyBankBusinessFilters === 'function') {
+                            window.applyBankBusinessFilters();
+                        } else if (typeof window.renderBankBusiness === 'function') {
+                            window.renderBankBusiness();
                         }
                         break;
                 }
@@ -2161,7 +2358,10 @@
         window.renderFinances = function (finances = null) {
             
             
-            const data = finances || (window.ERP && ERP.state.finances) || [];
+            const rawRows = finances || (window.ERP && ERP.state.finances) || [];
+            const data = (typeof window.getGeneralFinanceRecords === 'function')
+                ? window.getGeneralFinanceRecords(rawRows)
+                : rawRows;
             if (typeof syncFinanceViewRows === 'function') {
                 syncFinanceViewRows(data, 'render');
             }

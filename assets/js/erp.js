@@ -2653,6 +2653,18 @@ const ERP = {
 
     async addFinanceRecord(financeData) {
         try {
+            const parseOptionalInt = (value) => {
+                const parsed = parseInt(value, 10);
+                return Number.isFinite(parsed) ? parsed : null;
+            };
+            const parseOptionalNumber = (value) => {
+                if (value === '' || value === null || value === undefined) {
+                    return null;
+                }
+                const parsed = Number(value);
+                return Number.isFinite(parsed) ? parsed : null;
+            };
+
             const insertPayload = {
                 user_id: userData.user.id,
                 type: financeData.type, // income, expense
@@ -2661,24 +2673,105 @@ const ERP = {
                 description: financeData.description || '',
                 reference_id: financeData.reference_id || null,
                 order_id: financeData.order_id || null,
-                transaction_date: financeData.transaction_date || new Date().toISOString()
+                transaction_date: financeData.transaction_date || new Date().toISOString(),
+                business_type: financeData.business_type || null,
+                card_bank: financeData.card_bank || null,
+                card_bill_day: parseOptionalInt(financeData.card_bill_day),
+                card_repayment_day: parseOptionalInt(financeData.card_repayment_day),
+                card_swipe_amount: parseOptionalNumber(financeData.card_swipe_amount),
+                card_actual_amount: parseOptionalNumber(financeData.card_actual_amount),
+                card_fee_amount: parseOptionalNumber(financeData.card_fee_amount),
+                reminder_enabled: typeof financeData.reminder_enabled === 'boolean' ? financeData.reminder_enabled : null,
+                reminder_days_before: parseOptionalInt(financeData.reminder_days_before),
+                reminder_date: financeData.reminder_date || null
             };
 
-            let { data, error } = await supabaseClient
-                .from('erp_finances')
-                .insert([insertPayload])
-                .select()
-                .single();
+            const fallbackDescriptionParts = [];
+            if (insertPayload.business_type) {
+                fallbackDescriptionParts.push(`业务类型:${insertPayload.business_type}`);
+            }
+            if (insertPayload.card_bank) {
+                fallbackDescriptionParts.push(`银行:${insertPayload.card_bank}`);
+            }
+            if (insertPayload.card_bill_day) {
+                fallbackDescriptionParts.push(`账单日:${insertPayload.card_bill_day}`);
+            }
+            if (insertPayload.card_repayment_day) {
+                fallbackDescriptionParts.push(`还款日:${insertPayload.card_repayment_day}`);
+            }
+            if (insertPayload.card_swipe_amount !== null) {
+                fallbackDescriptionParts.push(`刷卡:${Number(insertPayload.card_swipe_amount).toFixed(2)}`);
+            }
+            if (insertPayload.card_actual_amount !== null) {
+                fallbackDescriptionParts.push(`到账:${Number(insertPayload.card_actual_amount).toFixed(2)}`);
+            }
+            if (insertPayload.card_fee_amount !== null) {
+                fallbackDescriptionParts.push(`手续费:${Number(insertPayload.card_fee_amount).toFixed(2)}`);
+            }
+            if (insertPayload.reminder_enabled !== null) {
+                fallbackDescriptionParts.push(`提醒:${insertPayload.reminder_enabled ? '开启' : '关闭'}`);
+            }
+            if (insertPayload.reminder_days_before !== null) {
+                fallbackDescriptionParts.push(`提前天数:${insertPayload.reminder_days_before}`);
+            }
+            if (insertPayload.reminder_date) {
+                fallbackDescriptionParts.push(`提醒日期:${insertPayload.reminder_date}`);
+            }
+            const fallbackExtraText = fallbackDescriptionParts.join('；');
 
-            if (error && error.code === '42703') {
-                const { order_id, ...fallbackPayload } = insertPayload;
-                const retry = await supabaseClient
+            let payload = { ...insertPayload };
+            let data = null;
+            let error = null;
+            const removedColumns = [];
+
+            while (true) {
+                const response = await supabaseClient
                     .from('erp_finances')
-                    .insert([fallbackPayload])
+                    .insert([payload])
                     .select()
                     .single();
-                data = retry.data;
-                error = retry.error;
+
+                data = response.data;
+                error = response.error;
+
+                if (!error) {
+                    break;
+                }
+
+                if (error.code !== '42703') {
+                    break;
+                }
+
+                const messageText = String(error.message || '');
+                const columnMatch = messageText.match(/column\s+"?([a-zA-Z0-9_]+)"?\s+of/i) || messageText.match(/column\s+"?([a-zA-Z0-9_]+)"?\s+does not exist/i);
+                const missingColumn = columnMatch?.[1] || null;
+                if (missingColumn && Object.prototype.hasOwnProperty.call(payload, missingColumn)) {
+                    delete payload[missingColumn];
+                    removedColumns.push(missingColumn);
+                    continue;
+                }
+                if (Object.prototype.hasOwnProperty.call(payload, 'order_id')) {
+                    delete payload.order_id;
+                    removedColumns.push('order_id');
+                    continue;
+                }
+                break;
+            }
+
+            if (!error && removedColumns.length > 0 && fallbackExtraText) {
+                const mergedDescription = [String(payload.description || '').trim(), `[扩展信息] ${fallbackExtraText}`]
+                    .filter(Boolean)
+                    .join('；');
+                const patchResult = await supabaseClient
+                    .from('erp_finances')
+                    .update({ description: mergedDescription })
+                    .eq('id', data.id)
+                    .eq('user_id', userData.user.id)
+                    .select()
+                    .single();
+                if (!patchResult.error && patchResult.data) {
+                    data = patchResult.data;
+                }
             }
 
             if (error) {

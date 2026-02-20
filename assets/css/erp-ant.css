@@ -1180,6 +1180,43 @@ select.ant-select option {
     min-width: 0;
 }
 
+.erp-finance-reminder-grid {
+    align-items: center;
+}
+
+.erp-finance-reminder-grid .ant-select,
+.erp-finance-reminder-grid .ant-input {
+    width: 100%;
+}
+
+.erp-bank-reminder {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    line-height: 1.4;
+    border: 1px solid transparent;
+}
+
+.erp-bank-reminder.is-on {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border-color: #bfdbfe;
+}
+
+.erp-bank-reminder.is-due {
+    background: #fff1f2;
+    color: #b91c1c;
+    border-color: #fecdd3;
+}
+
+.erp-bank-reminder.is-off {
+    background: #f8fafc;
+    color: #64748b;
+    border-color: #e2e8f0;
+}
+
 .erp-modal-form #orderItems {
     background: #f8fbff !important;
     border: 1px solid #dbeafe;

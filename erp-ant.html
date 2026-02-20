@@ -1126,8 +1126,11 @@
 
                             <div class="erp-module-section-title">银行业务操作</div>
                             <div class="table-operator erp-toolbar erp-block-card erp-block-toolbar">
-                                <button class="ant-btn ant-btn-primary" onclick="showBankBusinessModal()">
-                                    <i class="fa fa-plus"></i> 新增信用卡业务
+                                <button class="ant-btn ant-btn-primary" onclick="showBankRepaymentModal()">
+                                    <i class="fa fa-credit-card"></i> 新增还款业务
+                                </button>
+                                <button class="ant-btn ant-btn-primary" onclick="showBankSwipeModal()">
+                                    <i class="fa fa-exchange"></i> 新增刷卡业务
                                 </button>
                                 <button class="ant-btn" onclick="refreshBankBusinessModule()">
                                     <i class="fa fa-refresh"></i> 刷新
@@ -1771,31 +1774,89 @@
         </div>
     </div>
 
-    <!-- Banking Modal -->
-    <div id="bankingModal" class="modal-overlay">
+    <!-- Banking Repayment Modal -->
+    <div id="bankingRepaymentModal" class="modal-overlay">
         <div class="modal erp-modal erp-modal-md">
             <div class="modal-header">
-                <h3 id="bankingModalTitle">新增信用卡业务</h3>
-                <button class="btn-close" onclick="hideBankBusinessModal()">&times;</button>
+                <h3>新增还款业务</h3>
+                <button class="btn-close" onclick="hideBankRepaymentModal()">&times;</button>
             </div>
             <div class="modal-body">
-                <form id="bankingForm" class="erp-modal-form">
-                    <input type="hidden" id="bankingFinanceId">
+                <form id="bankingRepaymentForm" class="erp-modal-form">
                     <div class="erp-form-section">
                         <div class="erp-form-section-title">还款业务板块</div>
                         <div class="form-group">
                             <label>交易时间</label>
-                            <input type="datetime-local" id="bankingTransactionDate" class="ant-input">
+                            <input type="datetime-local" id="bankingRepaymentTransactionDate" class="ant-input">
                         </div>
                         <div class="form-group">
                             <label>还款信用卡银行 <span class="erp-required-star">*</span></label>
-                            <select id="bankingCardBank" class="ant-select" style="width: 100%;">
+                            <select id="bankingRepaymentCardBank" class="ant-select" style="width: 100%;">
                                 <option value="">请选择银行</option>
                             </select>
                         </div>
                         <div class="erp-form-grid-2">
                             <div class="form-group erp-form-col">
-                                <label>刷卡信用卡银行（可不同）</label>
+                                <label>账单日（每月）<span class="erp-required-star">*</span></label>
+                                <input type="number" id="bankingRepaymentBillDay" class="ant-input" min="1" max="31" step="1" placeholder="1-31">
+                            </div>
+                            <div class="form-group erp-form-col">
+                                <label>还款日（每月）<span class="erp-required-star">*</span></label>
+                                <input type="number" id="bankingRepaymentDay" class="ant-input" min="1" max="31" step="1" placeholder="1-31">
+                            </div>
+                        </div>
+                        <div class="erp-form-grid-2">
+                            <div class="form-group erp-form-col">
+                                <label>提醒设置</label>
+                                <select id="bankingRepaymentReminderEnabled" class="ant-select">
+                                    <option value="1">开启提醒</option>
+                                    <option value="0">关闭提醒</option>
+                                </select>
+                            </div>
+                            <div class="form-group erp-form-col">
+                                <label>提前天数</label>
+                                <input type="number" id="bankingRepaymentReminderDaysBefore" class="ant-input" min="0" max="30" step="1" placeholder="如 3">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>应还金额 <span class="erp-required-star">*</span></label>
+                            <input type="number" id="bankingRepaymentAmount" class="ant-input" min="0" step="0.01" placeholder="本期需还金额">
+                        </div>
+                        <div id="bankingRuleHint" class="erp-form-hint-card">
+                            规则建议：请先填写账单日与还款日，系统将自动推荐最佳刷卡时间与还款时间。
+                        </div>
+                        <div class="form-group">
+                            <label>备注</label>
+                            <input type="text" id="bankingRepaymentDescription" class="ant-input" placeholder="可选：还款备注">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="hideBankRepaymentModal()">取消</button>
+                <button class="ant-btn ant-btn-primary" onclick="saveBankRepayment()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Banking Swipe Modal -->
+    <div id="bankingSwipeModal" class="modal-overlay">
+        <div class="modal erp-modal erp-modal-md">
+            <div class="modal-header">
+                <h3>新增刷卡业务</h3>
+                <button class="btn-close" onclick="hideBankSwipeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="bankingSwipeForm" class="erp-modal-form">
+                    <div class="erp-form-section">
+                        <div class="erp-form-section-title">刷卡业务板块</div>
+                        <div class="form-group">
+                            <label>交易时间</label>
+                            <input type="datetime-local" id="bankingSwipeTransactionDate" class="ant-input">
+                        </div>
+                        <div class="erp-form-grid-2">
+                            <div class="form-group erp-form-col">
+                                <label>刷卡信用卡银行 <span class="erp-required-star">*</span></label>
                                 <select id="bankingSwipeCardBank" class="ant-select" style="width: 100%;">
                                     <option value="">请选择银行</option>
                                 </select>
@@ -1811,39 +1872,6 @@
                             <label>到账储蓄卡尾号（可选）</label>
                             <input type="text" id="bankingSettlementCardTail" class="ant-input" maxlength="4" placeholder="例如 6688">
                         </div>
-                        <div class="erp-form-grid-2">
-                            <div class="form-group erp-form-col">
-                                <label>账单日（每月）<span class="erp-required-star">*</span></label>
-                                <input type="number" id="bankingCardBillDay" class="ant-input" min="1" max="31" step="1" placeholder="1-31">
-                            </div>
-                            <div class="form-group erp-form-col">
-                                <label>还款日（每月）<span class="erp-required-star">*</span></label>
-                                <input type="number" id="bankingCardRepaymentDay" class="ant-input" min="1" max="31" step="1" placeholder="1-31">
-                            </div>
-                        </div>
-                        <div class="erp-form-grid-2">
-                            <div class="form-group erp-form-col">
-                                <label>提醒设置</label>
-                                <select id="bankingReminderEnabled" class="ant-select">
-                                    <option value="1">开启提醒</option>
-                                    <option value="0">关闭提醒</option>
-                                </select>
-                            </div>
-                            <div class="form-group erp-form-col">
-                                <label>提前天数</label>
-                                <input type="number" id="bankingReminderDaysBefore" class="ant-input" min="0" max="30" step="1" placeholder="如 3">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>应还金额 <span class="erp-required-star">*</span></label>
-                            <input type="number" id="bankingRepaymentAmount" class="ant-input" min="0" step="0.01" placeholder="本期需还金额">
-                        </div>
-                        <div id="bankingRuleHint" class="erp-form-hint-card">
-                            规则建议：请先填写账单日与还款日，系统将自动推荐最佳刷卡时间与还款时间。
-                        </div>
-                    </div>
-                    <div class="erp-form-section">
-                        <div class="erp-form-section-title">刷卡业务板块</div>
                         <div class="erp-form-grid-2">
                             <div class="form-group erp-form-col">
                                 <label>刷卡金额（本次） <span class="erp-required-star">*</span></label>
@@ -1864,14 +1892,14 @@
                         </div>
                         <div class="form-group">
                             <label>备注</label>
-                            <input type="text" id="bankingDescription" class="ant-input" placeholder="可选：记录用途、渠道、备注">
+                            <input type="text" id="bankingSwipeDescription" class="ant-input" placeholder="可选：刷卡备注、渠道">
                         </div>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button class="btn-secondary" onclick="hideBankBusinessModal()">取消</button>
-                <button class="ant-btn ant-btn-primary" onclick="saveBankBusiness()">保存</button>
+                <button class="btn-secondary" onclick="hideBankSwipeModal()">取消</button>
+                <button class="ant-btn ant-btn-primary" onclick="saveBankSwipe()">保存</button>
             </div>
         </div>
     </div>
@@ -1945,7 +1973,7 @@
     <script src="assets/js/user-data.js?v=20260214-20"></script>
     <script src="assets/js/erp.js?v=20260220-39"></script>
     <script src="assets/js/vendor/echarts.min.js?v=5.5.0"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260220-83"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260220-84"></script>
     <script src="assets/js/pwa-register.js?v=20260218-3" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->

@@ -2682,6 +2682,7 @@ const ERP = {
                 card_swipe_amount: parseOptionalNumber(financeData.card_swipe_amount),
                 card_actual_amount: parseOptionalNumber(financeData.card_actual_amount),
                 card_fee_amount: parseOptionalNumber(financeData.card_fee_amount),
+                card_fee_rate: parseOptionalNumber(financeData.card_fee_rate),
                 swipe_card_bank: financeData.swipe_card_bank || null,
                 settlement_bank: financeData.settlement_bank || null,
                 settlement_card_tail: financeData.settlement_card_tail || null,
@@ -2714,6 +2715,9 @@ const ERP = {
             }
             if (insertPayload.card_fee_amount !== null) {
                 fallbackDescriptionParts.push(`手续费:${Number(insertPayload.card_fee_amount).toFixed(2)}`);
+            }
+            if (insertPayload.card_fee_rate !== null) {
+                fallbackDescriptionParts.push(`费率:${Number(insertPayload.card_fee_rate).toFixed(2)}%`);
             }
             if (insertPayload.swipe_card_bank) {
                 fallbackDescriptionParts.push(`刷卡卡:${insertPayload.swipe_card_bank}`);

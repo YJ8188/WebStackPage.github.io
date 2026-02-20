@@ -7,6 +7,7 @@ alter table if exists public.erp_finances
   add column if not exists card_swipe_amount numeric(14,2),
   add column if not exists card_actual_amount numeric(14,2),
   add column if not exists card_fee_amount numeric(14,2),
+  add column if not exists card_fee_rate numeric(10,4),
   add column if not exists swipe_card_bank text,
   add column if not exists settlement_bank text,
   add column if not exists settlement_card_tail text,
@@ -22,6 +23,7 @@ comment on column public.erp_finances.card_repayment_amount is '信用卡本期�
 comment on column public.erp_finances.card_swipe_amount is '信用卡刷卡金额';
 comment on column public.erp_finances.card_actual_amount is '信用卡实际到账金额';
 comment on column public.erp_finances.card_fee_amount is '信用卡扣费金额(刷卡-到账)';
+comment on column public.erp_finances.card_fee_rate is '信用卡扣费费率(%)';
 comment on column public.erp_finances.swipe_card_bank is '刷卡信用卡银行';
 comment on column public.erp_finances.settlement_bank is '到账储蓄卡银行';
 comment on column public.erp_finances.settlement_card_tail is '到账储蓄卡尾号';

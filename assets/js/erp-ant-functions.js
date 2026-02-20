@@ -5711,6 +5711,7 @@ function parseBankBusinessRecord(record) {
     const repaymentMatch = description.match(/还款日[:：](?:每月)?\s*(\d{1,2})日?/);
     const reminderDayMatch = description.match(/提前\s*(\d+)\s*天/);
     const reminderDateMatch = description.match(/(\d{4}-\d{2}-\d{2})/);
+    const feeRateMatch = description.match(/费率[:：]\s*([0-9]+(?:\.[0-9]+)?)%/);
 
     const repaymentAmount = parseBankBusinessAmount(record, 'card_repayment_amount', /应还[:：]\s*[¥￥]?\s*([0-9]+(?:\.[0-9]+)?)/);
     const swipeAmount = parseBankBusinessAmount(record, 'card_swipe_amount', /刷卡[:：]\s*[¥￥]?\s*([0-9]+(?:\.[0-9]+)?)/);
@@ -5719,6 +5720,10 @@ function parseBankBusinessRecord(record) {
     const feeAmount = Number.isFinite(feeAmountRaw)
         ? feeAmountRaw
         : (Number.isFinite(swipeAmount) && Number.isFinite(actualAmount) ? Math.max(0, swipeAmount - actualAmount) : 0);
+    const feeRateRaw = Number(record?.card_fee_rate);
+    const feeRate = Number.isFinite(feeRateRaw)
+        ? feeRateRaw
+        : (feeRateMatch ? Number(feeRateMatch[1]) : (Number.isFinite(swipeAmount) && swipeAmount > 0 ? (feeAmount / swipeAmount) * 100 : 0));
 
     let reminderEnabled = record?.reminder_enabled;
     if (typeof reminderEnabled !== 'boolean') {
@@ -5741,6 +5746,7 @@ function parseBankBusinessRecord(record) {
         swipeAmount: Number.isFinite(swipeAmount) ? swipeAmount : 0,
         actualAmount: Number.isFinite(actualAmount) ? actualAmount : Math.abs(Number(record?.amount || 0)),
         feeAmount: Number.isFinite(feeAmount) ? feeAmount : 0,
+        feeRate: Number.isFinite(feeRate) ? feeRate : 0,
         transactionDate: parseFinanceDate(record?.transaction_date || record?.created_at || new Date()),
         description: description
             .replace(/\s*银行[:：][^；\n]+/g, '')
@@ -5852,7 +5858,10 @@ function renderBankBusiness(rows = null) {
                 <td><span class="erp-amount-text is-expense">${toMoneyText(item.repaymentAmount)}</span></td>
                 <td><span class="erp-amount-text">${toMoneyText(item.swipeAmount)}</span></td>
                 <td><span class="erp-amount-text is-income">${toMoneyText(item.actualAmount)}</span></td>
-                <td><span class="erp-amount-text is-expense">${toMoneyText(item.feeAmount)}</span></td>
+                <td>
+                    <div class="erp-finance-cell-main"><span class="erp-amount-text is-expense">${toMoneyText(item.feeAmount)}</span></div>
+                    <div class="erp-finance-cell-sub">费率：${Number(item.feeRate || 0).toFixed(2)}%</div>
+                </td>
                 <td>${safeText(`${billText} / ${repayText}`)}</td>
                 <td><span class="${reminderClass}">${safeText(reminderMeta.text)}</span></td>
                 <td class="erp-cell-ellipsis" title="${safeText(item.description)}">${safeText(item.description)}</td>
@@ -5925,11 +5934,16 @@ function recalculateBankBusinessFee() {
     const swipeInput = document.getElementById('bankingSwipeAmount');
     const actualInput = document.getElementById('bankingActualAmount');
     const feeInput = document.getElementById('bankingFeeAmount');
+    const feeRateInput = document.getElementById('bankingFeeRate');
     if (!swipeInput || !actualInput || !feeInput) return;
     const swipe = Math.max(0, toAmount(swipeInput.value, 0));
     const actual = Math.max(0, toAmount(actualInput.value, 0));
     const fee = Math.max(0, swipe - actual);
     feeInput.value = fee.toFixed(2);
+    if (feeRateInput) {
+        const rate = swipe > 0 ? (fee / swipe) * 100 : 0;
+        feeRateInput.value = `${rate.toFixed(2)}%`;
+    }
 }
 
 function getMonthlyDateByDay(baseDate, day, monthOffset = 0) {
@@ -6034,6 +6048,7 @@ function showBankBusinessModal() {
     document.getElementById('bankingReminderDaysBefore').value = '3';
     document.getElementById('bankingRepaymentAmount').value = '';
     document.getElementById('bankingFeeAmount').value = '0.00';
+    document.getElementById('bankingFeeRate').value = '0.00%';
 
     populateCreditCardBanks('bankingCardBank');
     populateCreditCardBanks('bankingSwipeCardBank');
@@ -6078,6 +6093,9 @@ async function saveBankBusiness() {
     const swipeAmount = Math.max(0, toAmount(document.getElementById('bankingSwipeAmount')?.value, NaN));
     const actualAmount = Math.max(0, toAmount(document.getElementById('bankingActualAmount')?.value, NaN));
     const feeAmount = Math.max(0, toAmount(document.getElementById('bankingFeeAmount')?.value, swipeAmount - actualAmount));
+    const feeRate = swipeAmount > 0
+        ? ((feeAmount / swipeAmount) * 100)
+        : Number(String(document.getElementById('bankingFeeRate')?.value || '').replace('%', ''));
     const customDescription = String(document.getElementById('bankingDescription')?.value || '').trim();
 
     if (!bank) {
@@ -6145,6 +6163,7 @@ async function saveBankBusiness() {
             `刷卡：${toMoneyText(swipeAmount)}`,
             `到账：${toMoneyText(actualAmount)}`,
             `手续费：${toMoneyText(feeAmount)}`,
+            `费率：${Number.isFinite(feeRate) ? feeRate.toFixed(2) : '0.00'}%`,
             `账单日：每月${billDay}日`,
             `还款日：每月${repaymentDay}日`,
             reminderText,
@@ -6158,6 +6177,7 @@ async function saveBankBusiness() {
         card_swipe_amount: swipeAmount,
         card_actual_amount: actualAmount,
         card_fee_amount: feeAmount,
+        card_fee_rate: Number.isFinite(feeRate) ? Number(feeRate.toFixed(4)) : 0,
         swipe_card_bank: swipeCardBankText,
         settlement_bank: settlementBank,
         settlement_card_tail: settlementCardTail || null,

@@ -2678,9 +2678,13 @@ const ERP = {
                 card_bank: financeData.card_bank || null,
                 card_bill_day: parseOptionalInt(financeData.card_bill_day),
                 card_repayment_day: parseOptionalInt(financeData.card_repayment_day),
+                card_repayment_amount: parseOptionalNumber(financeData.card_repayment_amount),
                 card_swipe_amount: parseOptionalNumber(financeData.card_swipe_amount),
                 card_actual_amount: parseOptionalNumber(financeData.card_actual_amount),
                 card_fee_amount: parseOptionalNumber(financeData.card_fee_amount),
+                swipe_card_bank: financeData.swipe_card_bank || null,
+                settlement_bank: financeData.settlement_bank || null,
+                settlement_card_tail: financeData.settlement_card_tail || null,
                 reminder_enabled: typeof financeData.reminder_enabled === 'boolean' ? financeData.reminder_enabled : null,
                 reminder_days_before: parseOptionalInt(financeData.reminder_days_before),
                 reminder_date: financeData.reminder_date || null
@@ -2699,6 +2703,9 @@ const ERP = {
             if (insertPayload.card_repayment_day) {
                 fallbackDescriptionParts.push(`还款日:${insertPayload.card_repayment_day}`);
             }
+            if (insertPayload.card_repayment_amount !== null) {
+                fallbackDescriptionParts.push(`应还:${Number(insertPayload.card_repayment_amount).toFixed(2)}`);
+            }
             if (insertPayload.card_swipe_amount !== null) {
                 fallbackDescriptionParts.push(`刷卡:${Number(insertPayload.card_swipe_amount).toFixed(2)}`);
             }
@@ -2707,6 +2714,12 @@ const ERP = {
             }
             if (insertPayload.card_fee_amount !== null) {
                 fallbackDescriptionParts.push(`手续费:${Number(insertPayload.card_fee_amount).toFixed(2)}`);
+            }
+            if (insertPayload.swipe_card_bank) {
+                fallbackDescriptionParts.push(`刷卡卡:${insertPayload.swipe_card_bank}`);
+            }
+            if (insertPayload.settlement_bank) {
+                fallbackDescriptionParts.push(`到账卡:${insertPayload.settlement_bank}${insertPayload.settlement_card_tail ? `(尾号${insertPayload.settlement_card_tail})` : ''}`);
             }
             if (insertPayload.reminder_enabled !== null) {
                 fallbackDescriptionParts.push(`提醒:${insertPayload.reminder_enabled ? '开启' : '关闭'}`);

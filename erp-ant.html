@@ -1136,6 +1136,10 @@
 
                             <div class="erp-finance-summary-strip">
                                 <div class="erp-finance-summary-item">
+                                    <div class="erp-finance-summary-label">总应还金额</div>
+                                    <div id="bankingSummaryRepayment" class="erp-finance-summary-value is-expense">¥0.00</div>
+                                </div>
+                                <div class="erp-finance-summary-item">
                                     <div class="erp-finance-summary-label">总刷卡金额</div>
                                     <div id="bankingSummarySwipe" class="erp-finance-summary-value">¥0.00</div>
                                 </div>
@@ -1160,7 +1164,9 @@
                                         <thead class="ant-table-thead">
                                             <tr>
                                                 <th>交易时间</th>
-                                                <th>发卡银行</th>
+                                                <th>还款信用卡</th>
+                                                <th>到账储蓄卡</th>
+                                                <th>应还金额</th>
                                                 <th>刷卡金额</th>
                                                 <th>到账金额</th>
                                                 <th>手续费</th>
@@ -1782,10 +1788,28 @@
                             <input type="datetime-local" id="bankingTransactionDate" class="ant-input">
                         </div>
                         <div class="form-group">
-                            <label>发卡银行 <span class="erp-required-star">*</span></label>
+                            <label>还款信用卡银行 <span class="erp-required-star">*</span></label>
                             <select id="bankingCardBank" class="ant-select" style="width: 100%;">
                                 <option value="">请选择银行</option>
                             </select>
+                        </div>
+                        <div class="erp-form-grid-2">
+                            <div class="form-group erp-form-col">
+                                <label>刷卡信用卡银行（可不同）</label>
+                                <select id="bankingSwipeCardBank" class="ant-select" style="width: 100%;">
+                                    <option value="">请选择银行</option>
+                                </select>
+                            </div>
+                            <div class="form-group erp-form-col">
+                                <label>到账储蓄卡银行 <span class="erp-required-star">*</span></label>
+                                <select id="bankingSettlementBank" class="ant-select" style="width: 100%;">
+                                    <option value="">请选择银行</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>到账储蓄卡尾号（可选）</label>
+                            <input type="text" id="bankingSettlementCardTail" class="ant-input" maxlength="4" placeholder="例如 6688">
                         </div>
                         <div class="erp-form-grid-2">
                             <div class="form-group erp-form-col">
@@ -1816,13 +1840,17 @@
                     </div>
                     <div class="erp-form-section">
                         <div class="erp-form-section-title">金额信息</div>
+                        <div class="form-group">
+                            <label>应还金额 <span class="erp-required-star">*</span></label>
+                            <input type="number" id="bankingRepaymentAmount" class="ant-input" min="0" step="0.01" placeholder="本期需还金额">
+                        </div>
                         <div class="erp-form-grid-2">
                             <div class="form-group erp-form-col">
-                                <label>刷卡金额 <span class="erp-required-star">*</span></label>
+                                <label>刷卡金额（本次） <span class="erp-required-star">*</span></label>
                                 <input type="number" id="bankingSwipeAmount" class="ant-input" min="0" step="0.01" placeholder="例如 1000">
                             </div>
                             <div class="form-group erp-form-col">
-                                <label>实际到账金额 <span class="erp-required-star">*</span></label>
+                                <label>实际到账金额（储蓄卡） <span class="erp-required-star">*</span></label>
                                 <input type="number" id="bankingActualAmount" class="ant-input" min="0" step="0.01" placeholder="例如 994">
                             </div>
                         </div>
@@ -1913,7 +1941,7 @@
     <script src="assets/js/user-data.js?v=20260214-20"></script>
     <script src="assets/js/erp.js?v=20260220-39"></script>
     <script src="assets/js/vendor/echarts.min.js?v=5.5.0"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260220-81"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260220-82"></script>
     <script src="assets/js/pwa-register.js?v=20260218-3" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->

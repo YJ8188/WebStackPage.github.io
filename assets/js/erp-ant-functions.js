@@ -5704,11 +5704,15 @@ function parseBankBusinessAmount(record, fieldName, regex) {
 function parseBankBusinessRecord(record) {
     const description = String(record?.description || '');
     const bankMatch = description.match(/银行[:：]\s*([^；\n]+)/);
+    const swipeBankMatch = description.match(/刷卡卡[:：]\s*([^；\n]+)/);
+    const settlementBankMatch = description.match(/到账卡[:：]\s*([^（；\n]+)/);
+    const settlementTailMatch = description.match(/尾号\s*(\d{3,4})/);
     const billMatch = description.match(/账单日[:：](?:每月)?\s*(\d{1,2})日?/);
     const repaymentMatch = description.match(/还款日[:：](?:每月)?\s*(\d{1,2})日?/);
     const reminderDayMatch = description.match(/提前\s*(\d+)\s*天/);
     const reminderDateMatch = description.match(/(\d{4}-\d{2}-\d{2})/);
 
+    const repaymentAmount = parseBankBusinessAmount(record, 'card_repayment_amount', /应还[:：]\s*[¥￥]?\s*([0-9]+(?:\.[0-9]+)?)/);
     const swipeAmount = parseBankBusinessAmount(record, 'card_swipe_amount', /刷卡[:：]\s*[¥￥]?\s*([0-9]+(?:\.[0-9]+)?)/);
     const actualAmount = parseBankBusinessAmount(record, 'card_actual_amount', /到账[:：]\s*[¥￥]?\s*([0-9]+(?:\.[0-9]+)?)/);
     const feeAmountRaw = parseBankBusinessAmount(record, 'card_fee_amount', /手续费[:：]\s*[¥￥]?\s*([0-9]+(?:\.[0-9]+)?)/);
@@ -5730,11 +5734,27 @@ function parseBankBusinessRecord(record) {
         reminderEnabled,
         reminderDaysBefore: Math.max(0, Math.floor(toAmount(record?.reminder_days_before || reminderDayMatch?.[1], 0))),
         reminderDate,
+        repaymentAmount: Number.isFinite(repaymentAmount) ? repaymentAmount : 0,
+        swipeCardBank: String(record?.swipe_card_bank || swipeBankMatch?.[1] || record?.card_bank || bankMatch?.[1] || '未识别').trim(),
+        settlementBank: String(record?.settlement_bank || settlementBankMatch?.[1] || '未识别').trim(),
+        settlementCardTail: String(record?.settlement_card_tail || settlementTailMatch?.[1] || '').trim(),
         swipeAmount: Number.isFinite(swipeAmount) ? swipeAmount : 0,
         actualAmount: Number.isFinite(actualAmount) ? actualAmount : Math.abs(Number(record?.amount || 0)),
         feeAmount: Number.isFinite(feeAmount) ? feeAmount : 0,
         transactionDate: parseFinanceDate(record?.transaction_date || record?.created_at || new Date()),
-        description: description.replace(/\s*银行[:：][^；\n]+/g, '').trim() || '-',
+        description: description
+            .replace(/\s*银行[:：][^；\n]+/g, '')
+            .replace(/\s*刷卡卡[:：][^；\n]+/g, '')
+            .replace(/\s*到账卡[:：][^；\n]+/g, '')
+            .replace(/\s*应还[:：][^；\n]+/g, '')
+            .replace(/\s*刷卡[:：][^；\n]+/g, '')
+            .replace(/\s*到账[:：][^；\n]+/g, '')
+            .replace(/\s*手续费[:：][^；\n]+/g, '')
+            .replace(/\s*账单日[:：][^；\n]+/g, '')
+            .replace(/\s*还款日[:：][^；\n]+/g, '')
+            .replace(/\s*提醒[:：][^；\n]+/g, '')
+            .replace(/\s*建议[:：][^；\n]+/g, '')
+            .trim() || '-',
         raw: record
     };
 }
@@ -5761,15 +5781,18 @@ function syncBankBusinessRows(rows = [], source = 'all') {
 
 function updateBankBusinessSummary(rows = []) {
     const list = Array.isArray(rows) ? rows : [];
+    const totalRepayment = list.reduce((sum, row) => sum + Number(row?.repaymentAmount || 0), 0);
     const totalSwipe = list.reduce((sum, row) => sum + Number(row?.swipeAmount || 0), 0);
     const totalActual = list.reduce((sum, row) => sum + Number(row?.actualAmount || 0), 0);
     const totalFee = list.reduce((sum, row) => sum + Number(row?.feeAmount || 0), 0);
     const dueCount = list.filter(row => getBankReminderStatus(row).isDue).length;
 
+    const repaymentEl = document.getElementById('bankingSummaryRepayment');
     const swipeEl = document.getElementById('bankingSummarySwipe');
     const actualEl = document.getElementById('bankingSummaryActual');
     const feeEl = document.getElementById('bankingSummaryFee');
     const dueEl = document.getElementById('bankingSummaryDue');
+    if (repaymentEl) repaymentEl.textContent = toMoneyText(totalRepayment);
     if (swipeEl) swipeEl.textContent = toMoneyText(totalSwipe);
     if (actualEl) actualEl.textContent = toMoneyText(totalActual);
     if (feeEl) feeEl.textContent = toMoneyText(totalFee);
@@ -5794,7 +5817,7 @@ function renderBankBusiness(rows = null) {
 
     updateBankBusinessSummary(sorted);
     if (!sorted.length) {
-        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px; color:#999;">暂无银行业务数据</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding:20px; color:#999;">暂无银行业务数据</td></tr>';
         if (typeof renderTablePagination === 'function') {
             renderTablePagination('banking', 'bankingPager', { total: 0 });
         }
@@ -5815,10 +5838,18 @@ function renderBankBusiness(rows = null) {
         const billText = item.billDay ? `${item.billDay}日` : '-';
         const repayText = item.repaymentDay ? `${item.repaymentDay}日` : '-';
         const reminderClass = `erp-bank-reminder ${reminderMeta.className}`;
+        const settlementText = item.settlementBank === '未识别'
+            ? '未识别'
+            : `${item.settlementBank}${item.settlementCardTail ? `（尾号${item.settlementCardTail}）` : ''}`;
         return `
             <tr>
                 <td class="erp-cell-nowrap">${safeText(dateText)}</td>
-                <td>${safeText(item.bank)}</td>
+                <td>
+                    <div class="erp-finance-cell-main">${safeText(item.bank)}</div>
+                    <div class="erp-finance-cell-sub">刷卡卡：${safeText(item.swipeCardBank || '-')}</div>
+                </td>
+                <td>${safeText(settlementText)}</td>
+                <td><span class="erp-amount-text is-expense">${toMoneyText(item.repaymentAmount)}</span></td>
                 <td><span class="erp-amount-text">${toMoneyText(item.swipeAmount)}</span></td>
                 <td><span class="erp-amount-text is-income">${toMoneyText(item.actualAmount)}</span></td>
                 <td><span class="erp-amount-text is-expense">${toMoneyText(item.feeAmount)}</span></td>
@@ -5851,6 +5882,8 @@ function applyBankBusinessFilters() {
     const filtered = sourceRows.filter(item => {
         const bankMatch = !bankKeyword
             || String(item.bank || '').toLowerCase().includes(bankKeyword)
+            || String(item.swipeCardBank || '').toLowerCase().includes(bankKeyword)
+            || String(item.settlementBank || '').toLowerCase().includes(bankKeyword)
             || String(item.description || '').toLowerCase().includes(bankKeyword);
 
         const date = item.transactionDate;
@@ -5963,6 +5996,7 @@ function updateBankingRuleHint() {
     const billDay = document.getElementById('bankingCardBillDay')?.value;
     const repaymentDay = document.getElementById('bankingCardRepaymentDay')?.value;
     const transactionDate = document.getElementById('bankingTransactionDate')?.value;
+    const repaymentAmount = Math.max(0, toAmount(document.getElementById('bankingRepaymentAmount')?.value, 0));
     const recommendation = buildBankCycleRecommendation(transactionDate, billDay, repaymentDay);
 
     if (!recommendation) {
@@ -5972,6 +6006,7 @@ function updateBankingRuleHint() {
 
     hintEl.innerHTML = [
         `规则建议：账单日后刷卡更容易拿到更长免息期。`,
+        repaymentAmount > 0 ? `本期应还金额：${toMoneyText(repaymentAmount)}。` : '本期应还金额：未填写。',
         `推荐刷卡窗口：${formatRuleDate(recommendation.recommendSwipeStart)} 至 ${formatRuleDate(recommendation.recommendSwipeEnd)}。`,
         `下次账单日：${formatRuleDate(recommendation.nextBillDate)}；下次还款日：${formatRuleDate(recommendation.dueDate)}。`,
         `推荐还款时间：${formatRuleDate(recommendation.recommendRepayDate)}（建议至少提前 2 天），提醒可设在 ${formatRuleDate(recommendation.remindSuggestDate)}。`
@@ -5997,9 +6032,12 @@ function showBankBusinessModal() {
     document.getElementById('bankingCardRepaymentDay').value = '5';
     document.getElementById('bankingReminderEnabled').value = '1';
     document.getElementById('bankingReminderDaysBefore').value = '3';
+    document.getElementById('bankingRepaymentAmount').value = '';
     document.getElementById('bankingFeeAmount').value = '0.00';
 
     populateCreditCardBanks('bankingCardBank');
+    populateCreditCardBanks('bankingSwipeCardBank');
+    populateCreditCardBanks('bankingSettlementBank');
     if (form.dataset.bindFeeListener !== '1') {
         document.getElementById('bankingSwipeAmount')?.addEventListener('input', recalculateBankBusinessFee);
         document.getElementById('bankingActualAmount')?.addEventListener('input', recalculateBankBusinessFee);
@@ -6009,6 +6047,7 @@ function showBankBusinessModal() {
         document.getElementById('bankingCardBillDay')?.addEventListener('input', updateBankingRuleHint);
         document.getElementById('bankingCardRepaymentDay')?.addEventListener('input', updateBankingRuleHint);
         document.getElementById('bankingTransactionDate')?.addEventListener('change', updateBankingRuleHint);
+        document.getElementById('bankingRepaymentAmount')?.addEventListener('input', updateBankingRuleHint);
         form.dataset.bindRuleListener = '1';
     }
     updateBankingRuleHint();
@@ -6028,10 +6067,14 @@ async function saveBankBusiness() {
     clearModalFieldValidation('bankingModal');
     const transactionDateRaw = document.getElementById('bankingTransactionDate')?.value;
     const bank = String(document.getElementById('bankingCardBank')?.value || '').trim();
+    const swipeCardBank = String(document.getElementById('bankingSwipeCardBank')?.value || '').trim();
+    const settlementBank = String(document.getElementById('bankingSettlementBank')?.value || '').trim();
+    const settlementCardTail = String(document.getElementById('bankingSettlementCardTail')?.value || '').replace(/\D/g, '').slice(-4);
     const billDay = toValidDay(document.getElementById('bankingCardBillDay')?.value, 0);
     const repaymentDay = toValidDay(document.getElementById('bankingCardRepaymentDay')?.value, 0);
     const reminderEnabled = String(document.getElementById('bankingReminderEnabled')?.value || '1') === '1';
     const reminderDaysBefore = Math.max(0, Math.floor(toAmount(document.getElementById('bankingReminderDaysBefore')?.value, 3)));
+    const repaymentAmount = Math.max(0, toAmount(document.getElementById('bankingRepaymentAmount')?.value, NaN));
     const swipeAmount = Math.max(0, toAmount(document.getElementById('bankingSwipeAmount')?.value, NaN));
     const actualAmount = Math.max(0, toAmount(document.getElementById('bankingActualAmount')?.value, NaN));
     const feeAmount = Math.max(0, toAmount(document.getElementById('bankingFeeAmount')?.value, swipeAmount - actualAmount));
@@ -6045,8 +6088,16 @@ async function saveBankBusiness() {
         markFieldInvalid('bankingCardBillDay', '账单日需在 1-31 之间');
         return;
     }
+    if (!settlementBank) {
+        markFieldInvalid('bankingSettlementBank', '请选择到账储蓄卡银行');
+        return;
+    }
     if (!repaymentDay) {
         markFieldInvalid('bankingCardRepaymentDay', '还款日需在 1-31 之间');
+        return;
+    }
+    if (!Number.isFinite(repaymentAmount) || repaymentAmount <= 0) {
+        markFieldInvalid('bankingRepaymentAmount', '请输入应还金额');
         return;
     }
     if (!Number.isFinite(swipeAmount) || swipeAmount <= 0) {
@@ -6074,6 +6125,8 @@ async function saveBankBusiness() {
     const reminderText = reminderEnabled
         ? `提醒：提前${reminderDaysBefore}天（${reminderDate ? formatFinanceDateText(reminderDate) : '待计算'}）`
         : '提醒：关闭';
+    const swipeCardBankText = swipeCardBank || bank;
+    const settlementCardText = `${settlementBank}${settlementCardTail ? `（尾号${settlementCardTail}）` : ''}`;
     const recommendationText = recommendation
         ? `建议：账单后刷卡 ${formatRuleDate(recommendation.recommendSwipeStart)}~${formatRuleDate(recommendation.recommendSwipeEnd)}，还款建议 ${formatRuleDate(recommendation.recommendRepayDate)}`
         : '';
@@ -6086,6 +6139,9 @@ async function saveBankBusiness() {
         description: [
             customDescription,
             `银行：${bank}`,
+            `刷卡卡：${swipeCardBankText}`,
+            `到账卡：${settlementCardText}`,
+            `应还：${toMoneyText(repaymentAmount)}`,
             `刷卡：${toMoneyText(swipeAmount)}`,
             `到账：${toMoneyText(actualAmount)}`,
             `手续费：${toMoneyText(feeAmount)}`,
@@ -6098,9 +6154,13 @@ async function saveBankBusiness() {
         card_bank: bank,
         card_bill_day: billDay,
         card_repayment_day: repaymentDay,
+        card_repayment_amount: repaymentAmount,
         card_swipe_amount: swipeAmount,
         card_actual_amount: actualAmount,
         card_fee_amount: feeAmount,
+        swipe_card_bank: swipeCardBankText,
+        settlement_bank: settlementBank,
+        settlement_card_tail: settlementCardTail || null,
         reminder_enabled: reminderEnabled,
         reminder_days_before: reminderDaysBefore,
         reminder_date: reminderDate ? reminderDate.toISOString() : null

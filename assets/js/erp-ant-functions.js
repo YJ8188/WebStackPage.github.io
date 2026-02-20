@@ -5899,6 +5899,85 @@ function recalculateBankBusinessFee() {
     feeInput.value = fee.toFixed(2);
 }
 
+function getMonthlyDateByDay(baseDate, day, monthOffset = 0) {
+    const target = new Date(baseDate.getFullYear(), baseDate.getMonth() + monthOffset, 1, 9, 0, 0, 0);
+    const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+    target.setDate(Math.min(Math.max(1, day), lastDay));
+    return target;
+}
+
+function getUpcomingMonthlyDate(baseDate, day) {
+    const thisMonth = getMonthlyDateByDay(baseDate, day, 0);
+    if (baseDate.getTime() <= thisMonth.getTime()) {
+        return thisMonth;
+    }
+    return getMonthlyDateByDay(baseDate, day, 1);
+}
+
+function addDaysToDate(date, days) {
+    const next = new Date(date);
+    next.setDate(next.getDate() + Number(days || 0));
+    return next;
+}
+
+function formatRuleDate(date) {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+        return '-';
+    }
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function buildBankCycleRecommendation(baseDateRaw, billDayRaw, repaymentDayRaw) {
+    const billDay = toValidDay(billDayRaw, 0);
+    const repaymentDay = toValidDay(repaymentDayRaw, 0);
+    if (!billDay || !repaymentDay) {
+        return null;
+    }
+
+    const baseDate = parseFinanceDate(baseDateRaw) || new Date();
+    const nextBillDate = getUpcomingMonthlyDate(baseDate, billDay);
+    const recommendSwipeStart = addDaysToDate(nextBillDate, 1);
+    const recommendSwipeEnd = addDaysToDate(nextBillDate, 5);
+    const dueDate = repaymentDay > billDay
+        ? getMonthlyDateByDay(nextBillDate, repaymentDay, 0)
+        : getMonthlyDateByDay(nextBillDate, repaymentDay, 1);
+    const recommendRepayDate = addDaysToDate(dueDate, -2);
+    const remindSuggestDate = addDaysToDate(dueDate, -3);
+
+    return {
+        billDay,
+        repaymentDay,
+        nextBillDate,
+        recommendSwipeStart,
+        recommendSwipeEnd,
+        dueDate,
+        recommendRepayDate,
+        remindSuggestDate
+    };
+}
+
+function updateBankingRuleHint() {
+    const hintEl = document.getElementById('bankingRuleHint');
+    if (!hintEl) return;
+
+    const billDay = document.getElementById('bankingCardBillDay')?.value;
+    const repaymentDay = document.getElementById('bankingCardRepaymentDay')?.value;
+    const transactionDate = document.getElementById('bankingTransactionDate')?.value;
+    const recommendation = buildBankCycleRecommendation(transactionDate, billDay, repaymentDay);
+
+    if (!recommendation) {
+        hintEl.textContent = '规则建议：请先填写账单日与还款日，系统将自动推荐最佳刷卡时间与还款时间。';
+        return;
+    }
+
+    hintEl.innerHTML = [
+        `规则建议：账单日后刷卡更容易拿到更长免息期。`,
+        `推荐刷卡窗口：${formatRuleDate(recommendation.recommendSwipeStart)} 至 ${formatRuleDate(recommendation.recommendSwipeEnd)}。`,
+        `下次账单日：${formatRuleDate(recommendation.nextBillDate)}；下次还款日：${formatRuleDate(recommendation.dueDate)}。`,
+        `推荐还款时间：${formatRuleDate(recommendation.recommendRepayDate)}（建议至少提前 2 天），提醒可设在 ${formatRuleDate(recommendation.remindSuggestDate)}。`
+    ].join('<br>');
+}
+
 function showBankBusinessModal() {
     const modal = document.getElementById('bankingModal');
     const form = document.getElementById('bankingForm');
@@ -5926,6 +6005,13 @@ function showBankBusinessModal() {
         document.getElementById('bankingActualAmount')?.addEventListener('input', recalculateBankBusinessFee);
         form.dataset.bindFeeListener = '1';
     }
+    if (form.dataset.bindRuleListener !== '1') {
+        document.getElementById('bankingCardBillDay')?.addEventListener('input', updateBankingRuleHint);
+        document.getElementById('bankingCardRepaymentDay')?.addEventListener('input', updateBankingRuleHint);
+        document.getElementById('bankingTransactionDate')?.addEventListener('change', updateBankingRuleHint);
+        form.dataset.bindRuleListener = '1';
+    }
+    updateBankingRuleHint();
     clearModalFieldValidation('bankingModal');
     modal.classList.add('active');
     modal.style.display = 'flex';
@@ -5984,9 +6070,13 @@ async function saveBankBusiness() {
     const reminderDate = reminderEnabled
         ? getCreditReminderDate(transactionDate, repaymentDay, reminderDaysBefore)
         : null;
+    const recommendation = buildBankCycleRecommendation(transactionDate, billDay, repaymentDay);
     const reminderText = reminderEnabled
         ? `提醒：提前${reminderDaysBefore}天（${reminderDate ? formatFinanceDateText(reminderDate) : '待计算'}）`
         : '提醒：关闭';
+    const recommendationText = recommendation
+        ? `建议：账单后刷卡 ${formatRuleDate(recommendation.recommendSwipeStart)}~${formatRuleDate(recommendation.recommendSwipeEnd)}，还款建议 ${formatRuleDate(recommendation.recommendRepayDate)}`
+        : '';
 
     const financeData = {
         business_type: 'credit_card',
@@ -6001,7 +6091,8 @@ async function saveBankBusiness() {
             `手续费：${toMoneyText(feeAmount)}`,
             `账单日：每月${billDay}日`,
             `还款日：每月${repaymentDay}日`,
-            reminderText
+            reminderText,
+            recommendationText
         ].filter(Boolean).join('；'),
         transaction_date: transactionDate,
         card_bank: bank,

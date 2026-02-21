@@ -849,8 +849,9 @@ async function syncOneUser({
     });
 
     if (!insertRows.length) {
+      const cleanupResult = await cleanupSyncedDuplicatesForUser(supabase, userId);
       syncStatus = 'partial';
-      syncMessage = `无新增（已存在${existingRefs.size}条）`;
+      syncMessage = `无新增（已存在${existingRefs.size}条），去重删除${cleanupResult.removed}，补全日期${cleanupResult.patched}`;
       console.log(`[QQ同步][${userId}] ${syncMessage}`);
       return { userId, ok: true, syncStatus, syncMessage };
     }

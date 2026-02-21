@@ -149,8 +149,19 @@ function detectMode(text) {
 
 function hasCreditCardKeywords(subject, text, keywords, excludes) {
   const source = `${subject}\n${text}`;
-  const matchedInclude = keywords.some((keyword) => keyword && source.includes(keyword));
+  const sourceLower = source.toLowerCase();
+  const sourceCompact = sourceLower.replace(/\s+/g, '');
+  const matchedInclude = keywords.some((keyword) => {
+    const key = String(keyword || '').trim();
+    if (!key) return false;
+    const keyLower = key.toLowerCase();
+    const keyCompact = keyLower.replace(/\s+/g, '');
+    return sourceLower.includes(keyLower) || sourceCompact.includes(keyCompact);
+  });
   if (matchedInclude) return true;
+  const statementLike = /(账单|statement|billing)/i.test(source);
+  const cardLike = /(信用卡|credit\s*card|银行|bank)/i.test(source);
+  if (statementLike && cardLike) return true;
   if (excludes.some((keyword) => keyword && source.includes(keyword))) return false;
   return false;
 }
@@ -182,15 +193,15 @@ function parseMailToFinance({ userId, uid, subject, fromText, bodyText, parsedDa
 
   if (mode === 'swipe') {
     const swipeAmount = extractAmount(text, [
-      /(?:刷卡(?:金额)?|交易金额)[^0-9¥￥]{0,12}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/,
-      /(?:消费金额)[^0-9¥￥]{0,12}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/
+      /(?:刷卡(?:金额)?|交易金额)[^0-9¥￥]{0,40}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/,
+      /(?:消费金额)[^0-9¥￥]{0,40}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/
     ]);
     if (!Number.isFinite(swipeAmount) || swipeAmount <= 0) return null;
     const actualAmount = extractAmount(text, [
-      /(?:到账(?:金额)?|实到(?:金额)?|入账金额)[^0-9¥￥]{0,12}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/
+      /(?:到账(?:金额)?|实到(?:金额)?|入账金额)[^0-9¥￥]{0,40}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/
     ]);
     const feeAmountFromMail = extractAmount(text, [
-      /(?:手续费|服务费|通道费)[^0-9¥￥]{0,12}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/
+      /(?:手续费|服务费|通道费)[^0-9¥￥]{0,40}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/
     ]);
     const feeRateMatch = text.match(/费率[^0-9]{0,8}([0-9]+(?:\.[0-9]+)?)\s*%/);
     const feeRateFromMail = feeRateMatch ? Number(feeRateMatch[1]) : NaN;
@@ -232,8 +243,8 @@ function parseMailToFinance({ userId, uid, subject, fromText, bodyText, parsedDa
   }
 
   const repaymentAmount = extractAmount(text, [
-    /(?:本期应还(?:金额)?|应还金额|到期应还|本期还款总额)[^0-9¥￥]{0,12}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/,
-    /(?:最低应还(?:金额|款额)?)[^0-9¥￥]{0,12}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/
+    /(?:本期应还(?:金额|款总额|总额)?|本期应还款总额|应还金额|应还款额|应还款总额|到期应还|本期还款总额|本期账单金额|Total Statement Balance|Statement Balance)[^0-9¥￥]{0,80}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/i,
+    /(?:最低应还(?:金额|款额)?|最低还款额|最低还款|Minimum Payment)[^0-9¥￥]{0,80}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/i
   ]);
   if (!Number.isFinite(repaymentAmount) || repaymentAmount <= 0) return null;
 
@@ -606,7 +617,10 @@ async function syncOneUser({
           parsedDate: mail.date,
           reminderDaysBefore
         });
-        if (!row) continue;
+        if (!row) {
+          parseFailed += 1;
+          continue;
+        }
         fallbackParsed += 1;
         parsedRows.push({
           ...row,
@@ -619,6 +633,14 @@ async function syncOneUser({
     }
 
     if (!parsedRows.length) {
+      const skippedPreview = keywordSkippedMessages
+        .slice(0, 5)
+        .map((mail) => String(mail.subject || '(无主题)').replace(/\s+/g, ' ').trim())
+        .filter(Boolean)
+        .join(' | ');
+      if (skippedPreview) {
+        console.log(`[QQ同步][${userId}] 关键词跳过样例：${skippedPreview}`);
+      }
       syncStatus = 'partial';
       syncMessage = `无可导入账单（关键词跳过${skippedByKeyword}，解析失败${parseFailed}）。请确认账单邮件是否为文本内容（非纯图片/PDF）`;
       console.log(`[QQ同步][${userId}] ${syncMessage}`);

@@ -5888,7 +5888,7 @@ function renderBankBusiness(rows = null) {
                 </td>
                 <td>${safeText(`${billText} / ${repayText}`)}</td>
                 <td><span class="${reminderClass}">${safeText(reminderMeta.text)}</span></td>
-                <td class="erp-cell-ellipsis" title="${safeText(item.description)}">${safeText(item.description)}</td>
+                <td title="${safeText(item.description)}"><span class="erp-cell-ellipsis">${safeText(item.description)}</span></td>
                 <td class="erp-action-cell">
                     <div class="erp-row-actions">
                         <button class="ant-btn erp-btn-danger erp-btn-compact" onclick='deleteBankBusiness(${JSON.stringify(item.id)})'>删除</button>

@@ -168,8 +168,10 @@ function hasCreditCardKeywords(subject, text, keywords, excludes) {
 
 function buildReferenceId(userId, uid, mode, bankName, amount, billDay, repaymentDay, dateText) {
   const raw = [userId, uid, mode, bankName, String(amount), String(billDay), String(repaymentDay), dateText].join('|');
-  const hash = crypto.createHash('sha1').update(raw).digest('hex').slice(0, 24);
-  return `qqmail:${mode}:${hash}`;
+  const hash = crypto.createHash('sha1').update(raw).digest('hex');
+  const bigintSafeHex = hash.slice(0, 15);
+  const numericId = BigInt(`0x${bigintSafeHex}`).toString();
+  return numericId;
 }
 
 function parseMailToFinance({ userId, uid, subject, fromText, bodyText, parsedDate, reminderDaysBefore }) {

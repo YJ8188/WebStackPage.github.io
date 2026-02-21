@@ -437,6 +437,33 @@ function isUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || '').trim());
 }
 
+function buildReadableSyncError(error) {
+  const message = String(error?.message || '').trim();
+  const responseStatus = String(error?.responseStatus || '').trim();
+  const responseText = String(error?.responseText || '').trim();
+  const serverResponse = String(error?.serverResponse || '').trim();
+  const raw = [responseText, serverResponse, message].join(' ');
+  const rawLower = raw.toLowerCase();
+
+  if (rawLower.includes('no login fail') || rawLower.includes('authenticate plain')) {
+    const reasons = [];
+    if (rawLower.includes('service is not open')) reasons.push('未开启QQ邮箱IMAP/SMTP服务');
+    if (rawLower.includes('password is incorrect')) reasons.push('IMAP授权码错误或已失效');
+    if (rawLower.includes('account is abnormal')) reasons.push('QQ账号异常（需先在网页邮箱完成验证）');
+    if (rawLower.includes('login frequency limited') || rawLower.includes('system is busy')) {
+      reasons.push('登录过于频繁或系统繁忙（建议30分钟后重试）');
+    }
+    const reasonText = reasons.length ? reasons.join('；') : '请检查QQ邮箱IMAP开通状态与授权码';
+    return `QQ邮箱IMAP登录失败：${reasonText}`;
+  }
+
+  if (responseStatus) {
+    return `同步失败（${responseStatus}）：${message || responseText || '未知错误'}`;
+  }
+
+  return message || responseText || serverResponse || '同步失败（未知错误）';
+}
+
 async function resolveTargetUserIds({ supabase, explicitUserId }) {
   const forcedUserId = String(explicitUserId || '').trim();
   if (forcedUserId) {
@@ -572,7 +599,7 @@ async function syncOneUser({
     return { userId, ok: true, syncStatus, syncMessage };
   } catch (error) {
     syncStatus = 'failed';
-    syncMessage = String(error?.message || error || '同步失败').slice(0, 500);
+    syncMessage = buildReadableSyncError(error).slice(0, 500);
     console.error(`[QQ同步][${userId}] 失败：${syncMessage}`);
     return { userId, ok: false, syncStatus, syncMessage };
   } finally {

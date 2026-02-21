@@ -178,15 +178,17 @@ function hasCreditCardKeywords(subject, text, keywords, excludes) {
   return false;
 }
 
-function buildReferenceId(userId, uid, mode, bankName, amount, billDay, repaymentDay, dateText) {
-  const raw = [userId, uid, mode, bankName, String(amount), String(billDay), String(repaymentDay), dateText].join('|');
+function buildReferenceId(userId, uid, messageId, mode, bankName, amount, dateText) {
+  const normalizedMessageId = String(messageId || '').trim().toLowerCase();
+  const stableMailId = normalizedMessageId || `uid:${uid}`;
+  const raw = [userId, stableMailId, mode, bankName, String(amount), dateText].join('|');
   const hash = crypto.createHash('sha1').update(raw).digest('hex');
   const bigintSafeHex = hash.slice(0, 15);
   const numericId = BigInt(`0x${bigintSafeHex}`).toString();
   return numericId;
 }
 
-function parseMailToFinance({ userId, uid, subject, fromText, bodyText, parsedDate, reminderDaysBefore }) {
+function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyText, parsedDate, reminderDaysBefore }) {
   const text = normalizeText(`${subject}\n${fromText}\n${bodyText}`);
   if (!text) return null;
   const mode = detectMode(text);
@@ -237,7 +239,7 @@ function parseMailToFinance({ userId, uid, subject, fromText, bodyText, parsedDa
     const settlementBank = settlementBankMatch ? String(settlementBankMatch[1]).trim() : bankName;
     const settlementTail = settlementTailMatch ? String(settlementTailMatch[1]) : null;
     const dateText = toYmd(transactionDate);
-    const referenceId = buildReferenceId(userId, uid, mode, bankName, swipeAmount, finalBillDay, repaymentDay, dateText);
+    const referenceId = buildReferenceId(userId, uid, messageId, mode, bankName, swipeAmount, dateText);
 
     return {
       type: 'income',
@@ -272,7 +274,7 @@ function parseMailToFinance({ userId, uid, subject, fromText, bodyText, parsedDa
   const finalRepaymentDay = repaymentDay || (dueDate ? dueDate.getDate() : 0);
   const reminderDate = computeReminderDate(dueDate || transactionDate, finalRepaymentDay, reminderDaysBefore);
   const dateText = toYmd(transactionDate);
-  const referenceId = buildReferenceId(userId, uid, mode, bankName, repaymentAmount, finalBillDay, finalRepaymentDay, dateText);
+  const referenceId = buildReferenceId(userId, uid, messageId, mode, bankName, repaymentAmount, dateText);
 
   return {
     type: 'expense',
@@ -312,6 +314,7 @@ async function fetchLatestMessagesFromMailbox({ client, mailbox, maxMessages, lo
       );
       rows.push({
         uid: msg.uid,
+        messageId: parsed.messageId || msg?.envelope?.messageId || '',
         mailbox,
         subject: parsed.subject || msg?.envelope?.subject || '',
         fromText: parsed.from?.text || '',
@@ -357,6 +360,132 @@ async function fetchExistingReferenceIds(supabase, userId, refs) {
     (data || []).forEach((item) => existing.add(String(item.reference_id || '')));
   }
   return existing;
+}
+
+function safeIsoSecond(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toISOString().slice(0, 19);
+}
+
+function buildFinanceDedupKey(row) {
+  const businessType = String(row?.business_type || '').trim();
+  const bank = String(row?.card_bank || row?.swipe_card_bank || '').trim();
+  const amount = Number(row?.amount || 0);
+  const amountText = Number.isFinite(amount) ? amount.toFixed(2) : '0.00';
+  const timestamp = safeIsoSecond(row?.transaction_date);
+  return [businessType, bank, amountText, timestamp].join('|');
+}
+
+async function fetchExistingDedupKeys(supabase, userId, candidateRows) {
+  if (!Array.isArray(candidateRows) || !candidateRows.length) return new Set();
+  const since = candidateRows
+    .map((row) => new Date(row?.transaction_date))
+    .filter((date) => !Number.isNaN(date.getTime()))
+    .sort((a, b) => a.getTime() - b.getTime())[0];
+  const sinceIso = since ? new Date(since.getTime() - 24 * 60 * 60 * 1000).toISOString() : null;
+
+  let query = supabase
+    .from('erp_finances')
+    .select('business_type, card_bank, swipe_card_bank, amount, transaction_date, description')
+    .eq('user_id', userId)
+    .in('business_type', ['credit_card_repayment', 'credit_card_swipe']);
+  if (sinceIso) query = query.gte('transaction_date', sinceIso);
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const keys = new Set();
+  (data || []).forEach((item) => {
+    const desc = String(item?.description || '');
+    if (!desc.includes('QQ邮箱自动同步')) return;
+    keys.add(buildFinanceDedupKey(item));
+  });
+  return keys;
+}
+
+function pickBestDuplicateRow(rows) {
+  const scored = rows
+    .map((row) => {
+      let score = 0;
+      if (row.card_bill_day) score += 2;
+      if (row.card_repayment_day) score += 2;
+      if (String(row.description || '').includes('应还')) score += 1;
+      if (String(row.description || '').includes('账单日')) score += 1;
+      return { row, score };
+    })
+    .sort((a, b) => b.score - a.score || Number(b.row.id) - Number(a.row.id));
+  return scored[0]?.row || rows[0] || null;
+}
+
+async function cleanupSyncedDuplicatesForUser(supabase, userId) {
+  const sinceDate = new Date();
+  sinceDate.setFullYear(sinceDate.getFullYear() - 1);
+  const { data, error } = await supabase
+    .from('erp_finances')
+    .select('id, business_type, card_bank, swipe_card_bank, amount, transaction_date, card_bill_day, card_repayment_day, description, created_at')
+    .eq('user_id', userId)
+    .in('business_type', ['credit_card_repayment', 'credit_card_swipe'])
+    .gte('transaction_date', sinceDate.toISOString())
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+
+  const grouped = new Map();
+  (data || []).forEach((row) => {
+    const desc = String(row?.description || '');
+    if (!desc.includes('QQ邮箱自动同步')) return;
+    const key = buildFinanceDedupKey(row);
+    if (!key) return;
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(row);
+  });
+
+  const deleteIds = [];
+  const patchRows = [];
+  for (const rows of grouped.values()) {
+    if (!Array.isArray(rows) || rows.length <= 1) continue;
+    const keeper = pickBestDuplicateRow(rows);
+    if (!keeper) continue;
+    const candidates = rows.filter((row) => String(row.id) !== String(keeper.id));
+    candidates.forEach((row) => deleteIds.push(row.id));
+
+    const fallbackBill = keeper.card_bill_day || rows.find((row) => row.card_bill_day)?.card_bill_day || null;
+    const fallbackRepay = keeper.card_repayment_day || rows.find((row) => row.card_repayment_day)?.card_repayment_day || null;
+    if ((fallbackBill && !keeper.card_bill_day) || (fallbackRepay && !keeper.card_repayment_day)) {
+      patchRows.push({
+        id: keeper.id,
+        card_bill_day: fallbackBill || null,
+        card_repayment_day: fallbackRepay || null
+      });
+    }
+  }
+
+  for (const patch of patchRows) {
+    const { error: patchError } = await supabase
+      .from('erp_finances')
+      .update({
+        card_bill_day: patch.card_bill_day,
+        card_repayment_day: patch.card_repayment_day
+      })
+      .eq('id', patch.id);
+    if (patchError) throw patchError;
+  }
+
+  if (deleteIds.length) {
+    const chunkSize = 100;
+    for (let index = 0; index < deleteIds.length; index += chunkSize) {
+      const chunk = deleteIds.slice(index, index + chunkSize);
+      const { error: deleteError } = await supabase
+        .from('erp_finances')
+        .delete()
+        .in('id', chunk);
+      if (deleteError) throw deleteError;
+    }
+  }
+
+  return {
+    removed: deleteIds.length,
+    patched: patchRows.length
+  };
 }
 
 async function insertFinanceRowsCompat(supabase, rows) {
@@ -648,6 +777,7 @@ async function syncOneUser({
       const row = parseMailToFinance({
         userId,
         uid: mail.uid,
+        messageId: mail.messageId,
         subject: mail.subject,
         fromText: mail.fromText,
         bodyText: mail.bodyText,
@@ -670,6 +800,7 @@ async function syncOneUser({
         const row = parseMailToFinance({
           userId,
           uid: mail.uid,
+          messageId: mail.messageId,
           subject: mail.subject,
           fromText: mail.fromText,
           bodyText: mail.bodyText,
@@ -708,7 +839,14 @@ async function syncOneUser({
 
     const refs = parsedRows.map((item) => item.reference_id).filter(Boolean);
     const existingRefs = await fetchExistingReferenceIds(supabase, userId, refs);
-    const insertRows = parsedRows.filter((item) => !existingRefs.has(String(item.reference_id || '')));
+    const existingDedupKeys = await fetchExistingDedupKeys(supabase, userId, parsedRows);
+    const insertRows = parsedRows.filter((item) => {
+      const referenceExists = existingRefs.has(String(item.reference_id || ''));
+      if (referenceExists) return false;
+      const dedupKey = buildFinanceDedupKey(item);
+      if (dedupKey && existingDedupKeys.has(dedupKey)) return false;
+      return true;
+    });
 
     if (!insertRows.length) {
       syncStatus = 'partial';
@@ -728,8 +866,9 @@ async function syncOneUser({
     }
 
     const inserted = await insertFinanceRowsCompat(supabase, insertRows);
+    const cleanupResult = await cleanupSyncedDuplicatesForUser(supabase, userId);
     syncStatus = inserted > 0 ? 'success' : 'partial';
-    syncMessage = `解析${parsedRows.length}，新增${inserted}，关键词跳过${skippedByKeyword}，解析失败${parseFailed}`;
+    syncMessage = `解析${parsedRows.length}，新增${inserted}，关键词跳过${skippedByKeyword}，解析失败${parseFailed}，去重删除${cleanupResult.removed}，补全日期${cleanupResult.patched}`;
     console.log(`[QQ同步][${userId}] 完成：${syncMessage}`);
     return { userId, ok: true, syncStatus, syncMessage };
   } catch (error) {

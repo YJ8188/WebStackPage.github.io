@@ -305,6 +305,7 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
   if (!text) return null;
   const mode = detectMode(text);
   const bankName = detectBankName(text);
+  const forcedBankName = /(中信银行信用卡|citiccard\.com)/i.test(text) ? '中信银行' : '';
   const hasStatementSignal = /(账单|statement|billing|电子账单)/i.test(text);
   const isCiticStatement = /(中信银行信用卡|citiccard\.com|总账信息\s*\|\s*Statement Information|Total Payment)/i.test(text);
 
@@ -420,17 +421,30 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
   const repaymentAmountByStatementCurrency = extractAmount(text, [
     /(?:Statement Information|总账信息)[\s\S]{0,400}?(?:本期应还款总额|Total\s*Payment)[\s\S]{0,220}?([¥￥]?\s*(?:CNY|RMB)?\s*[\d,]+(?:\.\d{1,2})?)/i
   ]);
+  const repaymentAmountByCiticCurrencyMax = (() => {
+    if (!isCiticStatement) return NaN;
+    const matches = Array.from(text.matchAll(/(?:CNY|RMB|¥|￥)\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.\d{1,2})?)/ig));
+    const amounts = matches
+      .map((match) => toNumber(match?.[1], NaN))
+      .filter((value) => Number.isFinite(value) && value > 0 && value < 100000000);
+    if (!amounts.length) return NaN;
+    return Math.max(...amounts);
+  })();
   const repaymentAmount = Number.isFinite(repaymentAmountByLabel)
     ? repaymentAmountByLabel
     : (Number.isFinite(repaymentAmountByCiticTemplate)
       ? repaymentAmountByCiticTemplate
       : (Number.isFinite(repaymentAmountByCiticStrict)
         ? repaymentAmountByCiticStrict
-        : (Number.isFinite(repaymentAmountByStatementCurrency) ? repaymentAmountByStatementCurrency : extractAmount(text, [
+        : (Number.isFinite(repaymentAmountByStatementCurrency)
+          ? repaymentAmountByStatementCurrency
+          : (Number.isFinite(repaymentAmountByCiticCurrencyMax)
+            ? repaymentAmountByCiticCurrencyMax
+            : extractAmount(text, [
     /(?:本期应还(?:金额|款总额|总额)?|本期应还款总额|应还金额|应还款额|应还款总额|到期应还|本期还款总额|本期账单金额|Total Statement Balance|Statement Balance)[^0-9¥￥]{0,80}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/i,
     /(?:本期应还款金额|本期应还款|总账信息)[^0-9¥￥]{0,80}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/i,
     /(?:最低应还(?:金额|款额)?|最低还款额|最低还款|Minimum Payment)[^0-9¥￥]{0,80}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/i
-  ]))));
+  ])))));
   if (!Number.isFinite(repaymentAmount) || repaymentAmount <= 0) return null;
   if (!hasStatementSignal && !statementDate && !billDay && !isCiticStatement) return null;
   if (/(本期账单已还清|已还清|已结清)/.test(text) && !/(本期应还|应还款|Total Statement Balance)/i.test(text)) {
@@ -449,16 +463,17 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
   }
   const reminderDate = computeReminderDate(dueDate || transactionDate, finalRepaymentDay, reminderDaysBefore);
   const dateText = toYmd(transactionDate);
-  const referenceId = buildReferenceId(userId, uid, messageId, mode, bankName, repaymentAmount, dateText);
+  const stableBankName = forcedBankName || bankName;
+  const referenceId = buildReferenceId(userId, uid, messageId, mode, stableBankName, repaymentAmount, dateText);
 
   return {
     type: 'expense',
     category: '信用卡还款',
     amount: Number(repaymentAmount.toFixed(2)),
-    description: `来源：QQ邮箱自动同步；银行：${bankName || '未识别'}；应还：¥${repaymentAmount.toFixed(2)}；账单日：${finalBillDay || '-'}；还款日：${finalRepaymentDay || '-'}`,
+    description: `来源：QQ邮箱自动同步；银行：${stableBankName || '未识别'}；应还：¥${repaymentAmount.toFixed(2)}；账单日：${finalBillDay || '-'}；还款日：${finalRepaymentDay || '-'}`,
     transaction_date: transactionDate.toISOString(),
     business_type: 'credit_card_repayment',
-    card_bank: bankName || null,
+    card_bank: stableBankName || null,
     card_bill_day: finalBillDay || null,
     card_repayment_day: finalRepaymentDay || null,
     card_repayment_amount: Number(repaymentAmount.toFixed(2)),

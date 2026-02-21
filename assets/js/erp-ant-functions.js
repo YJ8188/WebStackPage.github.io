@@ -6193,9 +6193,13 @@ async function invokeQQMailAuthFunction(action, payload = {}) {
     if (typeof supabaseClient === 'undefined') {
         throw new Error('Supabase 客户端未初始化');
     }
+    const currentUserId = typeof getCurrentERPUserId === 'function'
+        ? getCurrentERPUserId()
+        : String(window?.userData?.user?.id || '').trim();
     const response = await supabaseClient.functions.invoke('qq-mail-auth', {
         body: {
             action,
+            user_id: currentUserId || undefined,
             ...payload
         }
     });

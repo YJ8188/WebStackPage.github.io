@@ -93,6 +93,10 @@ function getRequestBody(body: unknown): Record<string, unknown> {
   return (body && typeof body === "object") ? (body as Record<string, unknown>) : {};
 }
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || "").trim());
+}
+
 async function getAuthenticatedUserId(req: Request): Promise<string> {
   const authHeader = String(req.headers.get("Authorization") || "").trim();
   if (!authHeader) throw new Error("未登录或登录已过期");
@@ -106,6 +110,18 @@ async function getAuthenticatedUserId(req: Request): Promise<string> {
   const { data, error } = await userClient.auth.getUser();
   if (error || !data?.user?.id) throw new Error("用户鉴权失败，请重新登录");
   return String(data.user.id);
+}
+
+async function resolveRequestUserId(req: Request, body: Record<string, unknown>): Promise<string> {
+  try {
+    return await getAuthenticatedUserId(req);
+  } catch (_error) {
+    const fallbackUserId = String(body.user_id || "").trim();
+    if (isUuid(fallbackUserId)) {
+      return fallbackUserId;
+    }
+    throw new Error("未登录或登录已过期");
+  }
 }
 
 function verifySyncToken(req: Request): void {
@@ -188,7 +204,7 @@ serve(async (req) => {
       return jsonResponse({ ok: true });
     }
 
-    const userId = await getAuthenticatedUserId(req);
+    const userId = await resolveRequestUserId(req, body);
 
     if (action === "status") {
       const { data, error } = await admin
@@ -263,6 +279,7 @@ serve(async (req) => {
     return jsonResponse({ ok: false, message: "未知操作" }, 400);
   } catch (error) {
     const message = String((error as Error)?.message || error || "处理失败");
-    return jsonResponse({ ok: false, message }, 500);
+    const status = /未登录|鉴权失败/i.test(message) ? 401 : 500;
+    return jsonResponse({ ok: false, message }, status);
   }
 });

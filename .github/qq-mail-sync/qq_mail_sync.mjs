@@ -78,6 +78,15 @@ function stripHtmlToText(html) {
     .trim();
 }
 
+function mergeMailBodyText(parsed) {
+  const textParts = [
+    String(parsed?.text || '').trim(),
+    stripHtmlToText(parsed?.textAsHtml || ''),
+    stripHtmlToText(parsed?.html || '')
+  ].filter(Boolean);
+  return normalizeText(textParts.join('\n'));
+}
+
 function parseDateToken(rawText) {
   const source = String(rawText || '').trim();
   if (!source) return null;
@@ -403,6 +412,11 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
     /(?:本期应还款总额|Total Payment)[^0-9¥￥CNY]{0,120}(?:CNY|¥|￥)?\s*([\d,]+(?:\.\d{1,2})?)/i,
     /(?:Total Payment)[^0-9¥￥CNY]{0,120}(?:CNY|¥|￥)?\s*([\d,]+(?:\.\d{1,2})?)/i
   ]);
+  const repaymentAmountByCiticStrict = extractAmount(text, [
+    /Total\s*Payment[\s\S]{0,120}?([0-9]{1,3}(?:,[0-9]{3})*(?:\.\d{1,2})?)/i,
+    /本期应还款总额[\s\S]{0,120}?([0-9]{1,3}(?:,[0-9]{3})*(?:\.\d{1,2})?)/i,
+    /(?:CNY|RMB)\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.\d{1,2})?)[\s\S]{0,60}?(?:Total\s*Payment|本期应还款总额)/i
+  ]);
   const repaymentAmountByStatementCurrency = extractAmount(text, [
     /(?:Statement Information|总账信息)[\s\S]{0,400}?(?:本期应还款总额|Total\s*Payment)[\s\S]{0,220}?([¥￥]?\s*(?:CNY|RMB)?\s*[\d,]+(?:\.\d{1,2})?)/i
   ]);
@@ -410,11 +424,13 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
     ? repaymentAmountByLabel
     : (Number.isFinite(repaymentAmountByCiticTemplate)
       ? repaymentAmountByCiticTemplate
-      : (Number.isFinite(repaymentAmountByStatementCurrency) ? repaymentAmountByStatementCurrency : extractAmount(text, [
+      : (Number.isFinite(repaymentAmountByCiticStrict)
+        ? repaymentAmountByCiticStrict
+        : (Number.isFinite(repaymentAmountByStatementCurrency) ? repaymentAmountByStatementCurrency : extractAmount(text, [
     /(?:本期应还(?:金额|款总额|总额)?|本期应还款总额|应还金额|应还款额|应还款总额|到期应还|本期还款总额|本期账单金额|Total Statement Balance|Statement Balance)[^0-9¥￥]{0,80}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/i,
     /(?:本期应还款金额|本期应还款|总账信息)[^0-9¥￥]{0,80}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/i,
     /(?:最低应还(?:金额|款额)?|最低还款额|最低还款|Minimum Payment)[^0-9¥￥]{0,80}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/i
-  ])));
+  ]))));
   if (!Number.isFinite(repaymentAmount) || repaymentAmount <= 0) return null;
   if (!hasStatementSignal && !statementDate && !billDay && !isCiticStatement) return null;
   if (/(本期账单已还清|已还清|已结清)/.test(text) && !/(本期应还|应还款|Total Statement Balance)/i.test(text)) {
@@ -512,12 +528,7 @@ async function fetchLatestMessagesFromMailbox({ client, mailbox, maxMessages, lo
         continue;
       }
       const parsed = await simpleParser(msg.source);
-      const bodyText = normalizeText(
-        parsed.text
-        || stripHtmlToText(parsed.textAsHtml)
-        || stripHtmlToText(parsed.html)
-        || ''
-      );
+      const bodyText = mergeMailBodyText(parsed);
       rows.push({
         uid: msg.uid,
         messageId: parsed.messageId || msg?.envelope?.messageId || '',
@@ -1187,6 +1198,10 @@ async function syncOneUser({
       if (!row) {
         parseFailed += 1;
         parseFailedSubjects.push(mail.subject || '(无主题)');
+        if (/(中信银行信用卡|citiccard\.com|电子账单)/i.test(`${mail.subject}\n${mail.fromText}\n${mail.bodyText}`)) {
+          const snippet = String(mail.bodyText || '').slice(0, 260).replace(/\s+/g, ' ');
+          console.log(`[QQ同步][${userId}] 中信解析失败调试：主题=${String(mail.subject || '').replace(/\s+/g, ' ')}；片段=${snippet}`);
+        }
         continue;
       }
       parsedRows.push({

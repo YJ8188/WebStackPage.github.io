@@ -395,6 +395,7 @@ async function fetchLatestMessagesFromMailbox({ client, mailbox, maxMessages, lo
   try {
     const exists = Number(client.mailbox?.exists || 0);
     if (!exists) return [];
+    const isCappedByMax = exists > maxMessages;
     const fromSeq = Math.max(1, exists - maxMessages + 1);
     const lookbackEnabled = Number(lookbackDays || 0) > 0;
     const sinceTime = lookbackEnabled
@@ -428,7 +429,7 @@ async function fetchLatestMessagesFromMailbox({ client, mailbox, maxMessages, lo
       });
     }
     console.log(
-      `[QQ同步] 文件夹 ${mailbox}：总邮件${exists}，扫描${scannedCount}，时间窗过滤${skippedByLookback}，保留${rows.length}`
+      `[QQ同步] 文件夹 ${mailbox}：总邮件${exists}，扫描${scannedCount}，时间窗过滤${skippedByLookback}，保留${rows.length}${isCappedByMax ? `，上限截断${exists - maxMessages}` : ''}`
     );
     return rows;
   } finally {
@@ -1186,7 +1187,7 @@ async function main() {
   const explicitUserId = String(process.env.ERP_USER_ID || '').trim();
   const mailboxText = String(process.env.QQ_MAILBOX || 'INBOX').trim();
   const lookbackDays = Math.max(0, toInt(process.env.QQ_SYNC_LOOKBACK_DAYS, 120));
-  const maxMessages = Math.max(20, toInt(process.env.QQ_SYNC_MAX_MESSAGES, 250));
+  const maxMessages = Math.max(20, toInt(process.env.QQ_SYNC_MAX_MESSAGES, 1200));
   const reminderDaysBefore = Math.max(0, toInt(process.env.QQ_SYNC_REMINDER_DAYS_BEFORE, 3));
   const autoDiscoverMailbox = !['0', 'false', 'no'].includes(String(process.env.QQ_MAILBOX_AUTO_DISCOVER || 'true').toLowerCase());
   const dryRun = ['1', 'true', 'yes'].includes(String(process.env.QQ_SYNC_DRY_RUN || '').toLowerCase());

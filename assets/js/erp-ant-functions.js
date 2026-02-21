@@ -5759,10 +5759,16 @@ function parseBankBusinessRecord(record) {
     const parsedSettlementBank = String(record?.settlement_bank || settlementBankMatch?.[1] || '').trim();
     const parsedSettlementTail = String(record?.settlement_card_tail || settlementTailMatch?.[1] || '').trim();
 
+    const fallbackBillDayFromDate = (() => {
+        const sourceDate = parseFinanceDate(record?.transaction_date || record?.created_at || null);
+        if (!(sourceDate instanceof Date) || Number.isNaN(sourceDate.getTime())) return 0;
+        return toValidDay(sourceDate.getDate(), 0);
+    })();
+
     return {
         id: record?.id,
         bank: parsedBank,
-        billDay: toValidDay(record?.card_bill_day || billMatch?.[1], 0),
+        billDay: toValidDay(record?.card_bill_day || billMatch?.[1] || fallbackBillDayFromDate, 0),
         repaymentDay: toValidDay(record?.card_repayment_day || repaymentMatch?.[1], 0),
         reminderEnabled,
         reminderDaysBefore: Math.max(0, Math.floor(toAmount(record?.reminder_days_before || reminderDayMatch?.[1], 0))),

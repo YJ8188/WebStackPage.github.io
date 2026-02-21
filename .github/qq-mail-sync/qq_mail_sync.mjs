@@ -125,6 +125,25 @@ function extractDateByLabels(text, labels = []) {
   return parseDateToken(match[1]);
 }
 
+function extractAmountByLabels(text, labels = []) {
+  const source = String(text || '');
+  if (!source || !labels.length) return NaN;
+  const escapedLabels = labels
+    .map((label) => String(label || '').trim())
+    .filter(Boolean)
+    .map((label) => label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  if (!escapedLabels.length) return NaN;
+  const labelGroup = escapedLabels.join('|');
+  const regex = new RegExp(
+    `(?:${labelGroup})[\\s\\S]{0,120}?([¥￥]?(?:\\s*CNY\\s*)?\\s*[\\d,]+(?:\\.\\d{1,2})?)`,
+    'i'
+  );
+  const match = source.match(regex);
+  if (!match || !match[1]) return NaN;
+  const amount = toNumber(String(match[1]).replace(/CNY/ig, ''), NaN);
+  return Number.isFinite(amount) ? amount : NaN;
+}
+
 function extractStatementPeriodEndDate(text) {
   const source = String(text || '');
   if (!source) return null;
@@ -316,7 +335,19 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
     };
   }
 
-  const repaymentAmount = extractAmount(text, [
+  const repaymentAmountByLabel = extractAmountByLabels(text, [
+    '本期应还款总额',
+    '本期应还款金额',
+    '本期应还款',
+    '应还款总额',
+    '应还款额',
+    'Total Payment',
+    'Total Statement Balance',
+    'Statement Balance'
+  ]);
+  const repaymentAmount = Number.isFinite(repaymentAmountByLabel)
+    ? repaymentAmountByLabel
+    : extractAmount(text, [
     /(?:本期应还(?:金额|款总额|总额)?|本期应还款总额|应还金额|应还款额|应还款总额|到期应还|本期还款总额|本期账单金额|Total Statement Balance|Statement Balance)[^0-9¥￥]{0,80}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/i,
     /(?:本期应还款金额|本期应还款|总账信息)[^0-9¥￥]{0,80}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/i,
     /(?:最低应还(?:金额|款额)?|最低还款额|最低还款|Minimum Payment)[^0-9¥￥]{0,80}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/i
@@ -345,7 +376,7 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
     type: 'expense',
     category: '信用卡还款',
     amount: Number(repaymentAmount.toFixed(2)),
-    description: `来源：QQ邮箱自动同步；银行：${bankName || '未识别'}；应还：¥${repaymentAmount.toFixed(2)}；账单日：${billDay || '-'}；还款日：${finalRepaymentDay || '-'}`,
+    description: `来源：QQ邮箱自动同步；银行：${bankName || '未识别'}；应还：¥${repaymentAmount.toFixed(2)}；账单日：${finalBillDay || '-'}；还款日：${finalRepaymentDay || '-'}`,
     transaction_date: transactionDate.toISOString(),
     business_type: 'credit_card_repayment',
     card_bank: bankName || null,

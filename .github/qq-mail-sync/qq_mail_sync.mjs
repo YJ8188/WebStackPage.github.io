@@ -441,20 +441,30 @@ async function resolveMailboxesToScan({ client, mailboxText, autoDiscover }) {
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean);
+  const wantsAll = configured.some((item) => /^(all|\*)$/i.test(item));
   const selected = new Set(configured.length ? configured : ['INBOX']);
-  if (!autoDiscover) {
+  if (wantsAll) {
+    selected.clear();
+  }
+  if (!autoDiscover && !wantsAll) {
     if (!selected.has('INBOX')) selected.add('INBOX');
     return Array.from(selected);
   }
 
   try {
     const folders = await client.list();
+    const selectableFolders = [];
     const keywordRegex = /(信用卡|账单|银行|中信|浦发|民生|光大|张家口|credit|statement|billing|card|repay|payment)/i;
     for (const folder of folders || []) {
       const path = String(folder?.path || '').trim();
       if (!path) continue;
       const isDisabled = !!folder?.disabled || !!folder?.flags?.has?.('\\Noselect') || !!folder?.flags?.has?.('\\NonExistent');
       if (isDisabled) continue;
+      selectableFolders.push(path);
+      if (wantsAll) {
+        selected.add(path);
+        continue;
+      }
       const name = String(folder?.name || '').trim();
       const specialUse = String(folder?.specialUse || '').trim();
       if (specialUse === '\\Inbox' || path.toUpperCase() === 'INBOX') {
@@ -464,6 +474,9 @@ async function resolveMailboxesToScan({ client, mailboxText, autoDiscover }) {
       if (keywordRegex.test(path) || keywordRegex.test(name)) {
         selected.add(path);
       }
+    }
+    if (wantsAll) {
+      console.log(`[QQ同步] 已启用全量文件夹扫描，共 ${selectableFolders.length} 个文件夹`);
     }
   } catch (error) {
     console.warn('[QQ同步] 自动发现邮箱文件夹失败，改用手动配置：', error?.message || error);

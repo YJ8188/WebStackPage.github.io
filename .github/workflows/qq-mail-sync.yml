@@ -49,5 +49,25 @@ jobs:
       - name: Install dependencies
         run: npm install --prefix .github/qq-mail-sync
 
+      - name: 预检必填配置
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=()
+          for key in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY ERP_USER_ID QQ_MAIL_SYNC_TOKEN; do
+            if [ -z "${!key:-}" ]; then
+              missing+=("$key")
+            fi
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::缺少 GitHub Secrets：${missing[*]}"
+            exit 1
+          fi
+          if ! [[ "${ERP_USER_ID}" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$ ]]; then
+            echo "::error::ERP_USER_ID 格式错误（必须是用户 UUID）"
+            exit 1
+          fi
+          echo "预检通过：关键配置已就绪"
+
       - name: Run QQ mail sync
         run: node .github/qq-mail-sync/qq_mail_sync.mjs

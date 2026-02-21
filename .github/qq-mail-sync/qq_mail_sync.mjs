@@ -503,6 +503,23 @@ function buildReadableSyncError(error) {
   return message || responseText || serverResponse || '同步失败（未知错误）';
 }
 
+function shouldRetryImapError(error) {
+  const message = String(error?.message || '').toLowerCase();
+  const responseText = String(error?.responseText || '').toLowerCase();
+  const source = `${message} ${responseText}`;
+  if (!source) return false;
+  if (source.includes('login frequency limited')) return true;
+  if (source.includes('system is busy')) return true;
+  if (source.includes('timeout')) return true;
+  if (source.includes('connection closed')) return true;
+  if (source.includes('socket hang up')) return true;
+  return false;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
+}
+
 async function resolveTargetUserIds({ supabase, explicitUserId }) {
   const forcedUserId = String(explicitUserId || '').trim();
   if (forcedUserId) {
@@ -556,22 +573,43 @@ async function syncOneUser({
       throw new Error('邮箱授权不存在或已失效，请先在ERP页面完成QQ邮箱授权');
     }
 
-    client = new ImapFlow({
-      host,
-      port,
-      secure: true,
-      auth: {
-        user: email,
-        pass: password
-      }
-    });
-
     console.log(`[QQ同步][${userId}] 启动：邮箱=${email}, 时间窗=${lookbackDays}天, 来源=${credential.source}`);
-    await client.connect();
-    clientConnected = true;
-    const messages = await fetchLatestMessages({ client, mailboxText, maxMessages, lookbackDays });
-    await client.logout();
-    clientConnected = false;
+    let messages = [];
+    const maxAttempts = 2;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      client = new ImapFlow({
+        host,
+        port,
+        secure: true,
+        auth: {
+          user: email,
+          pass: password
+        }
+      });
+      try {
+        await client.connect();
+        clientConnected = true;
+        messages = await fetchLatestMessages({ client, mailboxText, maxMessages, lookbackDays });
+        await client.logout();
+        clientConnected = false;
+        break;
+      } catch (imapError) {
+        if (clientConnected && client) {
+          try {
+            await client.logout();
+          } catch (_closeErr) {
+          }
+        }
+        clientConnected = false;
+        if (attempt < maxAttempts && shouldRetryImapError(imapError)) {
+          const waitMs = 15000 * attempt;
+          console.warn(`[QQ同步][${userId}] IMAP连接失败，${waitMs / 1000}秒后重试（第${attempt + 1}次）`);
+          await sleep(waitMs);
+          continue;
+        }
+        throw imapError;
+      }
+    }
 
     console.log(`[QQ同步][${userId}] 拉取邮件数量：${messages.length}`);
 
@@ -723,6 +761,7 @@ async function main() {
   let successCount = 0;
   let partialCount = 0;
   let failedCount = 0;
+  const failureMessages = [];
 
   for (const userId of userIds) {
     const result = await syncOneUser({
@@ -739,12 +778,16 @@ async function main() {
     });
     if (result.syncStatus === 'success') successCount += 1;
     else if (result.syncStatus === 'partial') partialCount += 1;
-    else failedCount += 1;
+    else {
+      failedCount += 1;
+      failureMessages.push(`[${result.userId}]${result.syncMessage}`);
+    }
   }
 
   console.log(`[QQ同步] 总结：成功${successCount}，部分成功${partialCount}，失败${failedCount}`);
   if (failedCount > 0 && successCount === 0 && partialCount === 0) {
-    throw new Error(`全部账号同步失败（${failedCount}）`);
+    const reason = failureMessages.length ? `：${failureMessages.join('；')}` : '';
+    throw new Error(`全部账号同步失败（${failedCount}）${reason}`);
   }
 }
 

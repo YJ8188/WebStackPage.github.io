@@ -4,7 +4,7 @@
 create table if not exists public.erp_bank_connections (
     id uuid primary key default gen_random_uuid(),
     user_id uuid not null,
-    provider text not null default 'unionpay_openapi',
+    provider text not null default 'manual_statement',
     bank_name text not null,
     account_mask text,
     auth_status text not null default 'pending'
@@ -45,7 +45,7 @@ create table if not exists public.erp_bank_statement_entries (
     amount numeric(12, 2) not null default 0,
     currency text not null default 'CNY',
     description text,
-    source_channel text not null default 'connector',
+    source_channel text not null default 'erp_ledger',
     external_ref text not null,
     ext_payload jsonb,
     created_at timestamptz not null default now()

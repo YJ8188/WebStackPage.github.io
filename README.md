@@ -151,36 +151,19 @@ TRACK17_API_KEY=你的17TRACK_API_KEY
 
 ## 个人银行账单同步中心（ERP 银行业务）
 - 已新增「个人账单同步中心」UI：连接管理、手动同步、同步日志
-- 已支持三种通道标记：银联开放接口、云闪付授权（预留）、手工账单导入
+- 当前仅保留个人模式：`个人账单导入`
 - 同步策略支持：
-  - 自动（先调接口，失败自动回退 ERP 账本）
-  - 仅接口同步
-  - 仅账本回填
+  - 智能匹配（银行+尾号+关键词）
+  - 严格匹配（银行+尾号）
 
 ### 1）执行数据库升级 SQL
 在 Supabase SQL Editor 执行：
 `supabase/sql/20260221_add_personal_bank_sync_tables.sql`
 
-### 2）部署个人账单同步函数（可选，但建议）
-```bash
-supabase functions deploy personal-bank-sync
-```
-> 当前函数配置为 `verify_jwt = false`（见 `supabase/functions/personal-bank-sync/config.toml`），用于兼容网页端跨域调用与联调。
-
-### 3）函数联调（可选）
-开启 mock 返回测试账单：
-```bash
-supabase secrets set PERSONAL_BANK_SYNC_MOCK=1
-```
-关闭 mock（默认走空返回，前端会自动回退账本）：
-```bash
-supabase secrets unset PERSONAL_BANK_SYNC_MOCK
-```
-
-### 4）前端使用路径
+### 2）前端使用路径
 - ERP → 银行业务 → 个人账单同步中心
 - 先新增个人连接，再执行“手动同步账单”
-- 若后端接口未配置，系统会自动按同银行关键词从 ERP 财务账本回填
+- 系统按选择策略从 ERP 财务账本中匹配并写入个人账单明细
 
 ### 4）使用方式
 - ERP → 订单管理 → 详情（编辑订单）  

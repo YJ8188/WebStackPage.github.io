@@ -5741,9 +5741,22 @@ function parseBankBusinessRecord(record) {
     }
 
     const reminderDate = parseFinanceDate(record?.reminder_date || reminderDateMatch?.[1] || null);
+    const cleanedDescription = description
+        .split(/[；;]+/)
+        .map(part => String(part || '').trim())
+        .filter(Boolean)
+        .filter(part => !/^(银行|刷卡卡|到账卡|应还|刷卡|到账|手续费|费率|账单日|还款日|提醒|建议)[:：]/.test(part))
+        .join('；')
+        .trim();
+
+    const parsedBank = String(record?.card_bank || record?.swipe_card_bank || bankMatch?.[1] || swipeBankMatch?.[1] || '未识别银行').trim();
+    const parsedSwipeCardBank = String(record?.swipe_card_bank || swipeBankMatch?.[1] || '').trim();
+    const parsedSettlementBank = String(record?.settlement_bank || settlementBankMatch?.[1] || '').trim();
+    const parsedSettlementTail = String(record?.settlement_card_tail || settlementTailMatch?.[1] || '').trim();
+
     return {
         id: record?.id,
-        bank: String(record?.card_bank || record?.swipe_card_bank || bankMatch?.[1] || swipeBankMatch?.[1] || '未识别银行').trim(),
+        bank: parsedBank,
         billDay: toValidDay(record?.card_bill_day || billMatch?.[1], 0),
         repaymentDay: toValidDay(record?.card_repayment_day || repaymentMatch?.[1], 0),
         reminderEnabled,
@@ -5751,27 +5764,17 @@ function parseBankBusinessRecord(record) {
         reminderDate,
         businessType,
         repaymentAmount: Number.isFinite(repaymentAmount) ? repaymentAmount : 0,
-        swipeCardBank: String(record?.swipe_card_bank || swipeBankMatch?.[1] || record?.card_bank || bankMatch?.[1] || '未识别').trim(),
-        settlementBank: String(record?.settlement_bank || settlementBankMatch?.[1] || '未识别').trim(),
-        settlementCardTail: String(record?.settlement_card_tail || settlementTailMatch?.[1] || '').trim(),
-        swipeAmount: Number.isFinite(swipeAmount) ? swipeAmount : 0,
-        actualAmount: Number.isFinite(actualAmount) ? actualAmount : Math.abs(Number(record?.amount || 0)),
-        feeAmount: Number.isFinite(feeAmount) ? feeAmount : 0,
-        feeRate: Number.isFinite(feeRate) ? feeRate : 0,
+        swipeCardBank: isSwipe ? (parsedSwipeCardBank || parsedBank || '未识别') : '',
+        settlementBank: isSwipe ? (parsedSettlementBank || '未识别') : '',
+        settlementCardTail: isSwipe ? parsedSettlementTail : '',
+        swipeAmount: isSwipe ? (Number.isFinite(swipeAmount) ? swipeAmount : 0) : 0,
+        actualAmount: isSwipe ? (Number.isFinite(actualAmount) ? actualAmount : Math.abs(Number(record?.amount || 0))) : 0,
+        feeAmount: isSwipe ? (Number.isFinite(feeAmount) ? feeAmount : 0) : 0,
+        feeRate: isSwipe ? (Number.isFinite(feeRate) ? feeRate : 0) : 0,
+        isRepayment,
+        isSwipe,
         transactionDate: parseFinanceDate(record?.transaction_date || record?.created_at || new Date()),
-        description: description
-            .replace(/\s*银行[:：][^；\n]+/g, '')
-            .replace(/\s*刷卡卡[:：][^；\n]+/g, '')
-            .replace(/\s*到账卡[:：][^；\n]+/g, '')
-            .replace(/\s*应还[:：][^；\n]+/g, '')
-            .replace(/\s*刷卡[:：][^；\n]+/g, '')
-            .replace(/\s*到账[:：][^；\n]+/g, '')
-            .replace(/\s*手续费[:：][^；\n]+/g, '')
-            .replace(/\s*账单日[:：][^；\n]+/g, '')
-            .replace(/\s*还款日[:：][^；\n]+/g, '')
-            .replace(/\s*提醒[:：][^；\n]+/g, '')
-            .replace(/\s*建议[:：][^；\n]+/g, '')
-            .trim() || '-',
+        description: cleanedDescription || '-',
         raw: record
     };
 }
@@ -5798,10 +5801,10 @@ function syncBankBusinessRows(rows = [], source = 'all') {
 
 function updateBankBusinessSummary(rows = []) {
     const list = Array.isArray(rows) ? rows : [];
-    const totalRepayment = list.reduce((sum, row) => sum + Number(row?.repaymentAmount || 0), 0);
-    const totalSwipe = list.reduce((sum, row) => sum + Number(row?.swipeAmount || 0), 0);
-    const totalActual = list.reduce((sum, row) => sum + Number(row?.actualAmount || 0), 0);
-    const totalFee = list.reduce((sum, row) => sum + Number(row?.feeAmount || 0), 0);
+    const totalRepayment = list.reduce((sum, row) => sum + (row?.isRepayment ? Number(row?.repaymentAmount || 0) : 0), 0);
+    const totalSwipe = list.reduce((sum, row) => sum + (row?.isSwipe ? Number(row?.swipeAmount || 0) : 0), 0);
+    const totalActual = list.reduce((sum, row) => sum + (row?.isSwipe ? Number(row?.actualAmount || 0) : 0), 0);
+    const totalFee = list.reduce((sum, row) => sum + (row?.isSwipe ? Number(row?.feeAmount || 0) : 0), 0);
     const dueCount = list.filter(row => getBankReminderStatus(row).isDue).length;
 
     const repaymentEl = document.getElementById('bankingSummaryRepayment');
@@ -5855,23 +5858,33 @@ function renderBankBusiness(rows = null) {
         const billText = item.billDay ? `${item.billDay}日` : '-';
         const repayText = item.repaymentDay ? `${item.repaymentDay}日` : '-';
         const reminderClass = `erp-bank-reminder ${reminderMeta.className}`;
-        const settlementText = item.settlementBank === '未识别'
-            ? '未识别'
-            : `${item.settlementBank}${item.settlementCardTail ? `（尾号${item.settlementCardTail}）` : ''}`;
+        const settlementText = item.isSwipe
+            ? (item.settlementBank === '未识别'
+                ? '未识别'
+                : `${item.settlementBank}${item.settlementCardTail ? `（尾号${item.settlementCardTail}）` : ''}`)
+            : '-';
+        const repaymentAmountText = item.isRepayment ? toMoneyText(item.repaymentAmount) : '-';
+        const swipeAmountText = item.isSwipe ? toMoneyText(item.swipeAmount) : '-';
+        const actualAmountText = item.isSwipe ? toMoneyText(item.actualAmount) : '-';
+        const feeAmountText = item.isSwipe ? toMoneyText(item.feeAmount) : '-';
+        const feeRateText = item.isSwipe ? `${Number(item.feeRate || 0).toFixed(2)}%` : '-';
+        const bankSubText = item.isRepayment
+            ? `还款卡：${safeText(item.bank || '-')}`
+            : `刷卡卡：${safeText(item.swipeCardBank || '-')}`;
         return `
             <tr>
                 <td class="erp-cell-nowrap">${safeText(dateText)}</td>
                 <td>
                     <div class="erp-finance-cell-main">${safeText(item.bank)}</div>
-                    <div class="erp-finance-cell-sub">刷卡卡：${safeText(item.swipeCardBank || '-')}</div>
+                    <div class="erp-finance-cell-sub">${bankSubText}</div>
                 </td>
                 <td>${safeText(settlementText)}</td>
-                <td><span class="erp-amount-text is-expense">${toMoneyText(item.repaymentAmount)}</span></td>
-                <td><span class="erp-amount-text">${toMoneyText(item.swipeAmount)}</span></td>
-                <td><span class="erp-amount-text is-income">${toMoneyText(item.actualAmount)}</span></td>
+                <td><span class="erp-amount-text is-expense">${safeText(repaymentAmountText)}</span></td>
+                <td><span class="erp-amount-text">${safeText(swipeAmountText)}</span></td>
+                <td><span class="erp-amount-text is-income">${safeText(actualAmountText)}</span></td>
                 <td>
-                    <div class="erp-finance-cell-main"><span class="erp-amount-text is-expense">${toMoneyText(item.feeAmount)}</span></div>
-                    <div class="erp-finance-cell-sub">费率：${Number(item.feeRate || 0).toFixed(2)}%</div>
+                    <div class="erp-finance-cell-main"><span class="erp-amount-text is-expense">${safeText(feeAmountText)}</span></div>
+                    <div class="erp-finance-cell-sub">费率：${safeText(feeRateText)}</div>
                 </td>
                 <td>${safeText(`${billText} / ${repayText}`)}</td>
                 <td><span class="${reminderClass}">${safeText(reminderMeta.text)}</span></td>

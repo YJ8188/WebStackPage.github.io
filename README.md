@@ -165,6 +165,7 @@ TRACK17_API_KEY=你的17TRACK_API_KEY
 ```bash
 supabase functions deploy personal-bank-sync
 ```
+> 当前函数配置为 `verify_jwt = false`（见 `supabase/functions/personal-bank-sync/config.toml`），用于兼容网页端跨域调用与联调。
 
 ### 3）函数联调（可选）
 开启 mock 返回测试账单：

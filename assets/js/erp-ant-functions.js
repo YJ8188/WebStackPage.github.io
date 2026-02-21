@@ -6999,17 +6999,25 @@ async function tryConnectorSync(connection, startDate, endDate) {
         return { ok: false, message: '当前环境不支持边缘函数调用' };
     }
 
-    const response = await supabaseClient.functions.invoke('personal-bank-sync', {
-        body: {
-            connection_id: connection.id,
-            provider: connection.provider,
-            bank_name: connection.bank_name,
-            account_mask: connection.account_mask || null,
-            start_date: startDate,
-            end_date: endDate,
-            user_id: getCurrentERPUserId()
-        }
-    });
+    let response = null;
+    try {
+        response = await supabaseClient.functions.invoke('personal-bank-sync', {
+            body: {
+                connection_id: connection.id,
+                provider: connection.provider,
+                bank_name: connection.bank_name,
+                account_mask: connection.account_mask || null,
+                start_date: startDate,
+                end_date: endDate,
+                user_id: getCurrentERPUserId()
+            }
+        });
+    } catch (error) {
+        return {
+            ok: false,
+            message: `接口调用异常：${error?.message || '网络或跨域错误'}`
+        };
+    }
 
     if (response?.error) {
         return { ok: false, message: response.error?.message || '接口同步失败' };

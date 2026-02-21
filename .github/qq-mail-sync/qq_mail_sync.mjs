@@ -117,7 +117,7 @@ function extractDateByLabels(text, labels = []) {
   if (!escapedLabels.length) return null;
   const labelGroup = escapedLabels.join('|');
   const regex = new RegExp(
-    `(?:${labelGroup})[\\s\\S]{0,140}?((?:20\\d{2}[年/\\-.]\\d{1,2}[月/\\-.]\\d{1,2}日?)|(?:\\d{1,2}[\\/\\-.]\\d{1,2}))`,
+    `(?:${labelGroup})[\\s\\S]{0,420}?((?:20\\d{2}[年/\\-.]\\d{1,2}[月/\\-.]\\d{1,2}日?)|(?:\\d{1,2}[\\/\\-.]\\d{1,2}))`,
     'i'
   );
   const match = source.match(regex);
@@ -135,7 +135,7 @@ function extractAmountByLabels(text, labels = []) {
   if (!escapedLabels.length) return NaN;
   const labelGroup = escapedLabels.join('|');
   const regex = new RegExp(
-    `(?:${labelGroup})[\\s\\S]{0,120}?([¥￥]?(?:\\s*CNY\\s*)?\\s*[\\d,]+(?:\\.\\d{1,2})?)`,
+    `(?:${labelGroup})[\\s\\S]{0,420}?([¥￥]?(?:\\s*CNY\\s*)?\\s*[\\d,]+(?:\\.\\d{1,2})?)`,
     'i'
   );
   const match = source.match(regex);
@@ -240,7 +240,21 @@ function buildReferenceId(userId, uid, messageId, mode, bankName, amount, dateTe
   return numericId;
 }
 
+function isCalendarReminderMail(subject, fromText, bodyText) {
+  const subjectText = String(subject || '');
+  const from = String(fromText || '');
+  const body = String(bodyText || '');
+  const source = `${subjectText}\n${from}\n${body}`;
+  const isReminderSource = /(日历提醒|calendar@qq\.com|还款提醒)/i.test(source);
+  if (!isReminderSource) return false;
+  const isStatementMail = /(电子账单|账单已产生|Statement Information|Total Statement Balance|本期应还款总额)/i.test(source);
+  return !isStatementMail;
+}
+
 function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyText, parsedDate, reminderDaysBefore }) {
+  if (isCalendarReminderMail(subject, fromText, bodyText)) {
+    return null;
+  }
   const text = normalizeText(`${subject}\n${fromText}\n${bodyText}`);
   if (!text) return null;
   const mode = detectMode(text);
@@ -345,13 +359,17 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
     'Total Statement Balance',
     'Statement Balance'
   ]);
+  const repaymentAmountByCiticTemplate = extractAmount(text, [
+    /(?:本期应还款总额|Total Payment)[^0-9¥￥CNY]{0,120}(?:CNY|¥|￥)?\s*([\d,]+(?:\.\d{1,2})?)/i,
+    /(?:Total Payment)[^0-9¥￥CNY]{0,120}(?:CNY|¥|￥)?\s*([\d,]+(?:\.\d{1,2})?)/i
+  ]);
   const repaymentAmount = Number.isFinite(repaymentAmountByLabel)
     ? repaymentAmountByLabel
-    : extractAmount(text, [
+    : (Number.isFinite(repaymentAmountByCiticTemplate) ? repaymentAmountByCiticTemplate : extractAmount(text, [
     /(?:本期应还(?:金额|款总额|总额)?|本期应还款总额|应还金额|应还款额|应还款总额|到期应还|本期还款总额|本期账单金额|Total Statement Balance|Statement Balance)[^0-9¥￥]{0,80}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/i,
     /(?:本期应还款金额|本期应还款|总账信息)[^0-9¥￥]{0,80}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/i,
     /(?:最低应还(?:金额|款额)?|最低还款额|最低还款|Minimum Payment)[^0-9¥￥]{0,80}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/i
-  ]);
+  ]));
   if (!Number.isFinite(repaymentAmount) || repaymentAmount <= 0) return null;
   if (!hasStatementSignal && !statementDate && !billDay) return null;
   if (/(本期账单已还清|已还清|已结清)/.test(text) && !/(本期应还|应还款|Total Statement Balance)/i.test(text)) {
@@ -738,6 +756,44 @@ async function cleanupSyncedDuplicatesForUser(supabase, userId) {
     removed: deleteIds.length,
     patched: patchRows.length
   };
+}
+
+async function cleanupCurrentMonthSyncedRows(supabase, userId, keepReferenceIds = []) {
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+  const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0, 0);
+  const keepSet = new Set(
+    (Array.isArray(keepReferenceIds) ? keepReferenceIds : [])
+      .map((item) => String(item || '').trim())
+      .filter(Boolean)
+  );
+  const { data, error } = await supabase
+    .from('erp_finances')
+    .select('id, reference_id, description')
+    .eq('user_id', userId)
+    .in('business_type', ['credit_card_repayment', 'credit_card_swipe'])
+    .gte('transaction_date', monthStart.toISOString())
+    .lt('transaction_date', nextMonthStart.toISOString());
+  if (error) throw error;
+
+  const deleteIds = (data || [])
+    .filter((row) => String(row?.description || '').includes('QQ邮箱自动同步'))
+    .filter((row) => !keepSet.has(String(row?.reference_id || '').trim()))
+    .map((row) => row.id);
+
+  if (!deleteIds.length) {
+    return { removed: 0 };
+  }
+  const chunkSize = 100;
+  for (let index = 0; index < deleteIds.length; index += chunkSize) {
+    const chunk = deleteIds.slice(index, index + chunkSize);
+    const { error: deleteError } = await supabase
+      .from('erp_finances')
+      .delete()
+      .in('id', chunk);
+    if (deleteError) throw deleteError;
+  }
+  return { removed: deleteIds.length };
 }
 
 async function insertFinanceRowsCompat(supabase, rows) {
@@ -1165,8 +1221,11 @@ async function syncOneUser({
         if (!patchError) patchedExisting += 1;
       }
       const cleanupResult = await cleanupSyncedDuplicatesForUser(supabase, userId);
+      const monthCleanupResult = dateScope === 'current_month'
+        ? await cleanupCurrentMonthSyncedRows(supabase, userId, refs)
+        : { removed: 0 };
       syncStatus = 'partial';
-      syncMessage = `无新增（已存在${existingRefs.size}条），更新日期${patchedExisting}，去重删除${cleanupResult.removed}，补全日期${cleanupResult.patched}`;
+      syncMessage = `无新增（已存在${existingRefs.size}条），更新日期${patchedExisting}，去重删除${cleanupResult.removed}，当月清理${monthCleanupResult.removed}，补全日期${cleanupResult.patched}`;
       console.log(`[QQ同步][${userId}] ${syncMessage}`);
       return { userId, ok: true, syncStatus, syncMessage };
     }
@@ -1199,8 +1258,11 @@ async function syncOneUser({
       if (!patchError) patchedExisting += 1;
     }
     const cleanupResult = await cleanupSyncedDuplicatesForUser(supabase, userId);
+    const monthCleanupResult = dateScope === 'current_month'
+      ? await cleanupCurrentMonthSyncedRows(supabase, userId, refs)
+      : { removed: 0 };
     syncStatus = inserted > 0 ? 'success' : 'partial';
-    syncMessage = `解析${parsedRows.length}，新增${inserted}，更新日期${patchedExisting}，关键词跳过${skippedByKeyword}，解析失败${parseFailed}，去重删除${cleanupResult.removed}，补全日期${cleanupResult.patched}`;
+    syncMessage = `解析${parsedRows.length}，新增${inserted}，更新日期${patchedExisting}，关键词跳过${skippedByKeyword}，解析失败${parseFailed}，去重删除${cleanupResult.removed}，当月清理${monthCleanupResult.removed}，补全日期${cleanupResult.patched}`;
     console.log(`[QQ同步][${userId}] 完成：${syncMessage}`);
     return { userId, ok: true, syncStatus, syncMessage };
   } catch (error) {

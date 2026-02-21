@@ -1221,11 +1221,8 @@ async function syncOneUser({
         if (!patchError) patchedExisting += 1;
       }
       const cleanupResult = await cleanupSyncedDuplicatesForUser(supabase, userId);
-      const monthCleanupResult = dateScope === 'current_month'
-        ? await cleanupCurrentMonthSyncedRows(supabase, userId, refs)
-        : { removed: 0 };
       syncStatus = 'partial';
-      syncMessage = `无新增（已存在${existingRefs.size}条），更新日期${patchedExisting}，去重删除${cleanupResult.removed}，当月清理${monthCleanupResult.removed}，补全日期${cleanupResult.patched}`;
+      syncMessage = `无新增（已存在${existingRefs.size}条），更新日期${patchedExisting}，去重删除${cleanupResult.removed}，补全日期${cleanupResult.patched}`;
       console.log(`[QQ同步][${userId}] ${syncMessage}`);
       return { userId, ok: true, syncStatus, syncMessage };
     }
@@ -1258,11 +1255,8 @@ async function syncOneUser({
       if (!patchError) patchedExisting += 1;
     }
     const cleanupResult = await cleanupSyncedDuplicatesForUser(supabase, userId);
-    const monthCleanupResult = dateScope === 'current_month'
-      ? await cleanupCurrentMonthSyncedRows(supabase, userId, refs)
-      : { removed: 0 };
     syncStatus = inserted > 0 ? 'success' : 'partial';
-    syncMessage = `解析${parsedRows.length}，新增${inserted}，更新日期${patchedExisting}，关键词跳过${skippedByKeyword}，解析失败${parseFailed}，去重删除${cleanupResult.removed}，当月清理${monthCleanupResult.removed}，补全日期${cleanupResult.patched}`;
+    syncMessage = `解析${parsedRows.length}，新增${inserted}，更新日期${patchedExisting}，关键词跳过${skippedByKeyword}，解析失败${parseFailed}，去重删除${cleanupResult.removed}，补全日期${cleanupResult.patched}`;
     console.log(`[QQ同步][${userId}] 完成：${syncMessage}`);
     return { userId, ok: true, syncStatus, syncMessage };
   } catch (error) {

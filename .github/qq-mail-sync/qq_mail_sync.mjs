@@ -19,9 +19,26 @@ function toInt(value, fallback) {
 }
 
 function toNumber(value, fallback = NaN) {
-  const cleaned = String(value ?? '').replace(/[¥￥,\s]/g, '');
-  const parsed = Number(cleaned);
-  return Number.isFinite(parsed) ? parsed : fallback;
+  const source = String(value ?? '').trim();
+  if (!source) return fallback;
+  const cleaned = source
+    .replace(/(?:CNY|RMB)/ig, '')
+    .replace(/[¥￥\s]/g, '');
+  if (!cleaned) return fallback;
+  const digitsOnly = cleaned.replace(/[^\d]/g, '');
+  const hasDecimal = cleaned.includes('.');
+  const hasComma = cleaned.includes(',');
+  if (!hasDecimal && !hasComma && digitsOnly.length >= 9) {
+    return fallback;
+  }
+  const normalized = cleaned.replace(/,/g, '');
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed)) return fallback;
+  if (parsed <= 0 || parsed > 1_000_000_000) return fallback;
+  if (!hasDecimal && !hasComma && digitsOnly.length === 4 && parsed >= 1900 && parsed <= 2100) {
+    return fallback;
+  }
+  return parsed;
 }
 
 function toYmd(date) {
@@ -758,6 +775,38 @@ async function cleanupSyncedDuplicatesForUser(supabase, userId) {
   };
 }
 
+async function cleanupSuspiciousSyncedRows(supabase, userId) {
+  const sinceDate = new Date();
+  sinceDate.setFullYear(sinceDate.getFullYear() - 2);
+  const { data, error } = await supabase
+    .from('erp_finances')
+    .select('id, amount, description, business_type')
+    .eq('user_id', userId)
+    .in('business_type', ['credit_card_repayment', 'credit_card_swipe'])
+    .gte('transaction_date', sinceDate.toISOString());
+  if (error) throw error;
+
+  const suspiciousIds = (data || [])
+    .filter((row) => String(row?.description || '').includes('QQ邮箱自动同步'))
+    .filter((row) => Number(row?.amount || 0) > 10_000_000)
+    .map((row) => row.id);
+
+  if (!suspiciousIds.length) {
+    return { removed: 0 };
+  }
+
+  const chunkSize = 100;
+  for (let index = 0; index < suspiciousIds.length; index += chunkSize) {
+    const chunk = suspiciousIds.slice(index, index + chunkSize);
+    const { error: deleteError } = await supabase
+      .from('erp_finances')
+      .delete()
+      .in('id', chunk);
+    if (deleteError) throw deleteError;
+  }
+  return { removed: suspiciousIds.length };
+}
+
 async function cleanupCurrentMonthSyncedRows(supabase, userId, keepReferenceIds = []) {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
@@ -1221,8 +1270,9 @@ async function syncOneUser({
         if (!patchError) patchedExisting += 1;
       }
       const cleanupResult = await cleanupSyncedDuplicatesForUser(supabase, userId);
+      const suspiciousCleanup = await cleanupSuspiciousSyncedRows(supabase, userId);
       syncStatus = 'partial';
-      syncMessage = `无新增（已存在${existingRefs.size}条），更新日期${patchedExisting}，去重删除${cleanupResult.removed}，补全日期${cleanupResult.patched}`;
+      syncMessage = `无新增（已存在${existingRefs.size}条），更新日期${patchedExisting}，去重删除${cleanupResult.removed}，异常清理${suspiciousCleanup.removed}，补全日期${cleanupResult.patched}`;
       console.log(`[QQ同步][${userId}] ${syncMessage}`);
       return { userId, ok: true, syncStatus, syncMessage };
     }
@@ -1255,8 +1305,9 @@ async function syncOneUser({
       if (!patchError) patchedExisting += 1;
     }
     const cleanupResult = await cleanupSyncedDuplicatesForUser(supabase, userId);
+    const suspiciousCleanup = await cleanupSuspiciousSyncedRows(supabase, userId);
     syncStatus = inserted > 0 ? 'success' : 'partial';
-    syncMessage = `解析${parsedRows.length}，新增${inserted}，更新日期${patchedExisting}，关键词跳过${skippedByKeyword}，解析失败${parseFailed}，去重删除${cleanupResult.removed}，补全日期${cleanupResult.patched}`;
+    syncMessage = `解析${parsedRows.length}，新增${inserted}，更新日期${patchedExisting}，关键词跳过${skippedByKeyword}，解析失败${parseFailed}，去重删除${cleanupResult.removed}，异常清理${suspiciousCleanup.removed}，补全日期${cleanupResult.patched}`;
     console.log(`[QQ同步][${userId}] 完成：${syncMessage}`);
     return { userId, ok: true, syncStatus, syncMessage };
   } catch (error) {

@@ -6551,7 +6551,8 @@ function renderPersonalBankingCenter() {
             connBody.innerHTML = personalBankingState.connections.map(item => {
                 const authClass = normalizePersonalBankAuthClass(item?.auth_status, item?.consent_expires_at);
                 const autoSyncText = item?.auto_sync_enabled ? '开启' : '关闭';
-                const connId = JSON.stringify(item?.id || '');
+                const connId = String(item?.id || '').trim();
+                const connIdJsText = connId.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
                 return `
                     <tr>
                         <td>${safeText(normalizePersonalBankProviderText(item?.provider))}</td>
@@ -6563,8 +6564,8 @@ function renderPersonalBankingCenter() {
                         <td>${safeText(toDateTimeText(item?.last_synced_at || null))}</td>
                         <td class="erp-action-cell">
                             <div class="erp-row-actions">
-                                <button class="ant-btn erp-btn-blue erp-btn-compact" onclick="showPersonalBankSyncModal(${connId})">同步</button>
-                                <button class="ant-btn erp-btn-danger erp-btn-compact" onclick="deletePersonalBankConnection(${connId})">移除</button>
+                                <button class="ant-btn erp-btn-blue erp-btn-compact" onclick="showPersonalBankSyncModal('${connIdJsText}')">同步</button>
+                                <button class="ant-btn erp-btn-danger erp-btn-compact" onclick="deletePersonalBankConnection('${connIdJsText}')">移除</button>
                             </div>
                         </td>
                     </tr>
@@ -6614,6 +6615,12 @@ function showPersonalBankConnectionModal() {
     document.getElementById('personalBankProvider').value = 'unionpay_openapi';
     document.getElementById('personalBankAuthStatus').value = 'active';
     document.getElementById('personalBankAutoSyncEnabled').checked = true;
+    const expireInput = document.getElementById('personalBankConsentExpireDate');
+    if (expireInput) {
+        const expireDate = new Date();
+        expireDate.setDate(expireDate.getDate() + 30);
+        expireInput.value = `${expireDate.getFullYear()}-${String(expireDate.getMonth() + 1).padStart(2, '0')}-${String(expireDate.getDate()).padStart(2, '0')}`;
+    }
     clearModalFieldValidation('personalBankConnectionModal');
     modal.classList.add('active');
     modal.style.display = 'flex';

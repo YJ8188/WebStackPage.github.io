@@ -433,28 +433,48 @@ async function reportSyncStatus({ supabaseUrl, supabase, userId, syncStatus, syn
   }
 }
 
-async function main() {
-  const supabaseUrl = requireEnv('SUPABASE_URL');
-  const supabaseServiceRoleKey = requireEnv('SUPABASE_SERVICE_ROLE_KEY');
-  const userId = requireEnv('ERP_USER_ID');
-  const mailboxText = String(process.env.QQ_MAILBOX || 'INBOX').trim();
-  const lookbackDays = Math.max(1, toInt(process.env.QQ_SYNC_LOOKBACK_DAYS, 35));
-  const maxMessages = Math.max(20, toInt(process.env.QQ_SYNC_MAX_MESSAGES, 250));
-  const reminderDaysBefore = Math.max(0, toInt(process.env.QQ_SYNC_REMINDER_DAYS_BEFORE, 3));
-  const dryRun = ['1', 'true', 'yes'].includes(String(process.env.QQ_SYNC_DRY_RUN || '').toLowerCase());
-  const keywordList = String(process.env.QQ_SYNC_INCLUDE_KEYWORDS || '信用卡,账单,还款,到期')
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean);
-  const excludeKeywords = String(process.env.QQ_SYNC_EXCLUDE_KEYWORDS || '验证码,广告,活动,优惠')
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean);
+function isUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || '').trim());
+}
 
-  const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
+async function resolveTargetUserIds({ supabase, explicitUserId }) {
+  const forcedUserId = String(explicitUserId || '').trim();
+  if (forcedUserId) {
+    if (!isUuid(forcedUserId)) {
+      throw new Error('ERP_USER_ID 格式错误（必须是 UUID）');
+    }
+    return [forcedUserId];
+  }
 
+  const { data, error } = await supabase
+    .from('erp_mail_authorizations')
+    .select('user_id')
+    .eq('provider', MAIL_AUTH_PROVIDER)
+    .eq('is_enabled', true);
+  if (error) throw error;
+
+  const userIds = Array.from(new Set((data || [])
+    .map((item) => String(item?.user_id || '').trim())
+    .filter((value) => isUuid(value))));
+
+  if (!userIds.length) {
+    throw new Error('未找到已启用的QQ邮箱授权账号，请先在ERP中完成授权并启用自动同步');
+  }
+  return userIds;
+}
+
+async function syncOneUser({
+  supabaseUrl,
+  supabase,
+  userId,
+  mailboxText,
+  lookbackDays,
+  maxMessages,
+  reminderDaysBefore,
+  dryRun,
+  keywordList,
+  excludeKeywords
+}) {
   let syncStatus = 'failed';
   let syncMessage = '';
   let client = null;
@@ -480,14 +500,14 @@ async function main() {
       }
     });
 
-    console.log(`[QQ同步] 启动：邮箱=${email}, 用户=${userId}, 时间窗=${lookbackDays}天, 来源=${credential.source}`);
+    console.log(`[QQ同步][${userId}] 启动：邮箱=${email}, 时间窗=${lookbackDays}天, 来源=${credential.source}`);
     await client.connect();
     clientConnected = true;
     const messages = await fetchLatestMessages({ client, mailboxText, maxMessages, lookbackDays });
     await client.logout();
     clientConnected = false;
 
-    console.log(`[QQ同步] 拉取邮件数量：${messages.length}`);
+    console.log(`[QQ同步][${userId}] 拉取邮件数量：${messages.length}`);
 
     const parsedRows = [];
     let skippedByKeyword = 0;
@@ -520,8 +540,8 @@ async function main() {
     if (!parsedRows.length) {
       syncStatus = 'partial';
       syncMessage = `无可导入账单（关键词跳过${skippedByKeyword}，解析失败${parseFailed}）`;
-      console.log(`[QQ同步] ${syncMessage}`);
-      return;
+      console.log(`[QQ同步][${userId}] ${syncMessage}`);
+      return { userId, ok: true, syncStatus, syncMessage };
     }
 
     const refs = parsedRows.map((item) => item.reference_id).filter(Boolean);
@@ -531,28 +551,30 @@ async function main() {
     if (!insertRows.length) {
       syncStatus = 'partial';
       syncMessage = `无新增（已存在${existingRefs.size}条）`;
-      console.log(`[QQ同步] ${syncMessage}`);
-      return;
+      console.log(`[QQ同步][${userId}] ${syncMessage}`);
+      return { userId, ok: true, syncStatus, syncMessage };
     }
 
     if (dryRun) {
       syncStatus = 'success';
       syncMessage = `DRY_RUN：解析${parsedRows.length}条，新增候选${insertRows.length}条`;
-      console.log(`[QQ同步][DRY_RUN] ${syncMessage}`);
+      console.log(`[QQ同步][${userId}][DRY_RUN] ${syncMessage}`);
       insertRows.slice(0, 5).forEach((row, index) => {
-        console.log(`[预览${index + 1}] ${row.category} ${row.card_bank || '-'} ${row.amount} ${toYmd(new Date(row.transaction_date))}`);
+        console.log(`[预览][${userId}][${index + 1}] ${row.category} ${row.card_bank || '-'} ${row.amount} ${toYmd(new Date(row.transaction_date))}`);
       });
-      return;
+      return { userId, ok: true, syncStatus, syncMessage };
     }
 
     const inserted = await insertFinanceRowsCompat(supabase, insertRows);
     syncStatus = inserted > 0 ? 'success' : 'partial';
     syncMessage = `解析${parsedRows.length}，新增${inserted}，关键词跳过${skippedByKeyword}，解析失败${parseFailed}`;
-    console.log(`[QQ同步] 完成：${syncMessage}`);
+    console.log(`[QQ同步][${userId}] 完成：${syncMessage}`);
+    return { userId, ok: true, syncStatus, syncMessage };
   } catch (error) {
     syncStatus = 'failed';
     syncMessage = String(error?.message || error || '同步失败').slice(0, 500);
-    throw error;
+    console.error(`[QQ同步][${userId}] 失败：${syncMessage}`);
+    return { userId, ok: false, syncStatus, syncMessage };
   } finally {
     if (clientConnected && client) {
       try {
@@ -567,6 +589,59 @@ async function main() {
       syncStatus,
       syncMessage
     });
+  }
+}
+
+async function main() {
+  const supabaseUrl = requireEnv('SUPABASE_URL');
+  const supabaseServiceRoleKey = requireEnv('SUPABASE_SERVICE_ROLE_KEY');
+  const explicitUserId = String(process.env.ERP_USER_ID || '').trim();
+  const mailboxText = String(process.env.QQ_MAILBOX || 'INBOX').trim();
+  const lookbackDays = Math.max(1, toInt(process.env.QQ_SYNC_LOOKBACK_DAYS, 35));
+  const maxMessages = Math.max(20, toInt(process.env.QQ_SYNC_MAX_MESSAGES, 250));
+  const reminderDaysBefore = Math.max(0, toInt(process.env.QQ_SYNC_REMINDER_DAYS_BEFORE, 3));
+  const dryRun = ['1', 'true', 'yes'].includes(String(process.env.QQ_SYNC_DRY_RUN || '').toLowerCase());
+  const keywordList = String(process.env.QQ_SYNC_INCLUDE_KEYWORDS || '信用卡,账单,还款,到期')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const excludeKeywords = String(process.env.QQ_SYNC_EXCLUDE_KEYWORDS || '验证码,广告,活动,优惠')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+
+  const userIds = await resolveTargetUserIds({ supabase, explicitUserId });
+  console.log(`[QQ同步] 本次同步账号数：${userIds.length}${explicitUserId ? '（指定单用户）' : '（自动多用户）'}`);
+
+  let successCount = 0;
+  let partialCount = 0;
+  let failedCount = 0;
+
+  for (const userId of userIds) {
+    const result = await syncOneUser({
+      supabaseUrl,
+      supabase,
+      userId,
+      mailboxText,
+      lookbackDays,
+      maxMessages,
+      reminderDaysBefore,
+      dryRun,
+      keywordList,
+      excludeKeywords
+    });
+    if (result.syncStatus === 'success') successCount += 1;
+    else if (result.syncStatus === 'partial') partialCount += 1;
+    else failedCount += 1;
+  }
+
+  console.log(`[QQ同步] 总结：成功${successCount}，部分成功${partialCount}，失败${failedCount}`);
+  if (failedCount > 0 && successCount === 0 && partialCount === 0) {
+    throw new Error(`全部账号同步失败（${failedCount}）`);
   }
 }
 

@@ -15,6 +15,10 @@ on:
         description: "是否仅预览不入库（true/false）"
         required: false
         default: "false"
+      target_user_id:
+        description: "可选：仅同步指定用户UUID（留空=自动同步全部已授权用户）"
+        required: false
+        default: ""
   schedule:
     - cron: "15 */3 * * *"
 
@@ -26,7 +30,7 @@ jobs:
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      ERP_USER_ID: ${{ secrets.ERP_USER_ID }}
+      ERP_USER_ID: ${{ github.event.inputs.target_user_id || secrets.ERP_USER_ID }}
       QQ_MAIL_SYNC_TOKEN: ${{ secrets.QQ_MAIL_SYNC_TOKEN }}
       QQ_IMAP_HOST: imap.qq.com
       QQ_IMAP_PORT: "993"
@@ -54,7 +58,7 @@ jobs:
         run: |
           set -euo pipefail
           missing=()
-          for key in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY ERP_USER_ID QQ_MAIL_SYNC_TOKEN; do
+          for key in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY QQ_MAIL_SYNC_TOKEN; do
             if [ -z "${!key:-}" ]; then
               missing+=("$key")
             fi
@@ -63,11 +67,13 @@ jobs:
             echo "::error::缺少 GitHub Secrets：${missing[*]}"
             exit 1
           fi
-          if ! [[ "${ERP_USER_ID}" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$ ]]; then
-            echo "::error::ERP_USER_ID 格式错误（必须是用户 UUID）"
-            exit 1
+          if [ -n "${ERP_USER_ID:-}" ]; then
+            if ! [[ "${ERP_USER_ID}" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$ ]]; then
+              echo "::error::ERP_USER_ID 格式错误（必须是用户 UUID）"
+              exit 1
+            fi
           fi
-          echo "预检通过：关键配置已就绪"
+          echo "预检通过：关键配置已就绪（ERP_USER_ID 可为空以启用多用户自动同步）"
 
       - name: Run QQ mail sync
         run: node .github/qq-mail-sync/qq_mail_sync.mjs

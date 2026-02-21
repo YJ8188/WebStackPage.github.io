@@ -6999,6 +6999,24 @@ async function tryConnectorSync(connection, startDate, endDate) {
         return { ok: false, message: '当前环境不支持边缘函数调用' };
     }
 
+    const normalizeConnectorErrorMessage = (raw) => {
+        const text = String(raw || '').trim();
+        const lower = text.toLowerCase();
+        if (!text) {
+            return '接口调用异常：未知错误';
+        }
+        if (
+            text.includes('Failed to send a request to the Edge Function')
+            || text.includes('ERR_FAILED')
+            || lower.includes('cors')
+            || lower.includes('network')
+            || lower.includes('fetch')
+        ) {
+            return '接口调用失败：Edge Function 未连通（可能未部署、跨域预检失败或网络异常）';
+        }
+        return `接口调用异常：${text}`;
+    };
+
     let response = null;
     try {
         response = await supabaseClient.functions.invoke('personal-bank-sync', {
@@ -7013,20 +7031,14 @@ async function tryConnectorSync(connection, startDate, endDate) {
             }
         });
     } catch (error) {
-        const rawMessage = String(error?.message || '').trim();
-        const isEdgeRequestFailed = rawMessage.includes('Failed to send a request to the Edge Function')
-            || rawMessage.includes('ERR_FAILED')
-            || rawMessage.includes('CORS');
         return {
             ok: false,
-            message: isEdgeRequestFailed
-                ? '接口调用失败：Edge Function 未连通（可能未部署、跨域预检失败或网络异常）'
-                : `接口调用异常：${rawMessage || '网络或跨域错误'}`
+            message: normalizeConnectorErrorMessage(error?.message || '网络或跨域错误')
         };
     }
 
     if (response?.error) {
-        return { ok: false, message: response.error?.message || '接口同步失败' };
+        return { ok: false, message: normalizeConnectorErrorMessage(response.error?.message || '接口同步失败') };
     }
     const rows = Array.isArray(response?.data?.entries) ? response.data.entries : [];
     if (!rows.length) {

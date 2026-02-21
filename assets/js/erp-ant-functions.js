@@ -6166,6 +6166,16 @@ function maskQQEmail(value) {
     return `${name.slice(0, 2)}***@${domain || ''}`;
 }
 
+function getQQMailSyncStatusLabel(value) {
+    const status = String(value || '').trim().toLowerCase();
+    if (!status) return '';
+    if (status === 'success') return '成功';
+    if (status === 'partial') return '部分成功';
+    if (status === 'failed') return '失败';
+    if (status === 'unknown') return '未知';
+    return status;
+}
+
 function renderQQMailAuthStatus(statusData = null) {
     const statusTextEl = document.getElementById('qqMailAuthStatusText');
     const hintEl = document.getElementById('qqMailAuthHint');
@@ -6176,15 +6186,20 @@ function renderQQMailAuthStatus(statusData = null) {
     const masked = email ? maskQQEmail(email) : '';
     if (enabled && masked) {
         const lastSyncAt = statusData?.last_sync_at ? toDateTimeText(statusData.last_sync_at) : '';
-        const lastSyncStatus = String(statusData?.last_sync_status || '').trim();
-        const syncSuffix = lastSyncAt ? `，最近同步：${lastSyncAt}${lastSyncStatus ? `（${lastSyncStatus}）` : ''}` : '，尚未执行自动同步';
+        const lastSyncStatus = getQQMailSyncStatusLabel(statusData?.last_sync_status);
+        const syncMsg = String(statusData?.last_sync_message || '').trim();
+        const hasSyncRecord = !!(lastSyncAt || lastSyncStatus || syncMsg);
+        const syncSuffix = hasSyncRecord
+            ? `，最近同步：${lastSyncAt || '时间未知'}${lastSyncStatus ? `（${lastSyncStatus}）` : ''}`
+            : '，尚未执行自动同步（请先在 GitHub Actions 手动运行一次 qq-mail-sync）';
         statusTextEl.textContent = `已授权（${masked}）${syncSuffix}`;
         statusTextEl.style.color = '#15803d';
         if (hintEl) {
-            const syncMsg = String(statusData?.last_sync_message || '').trim();
             hintEl.textContent = syncMsg
                 ? `当前授权账号：${masked}；最近结果：${syncMsg}`
-                : `当前授权账号：${masked}，自动同步已启用。`;
+                : hasSyncRecord
+                    ? `当前授权账号：${masked}，自动同步已启用。`
+                    : `当前授权账号：${masked}，请先在仓库 Actions 手动执行一次 qq-mail-sync 验证链路。`;
         }
     } else if (email) {
         statusTextEl.textContent = `已配置但已停用（${masked || email}）`;

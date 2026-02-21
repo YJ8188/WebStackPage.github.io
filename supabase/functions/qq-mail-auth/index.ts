@@ -190,7 +190,7 @@ serve(async (req) => {
       const syncMessage = String(body.sync_message || "").trim().slice(0, 500);
       const syncAt = String(body.last_sync_at || "").trim() || new Date().toISOString();
 
-      const { error } = await admin
+      const { data, error } = await admin
         .from(TABLE_NAME)
         .update({
           last_sync_status: syncStatus,
@@ -199,8 +199,11 @@ serve(async (req) => {
           updated_at: new Date().toISOString(),
         })
         .eq("user_id", userId)
-        .eq("provider", PROVIDER);
+        .eq("provider", PROVIDER)
+        .select("id")
+        .maybeSingle();
       if (error) throw error;
+      if (!data) return jsonResponse({ ok: false, message: "未找到邮箱授权配置，无法回写同步状态" }, 404);
       return jsonResponse({ ok: true });
     }
 

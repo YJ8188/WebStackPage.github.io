@@ -3,6 +3,8 @@ import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import { createClient } from '@supabase/supabase-js';
 
+const MAIL_AUTH_PROVIDER = 'qq_mail';
+
 function requireEnv(name) {
   const value = String(process.env[name] || '').trim();
   if (!value) {
@@ -375,28 +377,59 @@ async function resolveQQMailCredential({ supabaseUrl, userId }) {
   };
 }
 
-async function reportSyncStatus({ supabaseUrl, userId, syncStatus, syncMessage }) {
+async function reportSyncStatus({ supabaseUrl, supabase, userId, syncStatus, syncMessage }) {
   const syncToken = String(process.env.QQ_MAIL_SYNC_TOKEN || '').trim();
-  if (!syncToken) return;
-  const functionsBase = buildFunctionsBaseUrl(supabaseUrl);
-  const endpoint = `${functionsBase}/qq-mail-auth`;
+  const payload = {
+    last_sync_status: String(syncStatus || '').trim() || 'unknown',
+    last_sync_message: String(syncMessage || '').trim().slice(0, 500),
+    last_sync_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+  let updated = false;
+
+  if (syncToken) {
+    const functionsBase = buildFunctionsBaseUrl(supabaseUrl);
+    const endpoint = `${functionsBase}/qq-mail-auth`;
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-sync-token': syncToken
+        },
+        body: JSON.stringify({
+          action: 'update_sync_status',
+          user_id: userId,
+          sync_status: payload.last_sync_status,
+          sync_message: payload.last_sync_message,
+          last_sync_at: payload.last_sync_at
+        })
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        console.warn('[QQ同步] 通过函数回写状态失败:', body?.message || `HTTP ${response.status}`);
+      } else {
+        updated = true;
+      }
+    } catch (error) {
+      console.warn('[QQ同步] 通过函数回写状态失败:', error?.message || error);
+    }
+  }
+
+  if (updated || !supabase) return;
   try {
-    await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-sync-token': syncToken
-      },
-      body: JSON.stringify({
-        action: 'update_sync_status',
-        user_id: userId,
-        sync_status: String(syncStatus || '').trim() || 'unknown',
-        sync_message: String(syncMessage || '').trim().slice(0, 500),
-        last_sync_at: new Date().toISOString()
-      })
-    });
+    const { data, error } = await supabase
+      .from('erp_mail_authorizations')
+      .update(payload)
+      .eq('user_id', userId)
+      .eq('provider', MAIL_AUTH_PROVIDER)
+      .select('id')
+      .maybeSingle();
+    if (error || !data) {
+      console.warn('[QQ同步] 通过数据库回写状态失败:', error?.message || '未找到邮箱授权配置');
+    }
   } catch (error) {
-    console.warn('[QQ同步] 回写同步状态失败:', error?.message || error);
+    console.warn('[QQ同步] 通过数据库回写状态失败:', error?.message || error);
   }
 }
 
@@ -424,31 +457,35 @@ async function main() {
 
   let syncStatus = 'failed';
   let syncMessage = '';
-  const credential = await resolveQQMailCredential({ supabaseUrl, userId });
-  const email = String(credential.email || '').trim();
-  const password = String(credential.authCode || '').trim();
-  const host = String(credential.host || 'imap.qq.com').trim();
-  const port = toInt(credential.port, 993);
-  if (!email || !password) {
-    throw new Error('邮箱授权不存在或已失效，请先在ERP页面完成QQ邮箱授权');
-  }
-
-  const client = new ImapFlow({
-    host,
-    port,
-    secure: true,
-    auth: {
-      user: email,
-      pass: password
-    }
-  });
-
-  console.log(`[QQ同步] 启动：邮箱=${email}, 用户=${userId}, 时间窗=${lookbackDays}天, 来源=${credential.source}`);
+  let client = null;
+  let clientConnected = false;
 
   try {
+    const credential = await resolveQQMailCredential({ supabaseUrl, userId });
+    const email = String(credential.email || '').trim();
+    const password = String(credential.authCode || '').trim();
+    const host = String(credential.host || 'imap.qq.com').trim();
+    const port = toInt(credential.port, 993);
+    if (!email || !password) {
+      throw new Error('邮箱授权不存在或已失效，请先在ERP页面完成QQ邮箱授权');
+    }
+
+    client = new ImapFlow({
+      host,
+      port,
+      secure: true,
+      auth: {
+        user: email,
+        pass: password
+      }
+    });
+
+    console.log(`[QQ同步] 启动：邮箱=${email}, 用户=${userId}, 时间窗=${lookbackDays}天, 来源=${credential.source}`);
     await client.connect();
+    clientConnected = true;
     const messages = await fetchLatestMessages({ client, mailboxText, maxMessages, lookbackDays });
     await client.logout();
+    clientConnected = false;
 
     console.log(`[QQ同步] 拉取邮件数量：${messages.length}`);
 
@@ -517,8 +554,15 @@ async function main() {
     syncMessage = String(error?.message || error || '同步失败').slice(0, 500);
     throw error;
   } finally {
+    if (clientConnected && client) {
+      try {
+        await client.logout();
+      } catch (_error) {
+      }
+    }
     await reportSyncStatus({
       supabaseUrl,
+      supabase,
       userId,
       syncStatus,
       syncMessage

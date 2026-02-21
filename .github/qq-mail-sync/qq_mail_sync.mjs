@@ -172,9 +172,13 @@ function detectBankName(text) {
 
 function detectMode(text) {
   const source = String(text || '');
-  const swipeSignals = ['刷卡金额', '到账金额', '到账卡', '手续费', '费率'];
-  const hasSwipe = swipeSignals.some((keyword) => source.includes(keyword));
-  return hasSwipe ? 'swipe' : 'repayment';
+  const strongSwipeSignals = ['刷卡金额', '到账金额', '实到金额', '到账卡', '收款卡', '储蓄卡'];
+  const weakSwipeSignals = ['手续费', '费率', '服务费', '通道费'];
+  const hasStrongSwipeSignal = strongSwipeSignals.some((keyword) => source.includes(keyword));
+  if (hasStrongSwipeSignal) return 'swipe';
+  const hasWeakSwipeSignal = weakSwipeSignals.some((keyword) => source.includes(keyword));
+  if (hasWeakSwipeSignal && /(刷卡|交易|到账|收款)/.test(source)) return 'swipe';
+  return 'repayment';
 }
 
 function hasCreditCardKeywords(subject, text, keywords, excludes) {
@@ -408,6 +412,10 @@ function buildFinanceDedupKey(row) {
   const amount = Number(row?.amount || 0);
   const amountText = Number.isFinite(amount) ? amount.toFixed(2) : '0.00';
   const timestamp = safeIsoSecond(row?.transaction_date);
+  if (businessType === 'credit_card_repayment') {
+    const monthText = timestamp ? timestamp.slice(0, 7) : '';
+    return [businessType, bank, amountText, monthText].join('|');
+  }
   return [businessType, bank, amountText, timestamp].join('|');
 }
 
@@ -471,6 +479,12 @@ function pickBestDuplicateRow(rows) {
       let score = 0;
       if (row.card_bill_day) score += 2;
       if (row.card_repayment_day) score += 2;
+      if (row.card_bill_day && row.card_repayment_day && Number(row.card_bill_day) !== Number(row.card_repayment_day)) {
+        score += 2;
+      }
+      if (row.card_bill_day && row.card_repayment_day && Number(row.card_bill_day) === Number(row.card_repayment_day)) {
+        score -= 2;
+      }
       if (String(row.description || '').includes('应还')) score += 1;
       if (String(row.description || '').includes('账单日')) score += 1;
       return { row, score };

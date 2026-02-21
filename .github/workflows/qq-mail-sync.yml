@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       lookback_days:
-        description: "回溯天数（默认120）"
+        description: "回溯天数（0=不限，默认0）"
         required: false
-        default: "120"
+        default: "0"
       max_messages:
         description: "最大扫描邮件数（默认600）"
         required: false

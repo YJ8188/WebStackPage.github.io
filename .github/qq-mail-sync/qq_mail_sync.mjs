@@ -296,7 +296,8 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
   if (!text) return null;
   const mode = detectMode(text);
   const bankName = detectBankName(text);
-  const hasStatementSignal = /(账单|statement|billing)/i.test(text);
+  const hasStatementSignal = /(账单|statement|billing|电子账单)/i.test(text);
+  const isCiticStatement = /(中信银行信用卡|citiccard\.com|总账信息\s*\|\s*Statement Information|Total Payment)/i.test(text);
 
   const statementDateByLabel = extractDateByLabels(text, [
     '账单日',
@@ -397,18 +398,25 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
     'Statement Balance'
   ]);
   const repaymentAmountByCiticTemplate = extractAmount(text, [
+    /(?:本期应还款总额|Total\s*Payment)[\s\S]{0,260}?(?:CNY|RMB|¥|￥)\s*([0-9][0-9,]{0,15}(?:\.\d{1,2})?)/i,
+    /(?:总账信息[\s\S]{0,200}?Statement Information)[\s\S]{0,320}?(?:CNY|RMB|¥|￥)\s*([0-9][0-9,]{0,15}(?:\.\d{1,2})?)/i,
     /(?:本期应还款总额|Total Payment)[^0-9¥￥CNY]{0,120}(?:CNY|¥|￥)?\s*([\d,]+(?:\.\d{1,2})?)/i,
     /(?:Total Payment)[^0-9¥￥CNY]{0,120}(?:CNY|¥|￥)?\s*([\d,]+(?:\.\d{1,2})?)/i
   ]);
+  const repaymentAmountByStatementCurrency = extractAmount(text, [
+    /(?:Statement Information|总账信息)[\s\S]{0,400}?(?:本期应还款总额|Total\s*Payment)[\s\S]{0,220}?([¥￥]?\s*(?:CNY|RMB)?\s*[\d,]+(?:\.\d{1,2})?)/i
+  ]);
   const repaymentAmount = Number.isFinite(repaymentAmountByLabel)
     ? repaymentAmountByLabel
-    : (Number.isFinite(repaymentAmountByCiticTemplate) ? repaymentAmountByCiticTemplate : extractAmount(text, [
+    : (Number.isFinite(repaymentAmountByCiticTemplate)
+      ? repaymentAmountByCiticTemplate
+      : (Number.isFinite(repaymentAmountByStatementCurrency) ? repaymentAmountByStatementCurrency : extractAmount(text, [
     /(?:本期应还(?:金额|款总额|总额)?|本期应还款总额|应还金额|应还款额|应还款总额|到期应还|本期还款总额|本期账单金额|Total Statement Balance|Statement Balance)[^0-9¥￥]{0,80}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/i,
     /(?:本期应还款金额|本期应还款|总账信息)[^0-9¥￥]{0,80}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/i,
     /(?:最低应还(?:金额|款额)?|最低还款额|最低还款|Minimum Payment)[^0-9¥￥]{0,80}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/i
-  ]));
+  ])));
   if (!Number.isFinite(repaymentAmount) || repaymentAmount <= 0) return null;
-  if (!hasStatementSignal && !statementDate && !billDay) return null;
+  if (!hasStatementSignal && !statementDate && !billDay && !isCiticStatement) return null;
   if (/(本期账单已还清|已还清|已结清)/.test(text) && !/(本期应还|应还款|Total Statement Balance)/i.test(text)) {
     return null;
   }

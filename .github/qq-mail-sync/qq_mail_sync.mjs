@@ -686,7 +686,7 @@ async function main() {
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean);
-  const excludeKeywords = String(process.env.QQ_SYNC_EXCLUDE_KEYWORDS || '验证码,广告,活动,优惠')
+  const excludeKeywords = String(process.env.QQ_SYNC_EXCLUDE_KEYWORDS || '验证码,动态码,OTP,one-time password')
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean);

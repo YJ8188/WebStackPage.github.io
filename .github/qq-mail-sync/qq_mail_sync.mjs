@@ -107,6 +107,24 @@ function extractDate(text, patterns) {
   return null;
 }
 
+function extractDateByLabels(text, labels = []) {
+  const source = String(text || '');
+  if (!source || !labels.length) return null;
+  const escapedLabels = labels
+    .map((label) => String(label || '').trim())
+    .filter(Boolean)
+    .map((label) => label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  if (!escapedLabels.length) return null;
+  const labelGroup = escapedLabels.join('|');
+  const regex = new RegExp(
+    `(?:${labelGroup})[\\s\\S]{0,140}?((?:20\\d{2}[年/\\-.]\\d{1,2}[月/\\-.]\\d{1,2}日?)|(?:\\d{1,2}[\\/\\-.]\\d{1,2}))`,
+    'i'
+  );
+  const match = source.match(regex);
+  if (!match || !match[1]) return null;
+  return parseDateToken(match[1]);
+}
+
 function extractDay(text, patterns) {
   const source = String(text || '');
   for (const pattern of patterns) {
@@ -194,19 +212,35 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
   const mode = detectMode(text);
   const bankName = detectBankName(text);
 
+  const statementDateByLabel = extractDateByLabels(text, [
+    '账单日',
+    '账单日期',
+    '出账日期',
+    '结单日期',
+    'Statement Date'
+  ]);
+  const dueDateByLabel = extractDateByLabels(text, [
+    '最后还款日',
+    '到期还款日',
+    '本期还款日',
+    '最迟还款日',
+    'Payment Due Date',
+    'Due Date'
+  ]);
+
   const billDay = extractDay(text, [
-    /(?:账单日|账单日期|出账日|结单日|账单生成日)[^0-9]{0,20}(?:每月|每期)?\s*(\d{1,2})\s*日?/i,
-    /(?:每月|每期)\s*(\d{1,2})\s*日[^。\n]{0,20}(?:账单日|出账日|结单日)/i
+    /(?:账单日|账单日期|出账日|结单日|账单生成日)[^0-9]{0,40}(?:每月|每期)?\s*((?:[12]?\d|3[01]))\s*日/i,
+    /(?:每月|每期)\s*((?:[12]?\d|3[01]))\s*日[^。\n]{0,20}(?:账单日|出账日|结单日)/i
   ]);
   const repaymentDay = extractDay(text, [
-    /(?:还款日|最后还款日|到期还款日|本期还款日|最迟还款日)[^0-9]{0,20}(?:每月|每期)?\s*(\d{1,2})\s*日?/i,
-    /(?:每月|每期)\s*(\d{1,2})\s*日[^。\n]{0,24}(?:还款日|最后还款日|到期还款日|最迟还款日)/i
+    /(?:还款日|最后还款日|到期还款日|本期还款日|最迟还款日)[^0-9]{0,40}(?:每月|每期)?\s*((?:[12]?\d|3[01]))\s*日/i,
+    /(?:每月|每期)\s*((?:[12]?\d|3[01]))\s*日[^。\n]{0,24}(?:还款日|最后还款日|到期还款日|最迟还款日)/i
   ]);
-  const statementDate = extractDate(text, [
+  const statementDate = statementDateByLabel || extractDate(text, [
     /(?:账单日期|账单日|交易日期|记账日)[：:\s]*([0-9]{4}[年\/\-.][0-9]{1,2}[月\/\-.][0-9]{1,2}日?)/,
     /(?:账单日期|账单日|交易日期|记账日|出账日期|结单日期)[：:\s]*([0-9]{1,2}[\/\-.][0-9]{1,2})/
   ]);
-  const dueDate = extractDate(text, [
+  const dueDate = dueDateByLabel || extractDate(text, [
     /(?:最后还款日|到期还款日|本期还款日)[：:\s]*([0-9]{4}[年\/\-.][0-9]{1,2}[月\/\-.][0-9]{1,2}日?)/,
     /(?:最后还款日|到期还款日|本期还款日|最迟还款日)[：:\s]*([0-9]{1,2}[\/\-.][0-9]{1,2})/
   ]);
@@ -401,6 +435,34 @@ async function fetchExistingDedupKeys(supabase, userId, candidateRows) {
     keys.add(buildFinanceDedupKey(item));
   });
   return keys;
+}
+
+async function fetchExistingSyncedRowsByDedup(supabase, userId, candidateRows) {
+  if (!Array.isArray(candidateRows) || !candidateRows.length) return new Map();
+  const since = candidateRows
+    .map((row) => new Date(row?.transaction_date))
+    .filter((date) => !Number.isNaN(date.getTime()))
+    .sort((a, b) => a.getTime() - b.getTime())[0];
+  const sinceIso = since ? new Date(since.getTime() - 24 * 60 * 60 * 1000).toISOString() : null;
+
+  let query = supabase
+    .from('erp_finances')
+    .select('id, business_type, card_bank, swipe_card_bank, amount, transaction_date, card_bill_day, card_repayment_day, description')
+    .eq('user_id', userId)
+    .in('business_type', ['credit_card_repayment', 'credit_card_swipe']);
+  if (sinceIso) query = query.gte('transaction_date', sinceIso);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  const map = new Map();
+  (data || []).forEach((item) => {
+    const desc = String(item?.description || '');
+    if (!desc.includes('QQ邮箱自动同步')) return;
+    const key = buildFinanceDedupKey(item);
+    if (!key || map.has(key)) return;
+    map.set(key, item);
+  });
+  return map;
 }
 
 function pickBestDuplicateRow(rows) {
@@ -840,18 +902,54 @@ async function syncOneUser({
     const refs = parsedRows.map((item) => item.reference_id).filter(Boolean);
     const existingRefs = await fetchExistingReferenceIds(supabase, userId, refs);
     const existingDedupKeys = await fetchExistingDedupKeys(supabase, userId, parsedRows);
+    const existingRowsByDedup = await fetchExistingSyncedRowsByDedup(supabase, userId, parsedRows);
+    const updateRows = [];
     const insertRows = parsedRows.filter((item) => {
       const referenceExists = existingRefs.has(String(item.reference_id || ''));
       if (referenceExists) return false;
       const dedupKey = buildFinanceDedupKey(item);
-      if (dedupKey && existingDedupKeys.has(dedupKey)) return false;
+      if (dedupKey && existingDedupKeys.has(dedupKey)) {
+        const existing = existingRowsByDedup.get(dedupKey);
+        if (existing) {
+          const nextBillDay = item.card_bill_day || null;
+          const nextRepaymentDay = item.card_repayment_day || null;
+          const changed = (
+            (nextBillDay && Number(nextBillDay) !== Number(existing.card_bill_day || 0))
+            || (nextRepaymentDay && Number(nextRepaymentDay) !== Number(existing.card_repayment_day || 0))
+          );
+          if (changed) {
+            updateRows.push({
+              id: existing.id,
+              card_bill_day: nextBillDay || existing.card_bill_day || null,
+              card_repayment_day: nextRepaymentDay || existing.card_repayment_day || null
+            });
+          }
+        }
+        return false;
+      }
       return true;
     });
 
     if (!insertRows.length) {
+      let patchedExisting = 0;
+      const dedupedUpdates = new Map();
+      updateRows.forEach((row) => {
+        if (!row?.id) return;
+        dedupedUpdates.set(String(row.id), row);
+      });
+      for (const row of dedupedUpdates.values()) {
+        const { error: patchError } = await supabase
+          .from('erp_finances')
+          .update({
+            card_bill_day: row.card_bill_day,
+            card_repayment_day: row.card_repayment_day
+          })
+          .eq('id', row.id);
+        if (!patchError) patchedExisting += 1;
+      }
       const cleanupResult = await cleanupSyncedDuplicatesForUser(supabase, userId);
       syncStatus = 'partial';
-      syncMessage = `无新增（已存在${existingRefs.size}条），去重删除${cleanupResult.removed}，补全日期${cleanupResult.patched}`;
+      syncMessage = `无新增（已存在${existingRefs.size}条），更新日期${patchedExisting}，去重删除${cleanupResult.removed}，补全日期${cleanupResult.patched}`;
       console.log(`[QQ同步][${userId}] ${syncMessage}`);
       return { userId, ok: true, syncStatus, syncMessage };
     }
@@ -867,9 +965,25 @@ async function syncOneUser({
     }
 
     const inserted = await insertFinanceRowsCompat(supabase, insertRows);
+    let patchedExisting = 0;
+    const dedupedUpdates = new Map();
+    updateRows.forEach((row) => {
+      if (!row?.id) return;
+      dedupedUpdates.set(String(row.id), row);
+    });
+    for (const row of dedupedUpdates.values()) {
+      const { error: patchError } = await supabase
+        .from('erp_finances')
+        .update({
+          card_bill_day: row.card_bill_day,
+          card_repayment_day: row.card_repayment_day
+        })
+        .eq('id', row.id);
+      if (!patchError) patchedExisting += 1;
+    }
     const cleanupResult = await cleanupSyncedDuplicatesForUser(supabase, userId);
     syncStatus = inserted > 0 ? 'success' : 'partial';
-    syncMessage = `解析${parsedRows.length}，新增${inserted}，关键词跳过${skippedByKeyword}，解析失败${parseFailed}，去重删除${cleanupResult.removed}，补全日期${cleanupResult.patched}`;
+    syncMessage = `解析${parsedRows.length}，新增${inserted}，更新日期${patchedExisting}，关键词跳过${skippedByKeyword}，解析失败${parseFailed}，去重删除${cleanupResult.removed}，补全日期${cleanupResult.patched}`;
     console.log(`[QQ同步][${userId}] 完成：${syncMessage}`);
     return { userId, ok: true, syncStatus, syncMessage };
   } catch (error) {

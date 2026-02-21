@@ -34,6 +34,7 @@ function toYmd(date) {
 
 function normalizeText(rawText) {
   return String(rawText || '')
+    .replace(/[０-９]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 0xFEE0))
     .replace(/\r/g, '\n')
     .replace(/[ \t]+/g, ' ')
     .replace(/\n{3,}/g, '\n\n')
@@ -104,6 +105,17 @@ function extractDate(text, patterns) {
     if (date) return date;
   }
   return null;
+}
+
+function extractDay(text, patterns) {
+  const source = String(text || '');
+  for (const pattern of patterns) {
+    const match = source.match(pattern);
+    if (!match || !match[1]) continue;
+    const day = toValidDay(match[1], 0);
+    if (day) return day;
+  }
+  return 0;
 }
 
 function toValidDay(value, fallback = 0) {
@@ -180,18 +192,25 @@ function parseMailToFinance({ userId, uid, subject, fromText, bodyText, parsedDa
   const mode = detectMode(text);
   const bankName = detectBankName(text);
 
-  const billDay = toValidDay((text.match(/账单日[：:\s]*(?:每月)?\s*(\d{1,2})\s*日?/) || [])[1], 0);
-  const repaymentDay = toValidDay((text.match(/(?:还款日|最后还款日|到期还款日)[：:\s]*(?:每月)?\s*(\d{1,2})\s*日?/) || [])[1], 0);
+  const billDay = extractDay(text, [
+    /(?:账单日|账单日期|出账日|结单日|账单生成日)[^0-9]{0,20}(?:每月|每期)?\s*(\d{1,2})\s*日?/i,
+    /(?:每月|每期)\s*(\d{1,2})\s*日[^。\n]{0,20}(?:账单日|出账日|结单日)/i
+  ]);
+  const repaymentDay = extractDay(text, [
+    /(?:还款日|最后还款日|到期还款日|本期还款日|最迟还款日)[^0-9]{0,20}(?:每月|每期)?\s*(\d{1,2})\s*日?/i,
+    /(?:每月|每期)\s*(\d{1,2})\s*日[^。\n]{0,24}(?:还款日|最后还款日|到期还款日|最迟还款日)/i
+  ]);
   const statementDate = extractDate(text, [
     /(?:账单日期|账单日|交易日期|记账日)[：:\s]*([0-9]{4}[年\/\-.][0-9]{1,2}[月\/\-.][0-9]{1,2}日?)/,
-    /(?:账单日期|账单日|交易日期|记账日)[：:\s]*([0-9]{1,2}[\/\-.][0-9]{1,2})/
+    /(?:账单日期|账单日|交易日期|记账日|出账日期|结单日期)[：:\s]*([0-9]{1,2}[\/\-.][0-9]{1,2})/
   ]);
   const dueDate = extractDate(text, [
     /(?:最后还款日|到期还款日|本期还款日)[：:\s]*([0-9]{4}[年\/\-.][0-9]{1,2}[月\/\-.][0-9]{1,2}日?)/,
-    /(?:最后还款日|到期还款日|本期还款日)[：:\s]*([0-9]{1,2}[\/\-.][0-9]{1,2})/
+    /(?:最后还款日|到期还款日|本期还款日|最迟还款日)[：:\s]*([0-9]{1,2}[\/\-.][0-9]{1,2})/
   ]);
   const mailDate = parsedDate instanceof Date && !Number.isNaN(parsedDate.getTime()) ? parsedDate : new Date();
   const transactionDate = statementDate || mailDate;
+  const finalBillDay = billDay || (statementDate ? statementDate.getDate() : 0);
 
   if (mode === 'swipe') {
     const swipeAmount = extractAmount(text, [
@@ -218,7 +237,7 @@ function parseMailToFinance({ userId, uid, subject, fromText, bodyText, parsedDa
     const settlementBank = settlementBankMatch ? String(settlementBankMatch[1]).trim() : bankName;
     const settlementTail = settlementTailMatch ? String(settlementTailMatch[1]) : null;
     const dateText = toYmd(transactionDate);
-    const referenceId = buildReferenceId(userId, uid, mode, bankName, swipeAmount, billDay, repaymentDay, dateText);
+    const referenceId = buildReferenceId(userId, uid, mode, bankName, swipeAmount, finalBillDay, repaymentDay, dateText);
 
     return {
       type: 'income',
@@ -228,7 +247,7 @@ function parseMailToFinance({ userId, uid, subject, fromText, bodyText, parsedDa
       transaction_date: transactionDate.toISOString(),
       business_type: 'credit_card_swipe',
       card_bank: bankName || null,
-      card_bill_day: billDay || null,
+      card_bill_day: finalBillDay || null,
       card_repayment_day: repaymentDay || null,
       card_swipe_amount: Number(swipeAmount.toFixed(2)),
       card_actual_amount: Number(finalActualAmount.toFixed(2)),
@@ -253,7 +272,7 @@ function parseMailToFinance({ userId, uid, subject, fromText, bodyText, parsedDa
   const finalRepaymentDay = repaymentDay || (dueDate ? dueDate.getDate() : 0);
   const reminderDate = computeReminderDate(dueDate || transactionDate, finalRepaymentDay, reminderDaysBefore);
   const dateText = toYmd(transactionDate);
-  const referenceId = buildReferenceId(userId, uid, mode, bankName, repaymentAmount, billDay, finalRepaymentDay, dateText);
+  const referenceId = buildReferenceId(userId, uid, mode, bankName, repaymentAmount, finalBillDay, finalRepaymentDay, dateText);
 
   return {
     type: 'expense',
@@ -263,7 +282,7 @@ function parseMailToFinance({ userId, uid, subject, fromText, bodyText, parsedDa
     transaction_date: transactionDate.toISOString(),
     business_type: 'credit_card_repayment',
     card_bank: bankName || null,
-    card_bill_day: billDay || null,
+    card_bill_day: finalBillDay || null,
     card_repayment_day: finalRepaymentDay || null,
     card_repayment_amount: Number(repaymentAmount.toFixed(2)),
     reminder_enabled: true,

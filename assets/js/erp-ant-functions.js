@@ -7013,9 +7013,15 @@ async function tryConnectorSync(connection, startDate, endDate) {
             }
         });
     } catch (error) {
+        const rawMessage = String(error?.message || '').trim();
+        const isEdgeRequestFailed = rawMessage.includes('Failed to send a request to the Edge Function')
+            || rawMessage.includes('ERR_FAILED')
+            || rawMessage.includes('CORS');
         return {
             ok: false,
-            message: `接口调用异常：${error?.message || '网络或跨域错误'}`
+            message: isEdgeRequestFailed
+                ? '接口调用失败：Edge Function 未连通（可能未部署、跨域预检失败或网络异常）'
+                : `接口调用异常：${rawMessage || '网络或跨域错误'}`
         };
     }
 
@@ -7093,6 +7099,7 @@ async function runPersonalBankSync() {
     let logStatus = 'failed';
     let insertedCount = 0;
     let logMessage = '';
+    let connectorFailed = false;
     const syncTimeIso = new Date().toISOString();
 
     try {
@@ -7105,6 +7112,7 @@ async function runPersonalBankSync() {
             } else if (mode === 'connector') {
                 throw new Error(connectorResult.message || '接口同步失败');
             } else {
+                connectorFailed = true;
                 logMessage = `接口失败，已回退账本：${connectorResult.message || '未知原因'}`;
             }
         }
@@ -7113,7 +7121,7 @@ async function runPersonalBankSync() {
             const ledgerEntries = await buildLedgerSyncEntries(connection, startDate, endDate);
             const inserted = await upsertPersonalBankStatementEntries(ledgerEntries);
             insertedCount += inserted;
-            logStatus = inserted > 0 ? 'success' : 'partial';
+            logStatus = inserted > 0 ? 'success' : (connectorFailed ? 'failed' : 'partial');
             const fallbackMsg = `账本回填完成，新增${inserted}条`;
             logMessage = logMessage ? `${logMessage}；${fallbackMsg}` : fallbackMsg;
         }

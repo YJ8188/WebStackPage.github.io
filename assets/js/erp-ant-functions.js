@@ -6175,9 +6175,17 @@ function renderQQMailAuthStatus(statusData = null) {
     const email = String(statusData?.email_address || '').trim();
     const masked = email ? maskQQEmail(email) : '';
     if (enabled && masked) {
-        statusTextEl.textContent = `已授权（${masked}）`;
+        const lastSyncAt = statusData?.last_sync_at ? toDateTimeText(statusData.last_sync_at) : '';
+        const lastSyncStatus = String(statusData?.last_sync_status || '').trim();
+        const syncSuffix = lastSyncAt ? `，最近同步：${lastSyncAt}${lastSyncStatus ? `（${lastSyncStatus}）` : ''}` : '，尚未执行自动同步';
+        statusTextEl.textContent = `已授权（${masked}）${syncSuffix}`;
         statusTextEl.style.color = '#15803d';
-        if (hintEl) hintEl.textContent = `当前授权账号：${masked}，自动同步已启用。`;
+        if (hintEl) {
+            const syncMsg = String(statusData?.last_sync_message || '').trim();
+            hintEl.textContent = syncMsg
+                ? `当前授权账号：${masked}；最近结果：${syncMsg}`
+                : `当前授权账号：${masked}，自动同步已启用。`;
+        }
     } else if (email) {
         statusTextEl.textContent = `已配置但已停用（${masked || email}）`;
         statusTextEl.style.color = '#b45309';

@@ -236,7 +236,7 @@ function parseMailToFinance({ userId, uid, subject, fromText, bodyText, parsedDa
   };
 }
 
-async function fetchLatestMessages({ client, mailbox, maxMessages, lookbackDays }) {
+async function fetchLatestMessagesFromMailbox({ client, mailbox, maxMessages, lookbackDays }) {
   const lock = await client.getMailboxLock(mailbox);
   try {
     const exists = Number(client.mailbox?.exists || 0);
@@ -250,6 +250,7 @@ async function fetchLatestMessages({ client, mailbox, maxMessages, lookbackDays 
       const parsed = await simpleParser(msg.source);
       rows.push({
         uid: msg.uid,
+        mailbox,
         subject: parsed.subject || msg?.envelope?.subject || '',
         fromText: parsed.from?.text || '',
         bodyText: parsed.text || '',
@@ -260,6 +261,24 @@ async function fetchLatestMessages({ client, mailbox, maxMessages, lookbackDays 
   } finally {
     lock.release();
   }
+}
+
+async function fetchLatestMessages({ client, mailboxText, maxMessages, lookbackDays }) {
+  const mailboxes = String(mailboxText || 'INBOX')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const allRows = [];
+  for (const mailbox of mailboxes) {
+    try {
+      const rows = await fetchLatestMessagesFromMailbox({ client, mailbox, maxMessages, lookbackDays });
+      allRows.push(...rows);
+      console.log(`[QQ同步] 文件夹 ${mailbox} 拉取 ${rows.length} 封`);
+    } catch (error) {
+      console.warn(`[QQ同步] 文件夹 ${mailbox} 读取失败：${error?.message || error}`);
+    }
+  }
+  return allRows;
 }
 
 async function fetchExistingReferenceIds(supabase, userId, refs) {
@@ -385,7 +404,7 @@ async function main() {
   const supabaseUrl = requireEnv('SUPABASE_URL');
   const supabaseServiceRoleKey = requireEnv('SUPABASE_SERVICE_ROLE_KEY');
   const userId = requireEnv('ERP_USER_ID');
-  const mailbox = String(process.env.QQ_MAILBOX || 'INBOX').trim();
+  const mailboxText = String(process.env.QQ_MAILBOX || 'INBOX').trim();
   const lookbackDays = Math.max(1, toInt(process.env.QQ_SYNC_LOOKBACK_DAYS, 35));
   const maxMessages = Math.max(20, toInt(process.env.QQ_SYNC_MAX_MESSAGES, 250));
   const reminderDaysBefore = Math.max(0, toInt(process.env.QQ_SYNC_REMINDER_DAYS_BEFORE, 3));
@@ -428,8 +447,7 @@ async function main() {
 
   try {
     await client.connect();
-    await client.mailboxOpen(mailbox);
-    const messages = await fetchLatestMessages({ client, mailbox, maxMessages, lookbackDays });
+    const messages = await fetchLatestMessages({ client, mailboxText, maxMessages, lookbackDays });
     await client.logout();
 
     console.log(`[QQ同步] 拉取邮件数量：${messages.length}`);

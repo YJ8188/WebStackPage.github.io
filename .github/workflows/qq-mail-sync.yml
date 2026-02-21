@@ -30,9 +30,9 @@ jobs:
       QQ_MAIL_SYNC_TOKEN: ${{ secrets.QQ_MAIL_SYNC_TOKEN }}
       QQ_IMAP_HOST: imap.qq.com
       QQ_IMAP_PORT: "993"
-      QQ_MAILBOX: INBOX
+      QQ_MAILBOX: "INBOX,INBOX/订阅邮件,INBOX/广告邮件"
       QQ_SYNC_REMINDER_DAYS_BEFORE: "3"
-      QQ_SYNC_INCLUDE_KEYWORDS: "信用卡,账单,还款,到期"
+      QQ_SYNC_INCLUDE_KEYWORDS: "信用卡,账单,还款,到期,本期应还,最低还款,电子账单,对账单"
       QQ_SYNC_EXCLUDE_KEYWORDS: "验证码,广告,活动,优惠"
       QQ_SYNC_LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '35' }}
       QQ_SYNC_MAX_MESSAGES: ${{ github.event.inputs.max_messages || '250' }}

@@ -147,18 +147,37 @@ function extractAmountByLabels(text, labels = []) {
   if (!source || !labels.length) return NaN;
   const escapedLabels = labels
     .map((label) => String(label || '').trim())
-    .filter(Boolean)
-    .map((label) => label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    .filter(Boolean);
   if (!escapedLabels.length) return NaN;
-  const labelGroup = escapedLabels.join('|');
-  const regex = new RegExp(
-    `(?:${labelGroup})[\\s\\S]{0,420}?([¥￥]?(?:\\s*CNY\\s*)?\\s*[\\d,]+(?:\\.\\d{1,2})?)`,
-    'i'
-  );
-  const match = source.match(regex);
-  if (!match || !match[1]) return NaN;
-  const amount = toNumber(String(match[1]).replace(/CNY/ig, ''), NaN);
-  return Number.isFinite(amount) ? amount : NaN;
+
+  const findAmountInWindow = (windowText) => {
+    const patterns = [
+      /(?:CNY|RMB|¥|￥)\s*([0-9][0-9,]{0,15}(?:\.\d{1,2})?)/i,
+      /([0-9][0-9,]{0,15}(?:\.\d{1,2})?)\s*(?:CNY|RMB|元)/i,
+      /([0-9]{1,3}(?:,[0-9]{3})+(?:\.\d{1,2})?)/,
+      /([1-9][0-9]{0,7}(?:\.\d{1,2})?)/
+    ];
+    for (const pattern of patterns) {
+      const match = String(windowText || '').match(pattern);
+      if (!match || !match[1]) continue;
+      const amount = toNumber(match[1], NaN);
+      if (Number.isFinite(amount)) return amount;
+    }
+    return NaN;
+  };
+
+  const sourceLower = source.toLowerCase();
+  for (const label of escapedLabels) {
+    const labelText = String(label || '').trim();
+    if (!labelText) continue;
+    const lowerLabel = labelText.toLowerCase();
+    const startIndex = sourceLower.indexOf(lowerLabel);
+    if (startIndex < 0) continue;
+    const windowText = source.slice(startIndex, Math.min(source.length, startIndex + 520));
+    const amount = findAmountInWindow(windowText);
+    if (Number.isFinite(amount)) return amount;
+  }
+  return NaN;
 }
 
 function extractStatementPeriodEndDate(text) {
@@ -1196,17 +1215,18 @@ async function syncOneUser({
       }
     }
 
-    if (!parsedRows.length) {
-      if (parseFailedSubjects.length) {
-        const failedPreview = parseFailedSubjects
-          .slice(0, 5)
-          .map((item) => String(item || '').replace(/\s+/g, ' ').trim())
-          .filter(Boolean)
-          .join(' | ');
-        if (failedPreview) {
-          console.log(`[QQ同步][${userId}] 解析失败样例：${failedPreview}`);
-        }
+    if (parseFailedSubjects.length) {
+      const failedPreview = parseFailedSubjects
+        .slice(0, 10)
+        .map((item) => String(item || '').replace(/\s+/g, ' ').trim())
+        .filter(Boolean)
+        .join(' | ');
+      if (failedPreview) {
+        console.log(`[QQ同步][${userId}] 解析失败样例：${failedPreview}`);
       }
+    }
+
+    if (!parsedRows.length) {
       const skippedPreview = keywordSkippedMessages
         .slice(0, 5)
         .map((mail) => String(mail.subject || '(无主题)').replace(/\s+/g, ' ').trim())

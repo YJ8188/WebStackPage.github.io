@@ -424,11 +424,46 @@ async function fetchLatestMessagesFromMailbox({ client, mailbox, maxMessages, lo
   }
 }
 
-async function fetchLatestMessages({ client, mailboxText, maxMessages, lookbackDays }) {
-  const mailboxes = String(mailboxText || 'INBOX')
+async function resolveMailboxesToScan({ client, mailboxText, autoDiscover }) {
+  const configured = String(mailboxText || 'INBOX')
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean);
+  const selected = new Set(configured.length ? configured : ['INBOX']);
+  if (!autoDiscover) {
+    if (!selected.has('INBOX')) selected.add('INBOX');
+    return Array.from(selected);
+  }
+
+  try {
+    const folders = await client.list();
+    const keywordRegex = /(信用卡|账单|银行|中信|浦发|民生|光大|张家口|credit|statement|billing|card|repay|payment)/i;
+    for (const folder of folders || []) {
+      const path = String(folder?.path || '').trim();
+      if (!path) continue;
+      const isDisabled = !!folder?.disabled || !!folder?.flags?.has?.('\\Noselect') || !!folder?.flags?.has?.('\\NonExistent');
+      if (isDisabled) continue;
+      const name = String(folder?.name || '').trim();
+      const specialUse = String(folder?.specialUse || '').trim();
+      if (specialUse === '\\Inbox' || path.toUpperCase() === 'INBOX') {
+        selected.add(path);
+        continue;
+      }
+      if (keywordRegex.test(path) || keywordRegex.test(name)) {
+        selected.add(path);
+      }
+    }
+  } catch (error) {
+    console.warn('[QQ同步] 自动发现邮箱文件夹失败，改用手动配置：', error?.message || error);
+  }
+
+  if (!selected.size) selected.add('INBOX');
+  return Array.from(selected).slice(0, 60);
+}
+
+async function fetchLatestMessages({ client, mailboxText, maxMessages, lookbackDays, autoDiscover }) {
+  const mailboxes = await resolveMailboxesToScan({ client, mailboxText, autoDiscover });
+  console.log(`[QQ同步] 扫描文件夹：${mailboxes.join(', ')}`);
   const allRows = [];
   for (const mailbox of mailboxes) {
     try {
@@ -840,7 +875,8 @@ async function syncOneUser({
   reminderDaysBefore,
   dryRun,
   keywordList,
-  excludeKeywords
+  excludeKeywords,
+  autoDiscoverMailbox
 }) {
   let syncStatus = 'failed';
   let syncMessage = '';
@@ -873,7 +909,13 @@ async function syncOneUser({
       try {
         await client.connect();
         clientConnected = true;
-        messages = await fetchLatestMessages({ client, mailboxText, maxMessages, lookbackDays });
+        messages = await fetchLatestMessages({
+          client,
+          mailboxText,
+          maxMessages,
+          lookbackDays,
+          autoDiscover: autoDiscoverMailbox
+        });
         await client.logout();
         clientConnected = false;
         break;
@@ -1101,6 +1143,7 @@ async function main() {
   const lookbackDays = Math.max(1, toInt(process.env.QQ_SYNC_LOOKBACK_DAYS, 35));
   const maxMessages = Math.max(20, toInt(process.env.QQ_SYNC_MAX_MESSAGES, 250));
   const reminderDaysBefore = Math.max(0, toInt(process.env.QQ_SYNC_REMINDER_DAYS_BEFORE, 3));
+  const autoDiscoverMailbox = !['0', 'false', 'no'].includes(String(process.env.QQ_MAILBOX_AUTO_DISCOVER || 'true').toLowerCase());
   const dryRun = ['1', 'true', 'yes'].includes(String(process.env.QQ_SYNC_DRY_RUN || '').toLowerCase());
   const keywordList = String(process.env.QQ_SYNC_INCLUDE_KEYWORDS || '信用卡,账单,还款,到期')
     .split(',')
@@ -1134,7 +1177,8 @@ async function main() {
       reminderDaysBefore,
       dryRun,
       keywordList,
-      excludeKeywords
+      excludeKeywords,
+      autoDiscoverMailbox
     });
     if (result.syncStatus === 'success') successCount += 1;
     else if (result.syncStatus === 'partial') partialCount += 1;

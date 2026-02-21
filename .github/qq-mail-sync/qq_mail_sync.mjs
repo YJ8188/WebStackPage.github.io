@@ -246,12 +246,12 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
   const statementPeriodEndDate = extractStatementPeriodEndDate(text);
 
   const billDay = extractDay(text, [
-    /(?:账单日|账单日期|出账日|结单日|账单生成日)[^0-9]{0,40}(?:每月|每期)?\s*((?:[12]?\d|3[01]))\s*日/i,
+    /(?:账单日|账单日期|出账日|结单日|账单生成日)[：:\s]{0,16}(?:每月|每期)?\s*((?:[12]?\d|3[01]))\s*日/i,
     /(?:每月|每期)\s*((?:[12]?\d|3[01]))\s*日[^。\n]{0,20}(?:账单日|出账日|结单日)/i
   ]);
   const repaymentDay = extractDay(text, [
-    /(?:还款日|最后还款日|到期还款日|本期还款日|最迟还款日)[^0-9]{0,40}(?:每月|每期)?\s*((?:[12]?\d|3[01]))\s*日/i,
-    /(?:每月|每期)\s*((?:[12]?\d|3[01]))\s*日[^。\n]{0,24}(?:还款日|最后还款日|到期还款日|最迟还款日)/i
+    /(?:还款日|最后还款日|到期还款日|本期还款日|最迟还款日)[：:\s]{0,16}(?:每月|每期)?\s*((?:[12]?\d|3[01]))\s*日/i,
+    /(?:每月|每期)\s*((?:[12]?\d|3[01]))\s*日(?:为)?[^。\n]{0,8}(?:还款日|最后还款日|到期还款日|最迟还款日)/i
   ]);
   const statementDate = statementDateByLabel || statementPeriodEndDate || extractDate(text, [
     /(?:账单日期|账单日|交易日期|记账日)[：:\s]*([0-9]{4}[年\/\-.][0-9]{1,2}[月\/\-.][0-9]{1,2}日?)/,
@@ -323,8 +323,20 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
   ]);
   if (!Number.isFinite(repaymentAmount) || repaymentAmount <= 0) return null;
   if (!hasStatementSignal && !statementDate && !billDay) return null;
+  if (/(本期账单已还清|已还清|已结清)/.test(text) && !/(本期应还|应还款|Total Statement Balance)/i.test(text)) {
+    return null;
+  }
 
-  const finalRepaymentDay = repaymentDay || (dueDate ? dueDate.getDate() : 0);
+  let finalRepaymentDay = repaymentDay || (dueDate ? dueDate.getDate() : 0);
+  if (
+    finalRepaymentDay
+    && finalBillDay
+    && finalRepaymentDay === finalBillDay
+    && !dueDateByLabel
+    && !/(Payment Due Date|到期还款日|最后还款日|最迟还款日)/i.test(text)
+  ) {
+    finalRepaymentDay = 0;
+  }
   const reminderDate = computeReminderDate(dueDate || transactionDate, finalRepaymentDay, reminderDaysBefore);
   const dateText = toYmd(transactionDate);
   const referenceId = buildReferenceId(userId, uid, messageId, mode, bankName, repaymentAmount, dateText);

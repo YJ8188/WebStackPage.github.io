@@ -539,10 +539,12 @@ async function syncOneUser({
     const parsedRows = [];
     let skippedByKeyword = 0;
     let parseFailed = 0;
+    const keywordSkippedMessages = [];
 
     for (const mail of messages) {
       if (!hasCreditCardKeywords(mail.subject, mail.bodyText, keywordList, excludeKeywords)) {
         skippedByKeyword += 1;
+        keywordSkippedMessages.push(mail);
         continue;
       }
       const row = parseMailToFinance({
@@ -564,9 +566,33 @@ async function syncOneUser({
       });
     }
 
+    if (!parsedRows.length && keywordSkippedMessages.length) {
+      let fallbackParsed = 0;
+      for (const mail of keywordSkippedMessages) {
+        const row = parseMailToFinance({
+          userId,
+          uid: mail.uid,
+          subject: mail.subject,
+          fromText: mail.fromText,
+          bodyText: mail.bodyText,
+          parsedDate: mail.date,
+          reminderDaysBefore
+        });
+        if (!row) continue;
+        fallbackParsed += 1;
+        parsedRows.push({
+          ...row,
+          user_id: userId
+        });
+      }
+      if (fallbackParsed > 0) {
+        console.log(`[QQ同步][${userId}] 关键词兜底解析命中：${fallbackParsed} 条`);
+      }
+    }
+
     if (!parsedRows.length) {
       syncStatus = 'partial';
-      syncMessage = `无可导入账单（关键词跳过${skippedByKeyword}，解析失败${parseFailed}）`;
+      syncMessage = `无可导入账单（关键词跳过${skippedByKeyword}，解析失败${parseFailed}）。请确认账单邮件是否为文本内容（非纯图片/PDF）`;
       console.log(`[QQ同步][${userId}] ${syncMessage}`);
       return { userId, ok: true, syncStatus, syncMessage };
     }

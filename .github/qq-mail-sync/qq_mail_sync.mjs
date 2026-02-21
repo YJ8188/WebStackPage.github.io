@@ -247,8 +247,8 @@ function detectMode(text) {
   return 'repayment';
 }
 
-function hasCreditCardKeywords(subject, text, keywords, excludes) {
-  const source = `${subject}\n${text}`;
+function hasCreditCardKeywords(subject, text, fromText, keywords, excludes) {
+  const source = `${subject}\n${fromText}\n${text}`;
   const sourceLower = source.toLowerCase();
   const sourceCompact = sourceLower.replace(/\s+/g, '');
   const matchedInclude = keywords.some((keyword) => {
@@ -262,6 +262,7 @@ function hasCreditCardKeywords(subject, text, keywords, excludes) {
   const statementLike = /(账单|statement|billing)/i.test(source);
   const cardLike = /(信用卡|credit\s*card|银行|bank)/i.test(source);
   if (statementLike && cardLike) return true;
+  if (/(citiccard\.com|中信银行信用卡中心|信用卡中心|信用卡电子账单)/i.test(source)) return true;
   if (excludes.some((keyword) => keyword && source.includes(keyword))) return false;
   return false;
 }
@@ -505,7 +506,7 @@ async function fetchLatestMessagesFromMailbox({ client, mailbox, maxMessages, lo
       const parsed = await simpleParser(msg.source);
       const bodyText = normalizeText(
         parsed.text
-        || parsed.textAsHtml
+        || stripHtmlToText(parsed.textAsHtml)
         || stripHtmlToText(parsed.html)
         || ''
       );
@@ -1160,7 +1161,7 @@ async function syncOneUser({
     const keywordSkippedMessages = [];
 
     for (const mail of messages) {
-      if (!hasCreditCardKeywords(mail.subject, mail.bodyText, keywordList, excludeKeywords)) {
+      if (!hasCreditCardKeywords(mail.subject, mail.bodyText, mail.fromText, keywordList, excludeKeywords)) {
         skippedByKeyword += 1;
         keywordSkippedMessages.push(mail);
         continue;
@@ -1186,8 +1187,9 @@ async function syncOneUser({
       });
     }
 
-    if (!parsedRows.length && keywordSkippedMessages.length) {
+    if (keywordSkippedMessages.length) {
       let fallbackParsed = 0;
+      const parsedRefSet = new Set(parsedRows.map((item) => String(item?.reference_id || '').trim()).filter(Boolean));
       for (const mail of keywordSkippedMessages) {
         const row = parseMailToFinance({
           userId,
@@ -1199,11 +1201,10 @@ async function syncOneUser({
           parsedDate: mail.date,
           reminderDaysBefore
         });
-        if (!row) {
-          parseFailed += 1;
-          parseFailedSubjects.push(mail.subject || '(无主题)');
-          continue;
-        }
+        if (!row) continue;
+        const ref = String(row.reference_id || '').trim();
+        if (ref && parsedRefSet.has(ref)) continue;
+        if (ref) parsedRefSet.add(ref);
         fallbackParsed += 1;
         parsedRows.push({
           ...row,
@@ -1211,7 +1212,7 @@ async function syncOneUser({
         });
       }
       if (fallbackParsed > 0) {
-        console.log(`[QQ同步][${userId}] 关键词兜底解析命中：${fallbackParsed} 条`);
+        console.log(`[QQ同步][${userId}] 关键词补充解析命中：${fallbackParsed} 条`);
       }
     }
 
@@ -1224,6 +1225,15 @@ async function syncOneUser({
       if (failedPreview) {
         console.log(`[QQ同步][${userId}] 解析失败样例：${failedPreview}`);
       }
+    }
+
+    const skippedPreview = keywordSkippedMessages
+      .slice(0, 8)
+      .map((mail) => String(mail.subject || '(无主题)').replace(/\s+/g, ' ').trim())
+      .filter(Boolean)
+      .join(' | ');
+    if (skippedPreview) {
+      console.log(`[QQ同步][${userId}] 关键词跳过样例：${skippedPreview}`);
     }
 
     if (!parsedRows.length) {

@@ -303,11 +303,11 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
   }
   const text = normalizeText(`${subject}\n${fromText}\n${bodyText}`);
   if (!text) return null;
-  const mode = detectMode(text);
   const bankName = detectBankName(text);
   const forcedBankName = /(中信银行信用卡|citiccard\.com)/i.test(text) ? '中信银行' : '';
   const hasStatementSignal = /(账单|statement|billing|电子账单)/i.test(text);
   const isCiticStatement = /(中信银行信用卡|citiccard\.com|总账信息\s*\|\s*Statement Information|Total Payment)/i.test(text);
+  const mode = isCiticStatement ? 'repayment' : detectMode(text);
 
   const statementDateByLabel = extractDateByLabels(text, [
     '账单日',
@@ -430,7 +430,7 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
     if (!amounts.length) return NaN;
     return Math.max(...amounts);
   })();
-  const repaymentAmount = Number.isFinite(repaymentAmountByLabel)
+  let repaymentAmount = Number.isFinite(repaymentAmountByLabel)
     ? repaymentAmountByLabel
     : (Number.isFinite(repaymentAmountByCiticTemplate)
       ? repaymentAmountByCiticTemplate
@@ -445,6 +445,15 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
     /(?:本期应还款金额|本期应还款|总账信息)[^0-9¥￥]{0,80}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/i,
     /(?:最低应还(?:金额|款额)?|最低还款额|最低还款|Minimum Payment)[^0-9¥￥]{0,80}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/i
   ])))));
+  if ((!Number.isFinite(repaymentAmount) || repaymentAmount <= 0) && isCiticStatement) {
+    repaymentAmount = extractAmount(text, [
+      /(?:Total\s*Payment|本期应还款总额)[\s:：]*(?:CNY|RMB|¥|￥)?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.\d{1,2})?)/i,
+      /(?:CNY|RMB|¥|￥)\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.\d{1,2})?)[\s\S]{0,60}?(?:Total\s*Payment|本期应还款总额)/i
+    ]);
+  }
+  if ((!Number.isFinite(repaymentAmount) || repaymentAmount <= 0) && isCiticStatement) {
+    console.log(`[QQ同步][CITIC] 最终金额仍未命中：subject=${String(subject || '').replace(/\s+/g, ' ')}`);
+  }
   if (!Number.isFinite(repaymentAmount) || repaymentAmount <= 0) return null;
   if (!hasStatementSignal && !statementDate && !billDay && !isCiticStatement) return null;
   if (/(本期账单已还清|已还清|已结清)/.test(text) && !/(本期应还|应还款|Total Statement Balance)/i.test(text)) {

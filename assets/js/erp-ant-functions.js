@@ -1329,6 +1329,9 @@ async function checkLoginStatus() {
         if (typeof ERP !== 'undefined' && ERP.init) {
             ERP.init();
         }
+        if (typeof refreshQQMailAuthStatus === 'function') {
+            setTimeout(() => refreshQQMailAuthStatus(true), 0);
+        }
         return;
     }
 
@@ -1366,6 +1369,9 @@ async function checkLoginStatus() {
                 showERPContent();
                 if (typeof ERP !== 'undefined' && ERP.init) {
                     ERP.init();
+                }
+                if (typeof refreshQQMailAuthStatus === 'function') {
+                    setTimeout(() => refreshQQMailAuthStatus(true), 0);
                 }
                 return;
             }

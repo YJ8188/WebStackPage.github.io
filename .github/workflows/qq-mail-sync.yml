@@ -76,4 +76,16 @@ jobs:
           echo "预检通过：关键配置已就绪（ERP_USER_ID 可为空以启用多用户自动同步）"
 
       - name: Run QQ mail sync
-        run: node .github/qq-mail-sync/qq_mail_sync.mjs
+        shell: bash
+        run: |
+          set +e
+          node .github/qq-mail-sync/qq_mail_sync.mjs 2>&1 | tee qq-mail-sync.log
+          exit_code=${PIPESTATUS[0]}
+          if [ "$exit_code" -ne 0 ]; then
+            reason=$(grep -E "\\[QQ同步\\].*失败|未找到已启用的QQ邮箱授权账号|同步令牌|授权|IMAP|全部账号同步失败" qq-mail-sync.log | tail -n 1 || true)
+            if [ -z "$reason" ]; then
+              reason=$(tail -n 20 qq-mail-sync.log | tr '\n' ' ' | sed 's/  */ /g')
+            fi
+            echo "::error::${reason}"
+            exit "$exit_code"
+          fi

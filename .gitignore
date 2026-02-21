@@ -6,3 +6,4 @@ tools/card-manager/__pycache__/
 tools/card-manager/workspace_bundle/
 *.pyc
 *.bak
+.github/qq-mail-sync/node_modules/

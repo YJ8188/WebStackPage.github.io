@@ -1,0 +1,54 @@
+name: qq-mail-sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      lookback_days:
+        description: "回溯天数（默认35）"
+        required: false
+        default: "35"
+      max_messages:
+        description: "最大扫描邮件数（默认250）"
+        required: false
+        default: "250"
+      dry_run:
+        description: "是否仅预览不入库（true/false）"
+        required: false
+        default: "false"
+  schedule:
+    - cron: "15 */3 * * *"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      ERP_USER_ID: ${{ secrets.ERP_USER_ID }}
+      QQ_EMAIL_ADDRESS: ${{ secrets.QQ_EMAIL_ADDRESS }}
+      QQ_EMAIL_AUTH_CODE: ${{ secrets.QQ_EMAIL_AUTH_CODE }}
+      QQ_IMAP_HOST: imap.qq.com
+      QQ_IMAP_PORT: "993"
+      QQ_MAILBOX: INBOX
+      QQ_SYNC_REMINDER_DAYS_BEFORE: "3"
+      QQ_SYNC_INCLUDE_KEYWORDS: "信用卡,账单,还款,到期"
+      QQ_SYNC_EXCLUDE_KEYWORDS: "验证码,广告,活动,优惠"
+      QQ_SYNC_LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '35' }}
+      QQ_SYNC_MAX_MESSAGES: ${{ github.event.inputs.max_messages || '250' }}
+      QQ_SYNC_DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install --prefix .github/qq-mail-sync
+
+      - name: Run QQ mail sync
+        run: node .github/qq-mail-sync/qq_mail_sync.mjs

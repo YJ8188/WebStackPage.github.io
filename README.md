@@ -149,23 +149,36 @@ supabase functions serve logistics-track --env-file .env.local
 TRACK17_API_KEY=你的17TRACK_API_KEY
 ```
 
-## 个人银行账单同步中心（ERP 银行业务）
-- 已新增「个人账单同步中心」UI：连接管理、手动同步、同步日志
-- 当前仅保留个人模式：`个人账单导入`
-- 同步策略支持：
-  - 智能匹配（银行+尾号+关键词）
-  - 严格匹配（银行+尾号）
+## 银行业务（QQ 邮箱自动同步）
+- 银行业务页面已支持“邮箱账单导入”（手工粘贴/文件导入）；
+- 仓库新增 GitHub Actions 定时任务：自动读取 QQ 邮箱账单并写入 `erp_finances`；
+- 支持多信用卡（同一邮箱内按银行/账单关键词自动识别）。
 
-### 1）执行数据库升级 SQL
-在 Supabase SQL Editor 执行：
-`supabase/sql/20260221_add_personal_bank_sync_tables.sql`
+### 1）启用 QQ 邮箱 IMAP
+- QQ 邮箱 → 设置 → 账户 → 开启 IMAP；
+- 生成“授权码”（不是邮箱登录密码）。
 
-### 2）前端使用路径
-- ERP → 银行业务 → 个人账单同步中心
-- 先新增个人连接，再执行“手动同步账单”
-- 系统按选择策略从 ERP 财务账本中匹配并写入个人账单明细
+### 2）配置 GitHub Secrets（仓库 Settings → Secrets and variables → Actions）
+必须配置：
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `ERP_USER_ID`（ERP 登录用户的 UUID）
+- `QQ_EMAIL_ADDRESS`（QQ 邮箱）
+- `QQ_EMAIL_AUTH_CODE`（QQ IMAP 授权码）
 
-### 4）使用方式
+### 3）自动任务说明
+- 工作流文件：`.github/workflows/qq-mail-sync.yml`
+- 定时执行：每 3 小时一次
+- 支持手动触发（`workflow_dispatch`），可指定：
+  - `lookback_days`：回溯天数
+  - `max_messages`：最大扫描邮件数
+  - `dry_run`：仅解析不入库
+
+### 4）同步脚本位置
+- `.github/qq-mail-sync/qq_mail_sync.mjs`
+- 依赖定义：`.github/qq-mail-sync/package.json`
+
+### 5）ERP物流使用方式
 - ERP → 订单管理 → 详情（编辑订单）  
 - 填写快递公司与单号，点击“查询轨迹”  
 - 若提示需要校验参数（如部分顺丰单号），填写“手机号后4位”再查询  

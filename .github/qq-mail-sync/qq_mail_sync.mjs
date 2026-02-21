@@ -40,6 +40,26 @@ function normalizeText(rawText) {
     .trim();
 }
 
+function stripHtmlToText(html) {
+  const source = String(html || '');
+  if (!source) return '';
+  return source
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<\/tr>/gi, '\n')
+    .replace(/<\/td>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function parseDateToken(rawText) {
   const source = String(rawText || '').trim();
   if (!source) return null;
@@ -129,8 +149,10 @@ function detectMode(text) {
 
 function hasCreditCardKeywords(subject, text, keywords, excludes) {
   const source = `${subject}\n${text}`;
+  const matchedInclude = keywords.some((keyword) => keyword && source.includes(keyword));
+  if (matchedInclude) return true;
   if (excludes.some((keyword) => keyword && source.includes(keyword))) return false;
-  return keywords.some((keyword) => keyword && source.includes(keyword));
+  return false;
 }
 
 function buildReferenceId(userId, uid, mode, bankName, amount, billDay, repaymentDay, dateText) {
@@ -250,12 +272,18 @@ async function fetchLatestMessagesFromMailbox({ client, mailbox, maxMessages, lo
       const msgDate = msg?.envelope?.date instanceof Date ? msg.envelope.date : null;
       if (msgDate && msgDate.getTime() < sinceTime) continue;
       const parsed = await simpleParser(msg.source);
+      const bodyText = normalizeText(
+        parsed.text
+        || parsed.textAsHtml
+        || stripHtmlToText(parsed.html)
+        || ''
+      );
       rows.push({
         uid: msg.uid,
         mailbox,
         subject: parsed.subject || msg?.envelope?.subject || '',
         fromText: parsed.from?.text || '',
-        bodyText: parsed.text || '',
+        bodyText,
         date: parsed.date || msgDate || new Date()
       });
     }

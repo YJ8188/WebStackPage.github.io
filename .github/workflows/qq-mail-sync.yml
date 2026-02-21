@@ -4,13 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       lookback_days:
-        description: "回溯天数（0=不限，默认0）"
+        description: "回溯天数（仅在非当月模式生效）"
         required: false
-        default: "0"
+        default: "31"
       max_messages:
-        description: "最大扫描邮件数（默认5000）"
+        description: "最大扫描邮件数（默认2000）"
         required: false
-        default: "5000"
+        default: "2000"
       dry_run:
         description: "是否仅预览不入库（true/false）"
         required: false
@@ -34,14 +34,15 @@ jobs:
       QQ_MAIL_SYNC_TOKEN: ${{ secrets.QQ_MAIL_SYNC_TOKEN }}
       QQ_IMAP_HOST: imap.qq.com
       QQ_IMAP_PORT: "993"
-      QQ_MAILBOX: "ALL"
-      QQ_MAILBOX_AUTO_DISCOVER: "true"
+      QQ_MAILBOX: "INBOX"
+      QQ_MAILBOX_AUTO_DISCOVER: "false"
       QQ_IMAP_VERBOSE_LOG: "false"
+      QQ_SYNC_DATE_SCOPE: "current_month"
       QQ_SYNC_REMINDER_DAYS_BEFORE: "3"
       QQ_SYNC_INCLUDE_KEYWORDS: "信用卡,账单,还款,到期,本期应还,本期应还款总额,本期应还款金额,总账信息,最低还款,最低还款额,电子账单,电子对账单,对账单,应还款额,应还款总额,还款额,账单通知,人民币账户账单,statement,payment due,minimum payment,credit card,total statement balance"
       QQ_SYNC_EXCLUDE_KEYWORDS: "验证码,动态码,OTP,one-time password"
-      QQ_SYNC_LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '120' }}
-      QQ_SYNC_MAX_MESSAGES: ${{ github.event.inputs.max_messages || '1200' }}
+      QQ_SYNC_LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '31' }}
+      QQ_SYNC_MAX_MESSAGES: ${{ github.event.inputs.max_messages || '2000' }}
       QQ_SYNC_DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
     steps:
       - name: Checkout

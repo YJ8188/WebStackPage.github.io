@@ -390,23 +390,34 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
   };
 }
 
-async function fetchLatestMessagesFromMailbox({ client, mailbox, maxMessages, lookbackDays }) {
+async function fetchLatestMessagesFromMailbox({ client, mailbox, maxMessages, lookbackDays, dateScope }) {
   const lock = await client.getMailboxLock(mailbox);
   try {
     const exists = Number(client.mailbox?.exists || 0);
     if (!exists) return [];
     const isCappedByMax = exists > maxMessages;
     const fromSeq = Math.max(1, exists - maxMessages + 1);
+    const isCurrentMonthScope = String(dateScope || '').toLowerCase() === 'current_month';
     const lookbackEnabled = Number(lookbackDays || 0) > 0;
     const sinceTime = lookbackEnabled
       ? Date.now() - lookbackDays * 24 * 60 * 60 * 1000
       : 0;
+    const now = new Date();
+    const currentYear = now.getUTCFullYear();
+    const currentMonth = now.getUTCMonth();
     const rows = [];
     let scannedCount = 0;
     let skippedByLookback = 0;
+    let skippedByMonthScope = 0;
     for await (const msg of client.fetch(`${fromSeq}:${exists}`, { uid: true, envelope: true, source: true })) {
       scannedCount += 1;
       const msgDate = msg?.envelope?.date instanceof Date ? msg.envelope.date : null;
+      if (isCurrentMonthScope && msgDate) {
+        if (msgDate.getUTCFullYear() !== currentYear || msgDate.getUTCMonth() !== currentMonth) {
+          skippedByMonthScope += 1;
+          continue;
+        }
+      }
       if (lookbackEnabled && msgDate && msgDate.getTime() < sinceTime) {
         skippedByLookback += 1;
         continue;
@@ -429,7 +440,7 @@ async function fetchLatestMessagesFromMailbox({ client, mailbox, maxMessages, lo
       });
     }
     console.log(
-      `[QQ同步] 文件夹 ${mailbox}：总邮件${exists}，扫描${scannedCount}，时间窗过滤${skippedByLookback}，保留${rows.length}${isCappedByMax ? `，上限截断${exists - maxMessages}` : ''}`
+      `[QQ同步] 文件夹 ${mailbox}：总邮件${exists}，扫描${scannedCount}，当月过滤${skippedByMonthScope}，时间窗过滤${skippedByLookback}，保留${rows.length}${isCappedByMax ? `，上限截断${exists - maxMessages}` : ''}`
     );
     return rows;
   } finally {
@@ -507,13 +518,13 @@ async function resolveMailboxesToScan({ client, mailboxText, autoDiscover }) {
   return wantsAll ? mailboxList : mailboxList.slice(0, 60);
 }
 
-async function fetchLatestMessages({ client, mailboxText, maxMessages, lookbackDays, autoDiscover }) {
+async function fetchLatestMessages({ client, mailboxText, maxMessages, lookbackDays, dateScope, autoDiscover }) {
   const mailboxes = await resolveMailboxesToScan({ client, mailboxText, autoDiscover });
   console.log(`[QQ同步] 扫描文件夹：${mailboxes.join(', ')}`);
   const allRows = [];
   for (const mailbox of mailboxes) {
     try {
-      const rows = await fetchLatestMessagesFromMailbox({ client, mailbox, maxMessages, lookbackDays });
+      const rows = await fetchLatestMessagesFromMailbox({ client, mailbox, maxMessages, lookbackDays, dateScope });
       allRows.push(...rows);
       console.log(`[QQ同步] 文件夹 ${mailbox} 拉取 ${rows.length} 封`);
     } catch (error) {
@@ -917,6 +928,7 @@ async function syncOneUser({
   userId,
   mailboxText,
   lookbackDays,
+  dateScope,
   maxMessages,
   reminderDaysBefore,
   dryRun,
@@ -940,7 +952,7 @@ async function syncOneUser({
       throw new Error('邮箱授权不存在或已失效，请先在ERP页面完成QQ邮箱授权');
     }
 
-    console.log(`[QQ同步][${userId}] 启动：邮箱=${email}, 时间窗=${lookbackDays}天, 来源=${credential.source}`);
+    console.log(`[QQ同步][${userId}] 启动：邮箱=${email}, 范围=${dateScope === 'current_month' ? '当月' : `最近${lookbackDays}天`}, 来源=${credential.source}`);
     let messages = [];
     const maxAttempts = 2;
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -965,6 +977,7 @@ async function syncOneUser({
           mailboxText,
           maxMessages,
           lookbackDays,
+          dateScope,
           autoDiscover: autoDiscoverMailbox
         });
         await client.logout();
@@ -1191,6 +1204,9 @@ async function main() {
   const supabaseServiceRoleKey = requireEnv('SUPABASE_SERVICE_ROLE_KEY');
   const explicitUserId = String(process.env.ERP_USER_ID || '').trim();
   const mailboxText = String(process.env.QQ_MAILBOX || 'INBOX').trim();
+  const dateScope = String(process.env.QQ_SYNC_DATE_SCOPE || '').trim().toLowerCase() === 'current_month'
+    ? 'current_month'
+    : 'lookback';
   const lookbackDays = Math.max(0, toInt(process.env.QQ_SYNC_LOOKBACK_DAYS, 120));
   const maxMessages = Math.max(20, toInt(process.env.QQ_SYNC_MAX_MESSAGES, 1200));
   const reminderDaysBefore = Math.max(0, toInt(process.env.QQ_SYNC_REMINDER_DAYS_BEFORE, 3));
@@ -1225,6 +1241,7 @@ async function main() {
       userId,
       mailboxText,
       lookbackDays,
+      dateScope,
       maxMessages,
       reminderDaysBefore,
       dryRun,

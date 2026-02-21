@@ -395,9 +395,12 @@ async function fetchLatestMessagesFromMailbox({ client, mailbox, maxMessages, lo
   try {
     const exists = Number(client.mailbox?.exists || 0);
     if (!exists) return [];
-    const isCappedByMax = exists > maxMessages;
-    const fromSeq = Math.max(1, exists - maxMessages + 1);
     const isCurrentMonthScope = String(dateScope || '').toLowerCase() === 'current_month';
+    let isCappedByMax = exists > maxMessages;
+    let cappedTruncateCount = isCappedByMax ? Math.max(0, exists - maxMessages) : 0;
+    let fetchRange = Math.max(1, exists - maxMessages + 1) + ':' + exists;
+    let fetchOptions = undefined;
+    let plannedScanCount = Math.min(exists, maxMessages);
     const lookbackEnabled = Number(lookbackDays || 0) > 0;
     const sinceTime = lookbackEnabled
       ? Date.now() - lookbackDays * 24 * 60 * 60 * 1000
@@ -405,12 +408,35 @@ async function fetchLatestMessagesFromMailbox({ client, mailbox, maxMessages, lo
     const now = new Date();
     const currentYear = now.getUTCFullYear();
     const currentMonth = now.getUTCMonth();
+    if (isCurrentMonthScope) {
+      try {
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+        const monthlyUids = await client.search({ since: monthStart }, { uid: true });
+        const uidList = Array.isArray(monthlyUids) ? monthlyUids.filter((item) => Number.isFinite(Number(item))) : [];
+        isCappedByMax = uidList.length > maxMessages;
+        cappedTruncateCount = isCappedByMax ? Math.max(0, uidList.length - maxMessages) : 0;
+        const selectedUids = isCappedByMax ? uidList.slice(-maxMessages) : uidList;
+        if (!selectedUids.length) {
+          console.log(`[QQ同步] 文件夹 ${mailbox}：当月无可扫描邮件`);
+          return [];
+        }
+        fetchRange = selectedUids;
+        fetchOptions = { uid: true };
+        plannedScanCount = selectedUids.length;
+        console.log(`[QQ同步] 文件夹 ${mailbox}：当月候选${uidList.length}封，实际扫描${plannedScanCount}封`);
+      } catch (error) {
+        console.warn(`[QQ同步] 文件夹 ${mailbox}：当月服务端筛选失败，回退到序号扫描：${error?.message || error}`);
+      }
+    }
     const rows = [];
     let scannedCount = 0;
     let skippedByLookback = 0;
     let skippedByMonthScope = 0;
-    for await (const msg of client.fetch(`${fromSeq}:${exists}`, { uid: true, envelope: true, source: true })) {
+    for await (const msg of client.fetch(fetchRange, { uid: true, envelope: true, source: true }, fetchOptions)) {
       scannedCount += 1;
+      if (scannedCount % 100 === 0) {
+        console.log(`[QQ同步] 文件夹 ${mailbox}：进度 ${scannedCount}/${plannedScanCount}`);
+      }
       const msgDate = msg?.envelope?.date instanceof Date ? msg.envelope.date : null;
       if (isCurrentMonthScope && msgDate) {
         if (msgDate.getUTCFullYear() !== currentYear || msgDate.getUTCMonth() !== currentMonth) {
@@ -440,7 +466,7 @@ async function fetchLatestMessagesFromMailbox({ client, mailbox, maxMessages, lo
       });
     }
     console.log(
-      `[QQ同步] 文件夹 ${mailbox}：总邮件${exists}，扫描${scannedCount}，当月过滤${skippedByMonthScope}，时间窗过滤${skippedByLookback}，保留${rows.length}${isCappedByMax ? `，上限截断${exists - maxMessages}` : ''}`
+      `[QQ同步] 文件夹 ${mailbox}：总邮件${exists}，扫描${scannedCount}，当月过滤${skippedByMonthScope}，时间窗过滤${skippedByLookback}，保留${rows.length}${isCappedByMax ? `，上限截断${cappedTruncateCount}` : ''}`
     );
     return rows;
   } finally {

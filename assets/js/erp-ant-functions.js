@@ -6544,7 +6544,7 @@ function renderPersonalBankingCenter() {
     if (lastSyncEl) lastSyncEl.textContent = latestLog ? toDateTimeText(latestLog.created_at) : '-';
     if (syncStateEl) {
         const stateText = latestLog
-            ? (latestLog.status === 'success' ? '最近成功' : (latestLog.status === 'partial' ? '部分成功' : '最近失败'))
+            ? (latestLog.status === 'success' ? '最近成功' : (latestLog.status === 'partial' ? '最近无新增' : '最近失败'))
             : '未开始';
         syncStateEl.textContent = stateText + (personalBankingState.useLocalFallback ? '（本地缓存）' : '');
     }
@@ -6592,7 +6592,7 @@ function renderPersonalBankingCenter() {
             logBody.innerHTML = logs.map(log => {
                 const status = String(log?.status || 'unknown');
                 const statusClass = status === 'success' ? 'is-income' : (status === 'partial' ? 'is-system' : 'is-expense');
-                const statusText = status === 'success' ? '成功' : (status === 'partial' ? '部分成功' : '失败');
+                const statusText = status === 'success' ? '成功' : (status === 'partial' ? '无新增' : '失败');
                 const inserted = Number(log?.inserted_count || 0);
                 const rangeText = `${toYmdText(log?.range_start)} ~ ${toYmdText(log?.range_end)}`;
                 return `
@@ -7080,7 +7080,9 @@ async function runPersonalBankSync() {
         const inserted = await upsertPersonalBankStatementEntries(ledgerEntries);
         insertedCount += inserted;
         logStatus = inserted > 0 ? 'success' : 'partial';
-        logMessage = `${ledgerMode === 'ledger_strict' ? '严格匹配' : '智能匹配'}完成，新增${inserted}条`;
+        logMessage = inserted > 0
+            ? `${ledgerMode === 'ledger_strict' ? '严格匹配' : '智能匹配'}完成，新增${inserted}条`
+            : `${ledgerMode === 'ledger_strict' ? '严格匹配' : '智能匹配'}完成，未发现可新增记录（新增0条）`;
 
         await updatePersonalBankConnectionLastSync(connectionId, syncTimeIso);
         await appendPersonalBankSyncLog({

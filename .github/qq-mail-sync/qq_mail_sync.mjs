@@ -125,6 +125,17 @@ function extractDateByLabels(text, labels = []) {
   return parseDateToken(match[1]);
 }
 
+function extractStatementPeriodEndDate(text) {
+  const source = String(text || '');
+  if (!source) return null;
+  const match = source.match(
+    /([0-9]{4}[年\/\-.][0-9]{1,2}[月\/\-.][0-9]{1,2}日?)[^0-9]{0,10}(?:至|到|-|~|—)[^0-9]{0,10}([0-9]{4}[年\/\-.][0-9]{1,2}[月\/\-.][0-9]{1,2}日?)/i
+  );
+  if (!match) return null;
+  const endDate = parseDateToken(match[2] || '');
+  return endDate || null;
+}
+
 function extractDay(text, patterns) {
   const source = String(text || '');
   for (const pattern of patterns) {
@@ -215,6 +226,7 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
   if (!text) return null;
   const mode = detectMode(text);
   const bankName = detectBankName(text);
+  const hasStatementSignal = /(账单|statement|billing)/i.test(text);
 
   const statementDateByLabel = extractDateByLabels(text, [
     '账单日',
@@ -231,6 +243,7 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
     'Payment Due Date',
     'Due Date'
   ]);
+  const statementPeriodEndDate = extractStatementPeriodEndDate(text);
 
   const billDay = extractDay(text, [
     /(?:账单日|账单日期|出账日|结单日|账单生成日)[^0-9]{0,40}(?:每月|每期)?\s*((?:[12]?\d|3[01]))\s*日/i,
@@ -240,7 +253,7 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
     /(?:还款日|最后还款日|到期还款日|本期还款日|最迟还款日)[^0-9]{0,40}(?:每月|每期)?\s*((?:[12]?\d|3[01]))\s*日/i,
     /(?:每月|每期)\s*((?:[12]?\d|3[01]))\s*日[^。\n]{0,24}(?:还款日|最后还款日|到期还款日|最迟还款日)/i
   ]);
-  const statementDate = statementDateByLabel || extractDate(text, [
+  const statementDate = statementDateByLabel || statementPeriodEndDate || extractDate(text, [
     /(?:账单日期|账单日|交易日期|记账日)[：:\s]*([0-9]{4}[年\/\-.][0-9]{1,2}[月\/\-.][0-9]{1,2}日?)/,
     /(?:账单日期|账单日|交易日期|记账日|出账日期|结单日期)[：:\s]*([0-9]{1,2}[\/\-.][0-9]{1,2})/
   ]);
@@ -250,7 +263,7 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
   ]);
   const mailDate = parsedDate instanceof Date && !Number.isNaN(parsedDate.getTime()) ? parsedDate : new Date();
   const transactionDate = statementDate || mailDate;
-  const finalBillDay = billDay || (statementDate ? statementDate.getDate() : 0);
+  const finalBillDay = billDay || (statementDate ? statementDate.getDate() : 0) || mailDate.getDate();
 
   if (mode === 'swipe') {
     const swipeAmount = extractAmount(text, [
@@ -308,6 +321,7 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
     /(?:最低应还(?:金额|款额)?|最低还款额|最低还款|Minimum Payment)[^0-9¥￥]{0,80}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/i
   ]);
   if (!Number.isFinite(repaymentAmount) || repaymentAmount <= 0) return null;
+  if (!hasStatementSignal && !statementDate && !billDay) return null;
 
   const finalRepaymentDay = repaymentDay || (dueDate ? dueDate.getDate() : 0);
   const reminderDate = computeReminderDate(dueDate || transactionDate, finalRepaymentDay, reminderDaysBefore);
@@ -842,6 +856,7 @@ async function syncOneUser({
     const parsedRows = [];
     let skippedByKeyword = 0;
     let parseFailed = 0;
+    const parseFailedSubjects = [];
     const keywordSkippedMessages = [];
 
     for (const mail of messages) {
@@ -862,6 +877,7 @@ async function syncOneUser({
       });
       if (!row) {
         parseFailed += 1;
+        parseFailedSubjects.push(mail.subject || '(无主题)');
         continue;
       }
       parsedRows.push({
@@ -885,6 +901,7 @@ async function syncOneUser({
         });
         if (!row) {
           parseFailed += 1;
+          parseFailedSubjects.push(mail.subject || '(无主题)');
           continue;
         }
         fallbackParsed += 1;
@@ -899,6 +916,16 @@ async function syncOneUser({
     }
 
     if (!parsedRows.length) {
+      if (parseFailedSubjects.length) {
+        const failedPreview = parseFailedSubjects
+          .slice(0, 5)
+          .map((item) => String(item || '').replace(/\s+/g, ' ').trim())
+          .filter(Boolean)
+          .join(' | ');
+        if (failedPreview) {
+          console.log(`[QQ同步][${userId}] 解析失败样例：${failedPreview}`);
+        }
+      }
       const skippedPreview = keywordSkippedMessages
         .slice(0, 5)
         .map((mail) => String(mail.subject || '(无主题)').replace(/\s+/g, ' ').trim())

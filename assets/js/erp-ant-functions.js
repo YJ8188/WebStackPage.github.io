@@ -5948,15 +5948,24 @@ function applyBankBusinessFilters() {
     renderBankBusiness(filtered);
 }
 
+function setBankBusinessCurrentMonthRange() {
+    const startInput = document.getElementById('bankingDateStart');
+    const endInput = document.getElementById('bankingDateEnd');
+    if (!startInput || !endInput) return;
+
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const formatDateInputValue = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    startInput.value = formatDateInputValue(monthStart);
+    endInput.value = formatDateInputValue(now);
+}
+
 function resetBankBusinessFilters() {
     const bankInput = document.getElementById('bankingSearchBank');
     const reminderInput = document.getElementById('bankingReminderFilter');
-    const startInput = document.getElementById('bankingDateStart');
-    const endInput = document.getElementById('bankingDateEnd');
     if (bankInput) bankInput.value = '';
     if (reminderInput) reminderInput.value = 'all';
-    if (startInput) startInput.value = '';
-    if (endInput) endInput.value = '';
+    setBankBusinessCurrentMonthRange();
     applyBankBusinessFilters();
 }
 
@@ -13087,6 +13096,7 @@ if (typeof window !== 'undefined') {
 
 document.addEventListener('DOMContentLoaded', function () {
     initFinanceFilters();
+    setBankBusinessCurrentMonthRange();
     applyBankBusinessFilters();
     refreshQQMailAuthStatus();
     initOrderFilters();

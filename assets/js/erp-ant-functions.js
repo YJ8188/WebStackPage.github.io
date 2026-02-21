@@ -5811,6 +5811,34 @@ function getBankReminderStatus(record) {
     return { text: `提醒日：${formatFinanceDateText(record.reminderDate)}`, className: 'is-on', isDue: false };
 }
 
+function formatBankBillRepaymentText(record) {
+    const baseDate = record?.transactionDate instanceof Date && !Number.isNaN(record.transactionDate.getTime())
+        ? record.transactionDate
+        : new Date();
+    const billDay = toValidDay(record?.billDay, 0);
+    const repaymentDay = toValidDay(record?.repaymentDay, 0);
+    const billMonth = baseDate.getMonth();
+    const billYear = baseDate.getFullYear();
+
+    const billText = billDay ? `${billMonth + 1}月${billDay}日` : '-';
+    if (!repaymentDay) {
+        return `${billText} / -`;
+    }
+
+    const compareDay = billDay || baseDate.getDate();
+    const repaymentDate = repaymentDay < compareDay
+        ? new Date(billYear, billMonth + 1, 1)
+        : new Date(billYear, billMonth, 1);
+    const repaymentMonth = repaymentDate.getMonth();
+    const repaymentYear = repaymentDate.getFullYear();
+    const repaymentTextBase = `${repaymentMonth + 1}月${repaymentDay}日`;
+    const repaymentText = repaymentYear === billYear
+        ? repaymentTextBase
+        : `${repaymentYear}年${repaymentTextBase}`;
+
+    return `${billText} / ${repaymentText}`;
+}
+
 function syncBankBusinessRows(rows = [], source = 'all') {
     bankBusinessViewState.currentRows = Array.isArray(rows) ? [...rows] : [];
     bankBusinessViewState.source = source;
@@ -5872,8 +5900,7 @@ function renderBankBusiness(rows = null) {
     tbody.innerHTML = visibleRows.map(item => {
         const reminderMeta = getBankReminderStatus(item);
         const dateText = item?.transactionDate ? item.transactionDate.toLocaleString('zh-CN') : '-';
-        const billText = item.billDay ? `${item.billDay}日` : '-';
-        const repayText = item.repaymentDay ? `${item.repaymentDay}日` : '-';
+        const billRepaymentText = formatBankBillRepaymentText(item);
         const reminderClass = `erp-bank-reminder ${reminderMeta.className}`;
         const settlementText = item.isSwipe
             ? (item.settlementBank === '未识别'
@@ -5903,7 +5930,7 @@ function renderBankBusiness(rows = null) {
                     <div class="erp-finance-cell-main"><span class="erp-amount-text is-expense">${safeText(feeAmountText)}</span></div>
                     <div class="erp-finance-cell-sub">费率：${safeText(feeRateText)}</div>
                 </td>
-                <td>${safeText(`${billText} / ${repayText}`)}</td>
+                <td>${safeText(billRepaymentText)}</td>
                 <td><span class="${reminderClass}">${safeText(reminderMeta.text)}</span></td>
                 <td title="${safeText(item.description)}"><span class="erp-cell-ellipsis">${safeText(item.description)}</span></td>
                 <td class="erp-action-cell">

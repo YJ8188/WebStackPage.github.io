@@ -437,6 +437,24 @@ async function fetchLatestMessagesFromMailbox({ client, mailbox, maxMessages, lo
 }
 
 async function resolveMailboxesToScan({ client, mailboxText, autoDiscover }) {
+  const flattenMailboxEntries = (items, output = []) => {
+    for (const item of Array.isArray(items) ? items : []) {
+      if (!item) continue;
+      output.push(item);
+      if (Array.isArray(item.children) && item.children.length) {
+        flattenMailboxEntries(item.children, output);
+      }
+    }
+    return output;
+  };
+  const hasMailboxFlag = (folder, flagName) => {
+    const flags = folder?.flags;
+    if (!flags) return false;
+    if (typeof flags.has === 'function') return flags.has(flagName);
+    if (Array.isArray(flags)) return flags.includes(flagName);
+    return false;
+  };
+
   const configured = String(mailboxText || 'INBOX')
     .split(',')
     .map((item) => item.trim())
@@ -452,13 +470,13 @@ async function resolveMailboxesToScan({ client, mailboxText, autoDiscover }) {
   }
 
   try {
-    const folders = await client.list();
+    const folders = flattenMailboxEntries(await client.list());
     const selectableFolders = [];
     const keywordRegex = /(信用卡|账单|银行|中信|浦发|民生|光大|张家口|credit|statement|billing|card|repay|payment)/i;
     for (const folder of folders || []) {
       const path = String(folder?.path || '').trim();
       if (!path) continue;
-      const isDisabled = !!folder?.disabled || !!folder?.flags?.has?.('\\Noselect') || !!folder?.flags?.has?.('\\NonExistent');
+      const isDisabled = !!folder?.disabled || hasMailboxFlag(folder, '\\Noselect') || hasMailboxFlag(folder, '\\NonExistent');
       if (isDisabled) continue;
       selectableFolders.push(path);
       if (wantsAll) {
@@ -477,13 +495,15 @@ async function resolveMailboxesToScan({ client, mailboxText, autoDiscover }) {
     }
     if (wantsAll) {
       console.log(`[QQ同步] 已启用全量文件夹扫描，共 ${selectableFolders.length} 个文件夹`);
+      console.log(`[QQ同步] 全量文件夹清单：${selectableFolders.join(', ')}`);
     }
   } catch (error) {
     console.warn('[QQ同步] 自动发现邮箱文件夹失败，改用手动配置：', error?.message || error);
   }
 
   if (!selected.size) selected.add('INBOX');
-  return Array.from(selected).slice(0, 60);
+  const mailboxList = Array.from(selected);
+  return wantsAll ? mailboxList : mailboxList.slice(0, 60);
 }
 
 async function fetchLatestMessages({ client, mailboxText, maxMessages, lookbackDays, autoDiscover }) {

@@ -307,15 +307,85 @@ async function insertFinanceRowsCompat(supabase, rows) {
   }
 }
 
+function buildFunctionsBaseUrl(supabaseUrl) {
+  const custom = String(process.env.SUPABASE_FUNCTIONS_URL || '').trim();
+  if (custom) return custom.replace(/\/+$/, '');
+  return String(supabaseUrl || '').replace('.supabase.co', '.functions.supabase.co').replace(/\/+$/, '');
+}
+
+async function resolveQQMailCredential({ supabaseUrl, userId }) {
+  const legacyEmail = String(process.env.QQ_EMAIL_ADDRESS || '').trim();
+  const legacyAuthCode = String(process.env.QQ_EMAIL_AUTH_CODE || '').trim();
+  const legacyHost = String(process.env.QQ_IMAP_HOST || 'imap.qq.com').trim();
+  const legacyPort = toInt(process.env.QQ_IMAP_PORT, 993);
+  if (legacyEmail && legacyAuthCode) {
+    return {
+      email: legacyEmail,
+      authCode: legacyAuthCode,
+      host: legacyHost,
+      port: legacyPort,
+      source: 'legacy-env'
+    };
+  }
+
+  const syncToken = requireEnv('QQ_MAIL_SYNC_TOKEN');
+  const functionsBase = buildFunctionsBaseUrl(supabaseUrl);
+  const endpoint = `${functionsBase}/qq-mail-auth`;
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-sync-token': syncToken
+    },
+    body: JSON.stringify({
+      action: 'resolve',
+      user_id: userId
+    })
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload?.ok === false) {
+    throw new Error(payload?.message || `解析QQ邮箱授权失败（HTTP ${response.status}）`);
+  }
+  const data = payload?.data || {};
+  return {
+    email: String(data.email_address || '').trim(),
+    authCode: String(data.auth_code || '').trim(),
+    host: String(data.imap_host || 'imap.qq.com').trim(),
+    port: toInt(data.imap_port, 993),
+    source: 'supabase-edge'
+  };
+}
+
+async function reportSyncStatus({ supabaseUrl, userId, syncStatus, syncMessage }) {
+  const syncToken = String(process.env.QQ_MAIL_SYNC_TOKEN || '').trim();
+  if (!syncToken) return;
+  const functionsBase = buildFunctionsBaseUrl(supabaseUrl);
+  const endpoint = `${functionsBase}/qq-mail-auth`;
+  try {
+    await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-sync-token': syncToken
+      },
+      body: JSON.stringify({
+        action: 'update_sync_status',
+        user_id: userId,
+        sync_status: String(syncStatus || '').trim() || 'unknown',
+        sync_message: String(syncMessage || '').trim().slice(0, 500),
+        last_sync_at: new Date().toISOString()
+      })
+    });
+  } catch (error) {
+    console.warn('[QQ同步] 回写同步状态失败:', error?.message || error);
+  }
+}
+
 async function main() {
   const supabaseUrl = requireEnv('SUPABASE_URL');
   const supabaseServiceRoleKey = requireEnv('SUPABASE_SERVICE_ROLE_KEY');
   const userId = requireEnv('ERP_USER_ID');
-  const email = requireEnv('QQ_EMAIL_ADDRESS');
-  const password = requireEnv('QQ_EMAIL_AUTH_CODE');
   const mailbox = String(process.env.QQ_MAILBOX || 'INBOX').trim();
-  const host = String(process.env.QQ_IMAP_HOST || 'imap.qq.com').trim();
-  const port = toInt(process.env.QQ_IMAP_PORT, 993);
   const lookbackDays = Math.max(1, toInt(process.env.QQ_SYNC_LOOKBACK_DAYS, 35));
   const maxMessages = Math.max(20, toInt(process.env.QQ_SYNC_MAX_MESSAGES, 250));
   const reminderDaysBefore = Math.max(0, toInt(process.env.QQ_SYNC_REMINDER_DAYS_BEFORE, 3));
@@ -333,6 +403,17 @@ async function main() {
     auth: { persistSession: false, autoRefreshToken: false }
   });
 
+  let syncStatus = 'failed';
+  let syncMessage = '';
+  const credential = await resolveQQMailCredential({ supabaseUrl, userId });
+  const email = String(credential.email || '').trim();
+  const password = String(credential.authCode || '').trim();
+  const host = String(credential.host || 'imap.qq.com').trim();
+  const port = toInt(credential.port, 993);
+  if (!email || !password) {
+    throw new Error('邮箱授权不存在或已失效，请先在ERP页面完成QQ邮箱授权');
+  }
+
   const client = new ImapFlow({
     host,
     port,
@@ -343,67 +424,88 @@ async function main() {
     }
   });
 
-  console.log(`[QQ同步] 启动：邮箱=${email}, 用户=${userId}, 时间窗=${lookbackDays}天`);
+  console.log(`[QQ同步] 启动：邮箱=${email}, 用户=${userId}, 时间窗=${lookbackDays}天, 来源=${credential.source}`);
 
-  await client.connect();
-  await client.mailboxOpen(mailbox);
-  const messages = await fetchLatestMessages({ client, mailbox, maxMessages, lookbackDays });
-  await client.logout();
+  try {
+    await client.connect();
+    await client.mailboxOpen(mailbox);
+    const messages = await fetchLatestMessages({ client, mailbox, maxMessages, lookbackDays });
+    await client.logout();
 
-  console.log(`[QQ同步] 拉取邮件数量：${messages.length}`);
+    console.log(`[QQ同步] 拉取邮件数量：${messages.length}`);
 
-  const parsedRows = [];
-  let skippedByKeyword = 0;
-  let parseFailed = 0;
+    const parsedRows = [];
+    let skippedByKeyword = 0;
+    let parseFailed = 0;
 
-  for (const mail of messages) {
-    if (!hasCreditCardKeywords(mail.subject, mail.bodyText, keywordList, excludeKeywords)) {
-      skippedByKeyword += 1;
-      continue;
+    for (const mail of messages) {
+      if (!hasCreditCardKeywords(mail.subject, mail.bodyText, keywordList, excludeKeywords)) {
+        skippedByKeyword += 1;
+        continue;
+      }
+      const row = parseMailToFinance({
+        userId,
+        uid: mail.uid,
+        subject: mail.subject,
+        fromText: mail.fromText,
+        bodyText: mail.bodyText,
+        parsedDate: mail.date,
+        reminderDaysBefore
+      });
+      if (!row) {
+        parseFailed += 1;
+        continue;
+      }
+      parsedRows.push({
+        ...row,
+        user_id: userId
+      });
     }
-    const row = parseMailToFinance({
+
+    if (!parsedRows.length) {
+      syncStatus = 'partial';
+      syncMessage = `无可导入账单（关键词跳过${skippedByKeyword}，解析失败${parseFailed}）`;
+      console.log(`[QQ同步] ${syncMessage}`);
+      return;
+    }
+
+    const refs = parsedRows.map((item) => item.reference_id).filter(Boolean);
+    const existingRefs = await fetchExistingReferenceIds(supabase, userId, refs);
+    const insertRows = parsedRows.filter((item) => !existingRefs.has(String(item.reference_id || '')));
+
+    if (!insertRows.length) {
+      syncStatus = 'partial';
+      syncMessage = `无新增（已存在${existingRefs.size}条）`;
+      console.log(`[QQ同步] ${syncMessage}`);
+      return;
+    }
+
+    if (dryRun) {
+      syncStatus = 'success';
+      syncMessage = `DRY_RUN：解析${parsedRows.length}条，新增候选${insertRows.length}条`;
+      console.log(`[QQ同步][DRY_RUN] ${syncMessage}`);
+      insertRows.slice(0, 5).forEach((row, index) => {
+        console.log(`[预览${index + 1}] ${row.category} ${row.card_bank || '-'} ${row.amount} ${toYmd(new Date(row.transaction_date))}`);
+      });
+      return;
+    }
+
+    const inserted = await insertFinanceRowsCompat(supabase, insertRows);
+    syncStatus = inserted > 0 ? 'success' : 'partial';
+    syncMessage = `解析${parsedRows.length}，新增${inserted}，关键词跳过${skippedByKeyword}，解析失败${parseFailed}`;
+    console.log(`[QQ同步] 完成：${syncMessage}`);
+  } catch (error) {
+    syncStatus = 'failed';
+    syncMessage = String(error?.message || error || '同步失败').slice(0, 500);
+    throw error;
+  } finally {
+    await reportSyncStatus({
+      supabaseUrl,
       userId,
-      uid: mail.uid,
-      subject: mail.subject,
-      fromText: mail.fromText,
-      bodyText: mail.bodyText,
-      parsedDate: mail.date,
-      reminderDaysBefore
-    });
-    if (!row) {
-      parseFailed += 1;
-      continue;
-    }
-    parsedRows.push({
-      ...row,
-      user_id: userId
+      syncStatus,
+      syncMessage
     });
   }
-
-  if (!parsedRows.length) {
-    console.log(`[QQ同步] 未解析到可导入账单（关键词过滤跳过 ${skippedByKeyword}，解析失败 ${parseFailed}）`);
-    return;
-  }
-
-  const refs = parsedRows.map((item) => item.reference_id).filter(Boolean);
-  const existingRefs = await fetchExistingReferenceIds(supabase, userId, refs);
-  const insertRows = parsedRows.filter((item) => !existingRefs.has(String(item.reference_id || '')));
-
-  if (!insertRows.length) {
-    console.log(`[QQ同步] 无新增（已存在 ${existingRefs.size} 条）`);
-    return;
-  }
-
-  if (dryRun) {
-    console.log(`[QQ同步][DRY_RUN] 解析 ${parsedRows.length}，新增候选 ${insertRows.length}`);
-    insertRows.slice(0, 5).forEach((row, index) => {
-      console.log(`[预览${index + 1}] ${row.category} ${row.card_bank || '-'} ${row.amount} ${toYmd(new Date(row.transaction_date))}`);
-    });
-    return;
-  }
-
-  const inserted = await insertFinanceRowsCompat(supabase, insertRows);
-  console.log(`[QQ同步] 完成：解析 ${parsedRows.length}，新增 ${inserted}，关键词跳过 ${skippedByKeyword}，解析失败 ${parseFailed}`);
 }
 
 main().catch((error) => {

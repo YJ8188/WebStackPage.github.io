@@ -103,6 +103,10 @@ const bankBusinessViewState = {
     source: 'all'
 };
 let bankEmailImportPreviewData = null;
+const qqMailAuthViewState = {
+    loaded: false,
+    status: null
+};
 const tablePaginationState = {
     customers: { page: 1, pageSize: 10 },
     products: { page: 1, pageSize: 10 },
@@ -6151,6 +6155,180 @@ function hideBankEmailImportModal() {
     if (!modal) return;
     modal.classList.remove('active');
     modal.style.display = '';
+}
+
+function maskQQEmail(value) {
+    const email = String(value || '').trim();
+    if (!email || !email.includes('@')) return '';
+    const [name, domain] = email.split('@');
+    if (!name) return `***@${domain || ''}`;
+    if (name.length <= 2) return `${name[0] || '*'}***@${domain || ''}`;
+    return `${name.slice(0, 2)}***@${domain || ''}`;
+}
+
+function renderQQMailAuthStatus(statusData = null) {
+    const statusTextEl = document.getElementById('qqMailAuthStatusText');
+    const hintEl = document.getElementById('qqMailAuthHint');
+    if (!statusTextEl) return;
+
+    const enabled = !!statusData?.is_enabled;
+    const email = String(statusData?.email_address || '').trim();
+    const masked = email ? maskQQEmail(email) : '';
+    if (enabled && masked) {
+        statusTextEl.textContent = `已授权（${masked}）`;
+        statusTextEl.style.color = '#15803d';
+        if (hintEl) hintEl.textContent = `当前授权账号：${masked}，自动同步已启用。`;
+    } else if (email) {
+        statusTextEl.textContent = `已配置但已停用（${masked || email}）`;
+        statusTextEl.style.color = '#b45309';
+        if (hintEl) hintEl.textContent = '当前授权已停用，可重新启用自动同步。';
+    } else {
+        statusTextEl.textContent = '未授权';
+        statusTextEl.style.color = '#64748b';
+        if (hintEl) hintEl.textContent = '保存后，GitHub Actions 会按计划自动读取账单并导入银行业务。';
+    }
+}
+
+async function invokeQQMailAuthFunction(action, payload = {}) {
+    if (typeof supabaseClient === 'undefined') {
+        throw new Error('Supabase 客户端未初始化');
+    }
+    const response = await supabaseClient.functions.invoke('qq-mail-auth', {
+        body: {
+            action,
+            ...payload
+        }
+    });
+    if (response.error) {
+        throw response.error;
+    }
+    const data = response.data || {};
+    if (data.ok === false) {
+        throw new Error(data.message || '请求失败');
+    }
+    return data;
+}
+
+async function refreshQQMailAuthStatus(force = false) {
+    if (!force && qqMailAuthViewState.loaded && qqMailAuthViewState.status) {
+        renderQQMailAuthStatus(qqMailAuthViewState.status);
+        return qqMailAuthViewState.status;
+    }
+    try {
+        const data = await invokeQQMailAuthFunction('status');
+        qqMailAuthViewState.loaded = true;
+        qqMailAuthViewState.status = data.data || null;
+        renderQQMailAuthStatus(qqMailAuthViewState.status);
+        return qqMailAuthViewState.status;
+    } catch (error) {
+        qqMailAuthViewState.loaded = true;
+        qqMailAuthViewState.status = null;
+        renderQQMailAuthStatus(null);
+        const statusTextEl = document.getElementById('qqMailAuthStatusText');
+        if (statusTextEl) {
+            statusTextEl.textContent = '授权功能未就绪';
+            statusTextEl.style.color = '#b91c1c';
+        }
+        return null;
+    }
+}
+
+function showQQMailAuthModal() {
+    const modal = document.getElementById('qqMailAuthModal');
+    const form = document.getElementById('qqMailAuthForm');
+    if (!modal || !form) return;
+    form.reset();
+    const status = qqMailAuthViewState.status || null;
+    const emailInput = document.getElementById('qqMailAuthEmail');
+    const hostInput = document.getElementById('qqMailImapHost');
+    const portInput = document.getElementById('qqMailImapPort');
+    const enabledInput = document.getElementById('qqMailAuthEnabled');
+    const codeInput = document.getElementById('qqMailAuthCode');
+    if (emailInput && status?.email_address) emailInput.value = status.email_address;
+    if (hostInput) hostInput.value = status?.imap_host || 'imap.qq.com';
+    if (portInput) portInput.value = String(status?.imap_port || 993);
+    if (enabledInput) enabledInput.checked = !!status?.is_enabled;
+    if (codeInput) codeInput.value = '';
+    renderQQMailAuthStatus(status);
+    clearModalFieldValidation('qqMailAuthModal');
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+}
+
+function hideQQMailAuthModal() {
+    const modal = document.getElementById('qqMailAuthModal');
+    if (!modal) return;
+    modal.classList.remove('active');
+    modal.style.display = '';
+}
+
+async function saveQQMailAuthConfig() {
+    clearModalFieldValidation('qqMailAuthModal');
+    const email = String(document.getElementById('qqMailAuthEmail')?.value || '').trim();
+    const authCode = String(document.getElementById('qqMailAuthCode')?.value || '').trim();
+    const imapHost = String(document.getElementById('qqMailImapHost')?.value || 'imap.qq.com').trim() || 'imap.qq.com';
+    const imapPort = Math.max(1, Math.min(65535, Math.floor(toAmount(document.getElementById('qqMailImapPort')?.value, 993))));
+    const isEnabled = !!document.getElementById('qqMailAuthEnabled')?.checked;
+
+    if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+        markFieldInvalid('qqMailAuthEmail', '请输入有效的邮箱地址');
+        return;
+    }
+    if (!authCode) {
+        markFieldInvalid('qqMailAuthCode', '请输入QQ邮箱IMAP授权码');
+        return;
+    }
+
+    const saveBtn = document.querySelector('#qqMailAuthModal .ant-btn-primary');
+    const originalText = saveBtn?.textContent || '';
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = '保存中...';
+    }
+
+    try {
+        await invokeQQMailAuthFunction('save', {
+            email_address: email,
+            auth_code: authCode,
+            imap_host: imapHost,
+            imap_port: imapPort,
+            is_enabled: isEnabled
+        });
+        await refreshQQMailAuthStatus(true);
+        hideQQMailAuthModal();
+        showToast('QQ邮箱授权保存成功', 'success');
+    } catch (error) {
+        console.error('[ERP Ant] 保存QQ邮箱授权失败:', error);
+        showToast('保存授权失败：' + (error?.message || '未知错误'), 'error');
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = originalText;
+        }
+    }
+}
+
+async function disableQQMailAuth() {
+    const actionBtn = document.querySelector('#qqMailAuthModal .ant-btn');
+    const originalText = actionBtn?.textContent || '';
+    if (actionBtn) {
+        actionBtn.disabled = true;
+        actionBtn.textContent = '停用中...';
+    }
+    try {
+        await invokeQQMailAuthFunction('disable');
+        await refreshQQMailAuthStatus(true);
+        hideQQMailAuthModal();
+        showToast('QQ邮箱授权已停用', 'success');
+    } catch (error) {
+        console.error('[ERP Ant] 停用QQ邮箱授权失败:', error);
+        showToast('停用失败：' + (error?.message || '未知错误'), 'error');
+    } finally {
+        if (actionBtn) {
+            actionBtn.disabled = false;
+            actionBtn.textContent = originalText;
+        }
+    }
 }
 
 async function onBankEmailStatementFileChange(event) {
@@ -12877,6 +13055,7 @@ if (typeof window !== 'undefined') {
 document.addEventListener('DOMContentLoaded', function () {
     initFinanceFilters();
     applyBankBusinessFilters();
+    refreshQQMailAuthStatus();
     initOrderFilters();
     setTimeout(() => refreshLowStockFromLatestData('dom-ready'), 1200);
     setTimeout(() => loadPurchaseRecords(), 1600);

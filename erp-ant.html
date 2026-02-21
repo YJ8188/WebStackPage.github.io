@@ -1126,6 +1126,9 @@
 
                             <div class="erp-module-section-title">银行业务操作</div>
                             <div class="table-operator erp-toolbar erp-block-card erp-block-toolbar">
+                                <button class="ant-btn ant-btn-primary" onclick="showQQMailAuthModal()">
+                                    <i class="fa fa-key"></i> QQ邮箱授权
+                                </button>
                                 <button class="ant-btn ant-btn-primary" onclick="showBankRepaymentModal()">
                                     <i class="fa fa-credit-card"></i> 新增还款业务
                                 </button>
@@ -1138,6 +1141,19 @@
                                 <button class="ant-btn" onclick="refreshBankBusinessModule()">
                                     <i class="fa fa-refresh"></i> 刷新
                                 </button>
+                            </div>
+
+                            <div class="erp-block-card" style="padding: 12px 16px; margin-bottom: 14px;">
+                                <div class="erp-form-grid-2">
+                                    <div class="erp-form-col">
+                                        <div class="erp-form-hint-card" id="qqMailAuthStatusCard">
+                                            QQ邮箱自动同步状态：<strong id="qqMailAuthStatusText">未授权</strong>
+                                        </div>
+                                    </div>
+                                    <div class="erp-form-col" style="display:flex;align-items:center;justify-content:flex-end;gap:8px;">
+                                        <button class="ant-btn" type="button" onclick="refreshQQMailAuthStatus()">刷新授权状态</button>
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="erp-finance-summary-strip">
@@ -1952,6 +1968,53 @@
         </div>
     </div>
 
+    <div id="qqMailAuthModal" class="modal-overlay">
+        <div class="modal erp-modal erp-modal-md">
+            <div class="modal-header">
+                <h3>QQ邮箱授权（自动同步）</h3>
+                <button class="btn-close" onclick="hideQQMailAuthModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="qqMailAuthForm" class="erp-modal-form">
+                    <div class="erp-form-section">
+                        <div class="form-group">
+                            <label>QQ邮箱账号 <span class="erp-required-star">*</span></label>
+                            <input type="email" id="qqMailAuthEmail" class="ant-input" placeholder="例如：123456@qq.com">
+                        </div>
+                        <div class="form-group">
+                            <label>QQ邮箱 IMAP 授权码 <span class="erp-required-star">*</span></label>
+                            <input type="password" id="qqMailAuthCode" class="ant-input" placeholder="QQ邮箱设置中生成的授权码">
+                            <div class="erp-cell-subline">路径：QQ邮箱 → 设置 → 账户 → 开启 IMAP/SMTP 服务 → 生成授权码。</div>
+                        </div>
+                        <div class="erp-form-grid-2">
+                            <div class="form-group erp-form-col">
+                                <label>IMAP服务器</label>
+                                <input type="text" id="qqMailImapHost" class="ant-input" value="imap.qq.com">
+                            </div>
+                            <div class="form-group erp-form-col">
+                                <label>端口</label>
+                                <input type="number" id="qqMailImapPort" class="ant-input" value="993" min="1" max="65535">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="qqMailAuthEnabled" checked> 启用自动同步
+                            </label>
+                        </div>
+                        <div id="qqMailAuthHint" class="erp-form-hint-card">
+                            保存后，GitHub Actions 会按计划自动读取账单并导入银行业务。
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="hideQQMailAuthModal()">取消</button>
+                <button class="ant-btn" type="button" onclick="disableQQMailAuth()">停用授权</button>
+                <button class="ant-btn ant-btn-primary" type="button" onclick="saveQQMailAuthConfig()">保存授权</button>
+            </div>
+        </div>
+    </div>
+
 
     <div id="headerSearchModal" class="modal-overlay">
         <div class="modal erp-modal erp-modal-xl erp-header-modal">
@@ -2022,7 +2085,7 @@
     <script src="assets/js/user-data.js?v=20260214-20"></script>
     <script src="assets/js/erp.js?v=20260220-39"></script>
     <script src="assets/js/vendor/echarts.min.js?v=5.5.0"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260221-96"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260221-97"></script>
     <script src="assets/js/pwa-register.js?v=20260218-3" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->
@@ -2160,6 +2223,9 @@
                             window.applyBankBusinessFilters();
                         } else if (typeof window.renderBankBusiness === 'function') {
                             window.renderBankBusiness();
+                        }
+                        if (typeof window.refreshQQMailAuthStatus === 'function') {
+                            await window.refreshQQMailAuthStatus();
                         }
                         break;
                 }

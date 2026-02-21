@@ -27,8 +27,7 @@ jobs:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       ERP_USER_ID: ${{ secrets.ERP_USER_ID }}
-      QQ_EMAIL_ADDRESS: ${{ secrets.QQ_EMAIL_ADDRESS }}
-      QQ_EMAIL_AUTH_CODE: ${{ secrets.QQ_EMAIL_AUTH_CODE }}
+      QQ_MAIL_SYNC_TOKEN: ${{ secrets.QQ_MAIL_SYNC_TOKEN }}
       QQ_IMAP_HOST: imap.qq.com
       QQ_IMAP_PORT: "993"
       QQ_MAILBOX: INBOX

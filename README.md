@@ -150,23 +150,38 @@ TRACK17_API_KEY=你的17TRACK_API_KEY
 ```
 
 ## 银行业务（QQ 邮箱自动同步）
-- 银行业务页面已支持“邮箱账单导入”（手工粘贴/文件导入）；
-- 仓库新增 GitHub Actions 定时任务：自动读取 QQ 邮箱账单并写入 `erp_finances`；
-- 支持多信用卡（同一邮箱内按银行/账单关键词自动识别）。
+- 银行业务页面已支持“QQ邮箱授权 + 邮箱账单导入”；
+- 自动同步流程：页面授权 → GitHub Actions 定时同步 → 导入 `erp_finances`；
+- 支持多信用卡（同一邮箱按银行/账单关键词自动识别）。
 
 ### 1）启用 QQ 邮箱 IMAP
 - QQ 邮箱 → 设置 → 账户 → 开启 IMAP；
 - 生成“授权码”（不是邮箱登录密码）。
 
-### 2）配置 GitHub Secrets（仓库 Settings → Secrets and variables → Actions）
+### 2）执行数据库 SQL（Supabase SQL Editor）
+```sql
+-- 文件：supabase/sql/20260221_add_qq_mail_auth_table.sql
+```
+
+### 3）部署 Edge Function（授权读写）
+```bash
+supabase functions deploy qq-mail-auth
+supabase secrets set QQ_MAIL_CRYPTO_KEY=你自己的高强度密钥
+supabase secrets set QQ_MAIL_SYNC_TOKEN=你自己的同步令牌
+```
+
+### 4）页面授权路径
+- ERP → 银行业务 → `QQ邮箱授权`
+- 填写 QQ 邮箱 + IMAP 授权码后保存
+
+### 5）配置 GitHub Secrets（仓库 Settings → Secrets and variables → Actions）
 必须配置：
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `ERP_USER_ID`（ERP 登录用户的 UUID）
-- `QQ_EMAIL_ADDRESS`（QQ 邮箱）
-- `QQ_EMAIL_AUTH_CODE`（QQ IMAP 授权码）
+- `QQ_MAIL_SYNC_TOKEN`（与 Supabase secret 保持一致）
 
-### 3）自动任务说明
+### 6）自动任务说明
 - 工作流文件：`.github/workflows/qq-mail-sync.yml`
 - 定时执行：每 3 小时一次
 - 支持手动触发（`workflow_dispatch`），可指定：
@@ -174,11 +189,11 @@ TRACK17_API_KEY=你的17TRACK_API_KEY
   - `max_messages`：最大扫描邮件数
   - `dry_run`：仅解析不入库
 
-### 4）同步脚本位置
+### 7）同步脚本位置
 - `.github/qq-mail-sync/qq_mail_sync.mjs`
 - 依赖定义：`.github/qq-mail-sync/package.json`
 
-### 5）ERP物流使用方式
+### 8）ERP物流使用方式
 - ERP → 订单管理 → 详情（编辑订单）  
 - 填写快递公司与单号，点击“查询轨迹”  
 - 若提示需要校验参数（如部分顺丰单号），填写“手机号后4位”再查询  

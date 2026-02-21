@@ -36,7 +36,7 @@ jobs:
       QQ_IMAP_PORT: "993"
       QQ_MAILBOX: "INBOX,INBOX/收件箱,INBOX/订阅邮件,INBOX/QQ邮件订阅,INBOX/广告邮件,INBOX/Junk,INBOX/垃圾邮件"
       QQ_SYNC_REMINDER_DAYS_BEFORE: "3"
-      QQ_SYNC_INCLUDE_KEYWORDS: "信用卡,账单,还款,到期,本期应还,本期应还款总额,最低还款,最低还款额,电子账单,电子对账单,对账单,应还款额,应还款总额,还款额,账单通知,人民币账户账单,statement,payment due,minimum payment,credit card,total statement balance"
+      QQ_SYNC_INCLUDE_KEYWORDS: "信用卡,账单,还款,到期,本期应还,本期应还款总额,本期应还款金额,总账信息,最低还款,最低还款额,电子账单,电子对账单,对账单,应还款额,应还款总额,还款额,账单通知,人民币账户账单,statement,payment due,minimum payment,credit card,total statement balance"
       QQ_SYNC_EXCLUDE_KEYWORDS: "验证码,动态码,OTP,one-time password"
       QQ_SYNC_LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '120' }}
       QQ_SYNC_MAX_MESSAGES: ${{ github.event.inputs.max_messages || '600' }}

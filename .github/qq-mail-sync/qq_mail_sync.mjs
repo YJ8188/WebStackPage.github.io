@@ -318,6 +318,7 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
 
   const repaymentAmount = extractAmount(text, [
     /(?:本期应还(?:金额|款总额|总额)?|本期应还款总额|应还金额|应还款额|应还款总额|到期应还|本期还款总额|本期账单金额|Total Statement Balance|Statement Balance)[^0-9¥￥]{0,80}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/i,
+    /(?:本期应还款金额|本期应还款|总账信息)[^0-9¥￥]{0,80}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/i,
     /(?:最低应还(?:金额|款额)?|最低还款额|最低还款|Minimum Payment)[^0-9¥￥]{0,80}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/i
   ]);
   if (!Number.isFinite(repaymentAmount) || repaymentAmount <= 0) return null;

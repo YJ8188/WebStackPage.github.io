@@ -5939,6 +5939,9 @@ function resetBankBusinessFilters() {
 async function refreshBankBusinessModule() {
     await ERP.loadFinances(true);
     applyBankBusinessFilters();
+    if (typeof refreshPersonalBankingCenter === 'function') {
+        await refreshPersonalBankingCenter();
+    }
 }
 
 function recalculateBankBusinessFee() {
@@ -6303,6 +6306,807 @@ async function saveBankBusiness() {
 
 function deleteBankBusiness(financeId) {
     deleteFinance(financeId);
+}
+
+const PERSONAL_BANKING_TABLES = {
+    connections: 'erp_bank_connections',
+    syncLogs: 'erp_bank_sync_logs',
+    statementEntries: 'erp_bank_statement_entries'
+};
+
+const personalBankingState = {
+    connections: [],
+    syncLogs: [],
+    statementEntries: [],
+    useLocalFallback: false,
+    lastErrorMessage: ''
+};
+
+function getCurrentERPUserId() {
+    return String(window?.userData?.user?.id || '').trim();
+}
+
+function personalBankingStorageKey() {
+    const userId = getCurrentERPUserId() || 'guest';
+    return `erp_personal_banking_${userId}`;
+}
+
+function loadLocalPersonalBankingData() {
+    try {
+        const raw = localStorage.getItem(personalBankingStorageKey());
+        if (!raw) {
+            return { connections: [], syncLogs: [], statementEntries: [] };
+        }
+        const parsed = JSON.parse(raw);
+        return {
+            connections: Array.isArray(parsed?.connections) ? parsed.connections : [],
+            syncLogs: Array.isArray(parsed?.syncLogs) ? parsed.syncLogs : [],
+            statementEntries: Array.isArray(parsed?.statementEntries) ? parsed.statementEntries : []
+        };
+    } catch (error) {
+        return { connections: [], syncLogs: [], statementEntries: [] };
+    }
+}
+
+function saveLocalPersonalBankingData(payload) {
+    try {
+        localStorage.setItem(personalBankingStorageKey(), JSON.stringify(payload || { connections: [], syncLogs: [], statementEntries: [] }));
+    } catch (error) {
+        console.error('[ERP] 保存个人账单本地缓存失败:', error);
+    }
+}
+
+function syncLocalPersonalBankingFromState() {
+    saveLocalPersonalBankingData({
+        connections: personalBankingState.connections,
+        syncLogs: personalBankingState.syncLogs,
+        statementEntries: personalBankingState.statementEntries
+    });
+}
+
+function isTableMissingError(error) {
+    const code = String(error?.code || '').trim().toUpperCase();
+    const message = String(error?.message || '').toLowerCase();
+    const hint = String(error?.hint || '').toLowerCase();
+    return code === '42P01'
+        || code === 'PGRST205'
+        || message.includes('could not find the table')
+        || (message.includes('relation') && message.includes('does not exist'))
+        || hint.includes('perhaps you meant the table');
+}
+
+function toYmdText(value) {
+    const date = parseFinanceDate(value);
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+        return '-';
+    }
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function toDateTimeText(value) {
+    const date = parseFinanceDate(value);
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+        return '-';
+    }
+    return date.toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function normalizePersonalBankProviderText(provider) {
+    const map = {
+        unionpay_openapi: '银联开放接口',
+        yunshanfu_authorize: '云闪付授权',
+        manual_statement: '手工账单导入'
+    };
+    return map[String(provider || '').trim()] || '未识别通道';
+}
+
+function normalizePersonalBankAuthStatusText(status) {
+    const map = {
+        active: '有效',
+        pending: '待授权',
+        expired: '已过期'
+    };
+    return map[String(status || '').trim()] || '未知';
+}
+
+function normalizePersonalBankAuthClass(status, expiresAt) {
+    const statusText = String(status || '').trim();
+    if (statusText === 'active') {
+        const expireDate = parseFinanceDate(expiresAt);
+        if (expireDate instanceof Date && !Number.isNaN(expireDate.getTime()) && expireDate.getTime() < Date.now()) {
+            return 'is-expense';
+        }
+        return 'is-income';
+    }
+    if (statusText === 'pending') {
+        return 'is-system';
+    }
+    return 'is-expense';
+}
+
+function ensurePersonalBankingStateLoaded() {
+    if (!Array.isArray(personalBankingState.connections)) {
+        personalBankingState.connections = [];
+    }
+    if (!Array.isArray(personalBankingState.syncLogs)) {
+        personalBankingState.syncLogs = [];
+    }
+    if (!Array.isArray(personalBankingState.statementEntries)) {
+        personalBankingState.statementEntries = [];
+    }
+}
+
+function populatePersonalBankSyncConnectionOptions(selectedConnectionId = '') {
+    const select = document.getElementById('personalBankSyncConnectionId');
+    if (!select) return;
+
+    const selected = String(selectedConnectionId || select.value || '').trim();
+    const options = personalBankingState.connections.map(item => {
+        const id = String(item?.id || '').trim();
+        if (!id) return '';
+        const name = `${item?.bank_name || '未知银行'}${item?.account_mask ? `（尾号${String(item.account_mask).slice(-4)}）` : ''}`;
+        return `<option value="${safeText(id)}" ${id === selected ? 'selected' : ''}>${safeText(name)}</option>`;
+    }).filter(Boolean);
+
+    if (options.length === 0) {
+        select.innerHTML = '<option value="">暂无可用连接</option>';
+        return;
+    }
+    select.innerHTML = options.join('');
+}
+
+function renderPersonalBankingCenter() {
+    ensurePersonalBankingStateLoaded();
+
+    const connTotal = personalBankingState.connections.length;
+    const now = Date.now();
+    const activeConnections = personalBankingState.connections.filter(item => {
+        if (String(item?.auth_status || '') !== 'active') {
+            return false;
+        }
+        const expiresAt = parseFinanceDate(item?.consent_expires_at || null);
+        if (!(expiresAt instanceof Date) || Number.isNaN(expiresAt.getTime())) {
+            return true;
+        }
+        return expiresAt.getTime() >= now;
+    });
+    const expiringConnections = personalBankingState.connections.filter(item => {
+        const expiresAt = parseFinanceDate(item?.consent_expires_at || null);
+        if (!(expiresAt instanceof Date) || Number.isNaN(expiresAt.getTime())) {
+            return false;
+        }
+        const diffDays = (expiresAt.getTime() - now) / (24 * 60 * 60 * 1000);
+        return diffDays >= 0 && diffDays <= 7;
+    });
+
+    const latestLog = personalBankingState.syncLogs
+        .slice()
+        .sort((a, b) => new Date(b?.created_at || 0).getTime() - new Date(a?.created_at || 0).getTime())[0] || null;
+
+    const connTotalEl = document.getElementById('personalBankConnTotal');
+    const connActiveEl = document.getElementById('personalBankConnActive');
+    const connExpiringEl = document.getElementById('personalBankConnExpiring');
+    const lastSyncEl = document.getElementById('personalBankLastSync');
+    const syncStateEl = document.getElementById('personalBankSyncState');
+    if (connTotalEl) connTotalEl.textContent = String(connTotal);
+    if (connActiveEl) connActiveEl.textContent = String(activeConnections.length);
+    if (connExpiringEl) connExpiringEl.textContent = String(expiringConnections.length);
+    if (lastSyncEl) lastSyncEl.textContent = latestLog ? toDateTimeText(latestLog.created_at) : '-';
+    if (syncStateEl) {
+        const stateText = latestLog
+            ? (latestLog.status === 'success' ? '最近成功' : (latestLog.status === 'partial' ? '部分成功' : '最近失败'))
+            : '未开始';
+        syncStateEl.textContent = stateText + (personalBankingState.useLocalFallback ? '（本地缓存）' : '');
+    }
+
+    const connBody = document.getElementById('personalBankConnectionsBody');
+    if (connBody) {
+        if (personalBankingState.connections.length === 0) {
+            connBody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#94a3b8;">暂无连接，请先新增个人连接</td></tr>';
+        } else {
+            connBody.innerHTML = personalBankingState.connections.map(item => {
+                const authClass = normalizePersonalBankAuthClass(item?.auth_status, item?.consent_expires_at);
+                const autoSyncText = item?.auto_sync_enabled ? '开启' : '关闭';
+                const connId = JSON.stringify(item?.id || '');
+                return `
+                    <tr>
+                        <td>${safeText(normalizePersonalBankProviderText(item?.provider))}</td>
+                        <td>${safeText(item?.bank_name || '-')}</td>
+                        <td>${safeText(item?.account_mask ? `尾号${String(item.account_mask).slice(-4)}` : '-')}</td>
+                        <td><span class="erp-type-pill ${authClass}">${safeText(normalizePersonalBankAuthStatusText(item?.auth_status))}</span></td>
+                        <td>${safeText(toYmdText(item?.consent_expires_at || null))}</td>
+                        <td>${safeText(autoSyncText)}</td>
+                        <td>${safeText(toDateTimeText(item?.last_synced_at || null))}</td>
+                        <td class="erp-action-cell">
+                            <div class="erp-row-actions">
+                                <button class="ant-btn erp-btn-blue erp-btn-compact" onclick="showPersonalBankSyncModal(${connId})">同步</button>
+                                <button class="ant-btn erp-btn-danger erp-btn-compact" onclick="deletePersonalBankConnection(${connId})">移除</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+    }
+
+    const logBody = document.getElementById('personalBankSyncLogsBody');
+    if (logBody) {
+        if (personalBankingState.syncLogs.length === 0) {
+            logBody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#94a3b8;">暂无同步日志</td></tr>';
+        } else {
+            const logs = personalBankingState.syncLogs
+                .slice()
+                .sort((a, b) => new Date(b?.created_at || 0).getTime() - new Date(a?.created_at || 0).getTime())
+                .slice(0, 20);
+            logBody.innerHTML = logs.map(log => {
+                const status = String(log?.status || 'unknown');
+                const statusClass = status === 'success' ? 'is-income' : (status === 'partial' ? 'is-system' : 'is-expense');
+                const statusText = status === 'success' ? '成功' : (status === 'partial' ? '部分成功' : '失败');
+                const inserted = Number(log?.inserted_count || 0);
+                const rangeText = `${toYmdText(log?.range_start)} ~ ${toYmdText(log?.range_end)}`;
+                return `
+                    <tr>
+                        <td>${safeText(toDateTimeText(log?.created_at || null))}</td>
+                        <td>${safeText(log?.bank_name || '-')} / ${safeText(normalizePersonalBankProviderText(log?.provider))}</td>
+                        <td>${safeText(rangeText)}</td>
+                        <td><span class="erp-type-pill ${statusClass}">${safeText(statusText)}</span></td>
+                        <td>${safeText(String(inserted))}</td>
+                        <td><span class="erp-cell-ellipsis" title="${safeText(log?.message || '-')}">${safeText(log?.message || '-')}</span></td>
+                    </tr>
+                `;
+            }).join('');
+        }
+    }
+
+    populatePersonalBankSyncConnectionOptions();
+}
+
+function showPersonalBankConnectionModal() {
+    const modal = document.getElementById('personalBankConnectionModal');
+    const form = document.getElementById('personalBankConnectionForm');
+    if (!modal || !form) return;
+
+    form.reset();
+    document.getElementById('personalBankProvider').value = 'unionpay_openapi';
+    document.getElementById('personalBankAuthStatus').value = 'active';
+    document.getElementById('personalBankAutoSyncEnabled').checked = true;
+    clearModalFieldValidation('personalBankConnectionModal');
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+}
+
+function hidePersonalBankConnectionModal() {
+    const modal = document.getElementById('personalBankConnectionModal');
+    if (!modal) return;
+    modal.classList.remove('active');
+    modal.style.display = '';
+}
+
+function getPersonalBankConnectionFormData() {
+    const provider = String(document.getElementById('personalBankProvider')?.value || 'unionpay_openapi').trim();
+    const bankName = String(document.getElementById('personalBankName')?.value || '').trim();
+    const accountMask = String(document.getElementById('personalBankAccountMask')?.value || '').replace(/\D/g, '').slice(-4);
+    const authStatus = String(document.getElementById('personalBankAuthStatus')?.value || 'active').trim();
+    const consentExpireDate = String(document.getElementById('personalBankConsentExpireDate')?.value || '').trim();
+    const connectorRef = String(document.getElementById('personalBankConnectorRef')?.value || '').trim();
+    const autoSyncEnabled = !!document.getElementById('personalBankAutoSyncEnabled')?.checked;
+
+    const consentExpiresAt = consentExpireDate ? `${consentExpireDate} 23:59:59` : null;
+    return {
+        provider,
+        bank_name: bankName,
+        account_mask: accountMask || null,
+        auth_status: authStatus || 'active',
+        consent_expires_at: consentExpiresAt,
+        connector_ref: connectorRef || null,
+        auto_sync_enabled: autoSyncEnabled
+    };
+}
+
+async function savePersonalBankConnection() {
+    clearModalFieldValidation('personalBankConnectionModal');
+    const userId = getCurrentERPUserId();
+    if (!userId) {
+        showToast('请先登录后再配置个人账单连接', 'error');
+        return;
+    }
+
+    const payload = getPersonalBankConnectionFormData();
+    if (!payload.bank_name) {
+        markFieldInvalid('personalBankName', '请输入银行名称');
+        return;
+    }
+
+    const saveBtn = document.querySelector('#personalBankConnectionModal .ant-btn-primary');
+    const originalText = saveBtn?.textContent || '';
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = '保存中...';
+    }
+
+    try {
+        const fullPayload = {
+            user_id: userId,
+            ...payload
+        };
+        if (personalBankingState.useLocalFallback || typeof supabaseClient === 'undefined') {
+            const nowIso = new Date().toISOString();
+            personalBankingState.connections.unshift({
+                ...fullPayload,
+                id: `local_conn_${Date.now()}`,
+                created_at: nowIso,
+                updated_at: nowIso,
+                last_synced_at: null
+            });
+            syncLocalPersonalBankingFromState();
+        } else {
+            const { data, error } = await supabaseClient
+                .from(PERSONAL_BANKING_TABLES.connections)
+                .insert([fullPayload])
+                .select()
+                .single();
+            if (error) {
+                if (isTableMissingError(error)) {
+                    personalBankingState.useLocalFallback = true;
+                    const nowIso = new Date().toISOString();
+                    personalBankingState.connections.unshift({
+                        ...fullPayload,
+                        id: `local_conn_${Date.now()}`,
+                        created_at: nowIso,
+                        updated_at: nowIso,
+                        last_synced_at: null
+                    });
+                    syncLocalPersonalBankingFromState();
+                    showToast('数据库未创建个人账单表，已自动切换为本地缓存模式', 'warning');
+                } else {
+                    throw error;
+                }
+            } else if (data) {
+                personalBankingState.connections.unshift(data);
+            }
+        }
+
+        hidePersonalBankConnectionModal();
+        renderPersonalBankingCenter();
+        showToast('个人账单连接已保存', 'success');
+    } catch (error) {
+        console.error('[ERP] 保存个人账单连接失败:', error);
+        showToast('保存失败：' + (error?.message || '未知错误'), 'error');
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = originalText;
+        }
+    }
+}
+
+function showPersonalBankSyncModal(connectionId = '') {
+    const modal = document.getElementById('personalBankSyncModal');
+    const form = document.getElementById('personalBankSyncForm');
+    if (!modal || !form) return;
+
+    form.reset();
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - 30);
+    const toInputDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    document.getElementById('personalBankSyncStartDate').value = toInputDate(startDate);
+    document.getElementById('personalBankSyncEndDate').value = toInputDate(endDate);
+    document.getElementById('personalBankSyncMode').value = 'auto';
+    populatePersonalBankSyncConnectionOptions(connectionId);
+    clearModalFieldValidation('personalBankSyncModal');
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+}
+
+function hidePersonalBankSyncModal() {
+    const modal = document.getElementById('personalBankSyncModal');
+    if (!modal) return;
+    modal.classList.remove('active');
+    modal.style.display = '';
+}
+
+async function refreshPersonalBankingCenter() {
+    const userId = getCurrentERPUserId();
+    if (!userId) {
+        personalBankingState.connections = [];
+        personalBankingState.syncLogs = [];
+        personalBankingState.statementEntries = [];
+        renderPersonalBankingCenter();
+        return;
+    }
+
+    if (typeof supabaseClient === 'undefined' || personalBankingState.useLocalFallback) {
+        const localData = loadLocalPersonalBankingData();
+        personalBankingState.connections = localData.connections;
+        personalBankingState.syncLogs = localData.syncLogs;
+        personalBankingState.statementEntries = localData.statementEntries;
+        personalBankingState.useLocalFallback = true;
+        renderPersonalBankingCenter();
+        return;
+    }
+
+    try {
+        const [connResp, logResp, statementResp] = await Promise.all([
+            supabaseClient.from(PERSONAL_BANKING_TABLES.connections).select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+            supabaseClient.from(PERSONAL_BANKING_TABLES.syncLogs).select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(20),
+            supabaseClient.from(PERSONAL_BANKING_TABLES.statementEntries).select('*').eq('user_id', userId).order('statement_date', { ascending: false }).limit(100)
+        ]);
+
+        if (connResp.error || logResp.error || statementResp.error) {
+            const firstError = connResp.error || logResp.error || statementResp.error;
+            if (isTableMissingError(firstError)) {
+                personalBankingState.useLocalFallback = true;
+                const localData = loadLocalPersonalBankingData();
+                personalBankingState.connections = localData.connections;
+                personalBankingState.syncLogs = localData.syncLogs;
+                personalBankingState.statementEntries = localData.statementEntries;
+                personalBankingState.lastErrorMessage = firstError.message || '个人账单数据表不存在';
+                renderPersonalBankingCenter();
+                return;
+            }
+            throw firstError;
+        }
+
+        personalBankingState.connections = Array.isArray(connResp.data) ? connResp.data : [];
+        personalBankingState.syncLogs = Array.isArray(logResp.data) ? logResp.data : [];
+        personalBankingState.statementEntries = Array.isArray(statementResp.data) ? statementResp.data : [];
+        personalBankingState.useLocalFallback = false;
+        renderPersonalBankingCenter();
+    } catch (error) {
+        console.error('[ERP] 加载个人账单同步中心失败:', error);
+        showToast('个人账单同步中心加载失败，已回退本地缓存', 'warning');
+        personalBankingState.useLocalFallback = true;
+        const localData = loadLocalPersonalBankingData();
+        personalBankingState.connections = localData.connections;
+        personalBankingState.syncLogs = localData.syncLogs;
+        personalBankingState.statementEntries = localData.statementEntries;
+        renderPersonalBankingCenter();
+    }
+}
+
+function resolveConnectionById(connectionId) {
+    const idText = String(connectionId || '').trim();
+    if (!idText) {
+        return null;
+    }
+    return personalBankingState.connections.find(item => String(item?.id || '') === idText) || null;
+}
+
+async function deletePersonalBankConnection(connectionId) {
+    const target = resolveConnectionById(connectionId);
+    if (!target) {
+        showToast('连接不存在或已被删除', 'warning');
+        return;
+    }
+    const confirmed = confirm(`确认移除连接：${target.bank_name || '未知银行'}？`);
+    if (!confirmed) return;
+
+    const userId = getCurrentERPUserId();
+    const idText = String(connectionId);
+
+    try {
+        if (personalBankingState.useLocalFallback || typeof supabaseClient === 'undefined') {
+            personalBankingState.connections = personalBankingState.connections.filter(item => String(item?.id || '') !== idText);
+            syncLocalPersonalBankingFromState();
+        } else {
+            const { error } = await supabaseClient
+                .from(PERSONAL_BANKING_TABLES.connections)
+                .delete()
+                .eq('id', idText)
+                .eq('user_id', userId);
+            if (error) throw error;
+            personalBankingState.connections = personalBankingState.connections.filter(item => String(item?.id || '') !== idText);
+        }
+        renderPersonalBankingCenter();
+        showToast('连接已移除', 'success');
+    } catch (error) {
+        console.error('[ERP] 删除个人账单连接失败:', error);
+        showToast('移除失败：' + (error?.message || '未知错误'), 'error');
+    }
+}
+
+function matchFinanceWithConnection(finance, connection) {
+    const bankKeyword = String(connection?.bank_name || '').trim().toLowerCase();
+    if (!bankKeyword) return false;
+    const candidateFields = [
+        String(finance?.card_bank || ''),
+        String(finance?.swipe_card_bank || ''),
+        String(finance?.settlement_bank || ''),
+        String(finance?.description || '')
+    ].map(item => item.toLowerCase());
+    return candidateFields.some(item => item.includes(bankKeyword));
+}
+
+async function buildLedgerSyncEntries(connection, startDate, endDate) {
+    const userId = getCurrentERPUserId();
+    let sourceRows = Array.isArray(window?.ERP?.state?.finances) ? window.ERP.state.finances : [];
+    if ((!sourceRows || sourceRows.length === 0) && typeof ERP?.loadFinances === 'function') {
+        sourceRows = await ERP.loadFinances(true);
+    }
+
+    const start = parseFinanceDate(startDate);
+    const end = parseFinanceDate(endDate);
+    const startTime = start instanceof Date ? start.setHours(0, 0, 0, 0) : 0;
+    const endTime = end instanceof Date ? end.setHours(23, 59, 59, 999) : Number.MAX_SAFE_INTEGER;
+
+    return (Array.isArray(sourceRows) ? sourceRows : [])
+        .filter(item => String(item?.user_id || userId) === userId)
+        .filter(item => {
+            const time = new Date(item?.transaction_date || item?.created_at || 0).getTime();
+            if (!Number.isFinite(time)) return false;
+            return time >= startTime && time <= endTime;
+        })
+        .filter(item => matchFinanceWithConnection(item, connection))
+        .map(item => {
+            const amount = Math.abs(Number(item?.amount || 0));
+            if (!Number.isFinite(amount) || amount <= 0) return null;
+            return {
+                user_id: userId,
+                connection_id: connection.id,
+                provider: connection.provider,
+                bank_name: connection.bank_name,
+                account_mask: connection.account_mask || null,
+                statement_date: normalizeFinanceDateTimeForDb(item?.transaction_date || item?.created_at || new Date().toISOString()),
+                statement_type: String(item?.type || '').toLowerCase() === 'expense' ? 'debit' : 'credit',
+                amount,
+                currency: 'CNY',
+                description: `${item?.category || '账本'}：${String(item?.description || '').trim() || '无备注'}`,
+                source_channel: 'erp_ledger',
+                external_ref: `erp_finance:${item?.id}`,
+                ext_payload: {
+                    finance_id: item?.id || null,
+                    category: item?.category || null
+                }
+            };
+        })
+        .filter(Boolean);
+}
+
+async function upsertPersonalBankStatementEntries(entries = []) {
+    const list = Array.isArray(entries) ? entries : [];
+    if (!list.length) return 0;
+
+    if (personalBankingState.useLocalFallback || typeof supabaseClient === 'undefined') {
+        const localData = loadLocalPersonalBankingData();
+        const existingRefs = new Set((localData.statementEntries || []).map(item => String(item?.external_ref || '')));
+        const toInsert = list.filter(item => {
+            const ref = String(item?.external_ref || '');
+            if (!ref || existingRefs.has(ref)) {
+                return false;
+            }
+            existingRefs.add(ref);
+            return true;
+        }).map(item => ({ ...item, id: `local_stmt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}` }));
+        localData.statementEntries = [...toInsert, ...(localData.statementEntries || [])];
+        saveLocalPersonalBankingData(localData);
+        personalBankingState.statementEntries = localData.statementEntries;
+        return toInsert.length;
+    }
+
+    const { data, error } = await supabaseClient
+        .from(PERSONAL_BANKING_TABLES.statementEntries)
+        .upsert(list, { onConflict: 'user_id,external_ref' })
+        .select('id');
+    if (error) throw error;
+    return Array.isArray(data) ? data.length : 0;
+}
+
+async function appendPersonalBankSyncLog(payload) {
+    const row = {
+        user_id: getCurrentERPUserId(),
+        connection_id: payload?.connection_id || null,
+        provider: payload?.provider || null,
+        bank_name: payload?.bank_name || '',
+        range_start: payload?.range_start || null,
+        range_end: payload?.range_end || null,
+        status: payload?.status || 'failed',
+        inserted_count: Number(payload?.inserted_count || 0),
+        message: payload?.message || '',
+        created_at: payload?.created_at || new Date().toISOString()
+    };
+
+    if (personalBankingState.useLocalFallback || typeof supabaseClient === 'undefined') {
+        const localData = loadLocalPersonalBankingData();
+        localData.syncLogs = [row, ...(localData.syncLogs || [])].slice(0, 50);
+        saveLocalPersonalBankingData(localData);
+        personalBankingState.syncLogs = localData.syncLogs;
+        return;
+    }
+
+    const { error } = await supabaseClient.from(PERSONAL_BANKING_TABLES.syncLogs).insert([row]);
+    if (error) throw error;
+}
+
+async function updatePersonalBankConnectionLastSync(connectionId, syncTimeIso) {
+    const idText = String(connectionId || '').trim();
+    if (!idText) return;
+
+    personalBankingState.connections = personalBankingState.connections.map(item => {
+        if (String(item?.id || '') !== idText) return item;
+        return { ...item, last_synced_at: syncTimeIso };
+    });
+
+    if (personalBankingState.useLocalFallback || typeof supabaseClient === 'undefined') {
+        syncLocalPersonalBankingFromState();
+        return;
+    }
+
+    const userId = getCurrentERPUserId();
+    const { error } = await supabaseClient
+        .from(PERSONAL_BANKING_TABLES.connections)
+        .update({ last_synced_at: syncTimeIso })
+        .eq('id', idText)
+        .eq('user_id', userId);
+    if (error && !isTableMissingError(error)) {
+        throw error;
+    }
+}
+
+async function tryConnectorSync(connection, startDate, endDate) {
+    if (typeof supabaseClient === 'undefined' || !supabaseClient?.functions?.invoke) {
+        return { ok: false, message: '当前环境不支持边缘函数调用' };
+    }
+
+    const response = await supabaseClient.functions.invoke('personal-bank-sync', {
+        body: {
+            connection_id: connection.id,
+            provider: connection.provider,
+            bank_name: connection.bank_name,
+            account_mask: connection.account_mask || null,
+            start_date: startDate,
+            end_date: endDate,
+            user_id: getCurrentERPUserId()
+        }
+    });
+
+    if (response?.error) {
+        return { ok: false, message: response.error?.message || '接口同步失败' };
+    }
+    const rows = Array.isArray(response?.data?.entries) ? response.data.entries : [];
+    if (!rows.length) {
+        return { ok: true, inserted: 0, message: response?.data?.message || '接口返回0条数据' };
+    }
+    const normalizedRows = rows.map(item => ({
+        user_id: getCurrentERPUserId(),
+        connection_id: connection.id,
+        provider: connection.provider,
+        bank_name: connection.bank_name,
+        account_mask: connection.account_mask || null,
+        statement_date: normalizeFinanceDateTimeForDb(item?.statement_date || new Date().toISOString()),
+        statement_type: String(item?.statement_type || 'credit'),
+        amount: Math.abs(Number(item?.amount || 0)),
+        currency: String(item?.currency || 'CNY'),
+        description: String(item?.description || '').trim() || '银行账单',
+        source_channel: String(item?.source_channel || 'connector'),
+        external_ref: String(item?.external_ref || `${connection.id}:${item?.statement_date}:${item?.amount}`),
+        ext_payload: item?.ext_payload || null
+    })).filter(item => Number.isFinite(item.amount) && item.amount > 0);
+
+    const inserted = await upsertPersonalBankStatementEntries(normalizedRows);
+    return { ok: true, inserted, message: response?.data?.message || `接口同步完成，新增${inserted}条` };
+}
+
+async function runPersonalBankSync() {
+    const userId = getCurrentERPUserId();
+    if (!userId) {
+        showToast('请先登录后再执行同步', 'error');
+        return;
+    }
+
+    clearModalFieldValidation('personalBankSyncModal');
+    const connectionId = String(document.getElementById('personalBankSyncConnectionId')?.value || '').trim();
+    const startDate = String(document.getElementById('personalBankSyncStartDate')?.value || '').trim();
+    const endDate = String(document.getElementById('personalBankSyncEndDate')?.value || '').trim();
+    const mode = String(document.getElementById('personalBankSyncMode')?.value || 'auto').trim();
+    const note = String(document.getElementById('personalBankSyncNote')?.value || '').trim();
+
+    if (!connectionId) {
+        markFieldInvalid('personalBankSyncConnectionId', '请选择连接');
+        return;
+    }
+    if (!startDate) {
+        markFieldInvalid('personalBankSyncStartDate', '请选择开始日期');
+        return;
+    }
+    if (!endDate) {
+        markFieldInvalid('personalBankSyncEndDate', '请选择结束日期');
+        return;
+    }
+    if (new Date(startDate).getTime() > new Date(endDate).getTime()) {
+        markFieldInvalid('personalBankSyncEndDate', '结束日期不能早于开始日期');
+        return;
+    }
+
+    const connection = resolveConnectionById(connectionId);
+    if (!connection) {
+        showToast('连接不存在，请刷新后重试', 'error');
+        return;
+    }
+
+    const runBtn = document.querySelector('#personalBankSyncModal .ant-btn-primary');
+    const originalText = runBtn?.textContent || '';
+    if (runBtn) {
+        runBtn.disabled = true;
+        runBtn.textContent = '同步中...';
+    }
+
+    let logStatus = 'failed';
+    let insertedCount = 0;
+    let logMessage = '';
+    const syncTimeIso = new Date().toISOString();
+
+    try {
+        if ((mode === 'auto' || mode === 'connector') && String(connection?.provider || '') !== 'manual_statement') {
+            const connectorResult = await tryConnectorSync(connection, startDate, endDate);
+            if (connectorResult.ok) {
+                insertedCount += Number(connectorResult.inserted || 0);
+                logStatus = 'success';
+                logMessage = connectorResult.message || '接口同步成功';
+            } else if (mode === 'connector') {
+                throw new Error(connectorResult.message || '接口同步失败');
+            } else {
+                logMessage = `接口失败，已回退账本：${connectorResult.message || '未知原因'}`;
+            }
+        }
+
+        if (mode === 'ledger_fallback' || (mode === 'auto' && (logStatus !== 'success' || insertedCount === 0))) {
+            const ledgerEntries = await buildLedgerSyncEntries(connection, startDate, endDate);
+            const inserted = await upsertPersonalBankStatementEntries(ledgerEntries);
+            insertedCount += inserted;
+            logStatus = inserted > 0 ? 'success' : 'partial';
+            const fallbackMsg = `账本回填完成，新增${inserted}条`;
+            logMessage = logMessage ? `${logMessage}；${fallbackMsg}` : fallbackMsg;
+        }
+
+        await updatePersonalBankConnectionLastSync(connectionId, syncTimeIso);
+        await appendPersonalBankSyncLog({
+            connection_id: connection.id,
+            provider: connection.provider,
+            bank_name: connection.bank_name,
+            range_start: startDate,
+            range_end: endDate,
+            status: logStatus,
+            inserted_count: insertedCount,
+            message: note ? `${logMessage}；备注：${note}` : logMessage,
+            created_at: syncTimeIso
+        });
+
+        hidePersonalBankSyncModal();
+        await refreshPersonalBankingCenter();
+        showToast(`同步完成：${logMessage}`, logStatus === 'failed' ? 'error' : 'success');
+    } catch (error) {
+        console.error('[ERP] 执行个人账单同步失败:', error);
+        logMessage = error?.message || '未知错误';
+        try {
+            await appendPersonalBankSyncLog({
+                connection_id: connection.id,
+                provider: connection.provider,
+                bank_name: connection.bank_name,
+                range_start: startDate,
+                range_end: endDate,
+                status: 'failed',
+                inserted_count: insertedCount,
+                message: note ? `${logMessage}；备注：${note}` : logMessage,
+                created_at: syncTimeIso
+            });
+        } catch (logError) {
+            console.error('[ERP] 写入个人账单同步日志失败:', logError);
+        }
+        await refreshPersonalBankingCenter();
+        showToast('同步失败：' + logMessage, 'error');
+    } finally {
+        if (runBtn) {
+            runBtn.disabled = false;
+            runBtn.textContent = originalText;
+        }
+    }
 }
 
 function applyFinanceBusinessPreset() {
@@ -11690,6 +12494,7 @@ if (typeof window !== 'undefined') {
 document.addEventListener('DOMContentLoaded', function () {
     initFinanceFilters();
     applyBankBusinessFilters();
+    refreshPersonalBankingCenter();
     initOrderFilters();
     setTimeout(() => refreshLowStockFromLatestData('dom-ready'), 1200);
     setTimeout(() => loadPurchaseRecords(), 1600);

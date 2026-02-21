@@ -1137,6 +1137,82 @@
                                 </button>
                             </div>
 
+                            <div class="erp-module-section-title">个人账单同步中心</div>
+                            <div class="erp-finance-summary-strip">
+                                <div class="erp-finance-summary-item">
+                                    <div class="erp-finance-summary-label">连接账户数</div>
+                                    <div id="personalBankConnTotal" class="erp-finance-summary-value">0</div>
+                                </div>
+                                <div class="erp-finance-summary-item">
+                                    <div class="erp-finance-summary-label">有效授权数</div>
+                                    <div id="personalBankConnActive" class="erp-finance-summary-value is-income">0</div>
+                                </div>
+                                <div class="erp-finance-summary-item">
+                                    <div class="erp-finance-summary-label">7天内到期</div>
+                                    <div id="personalBankConnExpiring" class="erp-finance-summary-value is-expense">0</div>
+                                </div>
+                                <div class="erp-finance-summary-item">
+                                    <div class="erp-finance-summary-label">最近同步</div>
+                                    <div id="personalBankLastSync" class="erp-finance-summary-value">-</div>
+                                </div>
+                                <div class="erp-finance-summary-item">
+                                    <div class="erp-finance-summary-label">同步状态</div>
+                                    <div id="personalBankSyncState" class="erp-finance-summary-value">未开始</div>
+                                </div>
+                            </div>
+
+                            <div class="table-operator erp-toolbar erp-block-card erp-block-toolbar">
+                                <button class="ant-btn ant-btn-primary" type="button" onclick="showPersonalBankConnectionModal()">
+                                    <i class="fa fa-link"></i> 新增个人连接
+                                </button>
+                                <button class="ant-btn ant-btn-primary" type="button" onclick="showPersonalBankSyncModal()">
+                                    <i class="fa fa-cloud-download"></i> 手动同步账单
+                                </button>
+                                <button class="ant-btn" type="button" onclick="refreshPersonalBankingCenter()">
+                                    <i class="fa fa-refresh"></i> 刷新同步中心
+                                </button>
+                            </div>
+
+                            <div class="erp-module-section-title">个人连接列表</div>
+                            <div class="ant-table-wrapper erp-table-scroll erp-block-card erp-block-table">
+                                <div class="ant-table">
+                                    <table>
+                                        <thead class="ant-table-thead">
+                                            <tr>
+                                                <th>通道</th>
+                                                <th>银行</th>
+                                                <th>账户尾号</th>
+                                                <th>授权状态</th>
+                                                <th>授权到期</th>
+                                                <th>自动同步</th>
+                                                <th>最近同步</th>
+                                                <th>操作</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="ant-table-tbody" id="personalBankConnectionsBody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div class="erp-module-section-title">同步日志（最近20条）</div>
+                            <div class="ant-table-wrapper erp-table-scroll erp-block-card erp-block-table">
+                                <div class="ant-table">
+                                    <table>
+                                        <thead class="ant-table-thead">
+                                            <tr>
+                                                <th>同步时间</th>
+                                                <th>银行/通道</th>
+                                                <th>时间范围</th>
+                                                <th>结果</th>
+                                                <th>新增记录</th>
+                                                <th>消息</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="ant-table-tbody" id="personalBankSyncLogsBody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+
                             <div class="erp-finance-summary-strip">
                                 <div class="erp-finance-summary-item">
                                     <div class="erp-finance-summary-label">总应还金额</div>
@@ -1904,6 +1980,111 @@
         </div>
     </div>
 
+    <!-- Personal Banking Connection Modal -->
+    <div id="personalBankConnectionModal" class="modal-overlay">
+        <div class="modal erp-modal erp-modal-md">
+            <div class="modal-header">
+                <h3>新增个人账单连接</h3>
+                <button class="btn-close" onclick="hidePersonalBankConnectionModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="personalBankConnectionForm" class="erp-modal-form">
+                    <div class="erp-form-section">
+                        <div class="form-group">
+                            <label>同步通道 <span class="erp-required-star">*</span></label>
+                            <select id="personalBankProvider" class="ant-select" style="width: 100%;">
+                                <option value="unionpay_openapi">银联开放接口（需授权）</option>
+                                <option value="yunshanfu_authorize">云闪付授权（预留）</option>
+                                <option value="manual_statement">手工账单导入</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>银行名称 <span class="erp-required-star">*</span></label>
+                            <input type="text" id="personalBankName" class="ant-input" placeholder="例如：中国银行">
+                        </div>
+                        <div class="form-group">
+                            <label>账户尾号</label>
+                            <input type="text" id="personalBankAccountMask" class="ant-input" maxlength="4" placeholder="例如：1234">
+                        </div>
+                        <div class="erp-form-grid-2">
+                            <div class="form-group erp-form-col">
+                                <label>授权状态</label>
+                                <select id="personalBankAuthStatus" class="ant-select">
+                                    <option value="active">有效</option>
+                                    <option value="pending">待授权</option>
+                                    <option value="expired">已过期</option>
+                                </select>
+                            </div>
+                            <div class="form-group erp-form-col">
+                                <label>授权到期日</label>
+                                <input type="date" id="personalBankConsentExpireDate" class="ant-input">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>连接备注</label>
+                            <input type="text" id="personalBankConnectorRef" class="ant-input" placeholder="可填写：用户授权编号或来源备注">
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="personalBankAutoSyncEnabled" checked> 开启自动同步（每日）
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="hidePersonalBankConnectionModal()">取消</button>
+                <button class="ant-btn ant-btn-primary" onclick="savePersonalBankConnection()">保存连接</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Personal Banking Sync Modal -->
+    <div id="personalBankSyncModal" class="modal-overlay">
+        <div class="modal erp-modal erp-modal-md">
+            <div class="modal-header">
+                <h3>手动同步个人账单</h3>
+                <button class="btn-close" onclick="hidePersonalBankSyncModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="personalBankSyncForm" class="erp-modal-form">
+                    <div class="erp-form-section">
+                        <div class="form-group">
+                            <label>选择连接 <span class="erp-required-star">*</span></label>
+                            <select id="personalBankSyncConnectionId" class="ant-select" style="width: 100%;"></select>
+                        </div>
+                        <div class="erp-form-grid-2">
+                            <div class="form-group erp-form-col">
+                                <label>开始日期 <span class="erp-required-star">*</span></label>
+                                <input type="date" id="personalBankSyncStartDate" class="ant-input">
+                            </div>
+                            <div class="form-group erp-form-col">
+                                <label>结束日期 <span class="erp-required-star">*</span></label>
+                                <input type="date" id="personalBankSyncEndDate" class="ant-input">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>同步策略</label>
+                            <select id="personalBankSyncMode" class="ant-select" style="width: 100%;">
+                                <option value="auto">自动（优先接口，失败回退本地）</option>
+                                <option value="connector">仅接口同步</option>
+                                <option value="ledger_fallback">仅ERP账本回填</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>同步备注</label>
+                            <input type="text" id="personalBankSyncNote" class="ant-input" placeholder="可选：本次同步说明">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="hidePersonalBankSyncModal()">取消</button>
+                <button class="ant-btn ant-btn-primary" onclick="runPersonalBankSync()">开始同步</button>
+            </div>
+        </div>
+    </div>
+
     <div id="headerSearchModal" class="modal-overlay">
         <div class="modal erp-modal erp-modal-xl erp-header-modal">
             <div class="modal-header">
@@ -1973,7 +2154,7 @@
     <script src="assets/js/user-data.js?v=20260214-20"></script>
     <script src="assets/js/erp.js?v=20260220-39"></script>
     <script src="assets/js/vendor/echarts.min.js?v=5.5.0"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260220-84"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260221-85"></script>
     <script src="assets/js/pwa-register.js?v=20260218-3" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->
@@ -2111,6 +2292,9 @@
                             window.applyBankBusinessFilters();
                         } else if (typeof window.renderBankBusiness === 'function') {
                             window.renderBankBusiness();
+                        }
+                        if (typeof window.refreshPersonalBankingCenter === 'function') {
+                            await window.refreshPersonalBankingCenter();
                         }
                         break;
                 }

@@ -922,7 +922,8 @@ async function syncOneUser({
   dryRun,
   keywordList,
   excludeKeywords,
-  autoDiscoverMailbox
+  autoDiscoverMailbox,
+  imapVerboseLog
 }) {
   let syncStatus = 'failed';
   let syncMessage = '';
@@ -943,7 +944,7 @@ async function syncOneUser({
     let messages = [];
     const maxAttempts = 2;
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-      client = new ImapFlow({
+      const clientOptions = {
         host,
         port,
         secure: true,
@@ -951,7 +952,11 @@ async function syncOneUser({
           user: email,
           pass: password
         }
-      });
+      };
+      if (!imapVerboseLog) {
+        clientOptions.logger = false;
+      }
+      client = new ImapFlow(clientOptions);
       try {
         await client.connect();
         clientConnected = true;
@@ -1190,6 +1195,7 @@ async function main() {
   const maxMessages = Math.max(20, toInt(process.env.QQ_SYNC_MAX_MESSAGES, 1200));
   const reminderDaysBefore = Math.max(0, toInt(process.env.QQ_SYNC_REMINDER_DAYS_BEFORE, 3));
   const autoDiscoverMailbox = !['0', 'false', 'no'].includes(String(process.env.QQ_MAILBOX_AUTO_DISCOVER || 'true').toLowerCase());
+  const imapVerboseLog = ['1', 'true', 'yes'].includes(String(process.env.QQ_IMAP_VERBOSE_LOG || '').toLowerCase());
   const dryRun = ['1', 'true', 'yes'].includes(String(process.env.QQ_SYNC_DRY_RUN || '').toLowerCase());
   const keywordList = String(process.env.QQ_SYNC_INCLUDE_KEYWORDS || '信用卡,账单,还款,到期')
     .split(',')
@@ -1224,7 +1230,8 @@ async function main() {
       dryRun,
       keywordList,
       excludeKeywords,
-      autoDiscoverMailbox
+      autoDiscoverMailbox,
+      imapVerboseLog
     });
     if (result.syncStatus === 'success') successCount += 1;
     else if (result.syncStatus === 'partial') partialCount += 1;

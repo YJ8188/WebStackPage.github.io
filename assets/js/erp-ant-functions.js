@@ -6323,7 +6323,45 @@ const personalBankingState = {
 };
 
 function getCurrentERPUserId() {
+    const directUserId = (typeof userData !== 'undefined' && userData?.user?.id)
+        ? String(userData.user.id).trim()
+        : '';
+    if (directUserId) {
+        return directUserId;
+    }
     return String(window?.userData?.user?.id || '').trim();
+}
+
+async function ensureERPUserSessionReady() {
+    let userId = getCurrentERPUserId();
+    if (userId) {
+        return userId;
+    }
+
+    try {
+        if (typeof checkLoginStatus === 'function') {
+            await checkLoginStatus();
+            userId = getCurrentERPUserId();
+            if (userId) {
+                return userId;
+            }
+        }
+
+        if (typeof supabaseClient !== 'undefined' && supabaseClient?.auth?.getSession) {
+            const { data, error } = await supabaseClient.auth.getSession();
+            if (!error && data?.session?.user?.id) {
+                if (typeof userData !== 'undefined') {
+                    userData.isLoggedIn = true;
+                    userData.user = data.session.user;
+                }
+                return String(data.session.user.id).trim();
+            }
+        }
+    } catch (error) {
+        console.error('[ERP] 校验登录会话失败:', error);
+    }
+
+    return '';
 }
 
 function personalBankingStorageKey() {
@@ -6611,7 +6649,7 @@ function getPersonalBankConnectionFormData() {
 
 async function savePersonalBankConnection() {
     clearModalFieldValidation('personalBankConnectionModal');
-    const userId = getCurrentERPUserId();
+    const userId = await ensureERPUserSessionReady();
     if (!userId) {
         showToast('请先登录后再配置个人账单连接', 'error');
         return;
@@ -6713,7 +6751,7 @@ function hidePersonalBankSyncModal() {
 }
 
 async function refreshPersonalBankingCenter() {
-    const userId = getCurrentERPUserId();
+    const userId = await ensureERPUserSessionReady();
     if (!userId) {
         personalBankingState.connections = [];
         personalBankingState.syncLogs = [];
@@ -6994,7 +7032,7 @@ async function tryConnectorSync(connection, startDate, endDate) {
 }
 
 async function runPersonalBankSync() {
-    const userId = getCurrentERPUserId();
+    const userId = await ensureERPUserSessionReady();
     if (!userId) {
         showToast('请先登录后再执行同步', 'error');
         return;

@@ -5939,9 +5939,6 @@ function resetBankBusinessFilters() {
 async function refreshBankBusinessModule() {
     await ERP.loadFinances(true);
     applyBankBusinessFilters();
-    if (typeof refreshPersonalBankingCenter === 'function') {
-        await refreshPersonalBankingCenter();
-    }
 }
 
 function recalculateBankBusinessFee() {
@@ -12513,7 +12510,6 @@ if (typeof window !== 'undefined') {
 document.addEventListener('DOMContentLoaded', function () {
     initFinanceFilters();
     applyBankBusinessFilters();
-    refreshPersonalBankingCenter();
     initOrderFilters();
     setTimeout(() => refreshLowStockFromLatestData('dom-ready'), 1200);
     setTimeout(() => loadPurchaseRecords(), 1600);

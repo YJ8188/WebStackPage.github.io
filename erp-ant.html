@@ -1132,14 +1132,12 @@
                                 <button class="ant-btn ant-btn-primary" onclick="showBankSwipeModal()">
                                     <i class="fa fa-exchange"></i> 新增刷卡业务
                                 </button>
+                                <button class="ant-btn ant-btn-primary" onclick="showBankEmailImportModal()">
+                                    <i class="fa fa-envelope-o"></i> 邮箱账单导入
+                                </button>
                                 <button class="ant-btn" onclick="refreshBankBusinessModule()">
                                     <i class="fa fa-refresh"></i> 刷新
                                 </button>
-                            </div>
-
-                            <div class="erp-module-section-title">同步设置</div>
-                            <div class="erp-block-card" style="padding: 12px 16px; color: #64748b;">
-                                已按你的要求关闭“个人连接/手动同步账单”，当前银行业务仅支持手工录入。
                             </div>
 
                             <div class="erp-finance-summary-strip">
@@ -1909,6 +1907,51 @@
         </div>
     </div>
 
+    <div id="bankingEmailImportModal" class="modal-overlay">
+        <div class="modal erp-modal erp-modal-md">
+            <div class="modal-header">
+                <h3>邮箱账单导入</h3>
+                <button class="btn-close" onclick="hideBankEmailImportModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="bankingEmailImportForm" class="erp-modal-form">
+                    <div class="erp-form-section">
+                        <div class="form-group">
+                            <label>导入方式</label>
+                            <input type="file" id="bankingEmailStatementFile" class="ant-input" accept=".txt,.eml,.html,.htm" onchange="onBankEmailStatementFileChange(event)">
+                        </div>
+                        <div class="form-group">
+                            <label>账单内容（支持粘贴邮件正文）</label>
+                            <textarea id="bankingEmailStatementText" class="ant-input" rows="8" placeholder="可直接粘贴邮箱账单正文，或通过上方文件导入"></textarea>
+                        </div>
+                        <div class="erp-form-grid-2">
+                            <div class="form-group erp-form-col">
+                                <label>识别模式</label>
+                                <select id="bankingEmailImportMode" class="ant-select">
+                                    <option value="auto">自动识别</option>
+                                    <option value="repayment">按还款业务导入</option>
+                                    <option value="swipe">按刷卡业务导入</option>
+                                </select>
+                            </div>
+                            <div class="form-group erp-form-col">
+                                <label>提醒提前天数</label>
+                                <input type="number" id="bankingEmailReminderDaysBefore" class="ant-input" min="0" max="30" step="1" value="3">
+                            </div>
+                        </div>
+                        <div id="bankingEmailImportPreview" class="erp-form-hint-card">
+                            暂未解析，请先粘贴账单内容后点击“解析预览”。
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="hideBankEmailImportModal()">取消</button>
+                <button class="ant-btn" type="button" onclick="previewBankEmailStatement()">解析预览</button>
+                <button class="ant-btn ant-btn-primary" type="button" onclick="importBankEmailStatement()">导入账单</button>
+            </div>
+        </div>
+    </div>
+
 
     <div id="headerSearchModal" class="modal-overlay">
         <div class="modal erp-modal erp-modal-xl erp-header-modal">
@@ -1979,7 +2022,7 @@
     <script src="assets/js/user-data.js?v=20260214-20"></script>
     <script src="assets/js/erp.js?v=20260220-39"></script>
     <script src="assets/js/vendor/echarts.min.js?v=5.5.0"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260221-95"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260221-96"></script>
     <script src="assets/js/pwa-register.js?v=20260218-3" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->

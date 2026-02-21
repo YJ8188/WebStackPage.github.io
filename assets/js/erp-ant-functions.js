@@ -102,6 +102,7 @@ const bankBusinessViewState = {
     currentRows: [],
     source: 'all'
 };
+let bankEmailImportPreviewData = null;
 const tablePaginationState = {
     customers: { page: 1, pageSize: 10 },
     products: { page: 1, pageSize: 10 },
@@ -6126,6 +6127,359 @@ function hideBankSwipeModal() {
     if (!modal) return;
     modal.classList.remove('active');
     modal.style.display = '';
+}
+
+function showBankEmailImportModal() {
+    const modal = document.getElementById('bankingEmailImportModal');
+    const form = document.getElementById('bankingEmailImportForm');
+    if (!modal || !form) return;
+    form.reset();
+    const previewEl = document.getElementById('bankingEmailImportPreview');
+    if (previewEl) {
+        previewEl.textContent = '暂未解析，请先粘贴账单内容后点击“解析预览”。';
+    }
+    const reminderInput = document.getElementById('bankingEmailReminderDaysBefore');
+    if (reminderInput) reminderInput.value = '3';
+    bankEmailImportPreviewData = null;
+    clearModalFieldValidation('bankingEmailImportModal');
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+}
+
+function hideBankEmailImportModal() {
+    const modal = document.getElementById('bankingEmailImportModal');
+    if (!modal) return;
+    modal.classList.remove('active');
+    modal.style.display = '';
+}
+
+async function onBankEmailStatementFileChange(event) {
+    const file = event?.target?.files?.[0];
+    if (!file) return;
+    const textArea = document.getElementById('bankingEmailStatementText');
+    if (!textArea) return;
+    try {
+        const rawText = await file.text();
+        textArea.value = normalizeEmailStatementText(rawText);
+        bankEmailImportPreviewData = null;
+        const previewEl = document.getElementById('bankingEmailImportPreview');
+        if (previewEl) {
+            previewEl.textContent = `文件已加载：${file.name}，请点击“解析预览”。`;
+        }
+    } catch (error) {
+        console.error('[ERP Ant] 读取邮箱账单文件失败:', error);
+        showToast('读取文件失败，请检查文件编码后重试', 'error');
+    }
+}
+
+function normalizeEmailStatementText(rawText) {
+    let text = String(rawText || '');
+    text = text.replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n').replace(/<\/div>/gi, '\n');
+    if (typeof document !== 'undefined') {
+        const decoder = document.createElement('textarea');
+        decoder.innerHTML = text;
+        text = decoder.value;
+    }
+    text = text.replace(/<[^>]+>/g, ' ');
+    text = text.replace(/\r/g, '\n');
+    text = text.replace(/[ \t]+/g, ' ');
+    text = text.replace(/\n{3,}/g, '\n\n');
+    return text.trim();
+}
+
+function parseMoneyToken(value) {
+    const cleaned = String(value || '').replace(/[¥￥,\s]/g, '');
+    const amount = Number(cleaned);
+    return Number.isFinite(amount) ? amount : NaN;
+}
+
+function matchMoneyByPatterns(text, patterns = []) {
+    for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (!match || !match[1]) continue;
+        const amount = parseMoneyToken(match[1]);
+        if (Number.isFinite(amount)) return amount;
+    }
+    return NaN;
+}
+
+function parseDateToken(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return null;
+    let normalized = raw.replace(/年/g, '-').replace(/月/g, '-').replace(/日/g, '').replace(/\./g, '-').replace(/\//g, '-');
+    normalized = normalized.replace(/\s+/g, '');
+
+    let match = normalized.match(/(20\d{2})-(\d{1,2})-(\d{1,2})/);
+    if (match) {
+        const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 9, 0, 0);
+        return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    match = normalized.match(/(\d{1,2})-(\d{1,2})/);
+    if (match) {
+        const now = new Date();
+        const date = new Date(now.getFullYear(), Number(match[1]) - 1, Number(match[2]), 9, 0, 0);
+        return Number.isNaN(date.getTime()) ? null : date;
+    }
+    return null;
+}
+
+function matchDateByPatterns(text, patterns = []) {
+    for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (!match || !match[1]) continue;
+        const date = parseDateToken(match[1]);
+        if (date) return date;
+    }
+    return null;
+}
+
+function detectBankNameFromText(text) {
+    const sourceText = String(text || '');
+    const exact = ERP_CREDIT_CARD_BANKS.find(name => name && sourceText.includes(name));
+    if (exact) return exact;
+    const match = sourceText.match(/([^\s，。；、:：]{2,16}银行)/);
+    return match ? String(match[1]).trim() : '';
+}
+
+function detectBankBusinessModeByText(text) {
+    const sourceText = String(text || '');
+    const swipeSignals = ['刷卡金额', '刷卡：', '到账金额', '到账卡', '手续费', '费率'];
+    const repaymentSignals = ['本期应还', '应还金额', '最后还款日', '账单日', '信用卡账单'];
+    const hasSwipeSignal = swipeSignals.some(keyword => sourceText.includes(keyword));
+    const hasRepaymentSignal = repaymentSignals.some(keyword => sourceText.includes(keyword));
+    if (hasSwipeSignal && !hasRepaymentSignal) return 'swipe';
+    return 'repayment';
+}
+
+function parseEmailStatementContent(rawText, mode = 'auto') {
+    const normalizedText = normalizeEmailStatementText(rawText);
+    if (!normalizedText || normalizedText.length < 10) {
+        return { ok: false, message: '账单内容过短，无法解析' };
+    }
+
+    const modeText = String(mode || 'auto').trim();
+    const businessMode = modeText === 'auto' ? detectBankBusinessModeByText(normalizedText) : modeText;
+    const bankName = detectBankNameFromText(normalizedText);
+    const cardTailMatch = normalizedText.match(/(?:尾号|末(?:四|4)位|卡号(?:末四位)?|账户尾号)[^\d]{0,8}(\d{4})/);
+    const cardTail = cardTailMatch ? String(cardTailMatch[1]) : '';
+
+    const billDayMatch = normalizedText.match(/账单日[：:\s]*(?:每月)?\s*(\d{1,2})\s*日?/);
+    const repaymentDayMatch = normalizedText.match(/(?:还款日|到期还款日|最后还款日)[：:\s]*(?:每月)?\s*(\d{1,2})\s*日?/);
+    const dueDate = matchDateByPatterns(normalizedText, [
+        /(?:最后还款日|到期还款日|本期还款日)[：:\s]*([0-9]{4}[年\/\-.][0-9]{1,2}[月\/\-.][0-9]{1,2}日?)/,
+        /(?:最后还款日|到期还款日|本期还款日)[：:\s]*([0-9]{1,2}[\/\-.][0-9]{1,2})/
+    ]);
+    const statementDate = matchDateByPatterns(normalizedText, [
+        /(?:账单日期|账单日|交易日期|记账日)[：:\s]*([0-9]{4}[年\/\-.][0-9]{1,2}[月\/\-.][0-9]{1,2}日?)/,
+        /(?:账单日期|账单日|交易日期|记账日)[：:\s]*([0-9]{1,2}[\/\-.][0-9]{1,2})/
+    ]);
+
+    const repaymentAmount = matchMoneyByPatterns(normalizedText, [
+        /(?:本期应还(?:金额)?|应还金额|到期应还|本期还款总额)[^0-9¥￥]{0,12}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/,
+        /(?:最低应还(?:金额|款额)?)[^0-9¥￥]{0,12}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/
+    ]);
+    const swipeAmount = matchMoneyByPatterns(normalizedText, [
+        /(?:刷卡(?:金额)?|交易金额)[^0-9¥￥]{0,12}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/
+    ]);
+    const actualAmount = matchMoneyByPatterns(normalizedText, [
+        /(?:到账(?:金额)?|实到(?:金额)?|入账金额)[^0-9¥￥]{0,12}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/
+    ]);
+    const feeAmount = matchMoneyByPatterns(normalizedText, [
+        /(?:手续费|服务费|通道费)[^0-9¥￥]{0,12}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/
+    ]);
+    const feeRateMatch = normalizedText.match(/费率[^0-9]{0,8}([0-9]+(?:\.[0-9]+)?)\s*%/);
+    const feeRate = feeRateMatch ? Number(feeRateMatch[1]) : NaN;
+
+    const settlementBankMatch = normalizedText.match(/(?:到账卡|储蓄卡|收款卡)[：:\s]*([^\s；，。]+)/);
+    const settlementBank = settlementBankMatch ? String(settlementBankMatch[1]).trim() : '';
+    const settlementTailMatch = normalizedText.match(/(?:到账卡|储蓄卡|收款卡)[^0-9]{0,16}(?:尾号|末(?:四|4)位)?\s*(\d{4})/);
+    const settlementTail = settlementTailMatch ? String(settlementTailMatch[1]) : '';
+
+    let billDay = toValidDay(billDayMatch?.[1], 0);
+    let repaymentDay = toValidDay(repaymentDayMatch?.[1], 0);
+    if (!repaymentDay && dueDate) repaymentDay = dueDate.getDate();
+    if (!billDay && statementDate) billDay = statementDate.getDate();
+
+    const descriptionLine = normalizedText.split('\n')
+        .map(line => String(line || '').trim())
+        .find(line => line.length >= 4 && !/^(账单|应还|还款|刷卡|到账|手续费|费率|银行|尾号|提醒)/.test(line));
+
+    const missingFields = [];
+    if (!bankName) missingFields.push('银行名称');
+    if (businessMode === 'repayment' && !(Number.isFinite(repaymentAmount) && repaymentAmount > 0)) missingFields.push('应还金额');
+    if (businessMode === 'swipe' && !(Number.isFinite(swipeAmount) && swipeAmount > 0)) missingFields.push('刷卡金额');
+
+    let confidence = 0;
+    if (bankName) confidence += 35;
+    if (cardTail) confidence += 10;
+    if (businessMode === 'repayment' && Number.isFinite(repaymentAmount) && repaymentAmount > 0) confidence += 35;
+    if (businessMode === 'swipe' && Number.isFinite(swipeAmount) && swipeAmount > 0) confidence += 35;
+    if (billDay) confidence += 10;
+    if (repaymentDay) confidence += 10;
+    confidence = Math.min(100, Math.max(0, confidence));
+
+    return {
+        ok: true,
+        mode: businessMode,
+        bankName: bankName || '',
+        cardTail,
+        billDay,
+        repaymentDay,
+        dueDate,
+        statementDate,
+        repaymentAmount: Number.isFinite(repaymentAmount) ? repaymentAmount : 0,
+        swipeAmount: Number.isFinite(swipeAmount) ? swipeAmount : 0,
+        actualAmount: Number.isFinite(actualAmount) ? actualAmount : 0,
+        feeAmount: Number.isFinite(feeAmount) ? feeAmount : 0,
+        feeRate: Number.isFinite(feeRate) ? feeRate : 0,
+        settlementBank: settlementBank || '',
+        settlementTail: settlementTail || '',
+        descriptionLine: descriptionLine || '',
+        missingFields,
+        confidence
+    };
+}
+
+function renderBankEmailImportPreview(parsed) {
+    const previewEl = document.getElementById('bankingEmailImportPreview');
+    if (!previewEl) return;
+    if (!parsed || !parsed.ok) {
+        previewEl.textContent = parsed?.message || '解析失败，请检查账单内容格式';
+        return;
+    }
+    const modeText = parsed.mode === 'swipe' ? '刷卡业务' : '还款业务';
+    const dueText = parsed.dueDate ? formatFinanceDateText(parsed.dueDate) : '-';
+    const statementText = parsed.statementDate ? formatFinanceDateText(parsed.statementDate) : '-';
+    const issueText = parsed.missingFields.length ? `缺失字段：${parsed.missingFields.join('、')}` : '关键字段完整，可直接导入';
+    previewEl.innerHTML = [
+        `识别模式：${safeText(modeText)}（置信度 ${parsed.confidence}%）`,
+        `银行：${safeText(parsed.bankName || '-')} / 尾号：${safeText(parsed.cardTail || '-')}`,
+        `账单日：${safeText(parsed.billDay || '-')} / 还款日：${safeText(parsed.repaymentDay || '-')} / 到期日：${safeText(dueText)}`,
+        `应还金额：${safeText(toMoneyText(parsed.repaymentAmount || 0))} / 刷卡金额：${safeText(toMoneyText(parsed.swipeAmount || 0))} / 到账金额：${safeText(toMoneyText(parsed.actualAmount || 0))}`,
+        `手续费：${safeText(toMoneyText(parsed.feeAmount || 0))} / 费率：${safeText(Number(parsed.feeRate || 0).toFixed(2))}%`,
+        `账单日期：${safeText(statementText)} / 备注摘要：${safeText(parsed.descriptionLine || '-')}`,
+        `${safeText(issueText)}`
+    ].join('<br>');
+}
+
+function previewBankEmailStatement() {
+    const text = String(document.getElementById('bankingEmailStatementText')?.value || '').trim();
+    const mode = String(document.getElementById('bankingEmailImportMode')?.value || 'auto').trim();
+    const parsed = parseEmailStatementContent(text, mode);
+    bankEmailImportPreviewData = parsed?.ok ? parsed : null;
+    renderBankEmailImportPreview(parsed);
+    if (!parsed.ok) {
+        showToast(parsed.message || '解析失败，请检查内容', 'error');
+        return;
+    }
+    showToast(`解析完成：${parsed.mode === 'swipe' ? '刷卡业务' : '还款业务'}`, 'success');
+}
+
+async function importBankEmailStatement() {
+    const text = String(document.getElementById('bankingEmailStatementText')?.value || '').trim();
+    if (!text) {
+        markFieldInvalid('bankingEmailStatementText', '请先粘贴账单内容');
+        return;
+    }
+    const mode = String(document.getElementById('bankingEmailImportMode')?.value || 'auto').trim();
+    const reminderDaysBefore = Math.max(0, Math.floor(toAmount(document.getElementById('bankingEmailReminderDaysBefore')?.value, 3)));
+    const parsed = parseEmailStatementContent(text, mode);
+    renderBankEmailImportPreview(parsed);
+    if (!parsed.ok) {
+        showToast(parsed.message || '解析失败，无法导入', 'error');
+        return;
+    }
+
+    const transactionDateRaw = parsed.statementDate ? parsed.statementDate.toISOString() : new Date().toISOString();
+    const transactionDate = normalizeFinanceDateTimeForDb(transactionDateRaw);
+    if (!transactionDate) {
+        showToast('账单日期解析失败，请手工录入', 'error');
+        return;
+    }
+
+    const importNote = parsed.descriptionLine ? `摘要：${parsed.descriptionLine}` : '邮箱账单自动解析';
+    if (parsed.mode === 'swipe') {
+        const swipeCardBank = parsed.bankName || '';
+        const settlementBank = parsed.settlementBank || swipeCardBank || '未识别';
+        const swipeAmount = Number(parsed.swipeAmount || 0);
+        const actualAmount = Number(parsed.actualAmount || 0) > 0 ? Number(parsed.actualAmount) : swipeAmount;
+        if (!swipeCardBank || swipeAmount <= 0 || actualAmount <= 0) {
+            showToast('刷卡账单关键字段不足，请改用手工录入或完善账单内容', 'error');
+            return;
+        }
+        const feeAmount = Number(parsed.feeAmount || Math.max(0, swipeAmount - actualAmount));
+        const feeRate = Number(parsed.feeRate || (swipeAmount > 0 ? (feeAmount / swipeAmount) * 100 : 0));
+        const settlementCardText = `${settlementBank}${parsed.settlementTail ? `（尾号${parsed.settlementTail}）` : ''}`;
+        const financeData = {
+            business_type: 'credit_card_swipe',
+            type: 'income',
+            category: '信用卡刷卡',
+            amount: actualAmount,
+            description: [
+                importNote,
+                '来源：邮箱账单解析',
+                `银行：${swipeCardBank}`,
+                `刷卡卡：${swipeCardBank}${parsed.cardTail ? `（尾号${parsed.cardTail}）` : ''}`,
+                `到账卡：${settlementCardText}`,
+                `刷卡：${toMoneyText(swipeAmount)}`,
+                `到账：${toMoneyText(actualAmount)}`,
+                `手续费：${toMoneyText(feeAmount)}`,
+                `费率：${Number.isFinite(feeRate) ? feeRate.toFixed(2) : '0.00'}%`
+            ].filter(Boolean).join('；'),
+            transaction_date: transactionDate,
+            card_bank: swipeCardBank,
+            card_swipe_amount: swipeAmount,
+            card_actual_amount: actualAmount,
+            card_fee_amount: feeAmount,
+            card_fee_rate: Number.isFinite(feeRate) ? Number(feeRate.toFixed(4)) : 0,
+            swipe_card_bank: swipeCardBank,
+            settlement_bank: settlementBank,
+            settlement_card_tail: parsed.settlementTail || null
+        };
+        await persistBankBusinessFinance(financeData, '#bankingEmailImportModal', hideBankEmailImportModal);
+        return;
+    }
+
+    const bank = parsed.bankName || '';
+    const repaymentAmount = Number(parsed.repaymentAmount || 0);
+    if (!bank || repaymentAmount <= 0) {
+        showToast('还款账单关键字段不足，请改用手工录入或完善账单内容', 'error');
+        return;
+    }
+    const billDay = toValidDay(parsed.billDay, 20);
+    const repaymentDay = toValidDay(parsed.repaymentDay || parsed.dueDate?.getDate(), 5);
+    const reminderDate = getCreditReminderDate(transactionDate, repaymentDay, reminderDaysBefore);
+    const recommendation = buildBankCycleRecommendation(transactionDate, billDay, repaymentDay);
+    const recommendationText = recommendation
+        ? `建议：账单后刷卡 ${formatRuleDate(recommendation.recommendSwipeStart)}~${formatRuleDate(recommendation.recommendSwipeEnd)}，还款建议 ${formatRuleDate(recommendation.recommendRepayDate)}`
+        : '';
+
+    const financeData = {
+        business_type: 'credit_card_repayment',
+        type: 'expense',
+        category: '信用卡还款',
+        amount: repaymentAmount,
+        description: [
+            importNote,
+            '来源：邮箱账单解析',
+            `银行：${bank}${parsed.cardTail ? `（尾号${parsed.cardTail}）` : ''}`,
+            `应还：${toMoneyText(repaymentAmount)}`,
+            `账单日：每月${billDay}日`,
+            `还款日：每月${repaymentDay}日`,
+            `提醒：提前${reminderDaysBefore}天（${reminderDate ? formatFinanceDateText(reminderDate) : '待计算'}）`,
+            recommendationText
+        ].filter(Boolean).join('；'),
+        transaction_date: transactionDate,
+        card_bank: bank,
+        card_bill_day: billDay,
+        card_repayment_day: repaymentDay,
+        card_repayment_amount: repaymentAmount,
+        reminder_enabled: true,
+        reminder_days_before: reminderDaysBefore,
+        reminder_date: reminderDate ? reminderDate.toISOString() : null
+    };
+    await persistBankBusinessFinance(financeData, '#bankingEmailImportModal', hideBankEmailImportModal);
 }
 
 async function persistBankBusinessFinance(financeData, modalSelector, hideModal) {

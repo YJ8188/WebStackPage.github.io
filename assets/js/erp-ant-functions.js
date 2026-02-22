@@ -5812,11 +5812,20 @@ function getBankBusinessRecords(rows = null) {
 }
 
 function parseBankFeeAmountFromFinance(record) {
+    const businessType = String(record?.business_type || '').trim().toLowerCase();
+    const category = String(record?.category || '').trim();
+    const description = String(record?.description || '');
+    const isSwipeRecord = businessType === 'credit_card_swipe'
+        || category.includes('信用卡刷卡')
+        || /刷卡[:：]/.test(description);
+    if (!isSwipeRecord) {
+        return 0;
+    }
+
     const directFee = Number(record?.card_fee_amount);
     if (Number.isFinite(directFee) && directFee > 0) {
         return directFee;
     }
-    const description = String(record?.description || '');
     const match = description.match(/手续费[:：]\s*[¥￥]?\s*([0-9]+(?:\.[0-9]+)?)/);
     if (!match || !match[1]) {
         return 0;
@@ -13725,6 +13734,9 @@ async function markPayableAsPaid(financeId) {
 
 function getFinanceActionButtons(finance) {
     if (finance?.__virtual_bank_fee === true) {
+        if (finance?.__source_finance_id !== null && finance?.__source_finance_id !== undefined && String(finance.__source_finance_id).trim() !== '') {
+            return `<div class="erp-row-actions"><button class="ant-btn erp-btn-danger erp-btn-compact" onclick='deleteBankFeeSourceRecord(${JSON.stringify(finance.__source_finance_id)})'>删除来源</button></div>`;
+        }
         return `<div class="erp-row-actions"><button class="ant-btn erp-btn-compact" disabled style="color:#8c8c8c;border-color:#d9d9d9;cursor:not-allowed;">来源银行业务</button></div>`;
     }
 
@@ -13752,6 +13764,40 @@ function getFinanceActionButtons(finance) {
 
     buttons.push(`<button class="ant-btn erp-btn-compact erp-btn-danger" onclick='deleteFinance(${JSON.stringify(finance?.id)})'>删除</button>`);
     return `<div class="erp-row-actions">${buttons.join('')}</div>`;
+}
+
+async function deleteBankFeeSourceRecord(sourceFinanceId) {
+    const financeId = sourceFinanceId;
+    if (financeId === null || financeId === undefined || String(financeId).trim() === '') {
+        if (typeof showToast === 'function') {
+            showToast('未找到来源银行业务记录', 'warning');
+        }
+        return;
+    }
+
+    const confirmed = confirm('确认删除来源银行业务记录吗？删除后该手续费镜像也会消失。');
+    if (!confirmed) {
+        return;
+    }
+
+    const deleted = await ERP.deleteFinance(financeId);
+    if (!deleted) {
+        return;
+    }
+
+    const finances = await ERP.loadFinances(true);
+    if (typeof renderFinances === 'function') {
+        syncFinanceViewRows(finances, 'all');
+        renderFinances(finances);
+    }
+
+    if (typeof applyBankBusinessFilters === 'function') {
+        applyBankBusinessFilters();
+    } else if (typeof renderBankBusiness === 'function') {
+        renderBankBusiness();
+    }
+
+    updateStatistics();
 }
 
 function exportFinanceCsvByCurrentView() {

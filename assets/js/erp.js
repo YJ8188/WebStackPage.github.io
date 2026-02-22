@@ -3439,11 +3439,20 @@ const ERP = {
             return /银行[:：]/.test(description) && /(刷卡|应还|还款日|账单日|手续费)/.test(description);
         };
         const parseBankFeeAmount = (finance) => {
+            const businessType = String(finance?.business_type || '').trim().toLowerCase();
+            const category = String(finance?.category || '').trim();
+            const description = String(finance?.description || '').trim();
+            const isSwipeRecord = businessType === 'credit_card_swipe'
+                || category.includes('信用卡刷卡')
+                || /刷卡[:：]/.test(description);
+            if (!isSwipeRecord) {
+                return 0;
+            }
+
             const directFee = Number(finance?.card_fee_amount);
             if (Number.isFinite(directFee) && directFee >= 0) {
                 return directFee;
             }
-            const description = String(finance?.description || '');
             const feeMatch = description.match(/手续费[:：]\s*[¥￥]?\s*([0-9]+(?:\.[0-9]+)?)/);
             if (!feeMatch || !feeMatch[1]) {
                 return 0;

@@ -6663,6 +6663,25 @@ function detectBankBusinessModeByText(text) {
     return 'repayment';
 }
 
+function extractCardTailFromText(text) {
+    const source = String(text || '');
+    if (!source) return '';
+    const patterns = [
+        /(?:卡片尾号|卡号末四位|卡号末4位|账户尾号|尾号|末四位|末4位|Card\s*No\.?|CardNo\.?)[^0-9]{0,48}((?:\d[\s\-*•·]*){4,10})/ig,
+        /(?:\*{2,}|X{2,}|x{2,})\s*((?:\d[\s\-]*){4,6})/g
+    ];
+    for (const pattern of patterns) {
+        const matches = Array.from(source.matchAll(pattern));
+        for (const match of matches) {
+            const digits = String(match?.[1] || '').replace(/\D/g, '');
+            if (digits.length >= 4) {
+                return digits.slice(-4);
+            }
+        }
+    }
+    return '';
+}
+
 function parseEmailStatementContent(rawText, mode = 'auto') {
     const normalizedText = normalizeEmailStatementText(rawText);
     if (!normalizedText || normalizedText.length < 10) {
@@ -6674,8 +6693,7 @@ function parseEmailStatementContent(rawText, mode = 'auto') {
     const modeText = String(mode || 'auto').trim();
     const businessMode = modeText === 'auto' ? detectBankBusinessModeByText(parseText) : modeText;
     const bankName = detectBankNameFromText(parseText);
-    const cardTailMatch = parseText.match(/(?:尾号|末(?:四|4)位|卡号(?:末四位)?|账户尾号|Card\s*No\.?)[^\d]{0,16}(\d{4})/i);
-    const cardTail = cardTailMatch ? String(cardTailMatch[1]) : '';
+    const cardTail = extractCardTailFromText(parseText);
 
     const billDayMatch = parseText.match(/账单日[：:\s]*(?:每月)?\s*(\d{1,2})\s*日?(?!\d)/);
     const repaymentDayMatch = parseText.match(/(?:还款日|到期还款日|最后还款日)[：:\s]*(?:每月)?\s*(\d{1,2})\s*日?(?!\d)/);

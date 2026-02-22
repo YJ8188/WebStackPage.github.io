@@ -211,6 +211,25 @@ function extractDay(text, patterns) {
   return 0;
 }
 
+function extractCardTail(text) {
+  const source = String(text || '');
+  if (!source) return '';
+  const patterns = [
+    /(?:卡片尾号|卡号末四位|卡号末4位|账户尾号|尾号|末四位|末4位|Card\s*No\.?|CardNo\.?)[^0-9]{0,48}((?:\d[\s\-*•·]*){4,10})/ig,
+    /(?:\*{2,}|X{2,}|x{2,})\s*((?:\d[\s\-]*){4,6})/g
+  ];
+  for (const pattern of patterns) {
+    const matches = Array.from(source.matchAll(pattern));
+    for (const match of matches) {
+      const digits = String(match?.[1] || '').replace(/\D/g, '');
+      if (digits.length >= 4) {
+        return digits.slice(-4);
+      }
+    }
+  }
+  return '';
+}
+
 function toValidDay(value, fallback = 0) {
   const day = Math.floor(Number(value));
   if (!Number.isFinite(day) || day < 1 || day > 31) return fallback;
@@ -345,6 +364,7 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
   const mailDate = parsedDate instanceof Date && !Number.isNaN(parsedDate.getTime()) ? parsedDate : new Date();
   const transactionDate = statementDate || mailDate;
   const finalBillDay = billDay || (statementDate ? statementDate.getDate() : 0) || mailDate.getDate();
+  const cardTail = extractCardTail(text);
 
   if (mode === 'swipe') {
     const swipeAmount = extractAmount(text, [
@@ -377,7 +397,7 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
       type: 'income',
       category: '信用卡刷卡',
       amount: Number(finalActualAmount.toFixed(2)),
-      description: `来源：QQ邮箱自动同步；银行：${bankName || '未识别'}；刷卡：¥${swipeAmount.toFixed(2)}；到账：¥${finalActualAmount.toFixed(2)}；手续费：¥${finalFeeAmount.toFixed(2)}；费率：${finalFeeRate.toFixed(2)}%`,
+      description: `来源：QQ邮箱自动同步；银行：${bankName || '未识别'}${cardTail ? `（尾号${cardTail}）` : ''}；刷卡：¥${swipeAmount.toFixed(2)}；到账：¥${finalActualAmount.toFixed(2)}；手续费：¥${finalFeeAmount.toFixed(2)}；费率：${finalFeeRate.toFixed(2)}%`,
       transaction_date: transactionDate.toISOString(),
       business_type: 'credit_card_swipe',
       card_bank: bankName || null,
@@ -479,7 +499,7 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
     type: 'expense',
     category: '信用卡还款',
     amount: Number(repaymentAmount.toFixed(2)),
-    description: `来源：QQ邮箱自动同步；银行：${stableBankName || '未识别'}；应还：¥${repaymentAmount.toFixed(2)}；账单日：${finalBillDay || '-'}；还款日：${finalRepaymentDay || '-'}`,
+    description: `来源：QQ邮箱自动同步；银行：${stableBankName || '未识别'}${cardTail ? `（尾号${cardTail}）` : ''}；应还：¥${repaymentAmount.toFixed(2)}；账单日：${finalBillDay || '-'}；还款日：${finalRepaymentDay || '-'}`,
     transaction_date: transactionDate.toISOString(),
     business_type: 'credit_card_repayment',
     card_bank: stableBankName || null,

@@ -6406,22 +6406,133 @@ async function disableQQMailAuth() {
     }
 }
 
+const BANK_PDF_JS_CDN_LIST = [
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js',
+    'https://unpkg.com/pdfjs-dist@2.16.105/build/pdf.min.js'
+];
+
+const BANK_PDF_WORKER_CDN_LIST = [
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js',
+    'https://unpkg.com/pdfjs-dist@2.16.105/build/pdf.worker.min.js'
+];
+
+let bankPdfJsLoaderPromise = null;
+
+function loadScriptOnce(src) {
+    return new Promise((resolve, reject) => {
+        const existing = Array.from(document.querySelectorAll('script[src]'))
+            .find(node => String(node.src || '').includes(src));
+        if (existing) {
+            if (existing.dataset.loaded === 'true') {
+                resolve();
+                return;
+            }
+            existing.addEventListener('load', () => resolve(), { once: true });
+            existing.addEventListener('error', () => reject(new Error(`脚本加载失败: ${src}`)), { once: true });
+            return;
+        }
+        const script = document.createElement('script');
+        script.src = src;
+        script.async = true;
+        script.onload = () => {
+            script.dataset.loaded = 'true';
+            resolve();
+        };
+        script.onerror = () => reject(new Error(`脚本加载失败: ${src}`));
+        document.head.appendChild(script);
+    });
+}
+
+async function ensureBankPdfJsReady() {
+    if (window.pdfjsLib) {
+        if (!window.pdfjsLib.GlobalWorkerOptions?.workerSrc) {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = BANK_PDF_WORKER_CDN_LIST[0];
+        }
+        return window.pdfjsLib;
+    }
+    if (bankPdfJsLoaderPromise) {
+        return bankPdfJsLoaderPromise;
+    }
+    bankPdfJsLoaderPromise = (async () => {
+        let lastError = null;
+        for (let i = 0; i < BANK_PDF_JS_CDN_LIST.length; i += 1) {
+            const scriptSrc = BANK_PDF_JS_CDN_LIST[i];
+            try {
+                await loadScriptOnce(scriptSrc);
+                if (!window.pdfjsLib) {
+                    throw new Error('PDF 引擎初始化失败');
+                }
+                window.pdfjsLib.GlobalWorkerOptions.workerSrc = BANK_PDF_WORKER_CDN_LIST[i] || BANK_PDF_WORKER_CDN_LIST[0];
+                return window.pdfjsLib;
+            } catch (error) {
+                lastError = error;
+            }
+        }
+        throw lastError || new Error('PDF 引擎加载失败');
+    })();
+    return bankPdfJsLoaderPromise;
+}
+
+async function extractTextFromBankPdfFile(file) {
+    const pdfjsLib = await ensureBankPdfJsReady();
+    const rawData = await file.arrayBuffer();
+    const loadingTask = pdfjsLib.getDocument({ data: rawData });
+    const pdfDocument = await loadingTask.promise;
+    const pageCount = Number(pdfDocument.numPages || 0);
+    const maxPages = Math.min(pageCount, 30);
+    const blocks = [];
+    for (let pageNo = 1; pageNo <= maxPages; pageNo += 1) {
+        const page = await pdfDocument.getPage(pageNo);
+        const textContent = await page.getTextContent();
+        const textLine = Array.isArray(textContent?.items)
+            ? textContent.items.map(item => String(item?.str || '').trim()).filter(Boolean).join(' ')
+            : '';
+        if (textLine) blocks.push(textLine);
+    }
+    try {
+        await loadingTask.destroy();
+    } catch (_) {
+        // ignore
+    }
+    return {
+        pageCount,
+        text: normalizeEmailStatementText(blocks.join('\n'))
+    };
+}
+
 async function onBankEmailStatementFileChange(event) {
     const file = event?.target?.files?.[0];
     if (!file) return;
     const textArea = document.getElementById('bankingEmailStatementText');
     if (!textArea) return;
     try {
-        const rawText = await file.text();
-        textArea.value = normalizeEmailStatementText(rawText);
+        const name = String(file.name || '').toLowerCase();
+        const isPdf = name.endsWith('.pdf') || String(file.type || '').toLowerCase().includes('pdf');
+        let parsedText = '';
+        let parsedHint = '';
+        if (isPdf) {
+            const pdfResult = await extractTextFromBankPdfFile(file);
+            parsedText = String(pdfResult?.text || '');
+            parsedHint = `（PDF ${Math.max(0, Number(pdfResult?.pageCount || 0))} 页）`;
+        } else {
+            const rawText = await file.text();
+            parsedText = normalizeEmailStatementText(rawText);
+        }
+
+        if (!parsedText || parsedText.length < 8) {
+            showToast('文件内容为空或为图片型PDF，请先OCR后再导入', 'error');
+            return;
+        }
+
+        textArea.value = parsedText;
         bankEmailImportPreviewData = null;
         const previewEl = document.getElementById('bankingEmailImportPreview');
         if (previewEl) {
-            previewEl.textContent = `文件已加载：${file.name}，请点击“解析预览”。`;
+            previewEl.textContent = `文件已加载：${file.name}${parsedHint}，请点击“解析预览”。`;
         }
     } catch (error) {
         console.error('[ERP Ant] 读取邮箱账单文件失败:', error);
-        showToast('读取文件失败，请检查文件编码后重试', 'error');
+        showToast('读取文件失败，请检查文件内容或网络后重试', 'error');
     }
 }
 

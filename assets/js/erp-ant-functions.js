@@ -114,7 +114,8 @@ const bankBusinessEditState = {
 const bankRepaymentQuickState = {
     active: false,
     sourceFinanceId: null,
-    sourceOutstanding: 0
+    sourceOutstanding: 0,
+    sourceSnapshot: null
 };
 const bankRepaymentHistoryState = {
     bank: '',
@@ -6330,6 +6331,10 @@ function syncBankBusinessTableHeightByPageSize(pageSize = 10) {
     }
     const size = Number(pageSize) || 10;
     wrapper.classList.toggle('erp-table-scroll-expanded', size > 10);
+
+    wrapper.style.maxHeight = 'none';
+    wrapper.style.overflowY = 'visible';
+    wrapper.style.overflowX = 'auto';
 }
 
 function renderBankBusiness(rows = null) {
@@ -6795,6 +6800,7 @@ function resetBankRepaymentQuickState() {
     bankRepaymentQuickState.active = false;
     bankRepaymentQuickState.sourceFinanceId = null;
     bankRepaymentQuickState.sourceOutstanding = 0;
+    bankRepaymentQuickState.sourceSnapshot = null;
 }
 
 function setRepaymentFieldGroupVisible(fieldId, visible) {
@@ -6926,8 +6932,9 @@ function showBankRepaymentModal(prefill = null, options = {}) {
         if (saveBtn) saveBtn.textContent = isQuickRepay ? '确认还款' : '保存';
         if (isQuickRepay) {
             bankRepaymentQuickState.active = true;
-            bankRepaymentQuickState.sourceFinanceId = prefill.id || null;
+            bankRepaymentQuickState.sourceFinanceId = prefill.id ?? null;
             bankRepaymentQuickState.sourceOutstanding = Math.max(0, Number(prefill.repaymentAmount || 0));
+            bankRepaymentQuickState.sourceSnapshot = cloneQuickRepaymentSourceSnapshot(prefill);
         }
     } else {
         bankBusinessEditState.financeId = null;
@@ -7854,10 +7861,13 @@ async function persistBankBusinessFinance(financeData, modalSelector, hideModal,
 
 async function submitQuickBankRepayment() {
     clearModalFieldValidation('bankingRepaymentModal');
-    const sourceId = bankRepaymentQuickState.sourceFinanceId;
-    const source = findParsedBankBusinessById(sourceId);
-    if (!source || !source.isRepayment) {
+    const source = resolveQuickRepaymentSource();
+    if (!source) {
         showToast('未找到可登记的还款账单，请刷新后重试', 'error');
+        return;
+    }
+    if (!source.isRepayment) {
+        showToast('当前记录不是“信用卡还款”账单，不能登记还款', 'warning');
         return;
     }
 
@@ -7939,6 +7949,8 @@ async function submitQuickBankRepayment() {
             type: 'expense',
             category: '信用卡还款',
             amount: remainingAmount,
+            reference_id: source?.raw?.reference_id ?? null,
+            order_id: source?.raw?.order_id ?? null,
             description: [
                 baseDescription,
                 `银行：${bank}${cardTail ? `（尾号${cardTail}）` : ''}`,
@@ -8170,6 +8182,56 @@ function findParsedBankBusinessById(financeId) {
     const sourceRows = Array.isArray(ERP.state?.finances) ? ERP.state.finances : [];
     const raw = sourceRows.find(item => String(item?.id || '') === normalizedId);
     return raw ? parseBankBusinessRecord(raw) : null;
+}
+
+function cloneQuickRepaymentSourceSnapshot(source) {
+    if (!source || typeof source !== 'object') {
+        return null;
+    }
+    const reminderDate = source?.reminderDate instanceof Date
+        ? new Date(source.reminderDate.getTime())
+        : parseFinanceDate(source?.reminderDate || null);
+    const transactionDate = source?.transactionDate instanceof Date
+        ? new Date(source.transactionDate.getTime())
+        : parseFinanceDate(source?.transactionDate || source?.raw?.transaction_date || null);
+    const raw = source?.raw && typeof source.raw === 'object'
+        ? { ...source.raw }
+        : null;
+    return {
+        ...source,
+        reminderDate,
+        transactionDate,
+        raw
+    };
+}
+
+function resolveQuickRepaymentSource() {
+    const sourceId = String(bankRepaymentQuickState.sourceFinanceId || '').trim();
+    if (!sourceId) {
+        return cloneQuickRepaymentSourceSnapshot(bankRepaymentQuickState.sourceSnapshot);
+    }
+
+    const byState = findParsedBankBusinessById(sourceId);
+    if (byState) {
+        return byState;
+    }
+
+    const snapshot = cloneQuickRepaymentSourceSnapshot(bankRepaymentQuickState.sourceSnapshot);
+    if (snapshot && String(snapshot?.id || '').trim() === sourceId) {
+        return snapshot;
+    }
+
+    const fallbackRows = Array.isArray(bankBusinessViewState.currentRows)
+        ? bankBusinessViewState.currentRows
+        : [];
+    const fallback = fallbackRows.find(item => String(item?.id || '').trim() === sourceId);
+    if (fallback) {
+        if (fallback?.raw) {
+            return parseBankBusinessRecord(fallback.raw);
+        }
+        return cloneQuickRepaymentSourceSnapshot(fallback);
+    }
+    return null;
 }
 
 function quickCreateBankRepayment(financeId) {

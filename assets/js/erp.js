@@ -3024,13 +3024,15 @@ const ERP = {
             };
 
             const before = this.state.finances.find(item => this.isSameId(item.id, financeId)) || null;
+            const hasReferenceId = Object.prototype.hasOwnProperty.call(financeData || {}, 'reference_id');
+            const hasOrderId = Object.prototype.hasOwnProperty.call(financeData || {}, 'order_id');
             const updatePayloadRaw = {
                 type: financeData.type,
                 category: financeData.category || '',
                 amount: parseFloat(financeData.amount),
                 description: financeData.description || '',
-                reference_id: financeData.reference_id || null,
-                order_id: financeData.order_id || null,
+                reference_id: hasReferenceId ? (financeData.reference_id || null) : (before?.reference_id ?? null),
+                order_id: hasOrderId ? (financeData.order_id || null) : (before?.order_id ?? null),
                 transaction_date: financeData.transaction_date || new Date().toISOString(),
                 business_type: financeData.business_type || null,
                 card_bank: financeData.card_bank || null,

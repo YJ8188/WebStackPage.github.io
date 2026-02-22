@@ -6050,6 +6050,145 @@ async function refreshBankBusinessModule() {
     applyBankBusinessFilters();
 }
 
+function buildSmartCardPlanRows() {
+    const sourceRows = getBankBusinessRecords().map(parseBankBusinessRecord).filter(item => item?.isRepayment);
+    const latestByCard = new Map();
+    sourceRows.forEach((row) => {
+        const key = `${String(row?.bank || '').trim()}#${String(row?.cardTail || '').trim()}`;
+        const prev = latestByCard.get(key);
+        const prevTs = prev?.transactionDate instanceof Date ? prev.transactionDate.getTime() : 0;
+        const currTs = row?.transactionDate instanceof Date ? row.transactionDate.getTime() : 0;
+        if (!prev || currTs >= prevTs) {
+            latestByCard.set(key, row);
+        }
+    });
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const planRows = [];
+    latestByCard.forEach((row) => {
+        const recommendation = buildBankCycleRecommendation(now, row.billDay, row.repaymentDay);
+        if (!recommendation) return;
+        const dueDate = recommendation.dueDate;
+        const dueDay = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate(), 0, 0, 0, 0);
+        const daysToDue = Math.ceil((dueDay.getTime() - today.getTime()) / 86400000);
+        const urgency = daysToDue < 0 ? 'overdue' : (daysToDue <= 2 ? 'urgent' : (daysToDue <= 7 ? 'soon' : 'normal'));
+        const cardLabel = `${row.bank || '未识别'}${row.cardTail ? `（尾号${row.cardTail}）` : ''}`;
+        const actionText = daysToDue < 0
+            ? '已逾期，优先全额还款，暂停周转刷卡'
+            : (daysToDue <= 2
+                ? '还款临近，先还款后再考虑刷卡'
+                : (daysToDue <= 7
+                    ? '进入还款周，控制刷卡，保留还款资金'
+                    : '账单后窗口可刷卡，靠近还款日前2天完成还款'));
+        planRows.push({
+            key: `${row.bank || ''}_${row.cardTail || ''}`,
+            cardLabel,
+            billDay: row.billDay || 0,
+            repaymentDay: row.repaymentDay || 0,
+            recommendSwipeStart: recommendation.recommendSwipeStart,
+            recommendSwipeEnd: recommendation.recommendSwipeEnd,
+            recommendRepayDate: recommendation.recommendRepayDate,
+            dueDate,
+            daysToDue,
+            urgency,
+            actionText
+        });
+    });
+
+    return planRows.sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
+}
+
+function renderBankSmartPlan() {
+    const container = document.getElementById('bankingSmartPlanContent');
+    if (!container) return;
+    const planRows = buildSmartCardPlanRows();
+    if (!planRows.length) {
+        container.innerHTML = '暂无可计算建议。请先确保银行业务里有“账单日+还款日”的还款记录。';
+        return;
+    }
+
+    const headerText = planRows.length >= 2
+        ? `建议顺序：先处理 ${safeText(planRows[0].cardLabel)}，再处理 ${safeText(planRows[1].cardLabel)}。`
+        : `建议顺序：优先处理 ${safeText(planRows[0].cardLabel)}。`;
+    const rowsHtml = planRows.map((item) => {
+        const urgencyText = item.urgency === 'overdue'
+            ? '已逾期'
+            : (item.urgency === 'urgent'
+                ? `紧急（${item.daysToDue}天）`
+                : (item.urgency === 'soon'
+                    ? `临近（${item.daysToDue}天）`
+                    : `正常（${item.daysToDue}天）`));
+        const urgencyStyle = item.urgency === 'overdue'
+            ? 'color:#dc2626;'
+            : (item.urgency === 'urgent'
+                ? 'color:#dc2626;'
+                : (item.urgency === 'soon' ? 'color:#d97706;' : 'color:#166534;'));
+        return `
+            <tr>
+                <td>${safeText(item.cardLabel)}</td>
+                <td>${safeText(`${item.billDay || '-'}日 / ${item.repaymentDay || '-'}日`)}</td>
+                <td>${safeText(`${formatRuleDate(item.recommendSwipeStart)} ~ ${formatRuleDate(item.recommendSwipeEnd)}`)}</td>
+                <td>${safeText(formatRuleDate(item.recommendRepayDate))}</td>
+                <td><span style="${urgencyStyle}font-weight:600;">${safeText(urgencyText)}</span></td>
+                <td>${safeText(item.actionText)}</td>
+            </tr>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <div style="margin-bottom:10px;font-weight:600;">${headerText}</div>
+        <div style="margin-bottom:10px;color:#64748b;">说明：按账单日优先安排刷卡窗口，按还款日前2天执行还款更稳妥。</div>
+        <div class="ant-table-wrapper">
+            <div class="ant-table">
+                <table>
+                    <thead class="ant-table-thead">
+                        <tr>
+                            <th>卡片</th>
+                            <th>账单/还款日</th>
+                            <th>推荐刷卡窗口</th>
+                            <th>建议还款日</th>
+                            <th>紧急程度</th>
+                            <th>操作建议</th>
+                        </tr>
+                    </thead>
+                    <tbody class="ant-table-tbody">${rowsHtml}</tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+async function refreshBankSmartPlan() {
+    await ERP.loadFinances(true);
+    renderBankSmartPlan();
+}
+
+async function showBankSmartPlanModal() {
+    const modal = document.getElementById('bankingSmartPlanModal');
+    const content = document.getElementById('bankingSmartPlanContent');
+    if (!modal) return;
+    if (content) {
+        content.textContent = '正在生成建议...';
+    }
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+    try {
+        await refreshBankSmartPlan();
+    } catch (error) {
+        if (content) {
+            content.textContent = '生成建议失败，请稍后重试。';
+        }
+    }
+}
+
+function hideBankSmartPlanModal() {
+    const modal = document.getElementById('bankingSmartPlanModal');
+    if (!modal) return;
+    modal.classList.remove('active');
+    modal.style.display = '';
+}
+
 function recalculateBankBusinessFee() {
     const swipeInput = document.getElementById('bankingSwipeAmount');
     const actualInput = document.getElementById('bankingActualAmount');

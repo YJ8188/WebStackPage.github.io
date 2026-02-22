@@ -1138,6 +1138,9 @@
                                 <button class="ant-btn ant-btn-primary" onclick="showBankEmailImportModal()">
                                     <i class="fa fa-envelope-o"></i> 邮箱账单导入
                                 </button>
+                                <button class="ant-btn ant-btn-primary" onclick="showBankSmartPlanModal()">
+                                    <i class="fa fa-lightbulb-o"></i> 智能倒卡建议
+                                </button>
                                 <button class="ant-btn" onclick="refreshBankBusinessModule()">
                                     <i class="fa fa-refresh"></i> 刷新
                                 </button>
@@ -1968,6 +1971,22 @@
         </div>
     </div>
 
+    <div id="bankingSmartPlanModal" class="modal-overlay">
+        <div class="modal erp-modal erp-modal-lg">
+            <div class="modal-header">
+                <h3>智能倒卡建议（按账单日/还款日）</h3>
+                <button class="btn-close" onclick="hideBankSmartPlanModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="bankingSmartPlanContent" class="erp-form-hint-card">正在生成建议...</div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="hideBankSmartPlanModal()">关闭</button>
+                <button class="ant-btn" type="button" onclick="refreshBankSmartPlan()">重新计算</button>
+            </div>
+        </div>
+    </div>
+
     <div id="qqMailAuthModal" class="modal-overlay">
         <div class="modal erp-modal erp-modal-md">
             <div class="modal-header">
@@ -2085,7 +2104,7 @@
     <script src="assets/js/user-data.js?v=20260214-20"></script>
     <script src="assets/js/erp.js?v=20260222-41"></script>
     <script src="assets/js/vendor/echarts.min.js?v=5.5.0"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260222-109"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260222-110"></script>
     <script src="assets/js/pwa-register.js?v=20260218-3" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->

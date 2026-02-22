@@ -507,6 +507,21 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
     console.log(`[QQ同步][CITIC] 最终金额仍未命中：subject=${String(subject || '').replace(/\s+/g, ' ')}`);
   }
   if (!Number.isFinite(repaymentAmount) || repaymentAmount <= 0) return null;
+  const creditLimitByLabel = extractAmountByLabels(text, [
+    '总信用额度',
+    '信用额度',
+    '授信额度',
+    'Total Credit Limit',
+    'Credit Limit'
+  ]);
+  const creditLimitAmount = Number.isFinite(creditLimitByLabel)
+    ? creditLimitByLabel
+    : extractAmount(text, [
+      /(?:总信用额度|信用额度|授信额度|Total\s*Credit\s*Limit|Credit\s*Limit)[^0-9¥￥]{0,80}([¥￥]?\s*(?:CNY|RMB)?\s*[\d,]+(?:\.\d{1,2})?)/i
+    ]);
+  const remainingLimit = Number.isFinite(creditLimitAmount) && creditLimitAmount > 0
+    ? Number((creditLimitAmount - repaymentAmount).toFixed(2))
+    : NaN;
   if (!hasStatementSignal && !statementDate && !billDay && !isCiticStatement) return null;
   if (/(本期账单已还清|已还清|已结清)/.test(text) && !/(本期应还|应还款|Total Statement Balance)/i.test(text)) {
     return null;
@@ -531,7 +546,7 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
     type: 'expense',
     category: '信用卡还款',
     amount: Number(repaymentAmount.toFixed(2)),
-    description: `来源：QQ邮箱自动同步；银行：${stableBankName || '未识别'}${cardTail ? `（尾号${cardTail}）` : ''}；应还：¥${repaymentAmount.toFixed(2)}；账单日：${finalBillDay || '-'}；还款日：${finalRepaymentDay || '-'}`,
+    description: `来源：QQ邮箱自动同步；银行：${stableBankName || '未识别'}${cardTail ? `（尾号${cardTail}）` : ''}；应还：¥${repaymentAmount.toFixed(2)}${Number.isFinite(creditLimitAmount) && creditLimitAmount > 0 ? `；信用额度：¥${creditLimitAmount.toFixed(2)}；剩余额度：¥${remainingLimit.toFixed(2)}` : ''}；账单日：${finalBillDay || '-'}；还款日：${finalRepaymentDay || '-'}`,
     transaction_date: transactionDate.toISOString(),
     business_type: 'credit_card_repayment',
     card_bank: stableBankName || null,
@@ -1396,7 +1411,9 @@ async function syncOneUser({
       const nextDesc = String(parsedRow.description || '');
       const hasTailInExisting = /尾号\s*\d{4}/.test(existingDesc);
       const hasTailInNext = /尾号\s*\d{4}/.test(nextDesc);
-      if (hasTailInNext && !hasTailInExisting) {
+      const hasCreditLimitInExisting = /信用额度[:：]\s*[¥￥]?\s*[0-9]/.test(existingDesc);
+      const hasCreditLimitInNext = /信用额度[:：]\s*[¥￥]?\s*[0-9]/.test(nextDesc);
+      if ((hasTailInNext && !hasTailInExisting) || (hasCreditLimitInNext && !hasCreditLimitInExisting)) {
         patch.description = nextDesc;
         changed = true;
       }

@@ -1189,6 +1189,7 @@
                                                 <th>还款信用卡</th>
                                                 <th>到账储蓄卡</th>
                                                 <th>应还金额</th>
+                                                <th>信用额度/剩余额度</th>
                                                 <th>刷卡金额</th>
                                                 <th>到账金额</th>
                                                 <th>手续费/费率</th>
@@ -1841,6 +1842,16 @@
                             <label>应还金额 <span class="erp-required-star">*</span></label>
                             <input type="number" id="bankingRepaymentAmount" class="ant-input" min="0" step="0.01" placeholder="本期需还金额">
                         </div>
+                        <div class="erp-form-grid-2">
+                            <div class="form-group erp-form-col">
+                                <label>信用额度（可选）</label>
+                                <input type="number" id="bankingRepaymentCreditLimit" class="ant-input" min="0" step="0.01" placeholder="如 20000（可手工填）">
+                            </div>
+                            <div class="form-group erp-form-col">
+                                <label>剩余额度（自动）</label>
+                                <input type="text" id="bankingRepaymentAvailableLimit" class="ant-input" readonly placeholder="自动计算">
+                            </div>
+                        </div>
                         <div id="bankingRuleHint" class="erp-form-hint-card">
                             规则建议：请先填写账单日与还款日，系统将自动推荐最佳刷卡时间与还款时间。
                         </div>
@@ -2083,9 +2094,9 @@
     <script src="assets/js/supabase.min.js"></script>
     <script src="assets/js/supabase-config.js?v=20260212-14"></script>
     <script src="assets/js/user-data.js?v=20260214-20"></script>
-    <script src="assets/js/erp.js?v=20260222-40"></script>
+    <script src="assets/js/erp.js?v=20260222-41"></script>
     <script src="assets/js/vendor/echarts.min.js?v=5.5.0"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260222-107"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260222-108"></script>
     <script src="assets/js/pwa-register.js?v=20260218-3" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->

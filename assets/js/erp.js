@@ -3009,6 +3009,142 @@ const ERP = {
         }
     },
 
+    async updateFinance(financeId, financeData) {
+        try {
+            const parseOptionalInt = (value) => {
+                const parsed = parseInt(value, 10);
+                return Number.isFinite(parsed) ? parsed : null;
+            };
+            const parseOptionalNumber = (value) => {
+                if (value === '' || value === null || value === undefined) {
+                    return null;
+                }
+                const parsed = Number(value);
+                return Number.isFinite(parsed) ? parsed : null;
+            };
+
+            const before = this.state.finances.find(item => this.isSameId(item.id, financeId)) || null;
+            const updatePayloadRaw = {
+                type: financeData.type,
+                category: financeData.category || '',
+                amount: parseFloat(financeData.amount),
+                description: financeData.description || '',
+                reference_id: financeData.reference_id || null,
+                order_id: financeData.order_id || null,
+                transaction_date: financeData.transaction_date || new Date().toISOString(),
+                business_type: financeData.business_type || null,
+                card_bank: financeData.card_bank || null,
+                card_bill_day: parseOptionalInt(financeData.card_bill_day),
+                card_repayment_day: parseOptionalInt(financeData.card_repayment_day),
+                card_repayment_amount: parseOptionalNumber(financeData.card_repayment_amount),
+                card_swipe_amount: parseOptionalNumber(financeData.card_swipe_amount),
+                card_actual_amount: parseOptionalNumber(financeData.card_actual_amount),
+                card_fee_amount: parseOptionalNumber(financeData.card_fee_amount),
+                card_fee_rate: parseOptionalNumber(financeData.card_fee_rate),
+                swipe_card_bank: financeData.swipe_card_bank || null,
+                settlement_bank: financeData.settlement_bank || null,
+                settlement_card_tail: financeData.settlement_card_tail || null,
+                reminder_enabled: typeof financeData.reminder_enabled === 'boolean' ? financeData.reminder_enabled : null,
+                reminder_days_before: parseOptionalInt(financeData.reminder_days_before),
+                reminder_date: financeData.reminder_date || null
+            };
+
+            const fallbackDescriptionParts = [];
+            if (updatePayloadRaw.business_type) fallbackDescriptionParts.push(`业务类型:${updatePayloadRaw.business_type}`);
+            if (updatePayloadRaw.card_bank) fallbackDescriptionParts.push(`银行:${updatePayloadRaw.card_bank}`);
+            if (updatePayloadRaw.card_bill_day) fallbackDescriptionParts.push(`账单日:${updatePayloadRaw.card_bill_day}`);
+            if (updatePayloadRaw.card_repayment_day) fallbackDescriptionParts.push(`还款日:${updatePayloadRaw.card_repayment_day}`);
+            if (updatePayloadRaw.card_repayment_amount !== null) fallbackDescriptionParts.push(`应还:${Number(updatePayloadRaw.card_repayment_amount).toFixed(2)}`);
+            if (updatePayloadRaw.card_swipe_amount !== null) fallbackDescriptionParts.push(`刷卡:${Number(updatePayloadRaw.card_swipe_amount).toFixed(2)}`);
+            if (updatePayloadRaw.card_actual_amount !== null) fallbackDescriptionParts.push(`到账:${Number(updatePayloadRaw.card_actual_amount).toFixed(2)}`);
+            if (updatePayloadRaw.card_fee_amount !== null) fallbackDescriptionParts.push(`手续费:${Number(updatePayloadRaw.card_fee_amount).toFixed(2)}`);
+            if (updatePayloadRaw.card_fee_rate !== null) fallbackDescriptionParts.push(`费率:${Number(updatePayloadRaw.card_fee_rate).toFixed(2)}%`);
+            if (updatePayloadRaw.swipe_card_bank) fallbackDescriptionParts.push(`刷卡卡:${updatePayloadRaw.swipe_card_bank}`);
+            if (updatePayloadRaw.settlement_bank) fallbackDescriptionParts.push(`到账卡:${updatePayloadRaw.settlement_bank}${updatePayloadRaw.settlement_card_tail ? `(尾号${updatePayloadRaw.settlement_card_tail})` : ''}`);
+            if (updatePayloadRaw.reminder_enabled !== null) fallbackDescriptionParts.push(`提醒:${updatePayloadRaw.reminder_enabled ? '开启' : '关闭'}`);
+            if (updatePayloadRaw.reminder_days_before !== null) fallbackDescriptionParts.push(`提前天数:${updatePayloadRaw.reminder_days_before}`);
+            if (updatePayloadRaw.reminder_date) fallbackDescriptionParts.push(`提醒日期:${updatePayloadRaw.reminder_date}`);
+            const fallbackExtraText = fallbackDescriptionParts.join('；');
+
+            let payload = { ...updatePayloadRaw };
+            let data = null;
+            let error = null;
+            const removedColumns = [];
+
+            while (true) {
+                const response = await supabaseClient
+                    .from('erp_finances')
+                    .update(payload)
+                    .eq('id', financeId)
+                    .eq('user_id', userData.user.id)
+                    .select()
+                    .single();
+                data = response.data;
+                error = response.error;
+
+                if (!error) break;
+                if (error.code !== '42703') break;
+
+                const messageText = String(error.message || '');
+                const columnMatch = messageText.match(/column\s+"?([a-zA-Z0-9_]+)"?\s+of/i) || messageText.match(/column\s+"?([a-zA-Z0-9_]+)"?\s+does not exist/i);
+                const missingColumn = columnMatch?.[1] || null;
+                if (missingColumn && Object.prototype.hasOwnProperty.call(payload, missingColumn)) {
+                    delete payload[missingColumn];
+                    removedColumns.push(missingColumn);
+                    continue;
+                }
+                if (Object.prototype.hasOwnProperty.call(payload, 'order_id')) {
+                    delete payload.order_id;
+                    removedColumns.push('order_id');
+                    continue;
+                }
+                break;
+            }
+
+            if (!error && removedColumns.length > 0 && fallbackExtraText) {
+                const mergedDescription = [String(payload.description || '').trim(), `[扩展信息] ${fallbackExtraText}`]
+                    .filter(Boolean)
+                    .join('；');
+                const patchResult = await supabaseClient
+                    .from('erp_finances')
+                    .update({ description: mergedDescription })
+                    .eq('id', financeId)
+                    .eq('user_id', userData.user.id)
+                    .select()
+                    .single();
+                if (!patchResult.error && patchResult.data) {
+                    data = patchResult.data;
+                }
+            }
+
+            if (error) throw error;
+
+            const index = this.state.finances.findIndex(item => this.isSameId(item.id, financeId));
+            if (index >= 0) {
+                this.state.finances[index] = data;
+            } else {
+                this.state.finances.unshift(data);
+            }
+
+            this.emitEvent('erpFinanceChanged', { record: data, action: 'updated' });
+            this.logAudit({
+                module: 'finance',
+                action: 'update',
+                entityType: 'finance',
+                entityId: data?.id || financeId || null,
+                entityName: data?.category || financeData?.category || '',
+                details: {
+                    before,
+                    after: data
+                }
+            });
+            return data;
+        } catch (error) {
+            console.error('[ERP] 修改财务记录失败:', error);
+            return null;
+        }
+    },
+
     async settlePayableFinance(financeId, options = {}) {
         try {
             const before = this.state.finances.find(item => this.isSameId(item.id, financeId)) || null;

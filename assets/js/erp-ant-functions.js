@@ -6673,6 +6673,17 @@ function extractCardTailFromText(text) {
         scoreMap.set(value, (scoreMap.get(value) || 0) + score);
     };
 
+    const maskedCardPatterns = [
+        /(?:卡号|Card\s*Number|Card\s*No\.?)[^\n]{0,80}?(?:\d{4}[-\s]?\d{2}\*{2}[-\s]?\*{4}[-\s]?(\d{4}))/ig,
+        /(?:\d{4}[-\s]?\d{2}\*{2}[-\s]?\*{4}[-\s]?(\d{4}))/g,
+        /(?:\*{2,}[-\s]*){1,4}(\d{4})\b/g
+    ];
+    for (const pattern of maskedCardPatterns) {
+        for (const match of source.matchAll(pattern)) {
+            addCandidate(match?.[1], 8);
+        }
+    }
+
     const cardNoTablePattern = /(?:^|\n)\s*(?:20\d{6})\s+(?:20\d{6})[\s\S]{0,90}?\b(\d{4})\b\s+[¥￥$]?\s*-?\d/g;
     for (const match of source.matchAll(cardNoTablePattern)) {
         addCandidate(match?.[1], 6);
@@ -6682,7 +6693,7 @@ function extractCardTailFromText(text) {
     if (cardNoHeaderIndex >= 0) {
         const cardNoWindow = source.slice(cardNoHeaderIndex, Math.min(source.length, cardNoHeaderIndex + 2200));
         const cardNoDigits = cardNoWindow.match(/\b\d{4}\b/g) || [];
-        cardNoDigits.forEach((tail) => addCandidate(tail, 2));
+        cardNoDigits.forEach((tail) => addCandidate(tail, 1));
     }
 
     const labeledPatterns = [

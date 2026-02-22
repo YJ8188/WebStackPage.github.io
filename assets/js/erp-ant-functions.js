@@ -5722,10 +5722,12 @@ function parseBankBusinessRecord(record) {
     const swipeBankMatch = description.match(/刷卡卡[:：]\s*([^；\n]+)/);
     const settlementBankMatch = description.match(/到账卡[:：]\s*([^（；\n]+)/);
     const settlementTailMatch = description.match(/尾号\s*(\d{3,4})/);
+    const cardTailByBankLine = description.match(/(?:银行|还款卡|刷卡卡)[:：][^；\n]*?尾号\s*(\d{3,4})/);
+    const cardTailByCardNo = description.match(/Card\s*No\.?\s*(\d{4})/i);
     const billMatch = description.match(/账单日[:：](?:每月)?\s*(\d{1,2})日?/);
     const repaymentMatch = description.match(/还款日[:：](?:每月)?\s*(\d{1,2})日?/);
     const reminderDayMatch = description.match(/提前\s*(\d+)\s*天/);
-    const reminderDateMatch = description.match(/(\d{4}-\d{2}-\d{2})/);
+    const reminderDateMatch = description.match(/(?:提醒[^0-9]{0,10}|提醒日[:：]\s*)(\d{4}-\d{2}-\d{2})/);
     const feeRateMatch = description.match(/费率[:：]\s*([0-9]+(?:\.[0-9]+)?)%/);
 
     const repaymentAmountRaw = parseBankBusinessAmount(record, 'card_repayment_amount', /应还[:：]\s*[¥￥]?\s*([0-9]+(?:\.[0-9]+)?)/);
@@ -5751,7 +5753,12 @@ function parseBankBusinessRecord(record) {
         reminderEnabled = !/提醒[:：]\s*关闭/.test(description);
     }
 
-    const reminderDate = parseFinanceDate(record?.reminder_date || reminderDateMatch?.[1] || null);
+    const reminderDaysBeforeRaw = Math.max(0, Math.floor(toAmount(record?.reminder_days_before || reminderDayMatch?.[1], 0)));
+    const reminderDaysBefore = reminderDaysBeforeRaw || (isRepayment && reminderEnabled ? 3 : 0);
+    const reminderDateRaw = parseFinanceDate(record?.reminder_date || reminderDateMatch?.[1] || null);
+    const reminderDate = reminderDateRaw || (reminderEnabled && isRepayment
+        ? getCreditReminderDate(record?.transaction_date || record?.created_at || new Date(), toValidDay(record?.card_repayment_day || repaymentMatch?.[1], 0), reminderDaysBefore)
+        : null);
     const cleanedDescription = description
         .split(/[；;]+/)
         .map(part => String(part || '').trim())
@@ -5764,6 +5771,7 @@ function parseBankBusinessRecord(record) {
     const parsedSwipeCardBank = String(record?.swipe_card_bank || swipeBankMatch?.[1] || '').trim();
     const parsedSettlementBank = String(record?.settlement_bank || settlementBankMatch?.[1] || '').trim();
     const parsedSettlementTail = String(record?.settlement_card_tail || settlementTailMatch?.[1] || '').trim();
+    const parsedCardTail = String(record?.card_tail || cardTailByBankLine?.[1] || cardTailByCardNo?.[1] || '').trim();
 
     const fallbackBillDayFromDate = (() => {
         const sourceDate = parseFinanceDate(record?.transaction_date || record?.created_at || null);
@@ -5777,10 +5785,11 @@ function parseBankBusinessRecord(record) {
         billDay: toValidDay(record?.card_bill_day || billMatch?.[1] || fallbackBillDayFromDate, 0),
         repaymentDay: toValidDay(record?.card_repayment_day || repaymentMatch?.[1], 0),
         reminderEnabled,
-        reminderDaysBefore: Math.max(0, Math.floor(toAmount(record?.reminder_days_before || reminderDayMatch?.[1], 0))),
+        reminderDaysBefore,
         reminderDate,
         businessType,
         repaymentAmount: Number.isFinite(repaymentAmount) ? repaymentAmount : 0,
+        cardTail: parsedCardTail,
         swipeCardBank: isSwipe ? (parsedSwipeCardBank || parsedBank || '未识别') : '',
         settlementBank: isSwipe ? (parsedSettlementBank || '未识别') : '',
         settlementCardTail: isSwipe ? parsedSettlementTail : '',
@@ -5912,15 +5921,16 @@ function renderBankBusiness(rows = null) {
         const actualAmountText = item.isSwipe ? toMoneyText(item.actualAmount) : '-';
         const feeAmountText = item.isSwipe ? toMoneyText(item.feeAmount) : '-';
         const feeRateText = item.isSwipe ? `${Number(item.feeRate || 0).toFixed(2)}%` : '-';
-        const bankSubText = item.isRepayment
-            ? `还款卡：${safeText(item.bank || '-')}`
-            : `刷卡卡：${safeText(item.swipeCardBank || '-')}`;
+        const bankMainText = `${safeText(item.bank || '-')}${item.cardTail ? `（尾号${safeText(item.cardTail)}）` : ''}`;
+        const bankSubText = item.isSwipe
+            ? `刷卡银行：${safeText(item.swipeCardBank || item.bank || '-')}${item.cardTail ? `（尾号${safeText(item.cardTail)}）` : ''}`
+            : '';
         return `
             <tr>
                 <td class="erp-cell-nowrap">${safeText(dateText)}</td>
                 <td>
-                    <div class="erp-finance-cell-main">${safeText(item.bank)}</div>
-                    <div class="erp-finance-cell-sub">${bankSubText}</div>
+                    <div class="erp-finance-cell-main">${bankMainText}</div>
+                    ${bankSubText ? `<div class="erp-finance-cell-sub">${bankSubText}</div>` : ''}
                 </td>
                 <td>${safeText(settlementText)}</td>
                 <td><span class="erp-amount-text is-expense">${safeText(repaymentAmountText)}</span></td>

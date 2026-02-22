@@ -749,7 +749,7 @@ const ERP = {
 
         try {
             const selectFields = lite
-                ? 'id, user_id, type, category, amount, description, reference_id, order_id, transaction_date'
+                ? 'id, user_id, type, category, amount, description, reference_id, order_id, transaction_date, created_at, business_type, card_bank, card_bill_day, card_repayment_day, card_repayment_amount, swipe_card_bank, settlement_bank, settlement_card_tail, card_swipe_amount, card_actual_amount, card_fee_amount, card_fee_rate, reminder_enabled, reminder_days_before, reminder_date'
                 : '*';
 
             const { data, error } = await supabaseClient

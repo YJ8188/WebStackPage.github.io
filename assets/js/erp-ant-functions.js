@@ -6436,7 +6436,7 @@ function renderBankBusiness(rows = null) {
                 <td title="${safeText(item.description)}"><span class="erp-cell-ellipsis">${safeText(item.description)}</span></td>
                 <td class="erp-action-cell">
                     <div class="erp-row-actions">
-                        <button class="ant-btn erp-btn-compact" onclick='quickCreateBankRepayment(${JSON.stringify(item.id)})'>还款</button>
+                        ${item.isRepayment ? `<button class="ant-btn erp-btn-compact" onclick='quickCreateBankRepayment(${JSON.stringify(item.id)})'>还款</button>` : ''}
                         <button class="ant-btn erp-btn-compact" onclick='showBankRepaymentHistory(${JSON.stringify(item.id)})'>还款记录</button>
                         <button class="ant-btn erp-btn-compact" onclick='editBankBusiness(${JSON.stringify(item.id)})'>修改</button>
                         <button class="ant-btn erp-btn-danger erp-btn-compact" onclick='deleteBankBusiness(${JSON.stringify(item.id)})'>删除</button>
@@ -7866,7 +7866,13 @@ async function submitQuickBankRepayment() {
         showToast('未找到可登记的还款账单，请刷新后重试', 'error');
         return;
     }
-    if (!source.isRepayment) {
+    const isRepaymentCandidate = source.isRepayment === true
+        || (
+            Number(source?.repaymentAmount || 0) > 0
+            && !source?.isSwipe
+            && (toValidDay(source?.billDay, 0) > 0 || toValidDay(source?.repaymentDay, 0) > 0)
+        );
+    if (!isRepaymentCandidate) {
         showToast('当前记录不是“信用卡还款”账单，不能登记还款', 'warning');
         return;
     }
@@ -8240,6 +8246,10 @@ function quickCreateBankRepayment(financeId) {
         showToast('未找到对应银行业务记录', 'error');
         return;
     }
+    if (!source?.isRepayment) {
+        showToast('该记录不是还款账单，请在“修改”中调整后再登记还款', 'warning');
+        return;
+    }
 
     const sourceBank = String(source?.bank || source?.swipeCardBank || '').trim();
     if (!sourceBank) {
@@ -8248,7 +8258,10 @@ function quickCreateBankRepayment(financeId) {
     }
 
     showBankRepaymentModal({
-        transactionDate: new Date(),
+        id: source.id ?? null,
+        raw: source.raw || null,
+        isRepayment: true,
+        transactionDate: source.transactionDate instanceof Date ? source.transactionDate : new Date(),
         bank: sourceBank,
         cardTail: normalizeTail4(source.cardTail || ''),
         billDay: source.billDay || 20,
@@ -8256,7 +8269,7 @@ function quickCreateBankRepayment(financeId) {
         reminderEnabled: source.reminderEnabled !== false,
         reminderDaysBefore: Math.max(0, Number(source.reminderDaysBefore || 3)),
         repaymentAmount: Math.max(0, Number(source.repaymentAmount || 0)),
-        description: '登记还款'
+        description: source.description && source.description !== '-' ? String(source.description) : '登记还款'
     }, { mode: 'create', quickRepay: true });
 }
 

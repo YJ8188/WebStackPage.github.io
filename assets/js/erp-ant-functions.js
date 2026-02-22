@@ -8373,7 +8373,7 @@ function renderBankRepaymentHistoryModal(bank, cardTail, rows) {
                     <thead class="ant-table-thead">
                         <tr>
                             <th>还款时间</th>
-                            <th>应还金额</th>
+                            <th>还款金额</th>
                             <th>账单/还款日</th>
                             <th>提醒状态</th>
                             <th>备注</th>
@@ -8402,7 +8402,7 @@ function showBankRepaymentHistory(financeId) {
 
     const allRows = getBankBusinessRecords().map(parseBankBusinessRecord);
     const repaymentRows = allRows.filter(item => {
-        if (!item?.isRepayment && !item?.isRepaymentPayment) return false;
+        if (!item?.isRepaymentPayment) return false;
         if (String(item?.bank || '').trim() !== bank) return false;
         if (cardTail) {
             return normalizeTail4(item?.cardTail || '') === cardTail;

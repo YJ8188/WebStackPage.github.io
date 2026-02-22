@@ -3426,6 +3426,31 @@ const ERP = {
 
     // ==================== 统计数据 ====================
     getStatistics() {
+        const isBankBusinessFinanceRecord = (finance) => {
+            const businessType = String(finance?.business_type || '').trim().toLowerCase();
+            const category = String(finance?.category || '').trim();
+            const description = String(finance?.description || '').trim();
+            if (['credit_card', 'credit_card_repayment', 'credit_card_swipe', 'credit_card_repayment_payment'].includes(businessType)) {
+                return true;
+            }
+            if (/(信用卡业务|信用卡还款|信用卡刷卡|还款记录|银行业务)/.test(category)) {
+                return true;
+            }
+            return /银行[:：]/.test(description) && /(刷卡|应还|还款日|账单日|手续费)/.test(description);
+        };
+        const parseBankFeeAmount = (finance) => {
+            const directFee = Number(finance?.card_fee_amount);
+            if (Number.isFinite(directFee) && directFee >= 0) {
+                return directFee;
+            }
+            const description = String(finance?.description || '');
+            const feeMatch = description.match(/手续费[:：]\s*[¥￥]?\s*([0-9]+(?:\.[0-9]+)?)/);
+            if (!feeMatch || !feeMatch[1]) {
+                return 0;
+            }
+            const parsedFee = Number(feeMatch[1]);
+            return Number.isFinite(parsedFee) && parsedFee > 0 ? parsedFee : 0;
+        };
         const calculateInventoryRisk = (products = []) => {
             return (products || []).filter(product => {
                 const parsedStock = Number(product?.stock_quantity);
@@ -3452,6 +3477,17 @@ const ERP = {
             refunded: 0,
             cancelled: 0
         });
+        const allFinances = Array.isArray(this.state.finances) ? this.state.finances : [];
+        const erpFinances = allFinances.filter(item => !isBankBusinessFinanceRecord(item));
+        const bankingFeeExpense = allFinances
+            .filter(isBankBusinessFinanceRecord)
+            .reduce((sum, item) => sum + parseBankFeeAmount(item), 0);
+        const erpIncome = erpFinances
+            .filter(f => f.type === 'income')
+            .reduce((sum, f) => sum + parseFloat(f.amount || 0), 0);
+        const erpExpense = erpFinances
+            .filter(f => f.type === 'expense')
+            .reduce((sum, f) => sum + parseFloat(f.amount || 0), 0);
 
         const stats = {
                 customers: {
@@ -3482,12 +3518,8 @@ const ERP = {
                     .reduce((sum, o) => sum + parseFloat(o.total_amount), 0)
             },
             finances: {
-                totalIncome: this.state.finances
-                    .filter(f => f.type === 'income')
-                    .reduce((sum, f) => sum + parseFloat(f.amount), 0),
-                totalExpense: this.state.finances
-                    .filter(f => f.type === 'expense')
-                    .reduce((sum, f) => sum + parseFloat(f.amount), 0),
+                totalIncome: erpIncome,
+                totalExpense: erpExpense + bankingFeeExpense,
                 netProfit: 0 // 将在下面计算
             }
         };

@@ -5996,6 +5996,24 @@ function formatBankBillRepaymentText(record) {
     return `${billText} / ${repaymentText}`;
 }
 
+function getBankRepaymentDueDateForSort(record) {
+    const baseDate = record?.transactionDate instanceof Date && !Number.isNaN(record.transactionDate.getTime())
+        ? record.transactionDate
+        : new Date();
+    const billDay = toValidDay(record?.billDay, 0);
+    const repaymentDay = toValidDay(record?.repaymentDay, 0);
+    if (!repaymentDay) {
+        return Number.POSITIVE_INFINITY;
+    }
+    const compareDay = billDay || baseDate.getDate();
+    const targetYear = baseDate.getFullYear();
+    const targetMonth = repaymentDay < compareDay ? baseDate.getMonth() + 1 : baseDate.getMonth();
+    const monthLastDay = new Date(targetYear, targetMonth + 1, 0).getDate();
+    const targetDay = Math.min(repaymentDay, monthLastDay);
+    const targetDate = new Date(targetYear, targetMonth, targetDay, 23, 59, 59, 999);
+    return Number.isNaN(targetDate.getTime()) ? Number.POSITIVE_INFINITY : targetDate.getTime();
+}
+
 function syncBankBusinessRows(rows = [], source = 'all') {
     bankBusinessViewState.currentRows = Array.isArray(rows) ? [...rows] : [];
     bankBusinessViewState.source = source;
@@ -6031,15 +6049,11 @@ function renderBankBusiness(rows = null) {
             ? bankBusinessViewState.currentRows
             : getBankBusinessRecords().map(parseBankBusinessRecord));
 
-    const getSortRepaymentDay = (item) => {
-        const day = toValidDay(item?.repaymentDay, 0);
-        return day > 0 ? day : 99;
-    };
     const sorted = [...source].sort((a, b) => {
-        const leftDay = getSortRepaymentDay(a);
-        const rightDay = getSortRepaymentDay(b);
-        if (leftDay !== rightDay) {
-            return leftDay - rightDay;
+        const leftDueTs = getBankRepaymentDueDateForSort(a);
+        const rightDueTs = getBankRepaymentDueDateForSort(b);
+        if (leftDueTs !== rightDueTs) {
+            return leftDueTs - rightDueTs;
         }
         const leftBank = String(a?.bank || '').trim();
         const rightBank = String(b?.bank || '').trim();

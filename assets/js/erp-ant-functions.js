@@ -5964,15 +5964,16 @@ function getBankReminderStatus(record) {
     if (!record.reminderEnabled) {
         return { text: '已关闭', className: 'is-off', isDue: false };
     }
-    if (!record.reminderDate) {
+    const effectiveReminderDate = getEffectiveBankReminderDate(record);
+    if (!effectiveReminderDate) {
         return { text: `已开启（提前${record.reminderDaysBefore}天）`, className: 'is-on', isDue: false };
     }
     const now = new Date();
     const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-    if (record.reminderDate.getTime() <= todayEnd.getTime()) {
-        return { text: `待处理：${formatFinanceDateText(record.reminderDate)}`, className: 'is-due', isDue: true };
+    if (effectiveReminderDate.getTime() <= todayEnd.getTime()) {
+        return { text: `待处理：${formatFinanceDateText(effectiveReminderDate)}`, className: 'is-due', isDue: true };
     }
-    return { text: `提醒日：${formatFinanceDateText(record.reminderDate)}`, className: 'is-on', isDue: false };
+    return { text: `提醒日：${formatFinanceDateText(effectiveReminderDate)}`, className: 'is-on', isDue: false };
 }
 
 function formatBankBillRepaymentText(record) {
@@ -6008,11 +6009,28 @@ function formatBankBillRepaymentText(record) {
     return `${billText} / ${repaymentText}`;
 }
 
-function getBankRepaymentDueDate(record) {
+function getBankRepaymentDueDateByCycle(record) {
     const baseDate = record?.transactionDate instanceof Date && !Number.isNaN(record.transactionDate.getTime())
         ? record.transactionDate
         : new Date();
     const billDay = toValidDay(record?.billDay, 0);
+    const repaymentDay = toValidDay(record?.repaymentDay, 0);
+    if (!billDay || !repaymentDay) {
+        return null;
+    }
+    const recommendation = buildBankCycleRecommendation(baseDate, billDay, repaymentDay);
+    const dueDate = recommendation?.dueDate;
+    if (!(dueDate instanceof Date) || Number.isNaN(dueDate.getTime())) {
+        return null;
+    }
+    return dueDate;
+}
+
+function getBankRepaymentDueDate(record) {
+    const dueDateByCycle = getBankRepaymentDueDateByCycle(record);
+    if (dueDateByCycle) {
+        return dueDateByCycle;
+    }
     const repaymentDay = toValidDay(record?.repaymentDay, 0);
     if (!repaymentDay) {
         return null;
@@ -6028,13 +6046,31 @@ function getBankRepaymentDueDate(record) {
         dueByReminder.setDate(Math.min(repaymentDay, lastDay));
         return Number.isNaN(dueByReminder.getTime()) ? null : dueByReminder;
     }
-    const compareDay = billDay || baseDate.getDate();
-    const targetYear = baseDate.getFullYear();
-    const targetMonth = repaymentDay < compareDay ? baseDate.getMonth() + 1 : baseDate.getMonth();
-    const monthLastDay = new Date(targetYear, targetMonth + 1, 0).getDate();
-    const targetDay = Math.min(repaymentDay, monthLastDay);
-    const targetDate = new Date(targetYear, targetMonth, targetDay, 23, 59, 59, 999);
-    return Number.isNaN(targetDate.getTime()) ? null : targetDate;
+    return null;
+}
+
+function getEffectiveBankReminderDate(record) {
+    if (!record?.reminderEnabled) {
+        return null;
+    }
+    const rawReminder = record?.reminderDate instanceof Date && !Number.isNaN(record.reminderDate.getTime())
+        ? record.reminderDate
+        : null;
+    const reminderDaysBefore = Math.max(0, Number(record?.reminderDaysBefore || 0));
+    const dueDate = getBankRepaymentDueDate(record);
+    if (!(dueDate instanceof Date) || Number.isNaN(dueDate.getTime())) {
+        return rawReminder;
+    }
+    const expectedReminder = new Date(dueDate);
+    expectedReminder.setDate(expectedReminder.getDate() - reminderDaysBefore);
+    if (!rawReminder) {
+        return expectedReminder;
+    }
+    const diffDays = Math.abs(rawReminder.getTime() - expectedReminder.getTime()) / 86400000;
+    if (diffDays > 45) {
+        return expectedReminder;
+    }
+    return rawReminder;
 }
 
 function getBankRepaymentDueDateForSort(record) {

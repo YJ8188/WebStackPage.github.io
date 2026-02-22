@@ -6323,7 +6323,8 @@ function updateBankBusinessSummary(rows = []) {
 }
 
 function syncBankBusinessTableHeightByPageSize(pageSize = 10) {
-    const wrapper = document.getElementById('bankingTableWrapper');
+    const wrapper = document.getElementById('bankingTableWrapper')
+        || document.querySelector('#bankingView .ant-table-wrapper.erp-table-scroll.erp-block-table');
     if (!wrapper) {
         return;
     }

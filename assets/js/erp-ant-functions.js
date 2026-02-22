@@ -484,8 +484,13 @@ function syncFinanceSelectionVisibleRows(rows = []) {
 }
 
 function pruneFinanceSelectionByAllRows() {
-    const allRows = Array.isArray(window?.ERP?.state?.finances) ? window.ERP.state.finances : [];
-    const allIds = new Set(allRows.map(item => normalizeFinanceRowId(item?.id)).filter(Boolean));
+    const baseRows = Array.isArray(window?.ERP?.state?.finances) ? window.ERP.state.finances : [];
+    const allRows = (typeof getGeneralFinanceRecords === 'function')
+        ? getGeneralFinanceRecords(baseRows)
+        : baseRows;
+    const allIds = new Set((Array.isArray(allRows) ? allRows : [])
+        .map(item => normalizeFinanceRowId(item?.id))
+        .filter(Boolean));
     Array.from(financeSelectionState.selectedIds).forEach(id => {
         if (!allIds.has(id)) {
             financeSelectionState.selectedIds.delete(id);
@@ -557,7 +562,10 @@ function onFinanceSelectAllVisible(checked) {
 
 function getSelectedFinanceRows() {
     const selectedIds = financeSelectionState.selectedIds;
-    const rows = Array.isArray(window?.ERP?.state?.finances) ? window.ERP.state.finances : [];
+    const baseRows = Array.isArray(window?.ERP?.state?.finances) ? window.ERP.state.finances : [];
+    const rows = (typeof getGeneralFinanceRecords === 'function')
+        ? getGeneralFinanceRecords(baseRows)
+        : baseRows;
     return rows.filter(item => selectedIds.has(normalizeFinanceRowId(item?.id)));
 }
 
@@ -616,23 +624,46 @@ async function batchDeleteSelectedFinances() {
         return;
     }
 
-    const shouldDelete = window.confirm(`确认删除选中的 ${rows.length} 条财务记录吗？`);
+    const deleteTargetIds = Array.from(new Set(rows
+        .map(row => {
+            if (row?.__virtual_bank_fee === true) {
+                const sourceId = row?.__source_finance_id;
+                return sourceId === null || sourceId === undefined ? '' : String(sourceId).trim();
+            }
+            return normalizeFinanceRowId(row?.id);
+        })
+        .filter(Boolean)));
+
+    if (!deleteTargetIds.length) {
+        if (typeof showToast === 'function') {
+            showToast('未找到可删除的来源记录', 'warning');
+        }
+        return;
+    }
+
+    const shouldDelete = window.confirm(`确认删除选中的 ${rows.length} 条记录吗？将实际删除 ${deleteTargetIds.length} 条来源财务记录。`);
     if (!shouldDelete) {
         return;
     }
 
     let successCount = 0;
     let failCount = 0;
-    for (const row of rows) {
+    for (const financeId of deleteTargetIds) {
         try {
-            await ERP.deleteFinance(row.id);
-            financeSelectionState.selectedIds.delete(normalizeFinanceRowId(row.id));
+            await ERP.deleteFinance(financeId);
             successCount += 1;
         } catch (error) {
             failCount += 1;
             console.error('[ERP Ant] 批量删除财务记录失败:', error);
         }
     }
+
+    rows.forEach(row => {
+        financeSelectionState.selectedIds.delete(normalizeFinanceRowId(row?.id));
+    });
+    deleteTargetIds.forEach(id => {
+        financeSelectionState.selectedIds.delete(normalizeFinanceRowId(id));
+    });
 
     const finances = await ERP.loadFinances(true);
     if (typeof applyFinanceFilters === 'function') {

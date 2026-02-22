@@ -5811,11 +5811,72 @@ function getBankBusinessRecords(rows = null) {
     return sourceRows.filter(isBankBusinessFinanceRecord);
 }
 
+function parseBankFeeAmountFromFinance(record) {
+    const directFee = Number(record?.card_fee_amount);
+    if (Number.isFinite(directFee) && directFee > 0) {
+        return directFee;
+    }
+    const description = String(record?.description || '');
+    const match = description.match(/手续费[:：]\s*[¥￥]?\s*([0-9]+(?:\.[0-9]+)?)/);
+    if (!match || !match[1]) {
+        return 0;
+    }
+    const parsed = Number(match[1]);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function createBankFeeMirrorRows(rows = []) {
+    const sourceRows = Array.isArray(rows) ? rows : [];
+    const bankRows = sourceRows.filter(isBankBusinessFinanceRecord);
+    if (!bankRows.length) {
+        return [];
+    }
+
+    return bankRows
+        .map((record, index) => {
+            const feeAmount = parseBankFeeAmountFromFinance(record);
+            if (!(feeAmount > 0)) {
+                return null;
+            }
+
+            const sourceId = String(record?.id ?? `${index}`);
+            const description = String(record?.description || '');
+            const bankMatch = description.match(/(?:银行|还款卡|刷卡卡)[:：]\s*([^；\n]+)/);
+            const bankName = bankMatch?.[1] ? String(bankMatch[1]).trim() : '信用卡业务';
+            const sourceDate = record?.transaction_date || record?.created_at || new Date().toISOString();
+
+            return {
+                id: `bank-fee::${sourceId}`,
+                type: 'expense',
+                category: '银行手续费',
+                amount: feeAmount,
+                description: `银行手续费（来源：${bankName}）`,
+                transaction_date: sourceDate,
+                reference_id: null,
+                order_id: null,
+                __virtual_bank_fee: true,
+                __source_finance_id: record?.id ?? null
+            };
+        })
+        .filter(Boolean);
+}
+
 function getGeneralFinanceRecords(rows = null) {
     const sourceRows = Array.isArray(rows)
         ? rows
         : (Array.isArray(ERP.state?.finances) ? ERP.state.finances : []);
-    return sourceRows.filter(item => !isBankBusinessFinanceRecord(item));
+    const existingVirtualFeeRows = sourceRows.filter(item => item?.__virtual_bank_fee === true);
+    const materialRows = sourceRows.filter(item => item?.__virtual_bank_fee !== true);
+    const generalRows = materialRows.filter(item => !isBankBusinessFinanceRecord(item));
+    const derivedFeeRows = createBankFeeMirrorRows(materialRows);
+
+    if (derivedFeeRows.length > 0) {
+        return [...generalRows, ...derivedFeeRows];
+    }
+    if (existingVirtualFeeRows.length > 0) {
+        return [...generalRows, ...existingVirtualFeeRows];
+    }
+    return generalRows;
 }
 
 if (typeof window !== 'undefined') {
@@ -13663,6 +13724,10 @@ async function markPayableAsPaid(financeId) {
 }
 
 function getFinanceActionButtons(finance) {
+    if (finance?.__virtual_bank_fee === true) {
+        return `<div class="erp-row-actions"><button class="ant-btn erp-btn-compact" disabled style="color:#8c8c8c;border-color:#d9d9d9;cursor:not-allowed;">来源银行业务</button></div>`;
+    }
+
     const buttons = [];
     const linkedOrderId = resolveFinanceOrderId(finance);
     const financeId = finance?.id;

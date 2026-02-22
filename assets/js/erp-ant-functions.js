@@ -6394,7 +6394,7 @@ function renderBankBusiness(rows = null) {
     tbody.innerHTML = visibleRows.map(item => {
         const itemIdText = String(item?.id ?? '').replace(/"/g, '&quot;');
         const reminderMeta = getBankReminderStatus(item);
-        const dateText = item?.transactionDate ? item.transactionDate.toLocaleString('zh-CN') : '-';
+        const dateText = toDateTimeText(item?.transactionDate || item?.raw?.transaction_date || '-');
         const billRepaymentText = formatBankBillRepaymentText(item);
         const reminderClass = `erp-bank-reminder ${reminderMeta.className}`;
         const settlementText = item.isSwipe
@@ -8554,7 +8554,13 @@ function toYmdText(value) {
     if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
         return '-';
     }
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    const parts = date.toLocaleDateString('zh-CN', {
+        timeZone: 'Asia/Shanghai',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    }).replace(/\//g, '-');
+    return parts;
 }
 
 function toDateTimeText(value) {
@@ -8563,11 +8569,13 @@ function toDateTimeText(value) {
         return '-';
     }
     return date.toLocaleString('zh-CN', {
+        timeZone: 'Asia/Shanghai',
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
+        hour12: false
     });
 }
 
@@ -9460,6 +9468,24 @@ function parseFinanceDate(value) {
     const raw = String(value || '').trim();
     if (!raw) {
         return null;
+    }
+
+    const hasExplicitTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw);
+    if (!hasExplicitTimezone) {
+        const plainMatch = raw.match(
+            /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/
+        );
+        if (plainMatch) {
+            const year = Number(plainMatch[1]);
+            const month = Number(plainMatch[2]);
+            const day = Number(plainMatch[3]);
+            const hour = Number(plainMatch[4] || 0);
+            const minute = Number(plainMatch[5] || 0);
+            const second = Number(plainMatch[6] || 0);
+            const utcMs = Date.UTC(year, month - 1, day, hour - 8, minute, second);
+            const shanghaiDate = new Date(utcMs);
+            return Number.isNaN(shanghaiDate.getTime()) ? null : shanghaiDate;
+        }
     }
 
     const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T');

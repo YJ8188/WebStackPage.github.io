@@ -341,13 +341,13 @@
                     <i class="fa fa-archive"></i>
                     <span>库存管理</span>
                 </li>
-                <li class="ant-menu-item" data-module="finance" onclick="switchTab('finance')">
-                    <i class="fa fa-line-chart"></i>
-                    <span>财务管理</span>
-                </li>
                 <li class="ant-menu-item" data-module="banking" onclick="switchTab('banking')">
                     <i class="fa fa-credit-card"></i>
                     <span>银行业务</span>
+                </li>
+                <li class="ant-menu-item" data-module="finance" onclick="switchTab('finance')">
+                    <i class="fa fa-line-chart"></i>
+                    <span>财务管理</span>
                 </li>
             </ul>
         </aside>
@@ -396,10 +396,10 @@
                         style="display:none;">订单管理</span>
                     <span class="ant-tag" id="tab-inventory" onclick="switchTab('inventory')"
                         style="display:none;">库存管理</span>
-                    <span class="ant-tag" id="tab-finance" onclick="switchTab('finance')"
-                        style="display:none;">财务管理</span>
                     <span class="ant-tag" id="tab-banking" onclick="switchTab('banking')"
                         style="display:none;">银行业务</span>
+                    <span class="ant-tag" id="tab-finance" onclick="switchTab('finance')"
+                        style="display:none;">财务管理</span>
                 </div>
             </div>
 
@@ -419,11 +419,11 @@
                 <button type="button" class="erp-domain-btn" data-domain="inventory" onclick="switchBusinessDomain('inventory')">
                     <i class="fa fa-dropbox"></i> 采购库存
                 </button>
-                <button type="button" class="erp-domain-btn" data-domain="finance" onclick="switchBusinessDomain('finance')">
-                    <i class="fa fa-line-chart"></i> 财务报表
-                </button>
                 <button type="button" class="erp-domain-btn" data-domain="banking" onclick="switchBusinessDomain('banking')">
                     <i class="fa fa-credit-card"></i> 银行业务
+                </button>
+                <button type="button" class="erp-domain-btn" data-domain="finance" onclick="switchBusinessDomain('finance')">
+                    <i class="fa fa-line-chart"></i> 财务报表
                 </button>
             </div>
 
@@ -996,15 +996,6 @@
                                         <i class="fa fa-cog"></i> 更多操作
                                     </button>
                                 </div>
-                                <div class="erp-finance-toolbar-inline">
-                                    <button class="ant-btn" id="financeBatchExportBtn" type="button" onclick="batchExportSelectedFinances()" disabled>
-                                        <i class="fa fa-file-text-o"></i> 导出已选
-                                    </button>
-                                    <button class="ant-btn erp-btn-danger" id="financeBatchDeleteBtn" type="button" onclick="batchDeleteSelectedFinances()" disabled>
-                                        <i class="fa fa-trash"></i> 删除已选
-                                    </button>
-                                    <span class="erp-finance-selected-count" id="financeSelectedCount">已选 0 条</span>
-                                </div>
                                 <input type="file" id="backupImportInput" accept=".json,application/json" style="display:none;">
                             </div>
                             <div id="financeMoreActionsPanel" class="erp-finance-more-actions hidden">
@@ -1064,6 +1055,17 @@
                             <div id="financeMonthlyProfitChart" class="erp-finance-block"></div>
 
                             <div class="erp-module-section-title">财务流水</div>
+                            <div class="table-operator erp-toolbar erp-block-card erp-block-toolbar" style="padding: 10px 12px; margin-bottom: 8px;">
+                                <div class="erp-finance-toolbar-inline" style="margin-left: auto;">
+                                    <button class="ant-btn" id="financeBatchExportBtn" type="button" onclick="batchExportSelectedFinances()" disabled>
+                                        <i class="fa fa-file-text-o"></i> 导出已选
+                                    </button>
+                                    <button class="ant-btn erp-btn-danger" id="financeBatchDeleteBtn" type="button" onclick="batchDeleteSelectedFinances()" disabled>
+                                        <i class="fa fa-trash"></i> 删除已选
+                                    </button>
+                                    <span class="erp-finance-selected-count" id="financeSelectedCount">已选 0 条</span>
+                                </div>
+                            </div>
                             <div class="ant-table-wrapper erp-table-scroll erp-block-card erp-block-table">
                                 <div class="ant-table">
                                     <table>

@@ -6552,8 +6552,13 @@ function normalizeEmailStatementText(rawText) {
 }
 
 function parseMoneyToken(value) {
-    const cleaned = String(value || '').replace(/[¥￥,\s]/g, '');
-    const amount = Number(cleaned);
+    const source = String(value || '');
+    const cleaned = source
+        .replace(/[,，\s]/g, '')
+        .replace(/(?:CNY|RMB|USD|HKD|元|人民币)/gi, '')
+        .replace(/[¥￥]/g, '');
+    const numeric = cleaned.match(/-?\d+(?:\.\d+)?/);
+    const amount = Number(numeric ? numeric[0] : NaN);
     return Number.isFinite(amount) ? amount : NaN;
 }
 
@@ -6573,7 +6578,13 @@ function parseDateToken(value) {
     let normalized = raw.replace(/年/g, '-').replace(/月/g, '-').replace(/日/g, '').replace(/\./g, '-').replace(/\//g, '-');
     normalized = normalized.replace(/\s+/g, '');
 
-    let match = normalized.match(/(20\d{2})-(\d{1,2})-(\d{1,2})/);
+    let match = normalized.match(/(20\d{2})(\d{2})(\d{2})/);
+    if (match) {
+        const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 9, 0, 0);
+        return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    match = normalized.match(/(20\d{2})-(\d{1,2})-(\d{1,2})/);
     if (match) {
         const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 9, 0, 0);
         return Number.isNaN(date.getTime()) ? null : date;
@@ -6600,9 +6611,35 @@ function matchDateByPatterns(text, patterns = []) {
 
 function detectBankNameFromText(text) {
     const sourceText = String(text || '');
-    const exact = ERP_CREDIT_CARD_BANKS.find(name => name && sourceText.includes(name));
+    const compactText = sourceText.replace(/\s+/g, '');
+    const exact = ERP_CREDIT_CARD_BANKS.find(name => {
+        if (!name) return false;
+        const compactName = String(name).replace(/\s+/g, '');
+        return sourceText.includes(name) || compactText.includes(compactName);
+    });
     if (exact) return exact;
-    const match = sourceText.match(/([^\s，。；、:：]{2,16}银行)/);
+
+    const aliasMap = [
+        { regex: /(浦东发展银行|上海浦东发展银行|浦发银行|浦发信用卡|SPDB)/i, name: '浦发银行' },
+        { regex: /(中信银行|中信信用卡|中信银行信用卡中心|CITIC)/i, name: '中信银行' },
+        { regex: /(中国民生银行|民生银行|民生信用卡|CMBC)/i, name: '中国民生银行' },
+        { regex: /(中国光大银行|光大银行|光大信用卡|CEB)/i, name: '光大银行' },
+        { regex: /(招商银行|招行信用卡|CMB)/i, name: '招商银行' },
+        { regex: /(交通银行|交行信用卡|BCM)/i, name: '交通银行' },
+        { regex: /(中国建设银行|建设银行|建行信用卡|CCB)/i, name: '中国建设银行' },
+        { regex: /(中国银行|中银信用卡|BOC)/i, name: '中国银行' },
+        { regex: /(中国工商银行|工商银行|工行信用卡|ICBC)/i, name: '中国工商银行' },
+        { regex: /(中国农业银行|农业银行|农行信用卡|ABC)/i, name: '中国农业银行' },
+        { regex: /(平安银行|平安信用卡|PAB)/i, name: '平安银行' },
+        { regex: /(华夏银行|华夏信用卡)/i, name: '华夏银行' }
+    ];
+    for (const item of aliasMap) {
+        if (item.regex.test(sourceText) || item.regex.test(compactText)) {
+            return item.name;
+        }
+    }
+
+    const match = compactText.match(/([^，。；、:：\s]{2,18}银行)/);
     return match ? String(match[1]).trim() : '';
 }
 
@@ -6621,43 +6658,47 @@ function parseEmailStatementContent(rawText, mode = 'auto') {
     if (!normalizedText || normalizedText.length < 10) {
         return { ok: false, message: '账单内容过短，无法解析' };
     }
+    const compactText = normalizedText.replace(/\s+/g, '');
+    const parseText = `${normalizedText}\n${compactText}`;
 
     const modeText = String(mode || 'auto').trim();
-    const businessMode = modeText === 'auto' ? detectBankBusinessModeByText(normalizedText) : modeText;
-    const bankName = detectBankNameFromText(normalizedText);
-    const cardTailMatch = normalizedText.match(/(?:尾号|末(?:四|4)位|卡号(?:末四位)?|账户尾号)[^\d]{0,8}(\d{4})/);
+    const businessMode = modeText === 'auto' ? detectBankBusinessModeByText(parseText) : modeText;
+    const bankName = detectBankNameFromText(parseText);
+    const cardTailMatch = parseText.match(/(?:尾号|末(?:四|4)位|卡号(?:末四位)?|账户尾号|Card\s*No\.?)[^\d]{0,16}(\d{4})/i);
     const cardTail = cardTailMatch ? String(cardTailMatch[1]) : '';
 
-    const billDayMatch = normalizedText.match(/账单日[：:\s]*(?:每月)?\s*(\d{1,2})\s*日?/);
-    const repaymentDayMatch = normalizedText.match(/(?:还款日|到期还款日|最后还款日)[：:\s]*(?:每月)?\s*(\d{1,2})\s*日?/);
-    const dueDate = matchDateByPatterns(normalizedText, [
-        /(?:最后还款日|到期还款日|本期还款日)[：:\s]*([0-9]{4}[年\/\-.][0-9]{1,2}[月\/\-.][0-9]{1,2}日?)/,
-        /(?:最后还款日|到期还款日|本期还款日)[：:\s]*([0-9]{1,2}[\/\-.][0-9]{1,2})/
+    const billDayMatch = parseText.match(/账单日[：:\s]*(?:每月)?\s*(\d{1,2})\s*日?(?!\d)/);
+    const repaymentDayMatch = parseText.match(/(?:还款日|到期还款日|最后还款日)[：:\s]*(?:每月)?\s*(\d{1,2})\s*日?(?!\d)/);
+    const dueDate = matchDateByPatterns(parseText, [
+        /(?:最后还款日|到期还款日|本期还款日|Payment\s*Due\s*Date)[：:\s]*([0-9]{8})/i,
+        /(?:最后还款日|到期还款日|本期还款日|Payment\s*Due\s*Date)[：:\s]*([0-9]{4}[年\/\-.][0-9]{1,2}[月\/\-.][0-9]{1,2}日?)/i,
+        /(?:最后还款日|到期还款日|本期还款日|Payment\s*Due\s*Date)[：:\s]*([0-9]{1,2}[\/\-.][0-9]{1,2})/i
     ]);
-    const statementDate = matchDateByPatterns(normalizedText, [
-        /(?:账单日期|账单日|交易日期|记账日)[：:\s]*([0-9]{4}[年\/\-.][0-9]{1,2}[月\/\-.][0-9]{1,2}日?)/,
-        /(?:账单日期|账单日|交易日期|记账日)[：:\s]*([0-9]{1,2}[\/\-.][0-9]{1,2})/
+    const statementDate = matchDateByPatterns(parseText, [
+        /(?:账单日期|账单日|交易日期|记账日|Statement\s*Date)[：:\s]*([0-9]{8})/i,
+        /(?:账单日期|账单日|交易日期|记账日|Statement\s*Date)[：:\s]*([0-9]{4}[年\/\-.][0-9]{1,2}[月\/\-.][0-9]{1,2}日?)/i,
+        /(?:账单日期|账单日|交易日期|记账日|Statement\s*Date)[：:\s]*([0-9]{1,2}[\/\-.][0-9]{1,2})/i
     ]);
 
-    const repaymentAmount = matchMoneyByPatterns(normalizedText, [
-        /(?:本期应还(?:金额)?|应还金额|到期应还|本期还款总额)[^0-9¥￥]{0,12}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/,
-        /(?:最低应还(?:金额|款额)?)[^0-9¥￥]{0,12}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/
+    const repaymentAmount = matchMoneyByPatterns(parseText, [
+        /(?:本期应还(?:款)?(?:总额|金额)?|应还(?:款)?(?:总额|金额)?|到期应还|本期还款总额|Total\s*Statement\s*Balance|Total\s*Payment)[^0-9¥￥]{0,24}([¥￥]?\s*(?:CNY|RMB)?\s*[\d,]+(?:\.\d{1,2})?)/i,
+        /(?:最低应还(?:金额|款额)?|Min\.?\s*Payment|Minimum\s*Payment)[^0-9¥￥]{0,24}([¥￥]?\s*(?:CNY|RMB)?\s*[\d,]+(?:\.\d{1,2})?)/i
     ]);
-    const swipeAmount = matchMoneyByPatterns(normalizedText, [
-        /(?:刷卡(?:金额)?|交易金额)[^0-9¥￥]{0,12}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/
+    const swipeAmount = matchMoneyByPatterns(parseText, [
+        /(?:刷卡(?:金额)?|交易金额|Transaction\s*Amount)[^0-9¥￥]{0,24}([¥￥]?\s*(?:CNY|RMB)?\s*[\d,]+(?:\.\d{1,2})?)/i
     ]);
-    const actualAmount = matchMoneyByPatterns(normalizedText, [
-        /(?:到账(?:金额)?|实到(?:金额)?|入账金额)[^0-9¥￥]{0,12}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/
+    const actualAmount = matchMoneyByPatterns(parseText, [
+        /(?:到账(?:金额)?|实到(?:金额)?|入账金额|Actual\s*Amount|Net\s*Amount)[^0-9¥￥]{0,24}([¥￥]?\s*(?:CNY|RMB)?\s*[\d,]+(?:\.\d{1,2})?)/i
     ]);
-    const feeAmount = matchMoneyByPatterns(normalizedText, [
-        /(?:手续费|服务费|通道费)[^0-9¥￥]{0,12}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/
+    const feeAmount = matchMoneyByPatterns(parseText, [
+        /(?:手续费|服务费|通道费|Fee)[^0-9¥￥]{0,24}([¥￥]?\s*(?:CNY|RMB)?\s*[\d,]+(?:\.\d{1,2})?)/i
     ]);
-    const feeRateMatch = normalizedText.match(/费率[^0-9]{0,8}([0-9]+(?:\.[0-9]+)?)\s*%/);
+    const feeRateMatch = parseText.match(/(?:费率|Fee\s*Rate)[^0-9]{0,12}([0-9]+(?:\.[0-9]+)?)\s*%/i);
     const feeRate = feeRateMatch ? Number(feeRateMatch[1]) : NaN;
 
-    const settlementBankMatch = normalizedText.match(/(?:到账卡|储蓄卡|收款卡)[：:\s]*([^\s；，。]+)/);
+    const settlementBankMatch = parseText.match(/(?:到账卡|储蓄卡|收款卡)[：:\s]*([^\s；，。]+)/);
     const settlementBank = settlementBankMatch ? String(settlementBankMatch[1]).trim() : '';
-    const settlementTailMatch = normalizedText.match(/(?:到账卡|储蓄卡|收款卡)[^0-9]{0,16}(?:尾号|末(?:四|4)位)?\s*(\d{4})/);
+    const settlementTailMatch = parseText.match(/(?:到账卡|储蓄卡|收款卡)[^0-9]{0,16}(?:尾号|末(?:四|4)位)?\s*(\d{4})/);
     const settlementTail = settlementTailMatch ? String(settlementTailMatch[1]) : '';
 
     let billDay = toValidDay(billDayMatch?.[1], 0);

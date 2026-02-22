@@ -6169,10 +6169,40 @@ async function refreshBankBusinessModule() {
 }
 
 function buildSmartCardPlanRows() {
-    const sourceRows = getBankBusinessRecords().map(parseBankBusinessRecord).filter(item => item?.isRepayment);
+    const allRows = getBankBusinessRecords()
+        .map(parseBankBusinessRecord)
+        .filter(item => item?.isRepayment);
+    const now = new Date();
+    const maxAgeMs = 180 * 24 * 60 * 60 * 1000;
+    const hasTailByBank = new Set();
+    allRows.forEach((row) => {
+        const bank = String(row?.bank || '').trim();
+        const tail = normalizeTail4(row?.cardTail || '');
+        if (bank && tail) {
+            hasTailByBank.add(bank);
+        }
+    });
+
+    const sourceRows = allRows.filter((row) => {
+        const bank = String(row?.bank || '').trim();
+        if (!bank) return false;
+        const tail = normalizeTail4(row?.cardTail || '');
+        if (!tail && hasTailByBank.has(bank)) return false;
+        if (!row?.billDay || !row?.repaymentDay) return false;
+        const amount = Math.max(0, Number(row?.repaymentAmount || 0));
+        if (!Number.isFinite(amount) || amount <= 0) return false;
+        const txDate = row?.transactionDate instanceof Date ? row.transactionDate : null;
+        if (txDate && !Number.isNaN(txDate.getTime())) {
+            if ((now.getTime() - txDate.getTime()) > maxAgeMs) return false;
+        }
+        return true;
+    });
+
     const latestByCard = new Map();
     sourceRows.forEach((row) => {
-        const key = `${String(row?.bank || '').trim()}#${String(row?.cardTail || '').trim()}`;
+        const bank = String(row?.bank || '').trim();
+        const tail = normalizeTail4(row?.cardTail || '');
+        const key = tail ? `${bank}#${tail}` : `${bank}#__NO_TAIL`;
         const prev = latestByCard.get(key);
         const prevTs = prev?.transactionDate instanceof Date ? prev.transactionDate.getTime() : 0;
         const currTs = row?.transactionDate instanceof Date ? row.transactionDate.getTime() : 0;
@@ -6181,7 +6211,6 @@ function buildSmartCardPlanRows() {
         }
     });
 
-    const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
     const planRows = [];
     latestByCard.forEach((row) => {
@@ -6193,12 +6222,12 @@ function buildSmartCardPlanRows() {
         const urgency = daysToDue < 0 ? 'overdue' : (daysToDue <= 2 ? 'urgent' : (daysToDue <= 7 ? 'soon' : 'normal'));
         const cardLabel = `${row.bank || '未识别'}${row.cardTail ? `（尾号${row.cardTail}）` : ''}`;
         const actionText = daysToDue < 0
-            ? '已逾期，优先全额还款，暂停周转刷卡'
+            ? '优先还款，暂停刷卡'
             : (daysToDue <= 2
-                ? '还款临近，先还款后再考虑刷卡'
+                ? '先还款，后刷卡'
                 : (daysToDue <= 7
-                    ? '进入还款周，控制刷卡，保留还款资金'
-                    : '账单后窗口可刷卡，靠近还款日前2天完成还款'));
+                    ? '控制刷卡，预留资金'
+                    : '账单后可刷，还款前2天还清'));
         planRows.push({
             key: `${row.bank || ''}_${row.cardTail || ''}`,
             cardLabel,
@@ -6249,15 +6278,15 @@ function renderBankSmartPlan() {
                 <td>${safeText(`${formatRuleDate(item.recommendSwipeStart)} ~ ${formatRuleDate(item.recommendSwipeEnd)}`)}</td>
                 <td>${safeText(formatRuleDate(item.recommendRepayDate))}</td>
                 <td><span style="${urgencyStyle}font-weight:600;">${safeText(urgencyText)}</span></td>
-                <td>${safeText(item.actionText)}</td>
+                <td class="erp-smart-plan-action-cell">${safeText(item.actionText)}</td>
             </tr>
         `;
     }).join('');
 
     container.innerHTML = `
-        <div style="margin-bottom:10px;font-weight:600;">${headerText}</div>
-        <div style="margin-bottom:10px;color:#64748b;">说明：按账单日优先安排刷卡窗口，按还款日前2天执行还款更稳妥。</div>
-        <div class="ant-table-wrapper">
+        <div class="erp-smart-plan-headline">${headerText}</div>
+        <div class="erp-smart-plan-desc">说明：按账单日优先安排刷卡窗口，按还款日前2天执行还款更稳妥。</div>
+        <div class="ant-table-wrapper erp-smart-plan-table-wrap">
             <div class="ant-table">
                 <table>
                     <thead class="ant-table-thead">
@@ -6275,6 +6304,11 @@ function renderBankSmartPlan() {
             </div>
         </div>
     `;
+
+    const tableWrap = container.querySelector('.erp-smart-plan-table-wrap');
+    if (tableWrap) {
+        tableWrap.scrollLeft = 0;
+    }
 }
 
 async function refreshBankSmartPlan() {

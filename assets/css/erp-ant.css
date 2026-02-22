@@ -1532,6 +1532,49 @@ select.ant-select option {
     border-color: #dbe3ef;
 }
 
+.erp-smart-plan-headline {
+    margin-bottom: 10px;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.erp-smart-plan-desc {
+    margin-bottom: 10px;
+    color: #64748b;
+}
+
+.erp-smart-plan-table-wrap {
+    border: 1px solid #dbe3ef;
+    border-radius: 10px;
+    overflow: auto;
+    max-height: 52vh;
+}
+
+.erp-smart-plan-table-wrap .ant-table table {
+    width: 100%;
+    min-width: 860px;
+    table-layout: fixed;
+}
+
+.erp-smart-plan-table-wrap .ant-table-thead>tr>th {
+    white-space: nowrap;
+}
+
+.erp-smart-plan-table-wrap .ant-table-tbody>tr>td {
+    white-space: nowrap;
+}
+
+.erp-smart-plan-table-wrap .erp-smart-plan-action-cell {
+    white-space: normal !important;
+    word-break: break-word;
+    min-width: 220px;
+    line-height: 1.45;
+}
+
+#bankingSmartPlanModal .modal.erp-modal {
+    width: min(980px, 96vw);
+}
+
 .erp-history-empty-cell {
     text-align: center;
     color: #999;

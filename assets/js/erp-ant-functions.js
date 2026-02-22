@@ -104,7 +104,8 @@ const bankBusinessViewState = {
 };
 const bankBusinessEditState = {
     financeId: null,
-    mode: ''
+    mode: '',
+    cardTail: ''
 };
 let bankEmailImportPreviewData = null;
 const qqMailAuthViewState = {
@@ -5922,7 +5923,7 @@ function renderBankBusiness(rows = null) {
 
     updateBankBusinessSummary(sorted);
     if (!sorted.length) {
-        tbody.innerHTML = '<tr><td colspan="12" style="text-align:center; padding:20px; color:#999;">暂无银行业务数据</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding:20px; color:#999;">暂无银行业务数据</td></tr>';
         if (typeof renderTablePagination === 'function') {
             renderTablePagination('banking', 'bankingPager', { total: 0 });
         }
@@ -5948,8 +5949,6 @@ function renderBankBusiness(rows = null) {
                 : `${item.settlementBank}${item.settlementCardTail ? `（尾号${item.settlementCardTail}）` : ''}`)
             : '-';
         const repaymentAmountText = item.isRepayment ? toMoneyText(item.repaymentAmount) : '-';
-        const creditLimitText = item.isRepayment && Number.isFinite(item.creditLimit) ? toMoneyText(item.creditLimit) : '-';
-        const availableLimitText = item.isRepayment && Number.isFinite(item.availableLimit) ? toMoneyText(item.availableLimit) : '-';
         const swipeAmountText = item.isSwipe ? toMoneyText(item.swipeAmount) : '-';
         const actualAmountText = item.isSwipe ? toMoneyText(item.actualAmount) : '-';
         const feeAmountText = item.isSwipe ? toMoneyText(item.feeAmount) : '-';
@@ -5967,10 +5966,6 @@ function renderBankBusiness(rows = null) {
                 </td>
                 <td>${safeText(settlementText)}</td>
                 <td><span class="erp-amount-text is-expense">${safeText(repaymentAmountText)}</span></td>
-                <td>
-                    <div class="erp-finance-cell-main"><span class="erp-amount-text">${safeText(creditLimitText)}</span></div>
-                    <div class="erp-finance-cell-sub">可用：${safeText(availableLimitText)}</div>
-                </td>
                 <td><span class="erp-amount-text">${safeText(swipeAmountText)}</span></td>
                 <td><span class="erp-amount-text is-income">${safeText(actualAmountText)}</span></td>
                 <td>
@@ -6136,12 +6131,6 @@ function updateBankingRuleHint() {
     const repaymentDay = document.getElementById('bankingRepaymentDay')?.value;
     const transactionDate = document.getElementById('bankingRepaymentTransactionDate')?.value;
     const repaymentAmount = Math.max(0, toAmount(document.getElementById('bankingRepaymentAmount')?.value, 0));
-    const creditLimit = Math.max(0, toAmount(document.getElementById('bankingRepaymentCreditLimit')?.value, 0));
-    const availableLimit = creditLimit > 0 ? (creditLimit - repaymentAmount) : 0;
-    const availableInput = document.getElementById('bankingRepaymentAvailableLimit');
-    if (availableInput) {
-        availableInput.value = creditLimit > 0 ? toMoneyText(availableLimit) : '';
-    }
     const recommendation = buildBankCycleRecommendation(transactionDate, billDay, repaymentDay);
 
     if (!recommendation) {
@@ -6152,7 +6141,6 @@ function updateBankingRuleHint() {
     hintEl.innerHTML = [
         `规则建议：账单日后刷卡更容易拿到更长免息期。`,
         repaymentAmount > 0 ? `本期应还金额：${toMoneyText(repaymentAmount)}。` : '本期应还金额：未填写。',
-        creditLimit > 0 ? `信用额度：${toMoneyText(creditLimit)}，预计剩余：${toMoneyText(availableLimit)}。` : '信用额度：未填写（可手工填写）。',
         `推荐刷卡窗口：${formatRuleDate(recommendation.recommendSwipeStart)} 至 ${formatRuleDate(recommendation.recommendSwipeEnd)}。`,
         `下次账单日：${formatRuleDate(recommendation.nextBillDate)}；下次还款日：${formatRuleDate(recommendation.dueDate)}。`,
         `推荐还款时间：${formatRuleDate(recommendation.recommendRepayDate)}（建议至少提前 2 天），提醒可设在 ${formatRuleDate(recommendation.remindSuggestDate)}。`
@@ -6183,15 +6171,12 @@ function showBankRepaymentModal(prefill = null) {
     document.getElementById('bankingRepaymentReminderEnabled').value = '1';
     document.getElementById('bankingRepaymentReminderDaysBefore').value = '3';
     document.getElementById('bankingRepaymentAmount').value = '';
-    document.getElementById('bankingRepaymentCreditLimit').value = '';
-    document.getElementById('bankingRepaymentAvailableLimit').value = '';
     populateCreditCardBanks('bankingRepaymentCardBank');
     if (form.dataset.bindRuleListener !== '1') {
         document.getElementById('bankingRepaymentBillDay')?.addEventListener('input', updateBankingRuleHint);
         document.getElementById('bankingRepaymentDay')?.addEventListener('input', updateBankingRuleHint);
         document.getElementById('bankingRepaymentTransactionDate')?.addEventListener('change', updateBankingRuleHint);
         document.getElementById('bankingRepaymentAmount')?.addEventListener('input', updateBankingRuleHint);
-        document.getElementById('bankingRepaymentCreditLimit')?.addEventListener('input', updateBankingRuleHint);
         form.dataset.bindRuleListener = '1';
     }
 
@@ -6200,6 +6185,7 @@ function showBankRepaymentModal(prefill = null) {
     if (prefill) {
         bankBusinessEditState.financeId = prefill.id || null;
         bankBusinessEditState.mode = 'repayment';
+        bankBusinessEditState.cardTail = String(prefill.cardTail || '').trim();
         if (titleEl) titleEl.textContent = '修改还款业务';
         if (saveBtn) saveBtn.textContent = '保存修改';
         document.getElementById('bankingRepaymentTransactionDate').value = prefill.transactionDate
@@ -6211,11 +6197,11 @@ function showBankRepaymentModal(prefill = null) {
         document.getElementById('bankingRepaymentReminderEnabled').value = prefill.reminderEnabled ? '1' : '0';
         document.getElementById('bankingRepaymentReminderDaysBefore').value = String(Math.max(0, Number(prefill.reminderDaysBefore || 0)));
         document.getElementById('bankingRepaymentAmount').value = Number(prefill.repaymentAmount || 0) > 0 ? String(prefill.repaymentAmount) : '';
-        document.getElementById('bankingRepaymentCreditLimit').value = Number.isFinite(prefill.creditLimit) ? String(prefill.creditLimit) : '';
         document.getElementById('bankingRepaymentDescription').value = prefill.description && prefill.description !== '-' ? prefill.description : '';
     } else {
         bankBusinessEditState.financeId = null;
         bankBusinessEditState.mode = '';
+        bankBusinessEditState.cardTail = '';
         if (titleEl) titleEl.textContent = '新增还款业务';
         if (saveBtn) saveBtn.textContent = '保存';
     }
@@ -6232,6 +6218,7 @@ function hideBankRepaymentModal() {
     if (bankBusinessEditState.mode === 'repayment') {
         bankBusinessEditState.financeId = null;
         bankBusinessEditState.mode = '';
+        bankBusinessEditState.cardTail = '';
     }
     modal.classList.remove('active');
     modal.style.display = '';
@@ -6277,6 +6264,7 @@ function showBankSwipeModal(prefill = null) {
     } else {
         bankBusinessEditState.financeId = null;
         bankBusinessEditState.mode = '';
+        bankBusinessEditState.cardTail = '';
         if (titleEl) titleEl.textContent = '新增刷卡业务';
         if (saveBtn) saveBtn.textContent = '保存';
     }
@@ -6292,6 +6280,7 @@ function hideBankSwipeModal() {
     if (bankBusinessEditState.mode === 'swipe') {
         bankBusinessEditState.financeId = null;
         bankBusinessEditState.mode = '';
+        bankBusinessEditState.cardTail = '';
     }
     modal.classList.remove('active');
     modal.style.display = '';
@@ -6930,7 +6919,6 @@ function renderBankEmailImportPreview(parsed) {
         `银行：${safeText(parsed.bankName || '-')} / 尾号：${safeText(parsed.cardTail || '-')}`,
         `账单日：${safeText(parsed.billDay || '-')} / 还款日：${safeText(parsed.repaymentDay || '-')} / 到期日：${safeText(dueText)}`,
         `应还金额：${safeText(toMoneyText(parsed.repaymentAmount || 0))} / 刷卡金额：${safeText(toMoneyText(parsed.swipeAmount || 0))} / 到账金额：${safeText(toMoneyText(parsed.actualAmount || 0))}`,
-        `信用额度：${safeText(parsed.creditLimit ? toMoneyText(parsed.creditLimit) : '-')}`,
         `手续费：${safeText(toMoneyText(parsed.feeAmount || 0))} / 费率：${safeText(Number(parsed.feeRate || 0).toFixed(2))}%`,
         `账单日期：${safeText(statementText)} / 备注摘要：${safeText(parsed.descriptionLine || '-')}`,
         `${safeText(issueText)}`
@@ -7023,8 +7011,6 @@ async function importBankEmailStatement() {
     }
     const billDay = toValidDay(parsed.billDay, 20);
     const repaymentDay = toValidDay(parsed.repaymentDay || parsed.dueDate?.getDate(), 5);
-    const creditLimit = Math.max(0, toAmount(parsed.creditLimit, 0));
-    const availableLimit = creditLimit > 0 ? (creditLimit - repaymentAmount) : 0;
     const reminderDate = getCreditReminderDate(transactionDate, repaymentDay, reminderDaysBefore);
     const recommendation = buildBankCycleRecommendation(transactionDate, billDay, repaymentDay);
     const recommendationText = recommendation
@@ -7041,8 +7027,6 @@ async function importBankEmailStatement() {
             '来源：邮箱账单解析',
             `银行：${bank}${parsed.cardTail ? `（尾号${parsed.cardTail}）` : ''}`,
             `应还：${toMoneyText(repaymentAmount)}`,
-            creditLimit > 0 ? `信用额度：${toMoneyText(creditLimit)}` : '',
-            creditLimit > 0 ? `剩余额度：${toMoneyText(availableLimit)}` : '',
             `账单日：每月${billDay}日`,
             `还款日：每月${repaymentDay}日`,
             `提醒：提前${reminderDaysBefore}天（${reminderDate ? formatFinanceDateText(reminderDate) : '待计算'}）`,
@@ -7087,6 +7071,7 @@ async function persistBankBusinessFinance(financeData, modalSelector, hideModal,
     } finally {
         bankBusinessEditState.financeId = null;
         bankBusinessEditState.mode = '';
+        bankBusinessEditState.cardTail = '';
         if (saveBtn) {
             saveBtn.disabled = false;
             saveBtn.textContent = originalText;
@@ -7103,8 +7088,10 @@ async function saveBankRepayment() {
     const reminderEnabled = String(document.getElementById('bankingRepaymentReminderEnabled')?.value || '1') === '1';
     const reminderDaysBefore = Math.max(0, Math.floor(toAmount(document.getElementById('bankingRepaymentReminderDaysBefore')?.value, 3)));
     const repaymentAmount = Math.max(0, toAmount(document.getElementById('bankingRepaymentAmount')?.value, NaN));
-    const creditLimit = Math.max(0, toAmount(document.getElementById('bankingRepaymentCreditLimit')?.value, 0));
     const customDescription = String(document.getElementById('bankingRepaymentDescription')?.value || '').trim();
+    const preservedCardTail = bankBusinessEditState.mode === 'repayment'
+        ? String(bankBusinessEditState.cardTail || '').trim()
+        : '';
 
     if (!bank) {
         markFieldInvalid('bankingRepaymentCardBank', '请选择发卡银行');
@@ -7132,7 +7119,6 @@ async function saveBankRepayment() {
     const reminderDate = reminderEnabled
         ? getCreditReminderDate(transactionDate, repaymentDay, reminderDaysBefore)
         : null;
-    const availableLimit = creditLimit > 0 ? (creditLimit - repaymentAmount) : 0;
     const recommendation = buildBankCycleRecommendation(transactionDate, billDay, repaymentDay);
     const reminderText = reminderEnabled
         ? `提醒：提前${reminderDaysBefore}天（${reminderDate ? formatFinanceDateText(reminderDate) : '待计算'}）`
@@ -7148,10 +7134,8 @@ async function saveBankRepayment() {
         amount: repaymentAmount,
         description: [
             customDescription,
-            `银行：${bank}`,
+            `银行：${bank}${preservedCardTail ? `（尾号${preservedCardTail}）` : ''}`,
             `应还：${toMoneyText(repaymentAmount)}`,
-            creditLimit > 0 ? `信用额度：${toMoneyText(creditLimit)}` : '',
-            creditLimit > 0 ? `剩余额度：${toMoneyText(availableLimit)}` : '',
             `账单日：每月${billDay}日`,
             `还款日：每月${repaymentDay}日`,
             reminderText,

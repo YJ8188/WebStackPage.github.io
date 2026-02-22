@@ -6046,6 +6046,28 @@ function parseBankCreditLimit(record, description = '') {
     return NaN;
 }
 
+function parseBankTransactionDate(record, description = '') {
+    const rawValue = record?.transaction_date || record?.created_at || null;
+    const descText = String(description || '');
+    const rawText = String(rawValue || '').trim();
+    const isQQAutoSync = descText.includes('来源：QQ邮箱自动同步');
+
+    if (isQQAutoSync && rawText) {
+        const isoLikeMatch = rawText.match(
+            /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})$/i
+        );
+        if (isoLikeMatch) {
+            const normalizedLocalText = `${isoLikeMatch[1]} ${isoLikeMatch[2]}`;
+            const localDate = parseFinanceDate(normalizedLocalText);
+            if (localDate instanceof Date && !Number.isNaN(localDate.getTime())) {
+                return localDate;
+            }
+        }
+    }
+
+    return parseFinanceDate(rawValue || new Date());
+}
+
 function parseBankBusinessRecord(record) {
     const description = String(record?.description || '');
     const businessType = String(record?.business_type || '').trim().toLowerCase();
@@ -6141,7 +6163,7 @@ function parseBankBusinessRecord(record) {
         isRepayment,
         isRepaymentPayment,
         isSwipe,
-        transactionDate: parseFinanceDate(record?.transaction_date || record?.created_at || new Date()),
+        transactionDate: parseBankTransactionDate(record, description),
         description: cleanedDescription || '-',
         raw: record
     };

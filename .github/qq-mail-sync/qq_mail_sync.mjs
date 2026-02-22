@@ -49,6 +49,21 @@ function toYmd(date) {
   return `${year}-${month}-${day}`;
 }
 
+function createShanghaiDate(year, month, day, hour = 9, minute = 0, second = 0) {
+  const y = Number(year);
+  const m = Number(month);
+  const d = Number(day);
+  const hh = Number(hour);
+  const mm = Number(minute);
+  const ss = Number(second);
+  if (![y, m, d, hh, mm, ss].every((value) => Number.isFinite(value))) {
+    return null;
+  }
+  const utcMs = Date.UTC(y, m - 1, d, hh - 8, mm, ss);
+  const date = new Date(utcMs);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 function normalizeText(rawText) {
   return String(rawText || '')
     .replace(/[０-９]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 0xFEE0))
@@ -100,21 +115,18 @@ function parseDateToken(rawText) {
 
   let match = normalized.match(/(20\d{2})-(\d{1,2})-(\d{1,2})/);
   if (match) {
-    const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 9, 0, 0);
-    return Number.isNaN(date.getTime()) ? null : date;
+    return createShanghaiDate(match[1], match[2], match[3], 9, 0, 0);
   }
 
   match = normalized.match(/(20\d{2})(\d{2})(\d{2})/);
   if (match) {
-    const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 9, 0, 0);
-    return Number.isNaN(date.getTime()) ? null : date;
+    return createShanghaiDate(match[1], match[2], match[3], 9, 0, 0);
   }
 
   match = normalized.match(/(\d{1,2})-(\d{1,2})/);
   if (match) {
     const now = new Date();
-    const date = new Date(now.getFullYear(), Number(match[1]) - 1, Number(match[2]), 9, 0, 0);
-    return Number.isNaN(date.getTime()) ? null : date;
+    return createShanghaiDate(now.getUTCFullYear(), match[1], match[2], 9, 0, 0);
   }
   return null;
 }

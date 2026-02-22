@@ -6027,26 +6027,48 @@ function getBankRepaymentDueDateByCycle(record) {
 }
 
 function getBankRepaymentDueDate(record) {
+    const baseDate = record?.transactionDate instanceof Date && !Number.isNaN(record.transactionDate.getTime())
+        ? record.transactionDate
+        : new Date();
     const dueDateByCycle = getBankRepaymentDueDateByCycle(record);
-    if (dueDateByCycle) {
-        return dueDateByCycle;
-    }
     const repaymentDay = toValidDay(record?.repaymentDay, 0);
-    if (!repaymentDay) {
+    if (!repaymentDay && !dueDateByCycle) {
         return null;
     }
+
     const reminderDate = record?.reminderDate instanceof Date && !Number.isNaN(record.reminderDate.getTime())
         ? record.reminderDate
         : null;
     const reminderDaysBefore = Math.max(0, Number(record?.reminderDaysBefore || 0));
+    let dueDateByReminder = null;
     if (reminderDate) {
         const dueByReminder = new Date(reminderDate.getFullYear(), reminderDate.getMonth(), reminderDate.getDate(), 23, 59, 59, 999);
         dueByReminder.setDate(dueByReminder.getDate() + reminderDaysBefore);
-        const lastDay = new Date(dueByReminder.getFullYear(), dueByReminder.getMonth() + 1, 0).getDate();
-        dueByReminder.setDate(Math.min(repaymentDay, lastDay));
-        return Number.isNaN(dueByReminder.getTime()) ? null : dueByReminder;
+        if (repaymentDay) {
+            const lastDay = new Date(dueByReminder.getFullYear(), dueByReminder.getMonth() + 1, 0).getDate();
+            dueByReminder.setDate(Math.min(repaymentDay, lastDay));
+        }
+        dueDateByReminder = Number.isNaN(dueByReminder.getTime()) ? null : dueByReminder;
     }
-    return null;
+
+    const candidates = [dueDateByCycle, dueDateByReminder]
+        .filter(date => date instanceof Date && !Number.isNaN(date.getTime()));
+    if (!candidates.length) {
+        return null;
+    }
+
+    if (candidates.length === 1) {
+        return candidates[0];
+    }
+
+    const toScore = (date) => {
+        const diffDays = (date.getTime() - baseDate.getTime()) / 86400000;
+        let score = Math.abs(diffDays);
+        if (diffDays < -2) score += 500;
+        if (diffDays > 65) score += 120;
+        return score;
+    };
+    return candidates.sort((left, right) => toScore(left) - toScore(right))[0];
 }
 
 function getEffectiveBankReminderDate(record) {
@@ -6067,7 +6089,7 @@ function getEffectiveBankReminderDate(record) {
         return expectedReminder;
     }
     const diffDays = Math.abs(rawReminder.getTime() - expectedReminder.getTime()) / 86400000;
-    if (diffDays > 45) {
+    if (diffDays > 10) {
         return expectedReminder;
     }
     return rawReminder;
@@ -6463,7 +6485,9 @@ function getMonthlyDateByDay(baseDate, day, monthOffset = 0) {
 
 function getUpcomingMonthlyDate(baseDate, day) {
     const thisMonth = getMonthlyDateByDay(baseDate, day, 0);
-    if (baseDate.getTime() <= thisMonth.getTime()) {
+    const baseDayStart = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), 0, 0, 0, 0);
+    const thisMonthDayStart = new Date(thisMonth.getFullYear(), thisMonth.getMonth(), thisMonth.getDate(), 0, 0, 0, 0);
+    if (baseDayStart.getTime() <= thisMonthDayStart.getTime()) {
         return thisMonth;
     }
     return getMonthlyDateByDay(baseDate, day, 1);
@@ -7383,7 +7407,9 @@ function parseEmailStatementContent(rawText, mode = 'auto') {
 
     let billDay = toValidDay(billDayMatch?.[1], 0);
     let repaymentDay = toValidDay(repaymentDayMatch?.[1], 0);
-    if (!repaymentDay && dueDate) repaymentDay = dueDate.getDate();
+    if (dueDate) {
+        repaymentDay = dueDate.getDate();
+    }
     if (!billDay && billDayEnglishMatch?.[1]) billDay = toValidDay(billDayEnglishMatch[1], 0);
     if (!billDay && statementDate) billDay = statementDate.getDate();
 

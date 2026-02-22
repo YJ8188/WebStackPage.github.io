@@ -521,7 +521,7 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
     return null;
   }
 
-  let finalRepaymentDay = repaymentDay || (dueDate ? dueDate.getDate() : 0);
+  let finalRepaymentDay = dueDate ? dueDate.getDate() : (repaymentDay || 0);
   if (
     finalRepaymentDay
     && finalBillDay

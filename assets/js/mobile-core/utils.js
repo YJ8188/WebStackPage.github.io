@@ -6,6 +6,8 @@
 const Utils = {
   // ==================== 格式化 ====================
 
+  timezone: 'Asia/Shanghai',
+
   // 格式化金额
   formatMoney(amount, currency = '¥') {
     if (amount === null || amount === undefined) return '-';
@@ -17,15 +19,16 @@ const Utils = {
   // 格式化日期
   formatDate(date, format = 'YYYY-MM-DD') {
     if (!date) return '-';
-    const d = new Date(date);
+    const d = this.parseDate(date);
     if (isNaN(d.getTime())) return '-';
-
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const hour = String(d.getHours()).padStart(2, '0');
-    const minute = String(d.getMinutes()).padStart(2, '0');
-    const second = String(d.getSeconds()).padStart(2, '0');
+    const parts = this.getDateParts(d);
+    if (!parts) return '-';
+    const year = parts.year;
+    const month = parts.month;
+    const day = parts.day;
+    const hour = parts.hour;
+    const minute = parts.minute;
+    const second = parts.second;
 
     return format
       .replace('YYYY', year)
@@ -39,7 +42,7 @@ const Utils = {
   // 格式化相对时间
   formatRelativeTime(date) {
     if (!date) return '-';
-    const d = new Date(date);
+    const d = this.parseDate(date);
     if (isNaN(d.getTime())) return '-';
 
     const now = Date.now();
@@ -354,6 +357,58 @@ const Utils = {
     const stock = Number(product.stock_quantity) || 0;
     const minStock = Number(product.min_stock) || 0;
     return minStock > 0 ? stock <= minStock : stock <= 3;
+  },
+
+  parseDate(value) {
+    if (value instanceof Date) {
+      return new Date(value.getTime());
+    }
+    const raw = String(value ?? '').trim();
+    if (!raw) return new Date(NaN);
+    const hasExplicitTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw);
+    if (!hasExplicitTimezone) {
+      const plainMatch = raw.match(
+        /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/
+      );
+      if (plainMatch) {
+        const year = Number(plainMatch[1]);
+        const month = Number(plainMatch[2]);
+        const day = Number(plainMatch[3]);
+        const hour = Number(plainMatch[4] || 0);
+        const minute = Number(plainMatch[5] || 0);
+        const second = Number(plainMatch[6] || 0);
+        return new Date(Date.UTC(year, month - 1, day, hour - 8, minute, second));
+      }
+    }
+    const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T');
+    return new Date(normalized);
+  },
+
+  getDateParts(dateInput) {
+    const date = this.parseDate(dateInput);
+    if (!(date instanceof Date) || isNaN(date.getTime())) {
+      return null;
+    }
+    const formatter = new Intl.DateTimeFormat('zh-CN', {
+      timeZone: this.timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+    const partMap = {};
+    formatter.formatToParts(date).forEach((part) => {
+      if (part?.type && part.type !== 'literal') {
+        partMap[part.type] = String(part.value || '').padStart(part.type === 'year' ? 4 : 2, '0');
+      }
+    });
+    if (!partMap.year || !partMap.month || !partMap.day) {
+      return null;
+    }
+    return partMap;
   }
 };
 

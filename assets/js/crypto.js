@@ -1317,7 +1317,16 @@ async function showRateDetailModal() {
             </div>
 
             <div class="rate-detail-update-time" style="text-align: center; font-size: 12px; color: #999;">
-                数据更新时间: ${new Date().toLocaleString('zh-CN')}
+                数据更新时间: ${new Date().toLocaleString('zh-CN', {
+                    timeZone: 'Asia/Shanghai',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false
+                })}
             </div>
         `;
     } else {

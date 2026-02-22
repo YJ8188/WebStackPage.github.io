@@ -2501,7 +2501,7 @@
                     <td data-table-cell="orders:order_no">${order.order_number}${hasRiskApproval ? '<span class="erp-type-pill is-income" style="margin-left:6px;">风控</span>' : ''}</td>
                     <td data-table-cell="orders:customer">${customer ? customer.name : '-'}</td>
                     <td data-table-cell="orders:items">${itemsDisplay}</td>
-                    <td data-table-cell="orders:date" class="erp-cell-nowrap">${new Date(order.order_date).toLocaleDateString()}</td>
+                    <td data-table-cell="orders:date" class="erp-cell-nowrap">${new Date(order.order_date).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' })}</td>
                     <td data-table-cell="orders:amount"><span class="erp-amount-text is-income">¥${parseFloat(order.total_amount || 0).toFixed(2)}</span></td>
                     <td data-table-cell="orders:status">
                         <span class="erp-status-pill" style="--erp-pill-color:${getOrderStatusColor(order.status)};--erp-pill-bg:${getOrderStatusBg(order.status)};--erp-pill-border:${getOrderStatusBorder(order.status)};">
@@ -3232,11 +3232,14 @@
                 return '-';
             }
             return date.toLocaleString('zh-CN', {
+                timeZone: 'Asia/Shanghai',
                 year: 'numeric',
                 month: '2-digit',
                 day: '2-digit',
                 hour: '2-digit',
-                minute: '2-digit'
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
             });
         }
 

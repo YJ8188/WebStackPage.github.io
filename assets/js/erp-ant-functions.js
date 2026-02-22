@@ -693,7 +693,7 @@ function exportFinanceRowsCsv(rows = [], fileLabel = '已选财务') {
             orderNumber,
             customerName,
             item?.description || '-',
-            date ? date.toLocaleString('zh-CN') : (item?.transaction_date || '-')
+            toDateTimeText(date || item?.transaction_date || '-')
         ];
     });
 
@@ -4297,15 +4297,7 @@ function formatOrderApprovalDateTime(value) {
     if (Number.isNaN(date.getTime())) {
         return String(value);
     }
-    return date.toLocaleString('zh-CN', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false
-    });
+    return toDateTimeText(date);
 }
 
 function getApprovalRangeStartTimestamp(range) {
@@ -4602,7 +4594,7 @@ function renderPayablePaymentHistoryModal(finance, paymentRows, relatedRows) {
                 const date = parseFinanceDate(item?.transaction_date);
                 return `
                     <tr>
-                        <td class="erp-cell-nowrap">${date ? date.toLocaleString('zh-CN') : '-'}</td>
+                        <td class="erp-cell-nowrap">${toDateTimeText(date || '-')}</td>
                         <td><span class="erp-amount-text is-expense">${formatCurrency(Math.abs(Number(item?.amount || 0)))}</span></td>
                         <td><span class="erp-cell-ellipsis">${escapeHtmlText(item?.description || '-')}</span></td>
                         <td class="erp-cell-nowrap">${item?.id || '-'}</td>
@@ -4695,7 +4687,7 @@ function exportPayablePaymentHistoryCsv() {
         .map(item => {
             const date = parseFinanceDate(item?.transaction_date);
             return [
-                date ? date.toLocaleString('zh-CN') : (item?.transaction_date || '-'),
+                toDateTimeText(date || item?.transaction_date || '-'),
                 Number(item?.amount || 0).toFixed(2),
                 item?.type === 'income' ? '收入' : (item?.type === 'expense' ? '支出' : '系统'),
                 item?.category || '-',
@@ -5140,7 +5132,7 @@ function exportOrdersCsv() {
     const headers = ['订单号', '客户', '订单日期', '订单状态', '支付状态', '发货状态', '金额', '快递公司', '快递单号', '备注'];
     const rows = filtered.map(order => {
         const customer = customers.find(item => isSameEntityId(item?.id, order?.customer_id));
-        const orderDate = order?.order_date ? new Date(order.order_date).toLocaleDateString('zh-CN') : '';
+        const orderDate = toYmdText(order?.order_date || '');
         return [
             order?.order_number || `订单#${order?.id || ''}`,
             customer?.name || order?.customer_name || '',
@@ -5609,7 +5601,7 @@ function renderPurchaseRecords(records = []) {
 
         return `
             <tr>
-                <td data-table-cell="purchase:date" class="erp-cell-nowrap">${displayTime ? displayTime.toLocaleString('zh-CN') : '-'}</td>
+                <td data-table-cell="purchase:date" class="erp-cell-nowrap">${toDateTimeText(displayTime || '-')}</td>
                 <td data-table-cell="purchase:order_no">${escapeHtmlText(purchaseOrderNo)}</td>
                 <td data-table-cell="purchase:product">${escapeHtmlText(productName)}</td>
                 <td data-table-cell="purchase:qty"><span class="erp-qty-text is-safe">${Number.isFinite(quantity) ? quantity : '-'}</span></td>
@@ -6787,13 +6779,7 @@ function updateBankingRuleHint() {
 }
 
 function getNowDateTimeLocalValue() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
+    return getShanghaiDateTimeInputValue(new Date());
 }
 
 function resetBankRepaymentQuickState() {
@@ -8549,34 +8535,55 @@ function isTableMissingError(error) {
         || hint.includes('perhaps you meant the table');
 }
 
-function toYmdText(value) {
+function getShanghaiDatePartMap(value) {
     const date = parseFinanceDate(value);
     if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
-        return '-';
+        return null;
     }
-    const parts = date.toLocaleDateString('zh-CN', {
-        timeZone: 'Asia/Shanghai',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-    }).replace(/\//g, '-');
-    return parts;
-}
-
-function toDateTimeText(value) {
-    const date = parseFinanceDate(value);
-    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
-        return '-';
-    }
-    return date.toLocaleString('zh-CN', {
+    const formatter = new Intl.DateTimeFormat('zh-CN', {
         timeZone: 'Asia/Shanghai',
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
         hour: '2-digit',
         minute: '2-digit',
+        second: '2-digit',
         hour12: false
     });
+    const partMap = {};
+    formatter.formatToParts(date).forEach(part => {
+        if (part?.type && part.type !== 'literal') {
+            partMap[part.type] = String(part.value || '').padStart(part.type === 'year' ? 4 : 2, '0');
+        }
+    });
+    if (!partMap.year || !partMap.month || !partMap.day) {
+        return null;
+    }
+    return partMap;
+}
+
+function getShanghaiDateTimeInputValue(value) {
+    const partMap = getShanghaiDatePartMap(value);
+    if (!partMap) {
+        return '';
+    }
+    return `${partMap.year}-${partMap.month}-${partMap.day}T${partMap.hour || '00'}:${partMap.minute || '00'}`;
+}
+
+function toYmdText(value) {
+    const partMap = getShanghaiDatePartMap(value);
+    if (!partMap) {
+        return '-';
+    }
+    return `${partMap.year}-${partMap.month}-${partMap.day}`;
+}
+
+function toDateTimeText(value) {
+    const partMap = getShanghaiDatePartMap(value);
+    if (!partMap) {
+        return '-';
+    }
+    return `${partMap.year}/${partMap.month}/${partMap.day} ${partMap.hour || '00'}:${partMap.minute || '00'}:${partMap.second || '00'}`;
 }
 
 function normalizePersonalBankProviderText(provider) {
@@ -11836,7 +11843,7 @@ async function exportPurchaseDetailsByMonth(monthKey = '') {
     const paymentStatusMap = { paid: '已付款', unpaid: '未付款', partial: '部分付款' };
     const exportRows = rows.map(item => [
         item.purchaseOrderNo || '-',
-        item.purchaseDate ? item.purchaseDate.toLocaleString('zh-CN') : '-',
+        toDateTimeText(item.purchaseDate || '-'),
         item.supplier || '-',
         item.productName || '-',
         Number(item.quantity || 0),
@@ -11845,10 +11852,10 @@ async function exportPurchaseDetailsByMonth(monthKey = '') {
         paymentStatusMap[String(item.paymentStatus || '').toLowerCase()] || String(item.paymentStatus || '-'),
         formatPurchaseApprovalStatus(item.approvalStatus),
         item.approvalOperator || '-',
-        item.approvalTime ? item.approvalTime.toLocaleString('zh-CN') : '-',
+        toDateTimeText(item.approvalTime || '-'),
         item.approvalNote || '-',
         item.rollbackStatus || '-',
-        item.rollbackTime ? item.rollbackTime.toLocaleString('zh-CN') : '-',
+        toDateTimeText(item.rollbackTime || '-'),
         item.rollbackNote || '-',
         Number(item.paidAmount || 0).toFixed(2),
         Number(item.payableAmount || 0).toFixed(2),
@@ -11904,17 +11911,17 @@ async function exportSupplierMonthlyStatement() {
             monthInput,
             supplierName,
             item.purchaseOrderNo || '-',
-            item.purchaseDate ? item.purchaseDate.toLocaleString('zh-CN') : '-',
+            toDateTimeText(item.purchaseDate || '-'),
             item.productName || '-',
             Number(item.quantity || 0),
             Number(item.unitCost || 0).toFixed(2),
             Number(item.amount || 0).toFixed(2),
             formatPurchaseApprovalStatus(item.approvalStatus),
             item.approvalOperator || '-',
-            item.approvalTime ? item.approvalTime.toLocaleString('zh-CN') : '-',
+            toDateTimeText(item.approvalTime || '-'),
             item.approvalNote || '-',
             item.rollbackStatus || '-',
-            item.rollbackTime ? item.rollbackTime.toLocaleString('zh-CN') : '-',
+            toDateTimeText(item.rollbackTime || '-'),
             item.rollbackNote || '-',
             Number(item.paidAmount || 0).toFixed(2),
             Number(item.payableAmount || 0).toFixed(2),
@@ -11970,7 +11977,7 @@ async function exportSupplierMonthlyStatementPdf() {
         <tr>
             <td>${idx + 1}</td>
             <td>${escapeHtmlText(item.purchaseOrderNo || '-')}</td>
-            <td>${escapeHtmlText(item.purchaseDate ? item.purchaseDate.toLocaleString('zh-CN') : '-')}</td>
+            <td>${escapeHtmlText(toDateTimeText(item.purchaseDate || '-'))}</td>
             <td>${escapeHtmlText(item.productName || '-')}</td>
             <td>${Number(item.quantity || 0)}</td>
             <td>${Number(item.unitCost || 0).toFixed(2)}</td>
@@ -12002,7 +12009,7 @@ async function exportSupplierMonthlyStatementPdf() {
         </head>
         <body>
             <h2>供应商月结单</h2>
-            <div class="meta">供应商：${escapeHtmlText(supplierName)} ｜ 月份：${escapeHtmlText(monthInput)} ｜ 生成时间：${new Date().toLocaleString('zh-CN')}</div>
+            <div class="meta">供应商：${escapeHtmlText(supplierName)} ｜ 月份：${escapeHtmlText(monthInput)} ｜ 生成时间：${toDateTimeText(new Date())}</div>
             <div class="summary">
                 <span>采购笔数：${rows.length}</span>
                 <span>采购总额：${totalAmount.toFixed(2)}</span>
@@ -12868,7 +12875,7 @@ function renderDashboardRiskApprovals() {
         const marginText = `${(Number(item.grossMargin || 0) * 100).toFixed(1)}%`;
         const reasonText = String(item.approvalReason || '').trim() || '未填写审批原因';
         const reasonColor = item.approvalReason ? '#262626' : '#cf1322';
-        const orderDateText = item.orderDate instanceof Date ? item.orderDate.toLocaleDateString() : '-';
+        const orderDateText = toYmdText(item.orderDate || '-');
         const safeOrderId = escapeHtmlText(String(item.id || ''));
         return `
             <div class="erp-dashboard-chart-subtitle">
@@ -14134,7 +14141,7 @@ function exportFinanceCsvByCurrentView() {
             orderNumber,
             customerName,
             item?.description || '-',
-            date ? date.toLocaleString('zh-CN') : (item?.transaction_date || '-')
+            toDateTimeText(date || item?.transaction_date || '-')
         ];
     });
 

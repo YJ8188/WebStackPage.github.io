@@ -479,6 +479,23 @@
                     : `<span class="self-check-status-bad">${badText}</span>`;
             }
 
+            function toShanghaiDateTimeText(value) {
+                const date = value instanceof Date ? value : new Date(value);
+                if (Number.isNaN(date.getTime())) {
+                    return '-';
+                }
+                return date.toLocaleString('zh-CN', {
+                    timeZone: 'Asia/Shanghai',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false
+                });
+            }
+
             async function collectSelfCheckRows() {
                 const rawReturnTo = parseReturnTarget();
                 const safeReturnTo = sanitizeReturnTarget(rawReturnTo);
@@ -492,7 +509,7 @@
                     ? (!rememberMeHasExpiry || Date.now() >= rememberMeExpiresAt)
                     : false;
                 const rememberMeExpireText = rememberMeHasExpiry
-                    ? new Date(rememberMeExpiresAt).toLocaleString('zh-CN')
+                    ? toShanghaiDateTimeText(rememberMeExpiresAt)
                     : '未设置（视为过期）';
                 const protocol = window.location.protocol;
                 const isFileProtocol = protocol === 'file:';
@@ -515,7 +532,7 @@
                 }
 
                 return [
-                    ['当前时间', new Date().toLocaleString('zh-CN')],
+                    ['当前时间', toShanghaiDateTimeText(new Date())],
                     ['当前地址', window.location.href],
                     ['页面协议', isFileProtocol ? '<span class="self-check-status-warn">file://（建议改本地服务器）</span>' : `${protocol}//`],
                     ['当前域名', window.location.origin || 'file:// 本地文件'],

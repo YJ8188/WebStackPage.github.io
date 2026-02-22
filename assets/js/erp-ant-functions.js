@@ -6031,7 +6031,22 @@ function renderBankBusiness(rows = null) {
             ? bankBusinessViewState.currentRows
             : getBankBusinessRecords().map(parseBankBusinessRecord));
 
+    const getSortRepaymentDay = (item) => {
+        const day = toValidDay(item?.repaymentDay, 0);
+        return day > 0 ? day : 99;
+    };
     const sorted = [...source].sort((a, b) => {
+        const leftDay = getSortRepaymentDay(a);
+        const rightDay = getSortRepaymentDay(b);
+        if (leftDay !== rightDay) {
+            return leftDay - rightDay;
+        }
+        const leftBank = String(a?.bank || '').trim();
+        const rightBank = String(b?.bank || '').trim();
+        const bankCompare = leftBank.localeCompare(rightBank, 'zh-CN');
+        if (bankCompare !== 0) {
+            return bankCompare;
+        }
         const left = a?.transactionDate instanceof Date ? a.transactionDate.getTime() : 0;
         const right = b?.transactionDate instanceof Date ? b.transactionDate.getTime() : 0;
         return right - left;
@@ -6480,6 +6495,7 @@ function showBankRepaymentModal(prefill = null, options = {}) {
 
     const titleEl = modal.querySelector('.modal-header h3');
     const saveBtn = modal.querySelector('.modal-footer .ant-btn-primary');
+    const isQuickRepay = options?.quickRepay === true;
     const isEdit = options?.mode === 'edit' || (!!prefill && options?.mode !== 'create' && !!prefill.id);
     if (isEdit && prefill) {
         bankBusinessEditState.financeId = prefill.id || null;
@@ -6522,14 +6538,14 @@ function showBankRepaymentModal(prefill = null, options = {}) {
         bankBusinessEditState.financeId = null;
         bankBusinessEditState.mode = '';
         bankBusinessEditState.cardTail = '';
-        if (titleEl) titleEl.textContent = '新增还款业务';
-        if (saveBtn) saveBtn.textContent = '保存';
+        if (titleEl) titleEl.textContent = isQuickRepay ? '登记还款' : '新增还款业务';
+        if (saveBtn) saveBtn.textContent = isQuickRepay ? '确认还款' : '保存';
     } else {
         bankBusinessEditState.financeId = null;
         bankBusinessEditState.mode = '';
         bankBusinessEditState.cardTail = '';
-        if (titleEl) titleEl.textContent = '新增还款业务';
-        if (saveBtn) saveBtn.textContent = '保存';
+        if (titleEl) titleEl.textContent = isQuickRepay ? '登记还款' : '新增还款业务';
+        if (saveBtn) saveBtn.textContent = isQuickRepay ? '确认还款' : '保存';
     }
 
     updateBankingRuleHint();
@@ -7635,9 +7651,9 @@ function quickCreateBankRepayment(financeId) {
         repaymentDay: source.repaymentDay || 5,
         reminderEnabled: source.reminderEnabled !== false,
         reminderDaysBefore: Math.max(0, Number(source.reminderDaysBefore || 3)),
-        repaymentAmount: 0,
-        description: ''
-    }, { mode: 'create' });
+        repaymentAmount: Math.max(0, Number(source.repaymentAmount || 0)),
+        description: '登记还款'
+    }, { mode: 'create', quickRepay: true });
 }
 
 function hideBankRepaymentHistoryModal() {

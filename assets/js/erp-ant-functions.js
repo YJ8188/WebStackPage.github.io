@@ -347,9 +347,9 @@ function syncBankBusinessSelectionVisibleRows(rows = []) {
 }
 
 function pruneBankBusinessSelectionByAllRows() {
-    const rows = getBankBusinessRecords()
+    const rows = dedupeBankBusinessRowsForDisplay(getBankBusinessRecords()
         .map(parseBankBusinessRecord)
-        .filter(item => !item?.isRepaymentPayment);
+        .filter(item => !item?.isRepaymentPayment));
     const allIds = new Set(rows.map(item => normalizeBankBusinessRowId(item?.id)).filter(Boolean));
     Array.from(bankBusinessSelectionState.selectedIds).forEach(id => {
         if (!allIds.has(id)) {
@@ -416,9 +416,9 @@ function onBankBusinessSelectAllVisible(checked) {
 
 function getSelectedBankBusinessRows() {
     const selectedIds = bankBusinessSelectionState.selectedIds;
-    const rows = getBankBusinessRecords()
+    const rows = dedupeBankBusinessRowsForDisplay(getBankBusinessRecords()
         .map(parseBankBusinessRecord)
-        .filter(item => !item?.isRepaymentPayment);
+        .filter(item => !item?.isRepaymentPayment));
     return rows.filter(item => selectedIds.has(normalizeBankBusinessRowId(item?.id)));
 }
 
@@ -6194,6 +6194,88 @@ function parseBankBusinessRecord(record) {
     };
 }
 
+function getBankBusinessCycleMonthKey(record) {
+    const partMap = getShanghaiDatePartMap(
+        record?.transactionDate
+        || record?.raw?.transaction_date
+        || record?.raw?.created_at
+        || null
+    );
+    if (!partMap?.year || !partMap?.month) {
+        return '';
+    }
+    return `${partMap.year}-${partMap.month}`;
+}
+
+function buildBankBusinessDisplayDedupKey(record) {
+    if (!record?.isRepayment || record?.isRepaymentPayment) {
+        return '';
+    }
+    const bank = String(record?.bank || '').trim().toLowerCase();
+    const tail = normalizeTail4(record?.cardTail || '') || 'no_tail';
+    const billDay = toValidDay(record?.billDay, 0) || 0;
+    const repaymentDay = toValidDay(record?.repaymentDay, 0) || 0;
+    const cycleMonth = getBankBusinessCycleMonthKey(record) || 'unknown_month';
+    return `repayment|${bank || 'unknown_bank'}|${tail}|${billDay}|${repaymentDay}|${cycleMonth}`;
+}
+
+function getBankBusinessFreshTimestamp(record, fieldName) {
+    const raw = record?.raw?.[fieldName] ?? null;
+    const date = parseFinanceDate(raw);
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+        return 0;
+    }
+    return date.getTime();
+}
+
+function shouldReplaceBankBusinessDisplayRow(candidate, current) {
+    const candidateUpdated = getBankBusinessFreshTimestamp(candidate, 'updated_at');
+    const currentUpdated = getBankBusinessFreshTimestamp(current, 'updated_at');
+    if (candidateUpdated !== currentUpdated) {
+        return candidateUpdated > currentUpdated;
+    }
+
+    const candidateTx = candidate?.transactionDate instanceof Date ? candidate.transactionDate.getTime() : 0;
+    const currentTx = current?.transactionDate instanceof Date ? current.transactionDate.getTime() : 0;
+    if (candidateTx !== currentTx) {
+        return candidateTx > currentTx;
+    }
+
+    const candidateCreated = getBankBusinessFreshTimestamp(candidate, 'created_at');
+    const currentCreated = getBankBusinessFreshTimestamp(current, 'created_at');
+    if (candidateCreated !== currentCreated) {
+        return candidateCreated > currentCreated;
+    }
+
+    const candidateId = String(candidate?.id || '');
+    const currentId = String(current?.id || '');
+    return candidateId > currentId;
+}
+
+function dedupeBankBusinessRowsForDisplay(rows = []) {
+    const list = Array.isArray(rows) ? rows : [];
+    if (!list.length) {
+        return [];
+    }
+
+    const keepMap = new Map();
+    const passthrough = [];
+
+    list.forEach((row) => {
+        const key = buildBankBusinessDisplayDedupKey(row);
+        if (!key) {
+            passthrough.push(row);
+            return;
+        }
+        const current = keepMap.get(key);
+        if (!current || shouldReplaceBankBusinessDisplayRow(row, current)) {
+            keepMap.set(key, row);
+        }
+    });
+
+    return [...passthrough, ...Array.from(keepMap.values())];
+}
+
 function getBankReminderStatus(record) {
     if (!record.reminderEnabled) {
         return { text: '已关闭', className: 'is-off', isDue: false };
@@ -6385,7 +6467,9 @@ function renderBankBusiness(rows = null) {
         : (Array.isArray(bankBusinessViewState.currentRows) && bankBusinessViewState.currentRows.length
             ? bankBusinessViewState.currentRows
             : getBankBusinessRecords().map(parseBankBusinessRecord));
-    const source = sourceAll.filter(item => !item?.isRepaymentPayment);
+    const source = dedupeBankBusinessRowsForDisplay(
+        sourceAll.filter(item => !item?.isRepaymentPayment)
+    );
 
     const sorted = [...source].sort((a, b) => {
         const leftDueTs = getBankRepaymentDueDateForSort(a);

@@ -477,8 +477,15 @@ select.ant-select option {
 }
 
 .erp-table-scroll.erp-table-scroll-expanded {
-    max-height: none;
-    overflow: visible;
+    max-height: 78vh !important;
+    overflow-y: auto !important;
+    overflow-x: auto !important;
+}
+
+.ant-table-wrapper.erp-table-scroll.erp-block-table.erp-table-scroll-expanded {
+    max-height: 78vh !important;
+    overflow-y: auto !important;
+    overflow-x: auto !important;
 }
 
 .erp-table-scroll .ant-table-thead>tr>th {

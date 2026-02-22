@@ -102,6 +102,10 @@ const bankBusinessViewState = {
     currentRows: [],
     source: 'all'
 };
+const bankBusinessSelectionState = {
+    selectedIds: new Set(),
+    visibleIds: []
+};
 const bankBusinessEditState = {
     financeId: null,
     mode: '',
@@ -305,6 +309,9 @@ function rerenderByPaginationModule(moduleKey) {
         case 'finances':
             if (typeof renderFinances === 'function') renderFinances(rows);
             break;
+        case 'banking':
+            if (typeof renderBankBusiness === 'function') renderBankBusiness(rows);
+            break;
         case 'purchaseRecords':
             if (typeof renderPurchaseRecords === 'function') renderPurchaseRecords(rows);
             break;
@@ -326,6 +333,92 @@ function setTablePaginationSize(moduleKey, pageSize) {
     state.pageSize = safeSize;
     state.page = 1;
     rerenderByPaginationModule(moduleKey);
+}
+
+function normalizeBankBusinessRowId(value) {
+    return String(value ?? '').trim();
+}
+
+function syncBankBusinessSelectionVisibleRows(rows = []) {
+    bankBusinessSelectionState.visibleIds = (Array.isArray(rows) ? rows : [])
+        .map(item => normalizeBankBusinessRowId(item?.id))
+        .filter(Boolean);
+}
+
+function pruneBankBusinessSelectionByAllRows() {
+    const rows = getBankBusinessRecords()
+        .map(parseBankBusinessRecord)
+        .filter(item => !item?.isRepaymentPayment);
+    const allIds = new Set(rows.map(item => normalizeBankBusinessRowId(item?.id)).filter(Boolean));
+    Array.from(bankBusinessSelectionState.selectedIds).forEach(id => {
+        if (!allIds.has(id)) {
+            bankBusinessSelectionState.selectedIds.delete(id);
+        }
+    });
+}
+
+function isBankBusinessRowSelected(financeId) {
+    const id = normalizeBankBusinessRowId(financeId);
+    return id ? bankBusinessSelectionState.selectedIds.has(id) : false;
+}
+
+function renderBankBusinessHeaderCheckboxState() {
+    const checkbox = document.getElementById('bankingSelectAllCheckbox');
+    if (!checkbox) {
+        return;
+    }
+    const visibleIds = bankBusinessSelectionState.visibleIds || [];
+    const selectedVisible = visibleIds.filter(id => bankBusinessSelectionState.selectedIds.has(id)).length;
+    checkbox.checked = visibleIds.length > 0 && selectedVisible === visibleIds.length;
+    checkbox.indeterminate = selectedVisible > 0 && selectedVisible < visibleIds.length;
+}
+
+function updateBankBusinessBatchActionState() {
+    const selectedCount = bankBusinessSelectionState.selectedIds.size;
+    const deleteBtn = document.getElementById('bankingBatchDeleteBtn');
+    const textEl = document.getElementById('bankingSelectedCount');
+    if (deleteBtn) {
+        deleteBtn.disabled = selectedCount === 0;
+    }
+    if (textEl) {
+        textEl.textContent = `已选 ${selectedCount} 条`;
+    }
+}
+
+function onBankBusinessRowCheckedChange(financeId, checked) {
+    const id = normalizeBankBusinessRowId(financeId);
+    if (!id) return;
+    if (checked) {
+        bankBusinessSelectionState.selectedIds.add(id);
+    } else {
+        bankBusinessSelectionState.selectedIds.delete(id);
+    }
+    renderBankBusinessHeaderCheckboxState();
+    updateBankBusinessBatchActionState();
+}
+
+function onBankBusinessSelectAllVisible(checked) {
+    const shouldCheck = !!checked;
+    (bankBusinessSelectionState.visibleIds || []).forEach(id => {
+        if (shouldCheck) {
+            bankBusinessSelectionState.selectedIds.add(id);
+        } else {
+            bankBusinessSelectionState.selectedIds.delete(id);
+        }
+    });
+    document.querySelectorAll('.erp-banking-row-checkbox').forEach(checkbox => {
+        checkbox.checked = shouldCheck;
+    });
+    renderBankBusinessHeaderCheckboxState();
+    updateBankBusinessBatchActionState();
+}
+
+function getSelectedBankBusinessRows() {
+    const selectedIds = bankBusinessSelectionState.selectedIds;
+    const rows = getBankBusinessRecords()
+        .map(parseBankBusinessRecord)
+        .filter(item => !item?.isRepaymentPayment);
+    return rows.filter(item => selectedIds.has(normalizeBankBusinessRowId(item?.id)));
 }
 
 const financeSelectionState = {
@@ -6259,7 +6352,11 @@ function renderBankBusiness(rows = null) {
 
     updateBankBusinessSummary(sorted);
     if (!sorted.length) {
-        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding:20px; color:#999;">暂无银行业务数据</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="12" style="text-align:center; padding:20px; color:#999;">暂无银行业务数据</td></tr>';
+        syncBankBusinessSelectionVisibleRows([]);
+        pruneBankBusinessSelectionByAllRows();
+        renderBankBusinessHeaderCheckboxState();
+        updateBankBusinessBatchActionState();
         if (typeof renderTablePagination === 'function') {
             renderTablePagination('banking', 'bankingPager', { total: 0 });
         }
@@ -6273,8 +6370,11 @@ function renderBankBusiness(rows = null) {
         ? getPaginatedRows('banking', sorted)
         : { rows: sorted };
     const visibleRows = Array.isArray(pageData.rows) ? pageData.rows : sorted;
+    syncBankBusinessSelectionVisibleRows(visibleRows);
+    pruneBankBusinessSelectionByAllRows();
 
     tbody.innerHTML = visibleRows.map(item => {
+        const itemIdText = String(item?.id ?? '').replace(/"/g, '&quot;');
         const reminderMeta = getBankReminderStatus(item);
         const dateText = item?.transactionDate ? item.transactionDate.toLocaleString('zh-CN') : '-';
         const billRepaymentText = formatBankBillRepaymentText(item);
@@ -6295,6 +6395,11 @@ function renderBankBusiness(rows = null) {
             : '';
         return `
             <tr>
+                <td class="banking-col-select">
+                    <input class="erp-banking-row-checkbox" type="checkbox" data-id="${itemIdText}"
+                        ${isBankBusinessRowSelected(item?.id) ? 'checked' : ''}
+                        onchange="onBankBusinessRowCheckedChange(this.getAttribute('data-id'), this.checked)">
+                </td>
                 <td class="erp-cell-nowrap">${safeText(dateText)}</td>
                 <td>
                     <div class="erp-finance-cell-main">${bankMainText}</div>
@@ -6322,6 +6427,9 @@ function renderBankBusiness(rows = null) {
             </tr>
         `;
     }).join('');
+
+    renderBankBusinessHeaderCheckboxState();
+    updateBankBusinessBatchActionState();
 
     if (typeof renderTablePagination === 'function') {
         renderTablePagination('banking', 'bankingPager', pageData);
@@ -8204,6 +8312,48 @@ function editBankBusiness(financeId) {
 
 function deleteBankBusiness(financeId) {
     deleteFinance(financeId);
+}
+
+async function batchDeleteSelectedBankBusiness() {
+    const rows = getSelectedBankBusinessRows();
+    if (!rows.length) {
+        if (typeof showToast === 'function') {
+            showToast('请先勾选要删除的银行业务记录', 'info');
+        }
+        return;
+    }
+
+    const shouldDelete = confirm(`确认删除选中的 ${rows.length} 条银行业务记录吗？`);
+    if (!shouldDelete) {
+        return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+    for (const row of rows) {
+        try {
+            await ERP.deleteFinance(row.id);
+            successCount += 1;
+        } catch (error) {
+            failCount += 1;
+            console.error('[ERP Ant] 批量删除银行业务失败:', error);
+        }
+    }
+
+    rows.forEach(row => {
+        bankBusinessSelectionState.selectedIds.delete(normalizeBankBusinessRowId(row?.id));
+    });
+
+    await ERP.loadFinances(true);
+    applyBankBusinessFilters();
+    if (typeof applyFinanceFilters === 'function') {
+        applyFinanceFilters();
+    }
+    updateStatistics();
+
+    if (typeof showToast === 'function') {
+        showToast(`批量删除银行业务完成：成功 ${successCount}，失败 ${failCount}`, failCount > 0 ? 'warning' : 'success');
+    }
 }
 
 const PERSONAL_BANKING_TABLES = {

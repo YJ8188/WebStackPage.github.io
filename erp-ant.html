@@ -2760,23 +2760,9 @@
                     <td data-finance-cell="amount"><span class="erp-amount-text ${f.type === 'income' ? 'is-income' : (f.type === 'expense' ? 'is-expense' : 'is-system')}">${amountSign}¥${Math.abs(amountValue).toFixed(2)}</span></td>
                     <td data-finance-cell="order">${resolveFinanceOrderInfo(f)}</td>
                     <td data-finance-cell="description">${resolveFinanceDescription(f)}</td>
-                    <td data-finance-cell="date" class="erp-cell-nowrap">${(() => {
-                        const date = new Date(f.transaction_date);
-                        // 如果数据库存储的是本地时间格式，直接使用
-                        if (typeof f.transaction_date === 'string' && f.transaction_date.includes(' ')) {
-                            return f.transaction_date;
-                        }
-                        // 否则格式化显示
-                        return date.toLocaleString('zh-CN', { 
-                            year: 'numeric', 
-                            month: '2-digit', 
-                            day: '2-digit', 
-                            hour: '2-digit', 
-                            minute: '2-digit', 
-                            second: '2-digit',
-                            timeZone: 'Asia/Shanghai'
-                        });
-                    })()}</td>
+                    <td data-finance-cell="date" class="erp-cell-nowrap">${typeof toDateTimeText === 'function'
+                        ? toDateTimeText(f.transaction_date || '-')
+                        : formatHeaderDate(f.transaction_date)}</td>
                     <td class="erp-action-cell" data-finance-cell="actions">
                         ${typeof getFinanceActionButtons === 'function'
                             ? getFinanceActionButtons(f)

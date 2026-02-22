@@ -1368,25 +1368,32 @@ function isSystemLinkedFinanceCategory(category) {
 function toDbDateTimeString(inputValue) {
     const raw = String(inputValue || '').trim();
     if (!raw) {
-        return new Date().toISOString();
+        const currentPartMap = getShanghaiDatePartMap(new Date());
+        if (!currentPartMap) {
+            return new Date().toISOString();
+        }
+        return `${currentPartMap.year}-${currentPartMap.month}-${currentPartMap.day} ${currentPartMap.hour || '00'}:${currentPartMap.minute || '00'}:${currentPartMap.second || '00'}`;
     }
 
     if (raw.includes(' ')) {
+        const match = raw.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})(?::(\d{2}))?$/);
+        if (match) {
+            return `${match[1]} ${match[2]}:${match[3] || '00'}`;
+        }
         return raw;
     }
 
     if (raw.includes('T')) {
-        const date = new Date(raw);
-        if (Number.isNaN(date.getTime())) {
-            return new Date().toISOString();
+        const plainLocalMatch = raw.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(?::(\d{2}))?$/);
+        if (plainLocalMatch) {
+            return `${plainLocalMatch[1]} ${plainLocalMatch[2]}:${plainLocalMatch[3] || '00'}`;
         }
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const hour = String(date.getHours()).padStart(2, '0');
-        const minute = String(date.getMinutes()).padStart(2, '0');
-        const second = String(date.getSeconds()).padStart(2, '0');
-        return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+
+        const shanghaiPartMap = getShanghaiDatePartMap(raw);
+        if (shanghaiPartMap) {
+            return `${shanghaiPartMap.year}-${shanghaiPartMap.month}-${shanghaiPartMap.day} ${shanghaiPartMap.hour || '00'}:${shanghaiPartMap.minute || '00'}:${shanghaiPartMap.second || '00'}`;
+        }
+        return '';
     }
 
     return raw;
@@ -5888,22 +5895,31 @@ function setSelectValueWithFallback(selectId, preferredValue, fallbackValue = ''
 function normalizeFinanceDateTimeForDb(dateValue) {
     let transactionDate = String(dateValue || '').trim();
     if (!transactionDate) {
-        transactionDate = new Date().toISOString();
+        const currentPartMap = getShanghaiDatePartMap(new Date());
+        if (!currentPartMap) {
+            transactionDate = new Date().toISOString();
+        } else {
+            return `${currentPartMap.year}-${currentPartMap.month}-${currentPartMap.day} ${currentPartMap.hour || '00'}:${currentPartMap.minute || '00'}:${currentPartMap.second || '00'}`;
+        }
     }
     if (!transactionDate.includes('T')) {
+        const plainDateTimeMatch = transactionDate.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})(?::(\d{2}))?$/);
+        if (plainDateTimeMatch) {
+            return `${plainDateTimeMatch[1]} ${plainDateTimeMatch[2]}:${plainDateTimeMatch[3] || '00'}`;
+        }
         return transactionDate;
     }
-    const date = new Date(transactionDate);
-    if (Number.isNaN(date.getTime())) {
+
+    const plainLocalMatch = transactionDate.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(?::(\d{2}))?$/);
+    if (plainLocalMatch) {
+        return `${plainLocalMatch[1]} ${plainLocalMatch[2]}:${plainLocalMatch[3] || '00'}`;
+    }
+
+    const shanghaiPartMap = getShanghaiDatePartMap(transactionDate);
+    if (!shanghaiPartMap) {
         return '';
     }
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    return `${shanghaiPartMap.year}-${shanghaiPartMap.month}-${shanghaiPartMap.day} ${shanghaiPartMap.hour || '00'}:${shanghaiPartMap.minute || '00'}:${shanghaiPartMap.second || '00'}`;
 }
 
 function toMoneyText(value) {
@@ -6051,6 +6067,15 @@ function parseBankTransactionDate(record, description = '') {
     const descText = String(description || '');
     const rawText = String(rawValue || '').trim();
     const isQQAutoSync = descText.includes('来源：QQ邮箱自动同步');
+    const isManualRepayment = descText.includes('来源：手动登记还款')
+        || String(record?.business_type || '').trim().toLowerCase() === 'credit_card_repayment_payment';
+
+    if (isManualRepayment) {
+        const createdAtDate = parseFinanceDate(record?.created_at || null);
+        if (createdAtDate instanceof Date && !Number.isNaN(createdAtDate.getTime())) {
+            return createdAtDate;
+        }
+    }
 
     if (isQQAutoSync && rawText) {
         const isoLikeMatch = rawText.match(

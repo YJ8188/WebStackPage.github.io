@@ -107,6 +107,11 @@ const bankBusinessEditState = {
     mode: '',
     cardTail: ''
 };
+const bankRepaymentHistoryState = {
+    bank: '',
+    cardTail: '',
+    rows: []
+};
 let bankEmailImportPreviewData = null;
 const qqMailAuthViewState = {
     loaded: false,
@@ -5638,13 +5643,124 @@ function getCreditReminderDate(transactionDateText, repaymentDay, reminderDaysBe
     return Number.isNaN(reminderDate.getTime()) ? null : reminderDate;
 }
 
-function populateCreditCardBanks(selectId) {
+const BANK_CARD_OPTION_PREFIX = '__CARD__';
+
+function normalizeTail4(raw) {
+    return String(raw || '').replace(/\D/g, '').slice(-4);
+}
+
+function buildBankCardOptionValue(bank, cardTail = '') {
+    const bankName = String(bank || '').trim();
+    const tail = normalizeTail4(cardTail);
+    if (!bankName) {
+        return '';
+    }
+    if (!tail) {
+        return bankName;
+    }
+    return `${BANK_CARD_OPTION_PREFIX}${encodeURIComponent(bankName)}|${tail}`;
+}
+
+function parseBankCardOptionValue(rawValue) {
+    const raw = String(rawValue || '').trim();
+    if (!raw) {
+        return { bank: '', cardTail: '' };
+    }
+    if (!raw.startsWith(BANK_CARD_OPTION_PREFIX)) {
+        return { bank: raw, cardTail: '' };
+    }
+    const payload = raw.slice(BANK_CARD_OPTION_PREFIX.length);
+    const splitIndex = payload.lastIndexOf('|');
+    if (splitIndex < 0) {
+        return { bank: decodeURIComponent(payload || ''), cardTail: '' };
+    }
+    const bank = decodeURIComponent(payload.slice(0, splitIndex) || '');
+    const cardTail = normalizeTail4(payload.slice(splitIndex + 1));
+    return { bank, cardTail };
+}
+
+function collectKnownBankCards() {
+    const cardMap = new Map();
+    const addCard = (bank, cardTail) => {
+        const bankName = String(bank || '').trim();
+        const tail = normalizeTail4(cardTail);
+        if (!bankName || !tail) {
+            return;
+        }
+        cardMap.set(`${bankName}#${tail}`, { bank: bankName, cardTail: tail });
+    };
+
+    const records = getBankBusinessRecords().map(parseBankBusinessRecord);
+    records.forEach(item => {
+        addCard(item?.bank, item?.cardTail);
+        addCard(item?.swipeCardBank, item?.cardTail);
+        addCard(item?.settlementBank, item?.settlementCardTail);
+    });
+
+    return Array.from(cardMap.values()).sort((left, right) => {
+        const byBank = String(left.bank || '').localeCompare(String(right.bank || ''), 'zh-CN');
+        if (byBank !== 0) return byBank;
+        return String(left.cardTail || '').localeCompare(String(right.cardTail || ''), 'en');
+    });
+}
+
+function populateCreditCardBanks(selectId, options = {}) {
     const bankSelect = document.getElementById(selectId);
-    if (!bankSelect || bankSelect.dataset.initialized === '1') {
+    if (!bankSelect) {
         return;
     }
-    bankSelect.innerHTML = '<option value="">请选择银行</option>' + ERP_CREDIT_CARD_BANKS.map(name => `<option value="${name}">${name}</option>`).join('');
-    bankSelect.dataset.initialized = '1';
+    const includeKnownCardTail = options.includeKnownCardTail !== false;
+    const previousValue = String(bankSelect.value || '').trim();
+    const knownCards = includeKnownCardTail ? collectKnownBankCards() : [];
+    const knownCardOptionHtml = knownCards.map(item => {
+        const value = buildBankCardOptionValue(item.bank, item.cardTail);
+        const label = `${item.bank}（尾号${item.cardTail}）`;
+        return `<option value="${escapeHtmlText(value)}">${escapeHtmlText(label)}</option>`;
+    }).join('');
+    const presetOptionHtml = ERP_CREDIT_CARD_BANKS.map(name => `<option value="${escapeHtmlText(name)}">${escapeHtmlText(name)}</option>`).join('');
+    bankSelect.innerHTML = `<option value="">请选择银行</option>${knownCardOptionHtml}${presetOptionHtml}`;
+
+    const hasExact = Array.from(bankSelect.options).some(opt => String(opt.value) === previousValue);
+    if (hasExact) {
+        bankSelect.value = previousValue;
+        return;
+    }
+
+    const parsedPrev = parseBankCardOptionValue(previousValue);
+    if (parsedPrev.bank) {
+        const fallback = Array.from(bankSelect.options).find(opt => String(opt.value) === parsedPrev.bank);
+        if (fallback) {
+            bankSelect.value = fallback.value;
+            return;
+        }
+    }
+    bankSelect.value = '';
+}
+
+function syncTailInputByBankSelect(selectId, tailInputId) {
+    const selectEl = document.getElementById(selectId);
+    const tailInputEl = document.getElementById(tailInputId);
+    if (!selectEl || !tailInputEl) return;
+
+    const { bank, cardTail } = parseBankCardOptionValue(selectEl.value);
+    if (!bank) {
+        tailInputEl.value = '';
+        return;
+    }
+    if (cardTail) {
+        tailInputEl.value = cardTail;
+    }
+}
+
+function setSelectValueWithFallback(selectId, preferredValue, fallbackValue = '') {
+    const selectEl = document.getElementById(selectId);
+    if (!selectEl) return;
+    const preferred = String(preferredValue || '').trim();
+    const fallback = String(fallbackValue || '').trim();
+    selectEl.value = preferred;
+    if (preferred && selectEl.value !== preferred) {
+        selectEl.value = fallback;
+    }
 }
 
 function normalizeFinanceDateTimeForDb(dateValue) {
@@ -5977,6 +6093,8 @@ function renderBankBusiness(rows = null) {
                 <td title="${safeText(item.description)}"><span class="erp-cell-ellipsis">${safeText(item.description)}</span></td>
                 <td class="erp-action-cell">
                     <div class="erp-row-actions">
+                        <button class="ant-btn erp-btn-compact" onclick='quickCreateBankRepayment(${JSON.stringify(item.id)})'>还款</button>
+                        <button class="ant-btn erp-btn-compact" onclick='showBankRepaymentHistory(${JSON.stringify(item.id)})'>还款记录</button>
                         <button class="ant-btn erp-btn-compact" onclick='editBankBusiness(${JSON.stringify(item.id)})'>修改</button>
                         <button class="ant-btn erp-btn-danger erp-btn-compact" onclick='deleteBankBusiness(${JSON.stringify(item.id)})'>删除</button>
                     </div>
@@ -6296,7 +6414,7 @@ function getNowDateTimeLocalValue() {
     return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
-function showBankRepaymentModal(prefill = null) {
+function showBankRepaymentModal(prefill = null, options = {}) {
     const modal = document.getElementById('bankingRepaymentModal');
     const form = document.getElementById('bankingRepaymentForm');
     if (!modal || !form) {
@@ -6310,7 +6428,8 @@ function showBankRepaymentModal(prefill = null) {
     document.getElementById('bankingRepaymentReminderEnabled').value = '1';
     document.getElementById('bankingRepaymentReminderDaysBefore').value = '3';
     document.getElementById('bankingRepaymentAmount').value = '';
-    populateCreditCardBanks('bankingRepaymentCardBank');
+    document.getElementById('bankingRepaymentCardTail').value = '';
+    populateCreditCardBanks('bankingRepaymentCardBank', { includeKnownCardTail: true });
     if (form.dataset.bindRuleListener !== '1') {
         document.getElementById('bankingRepaymentBillDay')?.addEventListener('input', updateBankingRuleHint);
         document.getElementById('bankingRepaymentDay')?.addEventListener('input', updateBankingRuleHint);
@@ -6318,10 +6437,17 @@ function showBankRepaymentModal(prefill = null) {
         document.getElementById('bankingRepaymentAmount')?.addEventListener('input', updateBankingRuleHint);
         form.dataset.bindRuleListener = '1';
     }
+    if (form.dataset.bindBankTailListener !== '1') {
+        document.getElementById('bankingRepaymentCardBank')?.addEventListener('change', () => {
+            syncTailInputByBankSelect('bankingRepaymentCardBank', 'bankingRepaymentCardTail');
+        });
+        form.dataset.bindBankTailListener = '1';
+    }
 
     const titleEl = modal.querySelector('.modal-header h3');
     const saveBtn = modal.querySelector('.modal-footer .ant-btn-primary');
-    if (prefill) {
+    const isEdit = options?.mode === 'edit' || (!!prefill && options?.mode !== 'create' && !!prefill.id);
+    if (isEdit && prefill) {
         bankBusinessEditState.financeId = prefill.id || null;
         bankBusinessEditState.mode = 'repayment';
         bankBusinessEditState.cardTail = String(prefill.cardTail || '').trim();
@@ -6330,13 +6456,40 @@ function showBankRepaymentModal(prefill = null) {
         document.getElementById('bankingRepaymentTransactionDate').value = prefill.transactionDate
             ? `${prefill.transactionDate.getFullYear()}-${String(prefill.transactionDate.getMonth() + 1).padStart(2, '0')}-${String(prefill.transactionDate.getDate()).padStart(2, '0')}T${String(prefill.transactionDate.getHours()).padStart(2, '0')}:${String(prefill.transactionDate.getMinutes()).padStart(2, '0')}`
             : getNowDateTimeLocalValue();
-        document.getElementById('bankingRepaymentCardBank').value = prefill.bank || '';
+        setSelectValueWithFallback(
+            'bankingRepaymentCardBank',
+            buildBankCardOptionValue(prefill.bank || '', prefill.cardTail || ''),
+            prefill.bank || ''
+        );
+        document.getElementById('bankingRepaymentCardTail').value = normalizeTail4(prefill.cardTail || '');
         document.getElementById('bankingRepaymentBillDay').value = prefill.billDay || '';
         document.getElementById('bankingRepaymentDay').value = prefill.repaymentDay || '';
         document.getElementById('bankingRepaymentReminderEnabled').value = prefill.reminderEnabled ? '1' : '0';
         document.getElementById('bankingRepaymentReminderDaysBefore').value = String(Math.max(0, Number(prefill.reminderDaysBefore || 0)));
         document.getElementById('bankingRepaymentAmount').value = Number(prefill.repaymentAmount || 0) > 0 ? String(prefill.repaymentAmount) : '';
         document.getElementById('bankingRepaymentDescription').value = prefill.description && prefill.description !== '-' ? prefill.description : '';
+    } else if (prefill) {
+        const prefillDate = prefill.transactionDate instanceof Date && !Number.isNaN(prefill.transactionDate.getTime())
+            ? prefill.transactionDate
+            : new Date();
+        document.getElementById('bankingRepaymentTransactionDate').value = `${prefillDate.getFullYear()}-${String(prefillDate.getMonth() + 1).padStart(2, '0')}-${String(prefillDate.getDate()).padStart(2, '0')}T${String(prefillDate.getHours()).padStart(2, '0')}:${String(prefillDate.getMinutes()).padStart(2, '0')}`;
+        setSelectValueWithFallback(
+            'bankingRepaymentCardBank',
+            buildBankCardOptionValue(prefill.bank || '', prefill.cardTail || ''),
+            prefill.bank || ''
+        );
+        document.getElementById('bankingRepaymentCardTail').value = normalizeTail4(prefill.cardTail || '');
+        document.getElementById('bankingRepaymentBillDay').value = prefill.billDay || '20';
+        document.getElementById('bankingRepaymentDay').value = prefill.repaymentDay || '5';
+        document.getElementById('bankingRepaymentReminderEnabled').value = prefill.reminderEnabled === false ? '0' : '1';
+        document.getElementById('bankingRepaymentReminderDaysBefore').value = String(Math.max(0, Number(prefill.reminderDaysBefore || 3)));
+        document.getElementById('bankingRepaymentAmount').value = Number(prefill.repaymentAmount || 0) > 0 ? String(prefill.repaymentAmount) : '';
+        document.getElementById('bankingRepaymentDescription').value = prefill.description && prefill.description !== '-' ? String(prefill.description) : '';
+        bankBusinessEditState.financeId = null;
+        bankBusinessEditState.mode = '';
+        bankBusinessEditState.cardTail = '';
+        if (titleEl) titleEl.textContent = '新增还款业务';
+        if (saveBtn) saveBtn.textContent = '保存';
     } else {
         bankBusinessEditState.financeId = null;
         bankBusinessEditState.mode = '';
@@ -6374,13 +6527,24 @@ function showBankSwipeModal(prefill = null) {
     document.getElementById('bankingSwipeTransactionDate').value = getNowDateTimeLocalValue();
     document.getElementById('bankingFeeAmount').value = '0.00';
     document.getElementById('bankingFeeRate').value = '0.00%';
-    populateCreditCardBanks('bankingSwipeCardBank');
-    populateCreditCardBanks('bankingSettlementBank');
+    document.getElementById('bankingSwipeCardTail').value = '';
+    document.getElementById('bankingSettlementCardTail').value = '';
+    populateCreditCardBanks('bankingSwipeCardBank', { includeKnownCardTail: true });
+    populateCreditCardBanks('bankingSettlementBank', { includeKnownCardTail: true });
 
     if (form.dataset.bindFeeListener !== '1') {
         document.getElementById('bankingSwipeAmount')?.addEventListener('input', recalculateBankBusinessFee);
         document.getElementById('bankingActualAmount')?.addEventListener('input', recalculateBankBusinessFee);
         form.dataset.bindFeeListener = '1';
+    }
+    if (form.dataset.bindBankTailListener !== '1') {
+        document.getElementById('bankingSwipeCardBank')?.addEventListener('change', () => {
+            syncTailInputByBankSelect('bankingSwipeCardBank', 'bankingSwipeCardTail');
+        });
+        document.getElementById('bankingSettlementBank')?.addEventListener('change', () => {
+            syncTailInputByBankSelect('bankingSettlementBank', 'bankingSettlementCardTail');
+        });
+        form.dataset.bindBankTailListener = '1';
     }
 
     const titleEl = modal.querySelector('.modal-header h3');
@@ -6388,13 +6552,25 @@ function showBankSwipeModal(prefill = null) {
     if (prefill) {
         bankBusinessEditState.financeId = prefill.id || null;
         bankBusinessEditState.mode = 'swipe';
+        bankBusinessEditState.cardTail = String(prefill.cardTail || '').trim();
         if (titleEl) titleEl.textContent = '修改刷卡业务';
         if (saveBtn) saveBtn.textContent = '保存修改';
         document.getElementById('bankingSwipeTransactionDate').value = prefill.transactionDate
             ? `${prefill.transactionDate.getFullYear()}-${String(prefill.transactionDate.getMonth() + 1).padStart(2, '0')}-${String(prefill.transactionDate.getDate()).padStart(2, '0')}T${String(prefill.transactionDate.getHours()).padStart(2, '0')}:${String(prefill.transactionDate.getMinutes()).padStart(2, '0')}`
             : getNowDateTimeLocalValue();
-        document.getElementById('bankingSwipeCardBank').value = prefill.swipeCardBank || prefill.bank || '';
-        document.getElementById('bankingSettlementBank').value = prefill.settlementBank && prefill.settlementBank !== '未识别' ? prefill.settlementBank : '';
+        setSelectValueWithFallback(
+            'bankingSwipeCardBank',
+            buildBankCardOptionValue(prefill.swipeCardBank || prefill.bank || '', prefill.cardTail || ''),
+            prefill.swipeCardBank || prefill.bank || ''
+        );
+        document.getElementById('bankingSwipeCardTail').value = normalizeTail4(prefill.cardTail || '');
+        setSelectValueWithFallback(
+            'bankingSettlementBank',
+            prefill.settlementBank && prefill.settlementBank !== '未识别'
+                ? buildBankCardOptionValue(prefill.settlementBank, prefill.settlementCardTail || '')
+                : '',
+            prefill.settlementBank && prefill.settlementBank !== '未识别' ? prefill.settlementBank : ''
+        );
         document.getElementById('bankingSettlementCardTail').value = prefill.settlementCardTail || '';
         document.getElementById('bankingSwipeAmount').value = Number(prefill.swipeAmount || 0) > 0 ? String(prefill.swipeAmount) : '';
         document.getElementById('bankingActualAmount').value = Number(prefill.actualAmount || 0) > 0 ? String(prefill.actualAmount) : '';
@@ -7221,16 +7397,20 @@ async function persistBankBusinessFinance(financeData, modalSelector, hideModal,
 async function saveBankRepayment() {
     clearModalFieldValidation('bankingRepaymentModal');
     const transactionDateRaw = document.getElementById('bankingRepaymentTransactionDate')?.value;
-    const bank = String(document.getElementById('bankingRepaymentCardBank')?.value || '').trim();
+    const selectedBankValue = String(document.getElementById('bankingRepaymentCardBank')?.value || '').trim();
+    const selectedBankMeta = parseBankCardOptionValue(selectedBankValue);
+    const bank = String(selectedBankMeta.bank || '').trim();
     const billDay = toValidDay(document.getElementById('bankingRepaymentBillDay')?.value, 0);
     const repaymentDay = toValidDay(document.getElementById('bankingRepaymentDay')?.value, 0);
     const reminderEnabled = String(document.getElementById('bankingRepaymentReminderEnabled')?.value || '1') === '1';
     const reminderDaysBefore = Math.max(0, Math.floor(toAmount(document.getElementById('bankingRepaymentReminderDaysBefore')?.value, 3)));
     const repaymentAmount = Math.max(0, toAmount(document.getElementById('bankingRepaymentAmount')?.value, NaN));
     const customDescription = String(document.getElementById('bankingRepaymentDescription')?.value || '').trim();
+    const manualCardTail = normalizeTail4(document.getElementById('bankingRepaymentCardTail')?.value || '');
     const preservedCardTail = bankBusinessEditState.mode === 'repayment'
         ? String(bankBusinessEditState.cardTail || '').trim()
         : '';
+    const cardTail = normalizeTail4(manualCardTail || selectedBankMeta.cardTail || preservedCardTail);
 
     if (!bank) {
         markFieldInvalid('bankingRepaymentCardBank', '请选择发卡银行');
@@ -7273,7 +7453,7 @@ async function saveBankRepayment() {
         amount: repaymentAmount,
         description: [
             customDescription,
-            `银行：${bank}${preservedCardTail ? `（尾号${preservedCardTail}）` : ''}`,
+            `银行：${bank}${cardTail ? `（尾号${cardTail}）` : ''}`,
             `应还：${toMoneyText(repaymentAmount)}`,
             `账单日：每月${billDay}日`,
             `还款日：每月${repaymentDay}日`,
@@ -7285,6 +7465,7 @@ async function saveBankRepayment() {
         card_bill_day: billDay,
         card_repayment_day: repaymentDay,
         card_repayment_amount: repaymentAmount,
+        card_tail: cardTail || null,
         reminder_enabled: reminderEnabled,
         reminder_days_before: reminderDaysBefore,
         reminder_date: reminderDate ? reminderDate.toISOString() : null
@@ -7298,9 +7479,17 @@ async function saveBankRepayment() {
 async function saveBankSwipe() {
     clearModalFieldValidation('bankingSwipeModal');
     const transactionDateRaw = document.getElementById('bankingSwipeTransactionDate')?.value;
-    const swipeCardBank = String(document.getElementById('bankingSwipeCardBank')?.value || '').trim();
-    const settlementBank = String(document.getElementById('bankingSettlementBank')?.value || '').trim();
-    const settlementCardTail = String(document.getElementById('bankingSettlementCardTail')?.value || '').replace(/\D/g, '').slice(-4);
+    const swipeBankMeta = parseBankCardOptionValue(document.getElementById('bankingSwipeCardBank')?.value || '');
+    const settlementBankMeta = parseBankCardOptionValue(document.getElementById('bankingSettlementBank')?.value || '');
+    const swipeCardBank = String(swipeBankMeta.bank || '').trim();
+    const settlementBank = String(settlementBankMeta.bank || '').trim();
+    const swipeCardTailInput = normalizeTail4(document.getElementById('bankingSwipeCardTail')?.value || '');
+    const preservedSwipeCardTail = bankBusinessEditState.mode === 'swipe'
+        ? normalizeTail4(bankBusinessEditState.cardTail || '')
+        : '';
+    const swipeCardTail = normalizeTail4(swipeCardTailInput || swipeBankMeta.cardTail || preservedSwipeCardTail);
+    const settlementTailInput = normalizeTail4(document.getElementById('bankingSettlementCardTail')?.value || '');
+    const settlementCardTail = normalizeTail4(settlementTailInput || settlementBankMeta.cardTail);
     const swipeAmount = Math.max(0, toAmount(document.getElementById('bankingSwipeAmount')?.value, NaN));
     const actualAmount = Math.max(0, toAmount(document.getElementById('bankingActualAmount')?.value, NaN));
     const feeAmount = Math.max(0, toAmount(document.getElementById('bankingFeeAmount')?.value, swipeAmount - actualAmount));
@@ -7344,8 +7533,8 @@ async function saveBankSwipe() {
         amount: actualAmount,
         description: [
             customDescription,
-            `银行：${swipeCardBank}`,
-            `刷卡卡：${swipeCardBank}`,
+            `银行：${swipeCardBank}${swipeCardTail ? `（尾号${swipeCardTail}）` : ''}`,
+            `刷卡卡：${swipeCardBank}${swipeCardTail ? `（尾号${swipeCardTail}）` : ''}`,
             `到账卡：${settlementCardText}`,
             `刷卡：${toMoneyText(swipeAmount)}`,
             `到账：${toMoneyText(actualAmount)}`,
@@ -7358,6 +7547,7 @@ async function saveBankSwipe() {
         card_actual_amount: actualAmount,
         card_fee_amount: feeAmount,
         card_fee_rate: Number.isFinite(feeRate) ? Number(feeRate.toFixed(4)) : 0,
+        card_tail: swipeCardTail || null,
         swipe_card_bank: swipeCardBank,
         settlement_bank: settlementBank,
         settlement_card_tail: settlementCardTail || null
@@ -7380,14 +7570,160 @@ async function saveBankBusiness() {
     await saveBankRepayment();
 }
 
-function editBankBusiness(financeId) {
+function findParsedBankBusinessById(financeId) {
+    const normalizedId = String(financeId || '').trim();
+    if (!normalizedId) {
+        return null;
+    }
     const sourceRows = Array.isArray(ERP.state?.finances) ? ERP.state.finances : [];
-    const raw = sourceRows.find(item => String(item?.id || '') === String(financeId || ''));
-    if (!raw) {
+    const raw = sourceRows.find(item => String(item?.id || '') === normalizedId);
+    return raw ? parseBankBusinessRecord(raw) : null;
+}
+
+function quickCreateBankRepayment(financeId) {
+    const source = findParsedBankBusinessById(financeId);
+    if (!source) {
+        showToast('未找到对应银行业务记录', 'error');
+        return;
+    }
+
+    const sourceBank = String(source?.bank || source?.swipeCardBank || '').trim();
+    if (!sourceBank) {
+        showToast('当前记录缺少银行信息，无法快速还款', 'warning');
+        return;
+    }
+
+    showBankRepaymentModal({
+        transactionDate: new Date(),
+        bank: sourceBank,
+        cardTail: normalizeTail4(source.cardTail || ''),
+        billDay: source.billDay || 20,
+        repaymentDay: source.repaymentDay || 5,
+        reminderEnabled: source.reminderEnabled !== false,
+        reminderDaysBefore: Math.max(0, Number(source.reminderDaysBefore || 3)),
+        repaymentAmount: 0,
+        description: ''
+    }, { mode: 'create' });
+}
+
+function hideBankRepaymentHistoryModal() {
+    const modal = document.getElementById('bankingRepaymentHistoryModal');
+    if (!modal) return;
+    modal.classList.remove('active');
+    modal.style.display = '';
+    bankRepaymentHistoryState.bank = '';
+    bankRepaymentHistoryState.cardTail = '';
+    bankRepaymentHistoryState.rows = [];
+}
+
+function openBankRepaymentHistoryModal() {
+    const modal = document.getElementById('bankingRepaymentHistoryModal');
+    if (!modal) return;
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+}
+
+function renderBankRepaymentHistoryModal(bank, cardTail, rows) {
+    const titleEl = document.getElementById('bankingRepaymentHistoryTitle');
+    const bodyEl = document.getElementById('bankingRepaymentHistoryBody');
+    if (!bodyEl) return;
+
+    const cardLabel = `${String(bank || '-').trim()}${cardTail ? `（尾号${cardTail}）` : ''}`;
+    if (titleEl) {
+        titleEl.textContent = `还款记录 - ${cardLabel}`;
+    }
+
+    const list = Array.isArray(rows) ? rows.slice() : [];
+    const totalAmount = list.reduce((sum, item) => sum + Math.max(0, Number(item?.repaymentAmount || 0)), 0);
+    const rowsHtml = list.length
+        ? list
+            .sort((left, right) => {
+                const l = left?.transactionDate instanceof Date ? left.transactionDate.getTime() : 0;
+                const r = right?.transactionDate instanceof Date ? right.transactionDate.getTime() : 0;
+                return r - l;
+            })
+            .map(item => {
+                const reminderMeta = getBankReminderStatus(item);
+                return `
+                    <tr>
+                        <td class="erp-cell-nowrap">${escapeHtmlText(toDateTimeText(item?.transactionDate || item?.raw?.transaction_date || '-'))}</td>
+                        <td><span class="erp-amount-text is-expense">${escapeHtmlText(toMoneyText(item?.repaymentAmount || 0))}</span></td>
+                        <td>${escapeHtmlText(formatBankBillRepaymentText(item))}</td>
+                        <td>${escapeHtmlText(reminderMeta.text)}</td>
+                        <td title="${escapeHtmlText(item?.description || '-')}"><span class="erp-cell-ellipsis">${escapeHtmlText(item?.description || '-')}</span></td>
+                    </tr>
+                `;
+            }).join('')
+        : '<tr><td colspan="5" class="erp-history-empty-cell">暂无还款记录</td></tr>';
+
+    bodyEl.innerHTML = `
+        <div class="erp-history-summary-grid">
+            <div class="erp-history-summary-card">
+                <div class="erp-history-summary-label">记录数量</div>
+                <div class="erp-history-summary-value">${list.length}</div>
+            </div>
+            <div class="erp-history-summary-card is-warning">
+                <div class="erp-history-summary-label">累计还款金额</div>
+                <div class="erp-history-summary-value is-payable">${escapeHtmlText(toMoneyText(totalAmount))}</div>
+            </div>
+        </div>
+        <div class="ant-table-wrapper erp-block-card erp-history-table">
+            <div class="ant-table">
+                <table>
+                    <thead class="ant-table-thead">
+                        <tr>
+                            <th>还款时间</th>
+                            <th>应还金额</th>
+                            <th>账单/还款日</th>
+                            <th>提醒状态</th>
+                            <th>备注</th>
+                        </tr>
+                    </thead>
+                    <tbody class="ant-table-tbody">${rowsHtml}</tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+function showBankRepaymentHistory(financeId) {
+    const source = findParsedBankBusinessById(financeId);
+    if (!source) {
+        showToast('未找到对应银行业务记录', 'error');
+        return;
+    }
+
+    const bank = String(source?.bank || source?.swipeCardBank || '').trim();
+    const cardTail = normalizeTail4(source?.cardTail || '');
+    if (!bank) {
+        showToast('该记录缺少银行信息，无法查询还款记录', 'warning');
+        return;
+    }
+
+    const allRows = getBankBusinessRecords().map(parseBankBusinessRecord);
+    const repaymentRows = allRows.filter(item => {
+        if (!item?.isRepayment) return false;
+        if (String(item?.bank || '').trim() !== bank) return false;
+        if (cardTail) {
+            return normalizeTail4(item?.cardTail || '') === cardTail;
+        }
+        return true;
+    });
+
+    bankRepaymentHistoryState.bank = bank;
+    bankRepaymentHistoryState.cardTail = cardTail;
+    bankRepaymentHistoryState.rows = repaymentRows;
+
+    openBankRepaymentHistoryModal();
+    renderBankRepaymentHistoryModal(bank, cardTail, repaymentRows);
+}
+
+function editBankBusiness(financeId) {
+    const parsed = findParsedBankBusinessById(financeId);
+    if (!parsed) {
         showToast('未找到可修改的银行业务记录', 'error');
         return;
     }
-    const parsed = parseBankBusinessRecord(raw);
     if (parsed.isSwipe) {
         showBankSwipeModal(parsed);
         return;

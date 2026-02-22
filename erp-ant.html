@@ -1817,6 +1817,10 @@
                                 <option value="">请选择银行</option>
                             </select>
                         </div>
+                        <div class="form-group">
+                            <label>信用卡尾号4位（可选）</label>
+                            <input type="text" id="bankingRepaymentCardTail" class="ant-input" maxlength="4" placeholder="例如 1234">
+                        </div>
                         <div class="erp-form-grid-2">
                             <div class="form-group erp-form-col">
                                 <label>账单日（每月）<span class="erp-required-star">*</span></label>
@@ -1890,9 +1894,15 @@
                                 </select>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label>到账储蓄卡尾号（可选）</label>
-                            <input type="text" id="bankingSettlementCardTail" class="ant-input" maxlength="4" placeholder="例如 6688">
+                        <div class="erp-form-grid-2">
+                            <div class="form-group erp-form-col">
+                                <label>刷卡信用卡尾号（可选）</label>
+                                <input type="text" id="bankingSwipeCardTail" class="ant-input" maxlength="4" placeholder="例如 1234">
+                            </div>
+                            <div class="form-group erp-form-col">
+                                <label>到账储蓄卡尾号（可选）</label>
+                                <input type="text" id="bankingSettlementCardTail" class="ant-input" maxlength="4" placeholder="例如 6688">
+                            </div>
                         </div>
                         <div class="erp-form-grid-2">
                             <div class="form-group erp-form-col">
@@ -1922,6 +1932,20 @@
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="hideBankSwipeModal()">取消</button>
                 <button class="ant-btn ant-btn-primary" onclick="saveBankSwipe()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="bankingRepaymentHistoryModal" class="modal-overlay"
+        onclick="if(event.target===this) hideBankRepaymentHistoryModal()">
+        <div class="modal erp-modal erp-modal-xxl erp-history-modal">
+            <div class="modal-header">
+                <h3 id="bankingRepaymentHistoryTitle">还款记录</h3>
+                <button class="btn-close" onclick="hideBankRepaymentHistoryModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="bankingRepaymentHistoryBody"></div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="hideBankRepaymentHistoryModal()">关闭</button>
             </div>
         </div>
     </div>
@@ -2104,7 +2128,7 @@
     <script src="assets/js/user-data.js?v=20260214-20"></script>
     <script src="assets/js/erp.js?v=20260222-41"></script>
     <script src="assets/js/vendor/echarts.min.js?v=5.5.0"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260222-110"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260222-111"></script>
     <script src="assets/js/pwa-register.js?v=20260218-3" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->

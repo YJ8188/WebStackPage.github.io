@@ -6322,6 +6322,15 @@ function updateBankBusinessSummary(rows = []) {
     if (dueEl) dueEl.textContent = String(dueCount);
 }
 
+function syncBankBusinessTableHeightByPageSize(pageSize = 10) {
+    const wrapper = document.getElementById('bankingTableWrapper');
+    if (!wrapper) {
+        return;
+    }
+    const size = Number(pageSize) || 10;
+    wrapper.classList.toggle('erp-table-scroll-expanded', size > 10);
+}
+
 function renderBankBusiness(rows = null) {
     const tbody = document.getElementById('bankingTableBody');
     if (!tbody) return;
@@ -6351,6 +6360,8 @@ function renderBankBusiness(rows = null) {
     });
 
     updateBankBusinessSummary(sorted);
+    const paginationState = ensureTablePaginationModuleState('banking');
+    syncBankBusinessTableHeightByPageSize(paginationState.pageSize);
     if (!sorted.length) {
         tbody.innerHTML = '<tr><td colspan="12" style="text-align:center; padding:20px; color:#999;">暂无银行业务数据</td></tr>';
         syncBankBusinessSelectionVisibleRows([]);
@@ -6369,6 +6380,7 @@ function renderBankBusiness(rows = null) {
     const pageData = (typeof getPaginatedRows === 'function')
         ? getPaginatedRows('banking', sorted)
         : { rows: sorted };
+    syncBankBusinessTableHeightByPageSize(pageData?.pageSize || paginationState.pageSize);
     const visibleRows = Array.isArray(pageData.rows) ? pageData.rows : sorted;
     syncBankBusinessSelectionVisibleRows(visibleRows);
     pruneBankBusinessSelectionByAllRows();

@@ -2352,6 +2352,12 @@ select.ant-select option {
     overflow: hidden;
 }
 
+#bankingTableWrapper.ant-table-wrapper.erp-table-scroll.erp-block-table {
+    max-height: none !important;
+    overflow-y: visible !important;
+    overflow-x: auto !important;
+}
+
 .erp-block-table .ant-table {
     background: #fff;
 }

@@ -214,6 +214,25 @@ function extractDay(text, patterns) {
 function extractCardTail(text) {
   const source = String(text || '');
   if (!source) return '';
+  const scoreMap = new Map();
+  const addCandidate = (tail, score = 1) => {
+    const value = String(tail || '').replace(/\D/g, '').slice(-4);
+    if (!/^\d{4}$/.test(value)) return;
+    scoreMap.set(value, (scoreMap.get(value) || 0) + score);
+  };
+
+  const cardNoTablePattern = /(?:^|\n)\s*(?:20\d{6})\s+(?:20\d{6})[\s\S]{0,90}?\b(\d{4})\b\s+[¥￥$]?\s*-?\d/g;
+  for (const match of source.matchAll(cardNoTablePattern)) {
+    addCandidate(match?.[1], 6);
+  }
+
+  const cardNoHeaderIndex = source.search(/Card\s*No\.?|卡号末四位|卡号后四位/i);
+  if (cardNoHeaderIndex >= 0) {
+    const cardNoWindow = source.slice(cardNoHeaderIndex, Math.min(source.length, cardNoHeaderIndex + 2200));
+    const cardNoDigits = cardNoWindow.match(/\b\d{4}\b/g) || [];
+    cardNoDigits.forEach((tail) => addCandidate(tail, 2));
+  }
+
   const patterns = [
     /(?:卡片尾号|卡号末四位|卡号末4位|账户尾号|尾号|末四位|末4位|Card\s*No\.?|CardNo\.?)[^0-9]{0,48}((?:\d[\s\-*•·]*){4,10})/ig,
     /(?:\*{2,}|X{2,}|x{2,})\s*((?:\d[\s\-]*){4,6})/g
@@ -223,11 +242,13 @@ function extractCardTail(text) {
     for (const match of matches) {
       const digits = String(match?.[1] || '').replace(/\D/g, '');
       if (digits.length >= 4) {
-        return digits.slice(-4);
+        addCandidate(digits.slice(-4), 1);
       }
     }
   }
-  return '';
+
+  const ranked = Array.from(scoreMap.entries()).sort((a, b) => b[1] - a[1] || Number(b[0]) - Number(a[0]));
+  return ranked[0]?.[0] || '';
 }
 
 function toValidDay(value, fallback = 0) {
@@ -694,6 +715,26 @@ async function fetchExistingReferenceIds(supabase, userId, refs) {
   return existing;
 }
 
+async function fetchExistingRowsByReference(supabase, userId, refs) {
+  const map = new Map();
+  const chunkSize = 100;
+  for (let i = 0; i < refs.length; i += chunkSize) {
+    const chunk = refs.slice(i, i + chunkSize);
+    const { data, error } = await supabase
+      .from('erp_finances')
+      .select('id, reference_id, description, card_bank, card_bill_day, card_repayment_day, reminder_enabled, reminder_days_before, reminder_date')
+      .eq('user_id', userId)
+      .in('reference_id', chunk);
+    if (error) throw error;
+    (data || []).forEach((item) => {
+      const ref = String(item?.reference_id || '').trim();
+      if (!ref || map.has(ref)) return;
+      map.set(ref, item);
+    });
+  }
+  return map;
+}
+
 function safeIsoSecond(value) {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return '';
@@ -749,7 +790,7 @@ async function fetchExistingSyncedRowsByDedup(supabase, userId, candidateRows) {
 
   let query = supabase
     .from('erp_finances')
-    .select('id, business_type, card_bank, swipe_card_bank, amount, transaction_date, card_bill_day, card_repayment_day, description')
+    .select('id, business_type, card_bank, swipe_card_bank, amount, transaction_date, card_bill_day, card_repayment_day, description, reminder_enabled, reminder_days_before, reminder_date')
     .eq('user_id', userId)
     .in('business_type', ['credit_card_repayment', 'credit_card_swipe']);
   if (sinceIso) query = query.gte('transaction_date', sinceIso);
@@ -1320,30 +1361,68 @@ async function syncOneUser({
 
     const refs = parsedRows.map((item) => item.reference_id).filter(Boolean);
     const existingRefs = await fetchExistingReferenceIds(supabase, userId, refs);
+    const existingRowsByRef = await fetchExistingRowsByReference(supabase, userId, refs);
     const existingDedupKeys = await fetchExistingDedupKeys(supabase, userId, parsedRows);
     const existingRowsByDedup = await fetchExistingSyncedRowsByDedup(supabase, userId, parsedRows);
     const updateRows = [];
+    const buildPatchByExisting = (existingRow, parsedRow) => {
+      if (!existingRow || !parsedRow || !existingRow.id) return null;
+      const patch = { id: existingRow.id };
+      let changed = false;
+
+      const nextBillDay = parsedRow.card_bill_day || null;
+      const nextRepaymentDay = parsedRow.card_repayment_day || null;
+      if (nextBillDay && Number(nextBillDay) !== Number(existingRow.card_bill_day || 0)) {
+        patch.card_bill_day = nextBillDay;
+        changed = true;
+      }
+      if (nextRepaymentDay && Number(nextRepaymentDay) !== Number(existingRow.card_repayment_day || 0)) {
+        patch.card_repayment_day = nextRepaymentDay;
+        changed = true;
+      }
+
+      const existingDesc = String(existingRow.description || '');
+      const nextDesc = String(parsedRow.description || '');
+      const hasTailInExisting = /尾号\s*\d{4}/.test(existingDesc);
+      const hasTailInNext = /尾号\s*\d{4}/.test(nextDesc);
+      if (hasTailInNext && !hasTailInExisting) {
+        patch.description = nextDesc;
+        changed = true;
+      }
+
+      if (!String(existingRow.card_bank || '').trim() && String(parsedRow.card_bank || '').trim()) {
+        patch.card_bank = String(parsedRow.card_bank || '').trim();
+        changed = true;
+      }
+
+      if (typeof existingRow.reminder_enabled !== 'boolean' && typeof parsedRow.reminder_enabled === 'boolean') {
+        patch.reminder_enabled = parsedRow.reminder_enabled;
+        changed = true;
+      }
+      if ((!existingRow.reminder_days_before || Number(existingRow.reminder_days_before) <= 0) && Number(parsedRow.reminder_days_before || 0) > 0) {
+        patch.reminder_days_before = Number(parsedRow.reminder_days_before);
+        changed = true;
+      }
+      if (!existingRow.reminder_date && parsedRow.reminder_date) {
+        patch.reminder_date = parsedRow.reminder_date;
+        changed = true;
+      }
+
+      return changed ? patch : null;
+    };
     const insertRows = parsedRows.filter((item) => {
       const referenceExists = existingRefs.has(String(item.reference_id || ''));
-      if (referenceExists) return false;
+      if (referenceExists) {
+        const existing = existingRowsByRef.get(String(item.reference_id || '').trim());
+        const patch = buildPatchByExisting(existing, item);
+        if (patch) updateRows.push(patch);
+        return false;
+      }
       const dedupKey = buildFinanceDedupKey(item);
       if (dedupKey && existingDedupKeys.has(dedupKey)) {
         const existing = existingRowsByDedup.get(dedupKey);
-        if (existing) {
-          const nextBillDay = item.card_bill_day || null;
-          const nextRepaymentDay = item.card_repayment_day || null;
-          const changed = (
-            (nextBillDay && Number(nextBillDay) !== Number(existing.card_bill_day || 0))
-            || (nextRepaymentDay && Number(nextRepaymentDay) !== Number(existing.card_repayment_day || 0))
-          );
-          if (changed) {
-            updateRows.push({
-              id: existing.id,
-              card_bill_day: nextBillDay || existing.card_bill_day || null,
-              card_repayment_day: nextRepaymentDay || existing.card_repayment_day || null
-            });
-          }
-        }
+        const patch = buildPatchByExisting(existing, item);
+        if (patch) updateRows.push(patch);
         return false;
       }
       return true;
@@ -1354,22 +1433,23 @@ async function syncOneUser({
       const dedupedUpdates = new Map();
       updateRows.forEach((row) => {
         if (!row?.id) return;
-        dedupedUpdates.set(String(row.id), row);
+        const key = String(row.id);
+        const prev = dedupedUpdates.get(key) || { id: row.id };
+        dedupedUpdates.set(key, { ...prev, ...row });
       });
       for (const row of dedupedUpdates.values()) {
+        const { id, ...payload } = row;
+        if (!id || !Object.keys(payload).length) continue;
         const { error: patchError } = await supabase
           .from('erp_finances')
-          .update({
-            card_bill_day: row.card_bill_day,
-            card_repayment_day: row.card_repayment_day
-          })
-          .eq('id', row.id);
+          .update(payload)
+          .eq('id', id);
         if (!patchError) patchedExisting += 1;
       }
       const cleanupResult = await cleanupSyncedDuplicatesForUser(supabase, userId);
       const suspiciousCleanup = await cleanupSuspiciousSyncedRows(supabase, userId);
       syncStatus = 'partial';
-      syncMessage = `无新增（已存在${existingRefs.size}条），更新日期${patchedExisting}，去重删除${cleanupResult.removed}，异常清理${suspiciousCleanup.removed}，补全日期${cleanupResult.patched}`;
+      syncMessage = `无新增（已存在${existingRefs.size}条），更新${patchedExisting}，去重删除${cleanupResult.removed}，异常清理${suspiciousCleanup.removed}，补全日期${cleanupResult.patched}`;
       console.log(`[QQ同步][${userId}] ${syncMessage}`);
       return { userId, ok: true, syncStatus, syncMessage };
     }
@@ -1389,22 +1469,23 @@ async function syncOneUser({
     const dedupedUpdates = new Map();
     updateRows.forEach((row) => {
       if (!row?.id) return;
-      dedupedUpdates.set(String(row.id), row);
+      const key = String(row.id);
+      const prev = dedupedUpdates.get(key) || { id: row.id };
+      dedupedUpdates.set(key, { ...prev, ...row });
     });
     for (const row of dedupedUpdates.values()) {
+      const { id, ...payload } = row;
+      if (!id || !Object.keys(payload).length) continue;
       const { error: patchError } = await supabase
         .from('erp_finances')
-        .update({
-          card_bill_day: row.card_bill_day,
-          card_repayment_day: row.card_repayment_day
-        })
-        .eq('id', row.id);
+        .update(payload)
+        .eq('id', id);
       if (!patchError) patchedExisting += 1;
     }
     const cleanupResult = await cleanupSyncedDuplicatesForUser(supabase, userId);
     const suspiciousCleanup = await cleanupSuspiciousSyncedRows(supabase, userId);
     syncStatus = inserted > 0 ? 'success' : 'partial';
-    syncMessage = `解析${parsedRows.length}，新增${inserted}，更新日期${patchedExisting}，关键词跳过${skippedByKeyword}，解析失败${parseFailed}，去重删除${cleanupResult.removed}，异常清理${suspiciousCleanup.removed}，补全日期${cleanupResult.patched}`;
+    syncMessage = `解析${parsedRows.length}，新增${inserted}，更新${patchedExisting}，关键词跳过${skippedByKeyword}，解析失败${parseFailed}，去重删除${cleanupResult.removed}，异常清理${suspiciousCleanup.removed}，补全日期${cleanupResult.patched}`;
     console.log(`[QQ同步][${userId}] 完成：${syncMessage}`);
     return { userId, ok: true, syncStatus, syncMessage };
   } catch (error) {

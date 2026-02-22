@@ -6666,20 +6666,39 @@ function detectBankBusinessModeByText(text) {
 function extractCardTailFromText(text) {
     const source = String(text || '');
     if (!source) return '';
-    const patterns = [
+    const scoreMap = new Map();
+    const addCandidate = (tail, score = 1) => {
+        const value = String(tail || '').replace(/\D/g, '').slice(-4);
+        if (!/^\d{4}$/.test(value)) return;
+        scoreMap.set(value, (scoreMap.get(value) || 0) + score);
+    };
+
+    const cardNoTablePattern = /(?:^|\n)\s*(?:20\d{6})\s+(?:20\d{6})[\s\S]{0,90}?\b(\d{4})\b\s+[¥￥$]?\s*-?\d/g;
+    for (const match of source.matchAll(cardNoTablePattern)) {
+        addCandidate(match?.[1], 6);
+    }
+
+    const cardNoHeaderIndex = source.search(/Card\s*No\.?|卡号末四位|卡号后四位/i);
+    if (cardNoHeaderIndex >= 0) {
+        const cardNoWindow = source.slice(cardNoHeaderIndex, Math.min(source.length, cardNoHeaderIndex + 2200));
+        const cardNoDigits = cardNoWindow.match(/\b\d{4}\b/g) || [];
+        cardNoDigits.forEach((tail) => addCandidate(tail, 2));
+    }
+
+    const labeledPatterns = [
         /(?:卡片尾号|卡号末四位|卡号末4位|账户尾号|尾号|末四位|末4位|Card\s*No\.?|CardNo\.?)[^0-9]{0,48}((?:\d[\s\-*•·]*){4,10})/ig,
         /(?:\*{2,}|X{2,}|x{2,})\s*((?:\d[\s\-]*){4,6})/g
     ];
-    for (const pattern of patterns) {
-        const matches = Array.from(source.matchAll(pattern));
-        for (const match of matches) {
+    for (const pattern of labeledPatterns) {
+        for (const match of source.matchAll(pattern)) {
             const digits = String(match?.[1] || '').replace(/\D/g, '');
-            if (digits.length >= 4) {
-                return digits.slice(-4);
-            }
+            if (digits.length >= 4) addCandidate(digits.slice(-4), 1);
         }
     }
-    return '';
+
+    const ranked = Array.from(scoreMap.entries())
+        .sort((a, b) => b[1] - a[1] || Number(b[0]) - Number(a[0]));
+    return ranked[0]?.[0] || '';
 }
 
 function parseEmailStatementContent(rawText, mode = 'auto') {

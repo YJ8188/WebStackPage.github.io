@@ -107,6 +107,11 @@ const bankBusinessEditState = {
     mode: '',
     cardTail: ''
 };
+const bankRepaymentQuickState = {
+    active: false,
+    sourceFinanceId: null,
+    sourceOutstanding: 0
+};
 const bankRepaymentHistoryState = {
     bank: '',
     cardTail: '',
@@ -5794,7 +5799,7 @@ function isBankBusinessFinanceRecord(record) {
     const businessType = String(record?.business_type || '').trim().toLowerCase();
     const category = String(record?.category || '').trim();
     const description = String(record?.description || '').trim();
-    if (['credit_card', 'credit_card_repayment', 'credit_card_swipe'].includes(businessType)) return true;
+    if (['credit_card', 'credit_card_repayment', 'credit_card_swipe', 'credit_card_repayment_payment'].includes(businessType)) return true;
     if (category.includes('信用卡业务') || category.includes('信用卡还款') || category.includes('信用卡刷卡')) return true;
     return /银行[:：]/.test(description) && /刷卡[:：]/.test(description);
 }
@@ -5858,7 +5863,8 @@ function parseBankBusinessRecord(record) {
     const description = String(record?.description || '');
     const businessType = String(record?.business_type || '').trim().toLowerCase();
     const category = String(record?.category || '').trim();
-    const isRepayment = businessType === 'credit_card_repayment' || category.includes('信用卡还款');
+    const isRepaymentPayment = businessType === 'credit_card_repayment_payment' || category.includes('还款记录');
+    const isRepayment = !isRepaymentPayment && (businessType === 'credit_card_repayment' || category.includes('信用卡还款'));
     const isSwipe = businessType === 'credit_card_swipe' || category.includes('信用卡刷卡');
     const bankMatch = description.match(/银行[:：]\s*([^；\n]+)/);
     const swipeBankMatch = description.match(/刷卡卡[:：]\s*([^；\n]+)/);
@@ -5879,7 +5885,7 @@ function parseBankBusinessRecord(record) {
     const feeAmountRaw = parseBankBusinessAmount(record, 'card_fee_amount', /手续费[:：]\s*[¥￥]?\s*([0-9]+(?:\.[0-9]+)?)/);
     const repaymentAmount = Number.isFinite(repaymentAmountRaw)
         ? repaymentAmountRaw
-        : (isRepayment ? Math.abs(Number(record?.amount || 0)) : 0);
+        : ((isRepayment || isRepaymentPayment) ? Math.abs(Number(record?.amount || 0)) : 0);
     const actualAmount = Number.isFinite(actualAmountRaw)
         ? actualAmountRaw
         : (isSwipe ? Math.abs(Number(record?.amount || 0)) : 0);
@@ -5946,6 +5952,7 @@ function parseBankBusinessRecord(record) {
         feeAmount: isSwipe ? (Number.isFinite(feeAmount) ? feeAmount : 0) : 0,
         feeRate: isSwipe ? (Number.isFinite(feeRate) ? feeRate : 0) : 0,
         isRepayment,
+        isRepaymentPayment,
         isSwipe,
         transactionDate: parseFinanceDate(record?.transaction_date || record?.created_at || new Date()),
         description: cleanedDescription || '-',
@@ -5974,36 +5981,52 @@ function formatBankBillRepaymentText(record) {
         : new Date();
     const billDay = toValidDay(record?.billDay, 0);
     const repaymentDay = toValidDay(record?.repaymentDay, 0);
-    const billMonth = baseDate.getMonth();
-    const billYear = baseDate.getFullYear();
-
-    const billText = billDay ? `${billMonth + 1}月${billDay}日` : '-';
-    if (!repaymentDay) {
+    const dueDate = getBankRepaymentDueDate(record);
+    if (!repaymentDay || !(dueDate instanceof Date) || Number.isNaN(dueDate.getTime())) {
+        const billText = billDay ? `${baseDate.getMonth() + 1}月${billDay}日` : '-';
         return `${billText} / -`;
     }
 
-    const compareDay = billDay || baseDate.getDate();
-    const repaymentDate = repaymentDay < compareDay
-        ? new Date(billYear, billMonth + 1, 1)
-        : new Date(billYear, billMonth, 1);
-    const repaymentMonth = repaymentDate.getMonth();
-    const repaymentYear = repaymentDate.getFullYear();
-    const repaymentTextBase = `${repaymentMonth + 1}月${repaymentDay}日`;
-    const repaymentText = repaymentYear === billYear
-        ? repaymentTextBase
-        : `${repaymentYear}年${repaymentTextBase}`;
-
+    const dueYear = dueDate.getFullYear();
+    const dueMonth = dueDate.getMonth();
+    let billYear = baseDate.getFullYear();
+    let billMonth = baseDate.getMonth();
+    if (billDay) {
+        if (repaymentDay < billDay) {
+            const billDate = new Date(dueYear, dueMonth - 1, 1);
+            billYear = billDate.getFullYear();
+            billMonth = billDate.getMonth();
+        } else {
+            billYear = dueYear;
+            billMonth = dueMonth;
+        }
+    }
+    const billTextBase = billDay ? `${billMonth + 1}月${billDay}日` : '-';
+    const billText = billDay && billYear !== dueYear ? `${billYear}年${billTextBase}` : billTextBase;
+    const repaymentTextBase = `${dueMonth + 1}月${repaymentDay}日`;
+    const repaymentText = dueYear === billYear ? repaymentTextBase : `${dueYear}年${repaymentTextBase}`;
     return `${billText} / ${repaymentText}`;
 }
 
-function getBankRepaymentDueDateForSort(record) {
+function getBankRepaymentDueDate(record) {
     const baseDate = record?.transactionDate instanceof Date && !Number.isNaN(record.transactionDate.getTime())
         ? record.transactionDate
         : new Date();
     const billDay = toValidDay(record?.billDay, 0);
     const repaymentDay = toValidDay(record?.repaymentDay, 0);
     if (!repaymentDay) {
-        return Number.POSITIVE_INFINITY;
+        return null;
+    }
+    const reminderDate = record?.reminderDate instanceof Date && !Number.isNaN(record.reminderDate.getTime())
+        ? record.reminderDate
+        : null;
+    const reminderDaysBefore = Math.max(0, Number(record?.reminderDaysBefore || 0));
+    if (reminderDate) {
+        const dueByReminder = new Date(reminderDate.getFullYear(), reminderDate.getMonth(), reminderDate.getDate(), 23, 59, 59, 999);
+        dueByReminder.setDate(dueByReminder.getDate() + reminderDaysBefore);
+        const lastDay = new Date(dueByReminder.getFullYear(), dueByReminder.getMonth() + 1, 0).getDate();
+        dueByReminder.setDate(Math.min(repaymentDay, lastDay));
+        return Number.isNaN(dueByReminder.getTime()) ? null : dueByReminder;
     }
     const compareDay = billDay || baseDate.getDate();
     const targetYear = baseDate.getFullYear();
@@ -6011,7 +6034,15 @@ function getBankRepaymentDueDateForSort(record) {
     const monthLastDay = new Date(targetYear, targetMonth + 1, 0).getDate();
     const targetDay = Math.min(repaymentDay, monthLastDay);
     const targetDate = new Date(targetYear, targetMonth, targetDay, 23, 59, 59, 999);
-    return Number.isNaN(targetDate.getTime()) ? Number.POSITIVE_INFINITY : targetDate.getTime();
+    return Number.isNaN(targetDate.getTime()) ? null : targetDate;
+}
+
+function getBankRepaymentDueDateForSort(record) {
+    const dueDate = getBankRepaymentDueDate(record);
+    if (!(dueDate instanceof Date) || Number.isNaN(dueDate.getTime())) {
+        return Number.POSITIVE_INFINITY;
+    }
+    return dueDate.getTime();
 }
 
 function syncBankBusinessRows(rows = [], source = 'all') {
@@ -6043,11 +6074,12 @@ function renderBankBusiness(rows = null) {
     const tbody = document.getElementById('bankingTableBody');
     if (!tbody) return;
 
-    const source = Array.isArray(rows)
+    const sourceAll = Array.isArray(rows)
         ? rows
         : (Array.isArray(bankBusinessViewState.currentRows) && bankBusinessViewState.currentRows.length
             ? bankBusinessViewState.currentRows
             : getBankBusinessRecords().map(parseBankBusinessRecord));
+    const source = sourceAll.filter(item => !item?.isRepaymentPayment);
 
     const sorted = [...source].sort((a, b) => {
         const leftDueTs = getBankRepaymentDueDateForSort(a);
@@ -6477,6 +6509,62 @@ function getNowDateTimeLocalValue() {
     return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
+function resetBankRepaymentQuickState() {
+    bankRepaymentQuickState.active = false;
+    bankRepaymentQuickState.sourceFinanceId = null;
+    bankRepaymentQuickState.sourceOutstanding = 0;
+}
+
+function setRepaymentFieldGroupVisible(fieldId, visible) {
+    const field = document.getElementById(fieldId);
+    if (!field) return;
+    const group = field.closest('.form-group');
+    if (group) {
+        group.style.display = visible ? '' : 'none';
+    }
+}
+
+function setRepaymentGridVisible(fieldId, visible) {
+    const field = document.getElementById(fieldId);
+    if (!field) return;
+    const grid = field.closest('.erp-form-grid-2');
+    if (grid) {
+        grid.style.display = visible ? '' : 'none';
+    }
+}
+
+function toggleBankRepaymentQuickMode(enabled, context = {}) {
+    const modal = document.getElementById('bankingRepaymentModal');
+    const amountInput = document.getElementById('bankingRepaymentAmount');
+    const ruleHintEl = document.getElementById('bankingRuleHint');
+    if (!modal || !amountInput) return;
+
+    setRepaymentFieldGroupVisible('bankingRepaymentTransactionDate', !enabled);
+    setRepaymentFieldGroupVisible('bankingRepaymentCardBank', !enabled);
+    setRepaymentFieldGroupVisible('bankingRepaymentCardTail', !enabled);
+    setRepaymentGridVisible('bankingRepaymentBillDay', !enabled);
+    setRepaymentGridVisible('bankingRepaymentReminderEnabled', !enabled);
+    setRepaymentFieldGroupVisible('bankingRepaymentDescription', !enabled);
+
+    const amountLabel = amountInput.closest('.form-group')?.querySelector('label');
+    if (amountLabel) {
+        amountLabel.innerHTML = enabled
+            ? '本次还款金额 <span class="erp-required-star">*</span>'
+            : '应还金额 <span class="erp-required-star">*</span>';
+    }
+
+    if (ruleHintEl) {
+        ruleHintEl.style.display = '';
+        if (enabled) {
+            const outstanding = Math.max(0, Number(context.outstanding || 0));
+            ruleHintEl.textContent = `当前应还：${toMoneyText(outstanding)}。请输入本次还款金额，可部分还款或一次还清，保存后自动扣减应还金额。`;
+        } else {
+            updateBankingRuleHint();
+        }
+    }
+    amountInput.placeholder = enabled ? '请输入本次还款金额（支持部分还款）' : '本期需还金额';
+}
+
 function showBankRepaymentModal(prefill = null, options = {}) {
     const modal = document.getElementById('bankingRepaymentModal');
     const form = document.getElementById('bankingRepaymentForm');
@@ -6554,6 +6642,11 @@ function showBankRepaymentModal(prefill = null, options = {}) {
         bankBusinessEditState.cardTail = '';
         if (titleEl) titleEl.textContent = isQuickRepay ? '登记还款' : '新增还款业务';
         if (saveBtn) saveBtn.textContent = isQuickRepay ? '确认还款' : '保存';
+        if (isQuickRepay) {
+            bankRepaymentQuickState.active = true;
+            bankRepaymentQuickState.sourceFinanceId = prefill.id || null;
+            bankRepaymentQuickState.sourceOutstanding = Math.max(0, Number(prefill.repaymentAmount || 0));
+        }
     } else {
         bankBusinessEditState.financeId = null;
         bankBusinessEditState.mode = '';
@@ -6562,7 +6655,20 @@ function showBankRepaymentModal(prefill = null, options = {}) {
         if (saveBtn) saveBtn.textContent = isQuickRepay ? '确认还款' : '保存';
     }
 
-    updateBankingRuleHint();
+    if (isQuickRepay) {
+        toggleBankRepaymentQuickMode(true, { outstanding: bankRepaymentQuickState.sourceOutstanding });
+        const amountInput = document.getElementById('bankingRepaymentAmount');
+        if (amountInput && Number(bankRepaymentQuickState.sourceOutstanding) > 0) {
+            amountInput.value = String(bankRepaymentQuickState.sourceOutstanding);
+        }
+    } else {
+        toggleBankRepaymentQuickMode(false);
+        resetBankRepaymentQuickState();
+    }
+
+    if (!isQuickRepay) {
+        updateBankingRuleHint();
+    }
     clearModalFieldValidation('bankingRepaymentModal');
     modal.classList.add('active');
     modal.style.display = 'flex';
@@ -6576,6 +6682,8 @@ function hideBankRepaymentModal() {
         bankBusinessEditState.mode = '';
         bankBusinessEditState.cardTail = '';
     }
+    toggleBankRepaymentQuickMode(false);
+    resetBankRepaymentQuickState();
     modal.classList.remove('active');
     modal.style.display = '';
 }
@@ -7200,6 +7308,7 @@ function parseEmailStatementContent(rawText, mode = 'auto') {
     const cardTail = extractCardTailFromText(parseText);
 
     const billDayMatch = parseText.match(/账单日[：:\s]*(?:每月)?\s*(\d{1,2})\s*日?(?!\d)/);
+    const billDayEnglishMatch = parseText.match(/(?:Statement\s*Due\s*Date|Statement\s*Date)[^0-9]{0,30}(\d{1,2})(?!\d)/i);
     const repaymentDayMatch = parseText.match(/(?:还款日|到期还款日|最后还款日)[：:\s]*(?:每月)?\s*(\d{1,2})\s*日?(?!\d)/);
     const dueDate = matchDateByPatterns(parseText, [
         /(?:最后还款日|到期还款日|本期还款日|Payment\s*Due\s*Date)[：:\s]*([0-9]{8})/i,
@@ -7239,6 +7348,7 @@ function parseEmailStatementContent(rawText, mode = 'auto') {
     let billDay = toValidDay(billDayMatch?.[1], 0);
     let repaymentDay = toValidDay(repaymentDayMatch?.[1], 0);
     if (!repaymentDay && dueDate) repaymentDay = dueDate.getDate();
+    if (!billDay && billDayEnglishMatch?.[1]) billDay = toValidDay(billDayEnglishMatch[1], 0);
     if (!billDay && statementDate) billDay = statementDate.getDate();
 
     const descriptionLine = normalizedText.split('\n')
@@ -7458,7 +7568,141 @@ async function persistBankBusinessFinance(financeData, modalSelector, hideModal,
     }
 }
 
+async function submitQuickBankRepayment() {
+    clearModalFieldValidation('bankingRepaymentModal');
+    const sourceId = bankRepaymentQuickState.sourceFinanceId;
+    const source = findParsedBankBusinessById(sourceId);
+    if (!source || !source.isRepayment) {
+        showToast('未找到可登记的还款账单，请刷新后重试', 'error');
+        return;
+    }
+
+    const paymentAmount = Math.max(0, toAmount(document.getElementById('bankingRepaymentAmount')?.value, NaN));
+    if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
+        markFieldInvalid('bankingRepaymentAmount', '请输入本次还款金额');
+        return;
+    }
+
+    const currentOutstanding = Math.max(0, Number(source.repaymentAmount || bankRepaymentQuickState.sourceOutstanding || 0));
+    if (paymentAmount > currentOutstanding + 0.0001) {
+        markFieldInvalid('bankingRepaymentAmount', `本次还款不能大于当前应还（${toMoneyText(currentOutstanding)}）`);
+        return;
+    }
+    const remainingAmount = Number(Math.max(0, currentOutstanding - paymentAmount).toFixed(2));
+
+    const bank = String(source.bank || '').trim();
+    const cardTail = normalizeTail4(source.cardTail || '');
+    const billDay = toValidDay(source.billDay, 0);
+    const repaymentDay = toValidDay(source.repaymentDay, 0);
+    const sourceTransactionDate = normalizeFinanceDateTimeForDb(source?.raw?.transaction_date || source?.transactionDate || new Date().toISOString());
+    const payTransactionDate = normalizeFinanceDateTimeForDb(getNowDateTimeLocalValue());
+    if (!sourceTransactionDate || !payTransactionDate) {
+        showToast('还款日期解析失败，请重试', 'error');
+        return;
+    }
+
+    const saveBtn = document.querySelector('#bankingRepaymentModal .ant-btn-primary');
+    const originalText = saveBtn ? saveBtn.textContent : '';
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = '处理中...';
+    }
+
+    try {
+        const paymentRecord = {
+            business_type: 'credit_card_repayment_payment',
+            type: 'expense',
+            category: '还款记录',
+            amount: paymentAmount,
+            description: [
+                '来源：手动登记还款',
+                `银行：${bank}${cardTail ? `（尾号${cardTail}）` : ''}`,
+                `本次还款：${toMoneyText(paymentAmount)}`,
+                `原应还：${toMoneyText(currentOutstanding)}`,
+                `剩余应还：${toMoneyText(remainingAmount)}`
+            ].join('；'),
+            transaction_date: payTransactionDate,
+            card_bank: bank,
+            card_bill_day: billDay || null,
+            card_repayment_day: repaymentDay || null,
+            card_repayment_amount: paymentAmount,
+            reminder_enabled: false,
+            reminder_days_before: null,
+            reminder_date: null
+        };
+        const inserted = await ERP.addFinance(paymentRecord);
+        if (!inserted) {
+            throw new Error('还款登记失败，请稍后重试');
+        }
+
+        const reminderEnabled = remainingAmount > 0 ? !!source.reminderEnabled : false;
+        const reminderDaysBefore = reminderEnabled ? Math.max(0, Number(source.reminderDaysBefore || 3)) : 0;
+        const reminderDateObj = reminderEnabled
+            ? (source.reminderDate instanceof Date && !Number.isNaN(source.reminderDate.getTime())
+                ? source.reminderDate
+                : getCreditReminderDate(sourceTransactionDate, repaymentDay, reminderDaysBefore))
+            : null;
+        const recommendation = buildBankCycleRecommendation(sourceTransactionDate, billDay, repaymentDay);
+        const recommendationText = recommendation
+            ? `建议：账单后刷卡 ${formatRuleDate(recommendation.recommendSwipeStart)}~${formatRuleDate(recommendation.recommendSwipeEnd)}，还款建议 ${formatRuleDate(recommendation.recommendRepayDate)}`
+            : '';
+        const reminderText = reminderEnabled
+            ? `提醒：提前${reminderDaysBefore}天（${reminderDateObj ? formatFinanceDateText(reminderDateObj) : '待计算'}）`
+            : '提醒：关闭';
+        const baseDescription = source.description && source.description !== '-' ? source.description : '登记还款';
+        const updatedSourceRecord = {
+            business_type: 'credit_card_repayment',
+            type: 'expense',
+            category: '信用卡还款',
+            amount: remainingAmount,
+            description: [
+                baseDescription,
+                `银行：${bank}${cardTail ? `（尾号${cardTail}）` : ''}`,
+                `应还：${toMoneyText(remainingAmount)}`,
+                `账单日：${billDay ? `每月${billDay}日` : '-'}`,
+                `还款日：${repaymentDay ? `每月${repaymentDay}日` : '-'}`,
+                reminderText,
+                recommendationText,
+                remainingAmount <= 0 ? '状态：已结清' : ''
+            ].filter(Boolean).join('；'),
+            transaction_date: sourceTransactionDate,
+            card_bank: bank,
+            card_bill_day: billDay || null,
+            card_repayment_day: repaymentDay || null,
+            card_repayment_amount: remainingAmount,
+            reminder_enabled: reminderEnabled,
+            reminder_days_before: reminderEnabled ? reminderDaysBefore : 0,
+            reminder_date: reminderDateObj ? reminderDateObj.toISOString() : null
+        };
+        const updated = await ERP.updateFinance(source.id, updatedSourceRecord);
+        if (!updated) {
+            throw new Error('扣减应还金额失败，请稍后重试');
+        }
+
+        hideBankRepaymentModal();
+        const finances = await ERP.loadFinances(true);
+        const generalRows = getGeneralFinanceRecords(finances);
+        syncFinanceViewRows(generalRows, 'all');
+        renderFinances(generalRows);
+        applyBankBusinessFilters();
+        updateStatistics();
+        showToast(remainingAmount > 0 ? `登记成功，剩余应还 ${toMoneyText(remainingAmount)}` : '登记成功，账单已结清', 'success');
+    } catch (error) {
+        console.error('[ERP Ant] 登记还款失败:', error);
+        showToast(`登记失败：${error?.message || '请稍后重试'}`, 'error');
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = originalText;
+        }
+    }
+}
+
 async function saveBankRepayment() {
+    if (bankRepaymentQuickState.active) {
+        await submitQuickBankRepayment();
+        return;
+    }
     clearModalFieldValidation('bankingRepaymentModal');
     const transactionDateRaw = document.getElementById('bankingRepaymentTransactionDate')?.value;
     const selectedBankValue = String(document.getElementById('bankingRepaymentCardBank')?.value || '').trim();
@@ -7766,7 +8010,7 @@ function showBankRepaymentHistory(financeId) {
 
     const allRows = getBankBusinessRecords().map(parseBankBusinessRecord);
     const repaymentRows = allRows.filter(item => {
-        if (!item?.isRepayment) return false;
+        if (!item?.isRepayment && !item?.isRepaymentPayment) return false;
         if (String(item?.bank || '').trim() !== bank) return false;
         if (cardTail) {
             return normalizeTail4(item?.cardTail || '') === cardTail;

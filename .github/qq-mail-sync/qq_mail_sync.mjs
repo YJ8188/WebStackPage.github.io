@@ -104,6 +104,12 @@ function parseDateToken(rawText) {
     return Number.isNaN(date.getTime()) ? null : date;
   }
 
+  match = normalized.match(/(20\d{2})(\d{2})(\d{2})/);
+  if (match) {
+    const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 9, 0, 0);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
   match = normalized.match(/(\d{1,2})-(\d{1,2})/);
   if (match) {
     const now = new Date();
@@ -143,7 +149,7 @@ function extractDateByLabels(text, labels = []) {
   if (!escapedLabels.length) return null;
   const labelGroup = escapedLabels.join('|');
   const regex = new RegExp(
-    `(?:${labelGroup})[\\s\\S]{0,420}?((?:20\\d{2}[年/\\-.]\\d{1,2}[月/\\-.]\\d{1,2}日?)|(?:\\d{1,2}[\\/\\-.]\\d{1,2}))`,
+    `(?:${labelGroup})[\\s\\S]{0,420}?((?:20\\d{2}[年/\\-.]?\\d{1,2}[月/\\-.]?\\d{1,2}日?)|(?:\\d{1,2}[\\/\\-.]\\d{1,2}))`,
     'i'
   );
   const match = source.match(regex);
@@ -379,19 +385,22 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
 
   const billDay = extractDay(text, [
     /(?:账单日|账单日期|出账日|结单日|账单生成日)[：:\s]{0,16}(?:每月|每期)?\s*((?:[12]?\d|3[01]))\s*日/i,
-    /(?:每月|每期)\s*((?:[12]?\d|3[01]))\s*日[^。\n]{0,20}(?:账单日|出账日|结单日)/i
+    /(?:每月|每期)\s*((?:[12]?\d|3[01]))\s*日[^。\n]{0,20}(?:账单日|出账日|结单日)/i,
+    /(?:Statement\s*Due\s*Date|Statement\s*Date)[^0-9]{0,24}((?:[12]?\d|3[01]))(?!\d)/i
   ]);
   const repaymentDay = extractDay(text, [
     /(?:还款日|最后还款日|到期还款日|本期还款日|最迟还款日)[：:\s]{0,16}(?:每月|每期)?\s*((?:[12]?\d|3[01]))\s*日/i,
     /(?:每月|每期)\s*((?:[12]?\d|3[01]))\s*日(?:为)?[^。\n]{0,8}(?:还款日|最后还款日|到期还款日|最迟还款日)/i
   ]);
   const statementDate = statementDateByLabel || statementPeriodEndDate || extractDate(text, [
+    /(?:账单日期|账单日|交易日期|记账日)[：:\s]*([0-9]{8})/,
     /(?:账单日期|账单日|交易日期|记账日)[：:\s]*([0-9]{4}[年\/\-.][0-9]{1,2}[月\/\-.][0-9]{1,2}日?)/,
     /(?:账单日期|账单日|交易日期|记账日|出账日期|结单日期)[：:\s]*([0-9]{1,2}[\/\-.][0-9]{1,2})/
   ]);
   const dueDate = dueDateByLabel || extractDate(text, [
+    /(?:最后还款日|到期还款日|本期还款日|Payment\s*Due\s*Date|Due\s*Date)[：:\s]*([0-9]{8})/i,
     /(?:最后还款日|到期还款日|本期还款日)[：:\s]*([0-9]{4}[年\/\-.][0-9]{1,2}[月\/\-.][0-9]{1,2}日?)/,
-    /(?:最后还款日|到期还款日|本期还款日|最迟还款日)[：:\s]*([0-9]{1,2}[\/\-.][0-9]{1,2})/
+    /(?:最后还款日|到期还款日|本期还款日|最迟还款日|Payment\s*Due\s*Date|Due\s*Date)[：:\s]*([0-9]{1,2}[\/\-.][0-9]{1,2})/i
   ]);
   const mailDate = parsedDate instanceof Date && !Number.isNaN(parsedDate.getTime()) ? parsedDate : new Date();
   const transactionDate = statementDate || mailDate;

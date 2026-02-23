@@ -104,7 +104,11 @@ const bankBusinessViewState = {
 };
 const bankBusinessSelectionState = {
     selectedIds: new Set(),
-    visibleIds: []
+    visibleIds: [],
+    visibleIdsBySection: {
+        repayment: [],
+        swipe: []
+    }
 };
 const bankBusinessEditState = {
     financeId: null,
@@ -134,6 +138,8 @@ const tablePaginationState = {
     inventory: { page: 1, pageSize: 10 },
     finances: { page: 1, pageSize: 10 },
     banking: { page: 1, pageSize: 10 },
+    bankingRepayment: { page: 1, pageSize: 10 },
+    bankingSwipe: { page: 1, pageSize: 10 },
     purchaseRecords: { page: 1, pageSize: 10 }
 };
 const tableRenderCacheState = {
@@ -143,6 +149,8 @@ const tableRenderCacheState = {
     inventory: [],
     finances: [],
     banking: [],
+    bankingRepayment: [],
+    bankingSwipe: [],
     purchaseRecords: []
 };
 const dashboardItemCacheState = {
@@ -313,6 +321,12 @@ function rerenderByPaginationModule(moduleKey) {
         case 'banking':
             if (typeof renderBankBusiness === 'function') renderBankBusiness(rows);
             break;
+        case 'bankingRepayment':
+        case 'bankingSwipe':
+            if (typeof renderBankBusiness === 'function') {
+                renderBankBusiness(Array.isArray(bankBusinessViewState.currentRows) ? bankBusinessViewState.currentRows : rows);
+            }
+            break;
         case 'purchaseRecords':
             if (typeof renderPurchaseRecords === 'function') renderPurchaseRecords(rows);
             break;
@@ -340,10 +354,23 @@ function normalizeBankBusinessRowId(value) {
     return String(value ?? '').trim();
 }
 
-function syncBankBusinessSelectionVisibleRows(rows = []) {
-    bankBusinessSelectionState.visibleIds = (Array.isArray(rows) ? rows : [])
+function syncBankBusinessSelectionVisibleRows(rows = [], section = 'all') {
+    const normalizedIds = (Array.isArray(rows) ? rows : [])
         .map(item => normalizeBankBusinessRowId(item?.id))
         .filter(Boolean);
+
+    if (section === 'repayment' || section === 'swipe') {
+        bankBusinessSelectionState.visibleIdsBySection[section] = normalizedIds;
+        bankBusinessSelectionState.visibleIds = Array.from(new Set([
+            ...bankBusinessSelectionState.visibleIdsBySection.repayment,
+            ...bankBusinessSelectionState.visibleIdsBySection.swipe
+        ]));
+        return;
+    }
+
+    bankBusinessSelectionState.visibleIds = normalizedIds;
+    bankBusinessSelectionState.visibleIdsBySection.repayment = [];
+    bankBusinessSelectionState.visibleIdsBySection.swipe = [];
 }
 
 function pruneBankBusinessSelectionByAllRows() {
@@ -363,15 +390,25 @@ function isBankBusinessRowSelected(financeId) {
     return id ? bankBusinessSelectionState.selectedIds.has(id) : false;
 }
 
-function renderBankBusinessHeaderCheckboxState() {
-    const checkbox = document.getElementById('bankingSelectAllCheckbox');
-    if (!checkbox) {
-        return;
-    }
-    const visibleIds = bankBusinessSelectionState.visibleIds || [];
-    const selectedVisible = visibleIds.filter(id => bankBusinessSelectionState.selectedIds.has(id)).length;
-    checkbox.checked = visibleIds.length > 0 && selectedVisible === visibleIds.length;
-    checkbox.indeterminate = selectedVisible > 0 && selectedVisible < visibleIds.length;
+function renderBankBusinessHeaderCheckboxState(section = 'all') {
+    const sectionConfig = [
+        { key: 'repayment', checkboxId: 'bankingRepaymentSelectAllCheckbox' },
+        { key: 'swipe', checkboxId: 'bankingSwipeSelectAllCheckbox' }
+    ];
+    const targets = section === 'all'
+        ? sectionConfig
+        : sectionConfig.filter(item => item.key === section);
+
+    targets.forEach((target) => {
+        const checkbox = document.getElementById(target.checkboxId);
+        if (!checkbox) {
+            return;
+        }
+        const visibleIds = bankBusinessSelectionState.visibleIdsBySection[target.key] || [];
+        const selectedVisible = visibleIds.filter(id => bankBusinessSelectionState.selectedIds.has(id)).length;
+        checkbox.checked = visibleIds.length > 0 && selectedVisible === visibleIds.length;
+        checkbox.indeterminate = selectedVisible > 0 && selectedVisible < visibleIds.length;
+    });
 }
 
 function updateBankBusinessBatchActionState() {
@@ -398,19 +435,28 @@ function onBankBusinessRowCheckedChange(financeId, checked) {
     updateBankBusinessBatchActionState();
 }
 
-function onBankBusinessSelectAllVisible(checked) {
+function onBankBusinessSelectAllVisible(checked, section = 'all') {
     const shouldCheck = !!checked;
-    (bankBusinessSelectionState.visibleIds || []).forEach(id => {
+    const sectionIds = section === 'repayment' || section === 'swipe'
+        ? (bankBusinessSelectionState.visibleIdsBySection[section] || [])
+        : (bankBusinessSelectionState.visibleIds || []);
+
+    sectionIds.forEach(id => {
         if (shouldCheck) {
             bankBusinessSelectionState.selectedIds.add(id);
         } else {
             bankBusinessSelectionState.selectedIds.delete(id);
         }
     });
-    document.querySelectorAll('.erp-banking-row-checkbox').forEach(checkbox => {
+
+    const rowSelector = section === 'repayment' || section === 'swipe'
+        ? `.erp-banking-row-checkbox[data-section="${section}"]`
+        : '.erp-banking-row-checkbox';
+    document.querySelectorAll(rowSelector).forEach(checkbox => {
         checkbox.checked = shouldCheck;
     });
-    renderBankBusinessHeaderCheckboxState();
+
+    renderBankBusinessHeaderCheckboxState(section);
     updateBankBusinessBatchActionState();
 }
 
@@ -6141,13 +6187,20 @@ function parseBankBusinessRecord(record) {
     if (typeof reminderEnabled !== 'boolean') {
         reminderEnabled = !/提醒[:：]\s*关闭/.test(description);
     }
+    if (!isRepayment) {
+        reminderEnabled = false;
+    }
 
     const reminderDaysBeforeRaw = Math.max(0, Math.floor(toAmount(record?.reminder_days_before || reminderDayMatch?.[1], 0)));
-    const reminderDaysBefore = reminderDaysBeforeRaw || (isRepayment && reminderEnabled ? 3 : 0);
+    const reminderDaysBefore = isRepayment
+        ? (reminderDaysBeforeRaw || (reminderEnabled ? 3 : 0))
+        : 0;
     const reminderDateRaw = parseFinanceDate(record?.reminder_date || reminderDateMatch?.[1] || null);
-    const reminderDate = reminderDateRaw || (reminderEnabled && isRepayment
-        ? getCreditReminderDate(record?.transaction_date || record?.created_at || new Date(), toValidDay(record?.card_repayment_day || repaymentMatch?.[1], 0), reminderDaysBefore)
-        : null);
+    const reminderDate = isRepayment
+        ? (reminderDateRaw || (reminderEnabled
+            ? getCreditReminderDate(record?.transaction_date || record?.created_at || new Date(), toValidDay(record?.card_repayment_day || repaymentMatch?.[1], 0), reminderDaysBefore)
+            : null))
+        : null;
     const cleanedDescription = description
         .split(/[；;]+/)
         .map(part => String(part || '').trim())
@@ -6166,6 +6219,7 @@ function parseBankBusinessRecord(record) {
         : NaN;
 
     const fallbackBillDayFromDate = (() => {
+        if (!isRepayment) return 0;
         const sourceDate = parseFinanceDate(record?.transaction_date || record?.created_at || null);
         if (!(sourceDate instanceof Date) || Number.isNaN(sourceDate.getTime())) return 0;
         return toValidDay(sourceDate.getDate(), 0);
@@ -6284,6 +6338,9 @@ function dedupeBankBusinessRowsForDisplay(rows = []) {
 }
 
 function getBankReminderStatus(record) {
+    if (!record?.isRepayment || record?.isRepaymentPayment) {
+        return { text: '-', className: 'is-off', isDue: false };
+    }
     if (!record.reminderEnabled) {
         return { text: '已关闭', className: 'is-off', isDue: false };
     }
@@ -6300,6 +6357,9 @@ function getBankReminderStatus(record) {
 }
 
 function formatBankBillRepaymentText(record) {
+    if (!record?.isRepayment || record?.isRepaymentPayment) {
+        return '-';
+    }
     const baseDate = record?.transactionDate instanceof Date && !Number.isNaN(record.transactionDate.getTime())
         ? record.transactionDate
         : new Date();
@@ -6451,9 +6511,8 @@ function updateBankBusinessSummary(rows = []) {
     if (dueEl) dueEl.textContent = String(dueCount);
 }
 
-function syncBankBusinessTableHeightByPageSize(pageSize = 10) {
-    const wrapper = document.getElementById('bankingTableWrapper')
-        || document.querySelector('#bankingView .ant-table-wrapper.erp-table-scroll.erp-block-table');
+function syncBankBusinessTableHeightByPageSize(pageSize = 10, wrapperId = 'bankingTableWrapper') {
+    const wrapper = document.getElementById(wrapperId);
     if (!wrapper) {
         return;
     }
@@ -6465,10 +6524,113 @@ function syncBankBusinessTableHeightByPageSize(pageSize = 10) {
     wrapper.style.overflowX = 'auto';
 }
 
-function renderBankBusiness(rows = null) {
-    const tbody = document.getElementById('bankingTableBody');
-    if (!tbody) return;
+function buildBankBusinessRowHtml(item, section = 'repayment') {
+    const itemIdText = String(item?.id ?? '').replace(/"/g, '&quot;');
+    const reminderMeta = getBankReminderStatus(item);
+    const dateText = toDateTimeText(item?.transactionDate || item?.raw?.transaction_date || '-');
+    const billRepaymentText = formatBankBillRepaymentText(item);
+    const reminderClass = `erp-bank-reminder ${reminderMeta.className}`;
+    const settlementText = (item.isSwipe && !item.isFeeOnly)
+        ? (item.settlementBank === '未识别'
+            ? '未识别'
+            : `${item.settlementBank}${item.settlementCardTail ? `（尾号${item.settlementCardTail}）` : ''}`)
+        : '-';
+    const repaymentAmountText = item.isRepayment ? toMoneyText(item.repaymentAmount) : '-';
+    const swipeAmountText = (item.isSwipe && !item.isFeeOnly) ? toMoneyText(item.swipeAmount) : '-';
+    const actualAmountText = (item.isSwipe && !item.isFeeOnly) ? toMoneyText(item.actualAmount) : '-';
+    const feeAmountText = item.isSwipe ? toMoneyText(item.feeAmount) : '-';
+    const feeRateText = (item.isSwipe && Number(item.feeRate || 0) > 0) ? `${Number(item.feeRate || 0).toFixed(2)}%` : '-';
+    const bankMainText = `${safeText(item.bank || '-')}${item.cardTail ? `（尾号${safeText(item.cardTail)}）` : ''}`;
+    const bankSubText = item.isFeeOnly
+        ? '手续费记录'
+        : (item.isSwipe
+            ? `刷卡银行：${safeText(item.swipeCardBank || item.bank || '-')}${item.cardTail ? `（尾号${safeText(item.cardTail)}）` : ''}`
+            : '');
 
+    return `
+        <tr>
+            <td class="banking-col-select">
+                <input class="erp-banking-row-checkbox" type="checkbox" data-id="${itemIdText}" data-section="${safeText(section)}"
+                    ${isBankBusinessRowSelected(item?.id) ? 'checked' : ''}
+                    onchange="onBankBusinessRowCheckedChange(this.getAttribute('data-id'), this.checked)">
+            </td>
+            <td class="erp-cell-nowrap">${safeText(dateText)}</td>
+            <td>
+                <div class="erp-finance-cell-main">${bankMainText}</div>
+                ${bankSubText ? `<div class="erp-finance-cell-sub">${bankSubText}</div>` : ''}
+            </td>
+            <td>${safeText(settlementText)}</td>
+            <td><span class="erp-amount-text is-expense">${safeText(repaymentAmountText)}</span></td>
+            <td><span class="erp-amount-text">${safeText(swipeAmountText)}</span></td>
+            <td><span class="erp-amount-text is-income">${safeText(actualAmountText)}</span></td>
+            <td>
+                <div class="erp-finance-cell-main"><span class="erp-amount-text is-expense">${safeText(feeAmountText)}</span></div>
+                <div class="erp-finance-cell-sub">费率：${safeText(feeRateText)}</div>
+            </td>
+            <td>${safeText(billRepaymentText)}</td>
+            <td><span class="${reminderClass}">${safeText(reminderMeta.text)}</span></td>
+            <td title="${safeText(item.description)}"><span class="erp-cell-ellipsis">${safeText(item.description)}</span></td>
+            <td class="erp-action-cell">
+                <div class="erp-row-actions">
+                    ${section === 'repayment' && item.isRepayment ? `<button class="ant-btn erp-btn-compact" onclick='quickCreateBankRepayment(${JSON.stringify(item.id)})'>还款</button>` : ''}
+                    <button class="ant-btn erp-btn-compact" onclick='showBankRepaymentHistory(${JSON.stringify(item.id)})'>还款记录</button>
+                    <button class="ant-btn erp-btn-compact" onclick='editBankBusiness(${JSON.stringify(item.id)})'>修改</button>
+                    <button class="ant-btn erp-btn-danger erp-btn-compact" onclick='deleteBankBusiness(${JSON.stringify(item.id)})'>删除</button>
+                </div>
+            </td>
+        </tr>
+    `;
+}
+
+function renderBankBusinessSection(options = {}) {
+    const {
+        section = 'repayment',
+        moduleKey = 'banking',
+        wrapperId = '',
+        tbodyId = '',
+        pagerId = '',
+        emptyText = '暂无数据',
+        rows = []
+    } = options;
+    const tbody = document.getElementById(tbodyId);
+    if (!tbody) {
+        return;
+    }
+
+    const paginationState = ensureTablePaginationModuleState(moduleKey);
+    syncBankBusinessTableHeightByPageSize(paginationState.pageSize, wrapperId);
+
+    const sourceRows = Array.isArray(rows) ? rows : [];
+    if (!sourceRows.length) {
+        tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding:20px; color:#999;">${emptyText}</td></tr>`;
+        syncBankBusinessSelectionVisibleRows([], section);
+        if (typeof cacheTableRenderRows === 'function') {
+            cacheTableRenderRows(moduleKey, []);
+        }
+        if (typeof renderTablePagination === 'function') {
+            renderTablePagination(moduleKey, pagerId, { total: 0 });
+        }
+        return;
+    }
+
+    if (typeof cacheTableRenderRows === 'function') {
+        cacheTableRenderRows(moduleKey, sourceRows);
+    }
+    const pageData = (typeof getPaginatedRows === 'function')
+        ? getPaginatedRows(moduleKey, sourceRows)
+        : { rows: sourceRows };
+    syncBankBusinessTableHeightByPageSize(pageData?.pageSize || paginationState.pageSize, wrapperId);
+    const visibleRows = Array.isArray(pageData.rows) ? pageData.rows : sourceRows;
+    syncBankBusinessSelectionVisibleRows(visibleRows, section);
+
+    tbody.innerHTML = visibleRows.map(item => buildBankBusinessRowHtml(item, section)).join('');
+
+    if (typeof renderTablePagination === 'function') {
+        renderTablePagination(moduleKey, pagerId, pageData);
+    }
+}
+
+function renderBankBusiness(rows = null) {
     const sourceAll = Array.isArray(rows)
         ? rows
         : (Array.isArray(bankBusinessViewState.currentRows) && bankBusinessViewState.currentRows.length
@@ -6496,94 +6658,36 @@ function renderBankBusiness(rows = null) {
     });
 
     updateBankBusinessSummary(sorted);
-    const paginationState = ensureTablePaginationModuleState('banking');
-    syncBankBusinessTableHeightByPageSize(paginationState.pageSize);
-    if (!sorted.length) {
-        tbody.innerHTML = '<tr><td colspan="12" style="text-align:center; padding:20px; color:#999;">暂无银行业务数据</td></tr>';
-        syncBankBusinessSelectionVisibleRows([]);
-        pruneBankBusinessSelectionByAllRows();
-        renderBankBusinessHeaderCheckboxState();
-        updateBankBusinessBatchActionState();
-        if (typeof renderTablePagination === 'function') {
-            renderTablePagination('banking', 'bankingPager', { total: 0 });
-        }
-        return;
-    }
 
-    if (typeof cacheTableRenderRows === 'function') {
-        cacheTableRenderRows('banking', sorted);
-    }
-    const pageData = (typeof getPaginatedRows === 'function')
-        ? getPaginatedRows('banking', sorted)
-        : { rows: sorted };
-    syncBankBusinessTableHeightByPageSize(pageData?.pageSize || paginationState.pageSize);
-    const visibleRows = Array.isArray(pageData.rows) ? pageData.rows : sorted;
-    syncBankBusinessSelectionVisibleRows(visibleRows);
+    const repaymentRows = sorted.filter(item => item?.isRepayment && !item?.isRepaymentPayment);
+    const swipeRows = sorted.filter(item => item?.isSwipe && !item?.isRepaymentPayment);
+
+    syncBankBusinessSelectionVisibleRows([], 'repayment');
+    syncBankBusinessSelectionVisibleRows([], 'swipe');
+
+    renderBankBusinessSection({
+        section: 'repayment',
+        moduleKey: 'bankingRepayment',
+        wrapperId: 'bankingRepaymentTableWrapper',
+        tbodyId: 'bankingRepaymentTableBody',
+        pagerId: 'bankingRepaymentPager',
+        emptyText: '暂无信用卡还款流水',
+        rows: repaymentRows
+    });
+
+    renderBankBusinessSection({
+        section: 'swipe',
+        moduleKey: 'bankingSwipe',
+        wrapperId: 'bankingSwipeTableWrapper',
+        tbodyId: 'bankingSwipeTableBody',
+        pagerId: 'bankingSwipePager',
+        emptyText: '暂无刷卡流水',
+        rows: swipeRows
+    });
+
     pruneBankBusinessSelectionByAllRows();
-
-    tbody.innerHTML = visibleRows.map(item => {
-        const itemIdText = String(item?.id ?? '').replace(/"/g, '&quot;');
-        const reminderMeta = getBankReminderStatus(item);
-        const dateText = toDateTimeText(item?.transactionDate || item?.raw?.transaction_date || '-');
-        const billRepaymentText = formatBankBillRepaymentText(item);
-        const reminderClass = `erp-bank-reminder ${reminderMeta.className}`;
-        const settlementText = (item.isSwipe && !item.isFeeOnly)
-            ? (item.settlementBank === '未识别'
-                ? '未识别'
-                : `${item.settlementBank}${item.settlementCardTail ? `（尾号${item.settlementCardTail}）` : ''}`)
-            : '-';
-        const repaymentAmountText = item.isRepayment ? toMoneyText(item.repaymentAmount) : '-';
-        const swipeAmountText = (item.isSwipe && !item.isFeeOnly) ? toMoneyText(item.swipeAmount) : '-';
-        const actualAmountText = (item.isSwipe && !item.isFeeOnly) ? toMoneyText(item.actualAmount) : '-';
-        const feeAmountText = item.isSwipe ? toMoneyText(item.feeAmount) : '-';
-        const feeRateText = (item.isSwipe && Number(item.feeRate || 0) > 0) ? `${Number(item.feeRate || 0).toFixed(2)}%` : '-';
-        const bankMainText = `${safeText(item.bank || '-')}${item.cardTail ? `（尾号${safeText(item.cardTail)}）` : ''}`;
-        const bankSubText = item.isFeeOnly
-            ? '手续费记录'
-            : (item.isSwipe
-                ? `刷卡银行：${safeText(item.swipeCardBank || item.bank || '-')}${item.cardTail ? `（尾号${safeText(item.cardTail)}）` : ''}`
-                : '');
-        return `
-            <tr>
-                <td class="banking-col-select">
-                    <input class="erp-banking-row-checkbox" type="checkbox" data-id="${itemIdText}"
-                        ${isBankBusinessRowSelected(item?.id) ? 'checked' : ''}
-                        onchange="onBankBusinessRowCheckedChange(this.getAttribute('data-id'), this.checked)">
-                </td>
-                <td class="erp-cell-nowrap">${safeText(dateText)}</td>
-                <td>
-                    <div class="erp-finance-cell-main">${bankMainText}</div>
-                    ${bankSubText ? `<div class="erp-finance-cell-sub">${bankSubText}</div>` : ''}
-                </td>
-                <td>${safeText(settlementText)}</td>
-                <td><span class="erp-amount-text is-expense">${safeText(repaymentAmountText)}</span></td>
-                <td><span class="erp-amount-text">${safeText(swipeAmountText)}</span></td>
-                <td><span class="erp-amount-text is-income">${safeText(actualAmountText)}</span></td>
-                <td>
-                    <div class="erp-finance-cell-main"><span class="erp-amount-text is-expense">${safeText(feeAmountText)}</span></div>
-                    <div class="erp-finance-cell-sub">费率：${safeText(feeRateText)}</div>
-                </td>
-                <td>${safeText(billRepaymentText)}</td>
-                <td><span class="${reminderClass}">${safeText(reminderMeta.text)}</span></td>
-                <td title="${safeText(item.description)}"><span class="erp-cell-ellipsis">${safeText(item.description)}</span></td>
-                <td class="erp-action-cell">
-                    <div class="erp-row-actions">
-                        ${item.isRepayment ? `<button class="ant-btn erp-btn-compact" onclick='quickCreateBankRepayment(${JSON.stringify(item.id)})'>还款</button>` : ''}
-                        <button class="ant-btn erp-btn-compact" onclick='showBankRepaymentHistory(${JSON.stringify(item.id)})'>还款记录</button>
-                        <button class="ant-btn erp-btn-compact" onclick='editBankBusiness(${JSON.stringify(item.id)})'>修改</button>
-                        <button class="ant-btn erp-btn-danger erp-btn-compact" onclick='deleteBankBusiness(${JSON.stringify(item.id)})'>删除</button>
-                    </div>
-                </td>
-            </tr>
-        `;
-    }).join('');
-
     renderBankBusinessHeaderCheckboxState();
     updateBankBusinessBatchActionState();
-
-    if (typeof renderTablePagination === 'function') {
-        renderTablePagination('banking', 'bankingPager', pageData);
-    }
 }
 
 function applyBankBusinessFilters() {

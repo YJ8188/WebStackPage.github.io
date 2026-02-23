@@ -135,6 +135,8 @@ const qqMailAuthViewState = {
 const dailyNotesViewState = {
     keyword: '',
     currentId: null,
+    isDraftMode: false,
+    editorSessionToken: 0,
     draftPinned: false,
     initialized: false,
     autoSaveTimer: null,
@@ -7182,6 +7184,11 @@ function clearDailyNoteAutoSaveTimer() {
     }
 }
 
+function nextDailyNoteEditorSessionToken() {
+    dailyNotesViewState.editorSessionToken = Number(dailyNotesViewState.editorSessionToken || 0) + 1;
+    return dailyNotesViewState.editorSessionToken;
+}
+
 function buildDailyNoteSignature(payload = {}) {
     const title = String(payload?.title || '').trim();
     const html = normalizeDailyNoteHtml(payload?.content_html || '');
@@ -7246,12 +7253,13 @@ function scheduleDailyNoteAutoSave() {
         return;
     }
     clearDailyNoteAutoSaveTimer();
+    const sessionToken = Number(dailyNotesViewState.editorSessionToken || 0);
     dailyNotesViewState.autoSaveTimer = setTimeout(() => {
-        runDailyNoteAutoSave();
+        runDailyNoteAutoSave(sessionToken);
     }, dailyNotesViewState.autoSaveDelay);
 }
 
-async function runDailyNoteAutoSave() {
+async function runDailyNoteAutoSave(sessionToken = 0) {
     if (dailyNotesViewState.isAutoSaving) {
         return;
     }
@@ -7259,7 +7267,8 @@ async function runDailyNoteAutoSave() {
     try {
         await saveDailyNote({
             silent: true,
-            source: 'auto'
+            source: 'auto',
+            sessionToken
         });
     } finally {
         dailyNotesViewState.isAutoSaving = false;
@@ -7273,11 +7282,13 @@ function applyDailyNoteEditorState(note = null) {
         return;
     }
     dailyNotesViewState.isApplyingState = true;
+    nextDailyNoteEditorSessionToken();
 
     if (!note) {
         titleEl.value = '';
         editorEl.innerHTML = '';
         dailyNotesViewState.currentId = null;
+        dailyNotesViewState.isDraftMode = true;
         dailyNotesViewState.draftPinned = false;
         setDailyNoteSavedSignature({
             title: '',
@@ -7294,7 +7305,9 @@ function applyDailyNoteEditorState(note = null) {
     titleEl.value = String(note?.title || '');
     editorEl.innerHTML = String(note?.content_html || '').trim();
     dailyNotesViewState.currentId = note?.id ?? null;
+    dailyNotesViewState.isDraftMode = false;
     dailyNotesViewState.draftPinned = !!note?.is_pinned;
+    normalizeDailyNoteEditorLists();
     setDailyNoteSavedSignature({
         title: note?.title || '',
         content_html: note?.content_html || '',
@@ -7354,6 +7367,10 @@ function renderDailyNotesModule() {
 
     renderDailyNotesList(filteredRows);
 
+    if (dailyNotesViewState.isDraftMode && dailyNotesViewState.currentId === null) {
+        return;
+    }
+
     const current = filteredRows.find(note => isSameEntityId(note?.id, dailyNotesViewState.currentId))
         || rows.find(note => isSameEntityId(note?.id, dailyNotesViewState.currentId))
         || filteredRows[0]
@@ -7364,6 +7381,7 @@ function renderDailyNotesModule() {
 async function createDailyNote() {
     clearDailyNoteAutoSaveTimer();
     dailyNotesViewState.currentId = null;
+    dailyNotesViewState.isDraftMode = true;
     dailyNotesViewState.draftPinned = false;
     applyDailyNoteEditorState(null);
     const titleEl = getDailyNoteTitleElement();
@@ -7381,6 +7399,7 @@ function selectDailyNote(noteId) {
     clearDailyNoteAutoSaveTimer();
     const rows = getDailyNotesRows();
     const note = rows.find(item => isSameEntityId(item?.id, noteId)) || null;
+    dailyNotesViewState.isDraftMode = false;
     applyDailyNoteEditorState(note);
     renderDailyNotesList(String(dailyNotesViewState.keyword || '').trim()
         ? rows.filter(item => {
@@ -7598,6 +7617,11 @@ async function saveDailyNote(options = {}) {
     }
 
     await ERP.loadNotes(true);
+    const sessionToken = Number(options?.sessionToken || 0);
+    if (sessionToken > 0 && sessionToken !== Number(dailyNotesViewState.editorSessionToken || 0)) {
+        return saved;
+    }
+    dailyNotesViewState.isDraftMode = false;
     dailyNotesViewState.currentId = saved.id;
     setDailyNoteSavedSignature({
         title: payload.title,
@@ -7634,6 +7658,7 @@ async function deleteDailyNote(noteId = null) {
     }
     await ERP.loadNotes(true);
     dailyNotesViewState.currentId = null;
+    dailyNotesViewState.isDraftMode = false;
     renderDailyNotesModule();
     showToast('笔记已删除', 'success');
 }

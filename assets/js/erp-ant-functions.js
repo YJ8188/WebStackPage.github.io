@@ -6370,6 +6370,13 @@ function getBankReminderStatus(record) {
     if (!record?.isRepayment || record?.isRepaymentPayment) {
         return { text: '-', className: 'is-off', isDue: false };
     }
+    const repaymentAmount = Number(record?.repaymentAmount);
+    const descriptionText = String(record?.description || '').trim();
+    const settledByDescription = /(状态[:：]\s*已结清|已还清|账单已结清|当月已还清)/.test(descriptionText);
+    const settledByAmount = Number.isFinite(repaymentAmount) && repaymentAmount <= 0;
+    if (settledByDescription || settledByAmount) {
+        return { text: '当月已还清', className: 'is-on', isDue: false };
+    }
     if (!record.reminderEnabled) {
         return { text: '已关闭', className: 'is-off', isDue: false };
     }

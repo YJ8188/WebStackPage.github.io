@@ -6577,11 +6577,42 @@ function buildBankBusinessRowHtml(item, section = 'repayment') {
     const feeAmountText = item.isSwipe ? toMoneyText(item.feeAmount) : '-';
     const feeRateText = (item.isSwipe && Number(item.feeRate || 0) > 0) ? `${Number(item.feeRate || 0).toFixed(2)}%` : '-';
     const bankMainText = `${safeText(item.bank || '-')}${item.cardTail ? `（尾号${safeText(item.cardTail)}）` : ''}`;
-    const bankSubText = item.isFeeOnly
-        ? '手续费记录'
-        : (item.isSwipe
-            ? `刷卡银行：${safeText(item.swipeCardBank || item.bank || '-')}${item.cardTail ? `（尾号${safeText(item.cardTail)}）` : ''}`
-            : '');
+    const remarksText = safeText(item.description);
+    const actionCellHtml = `
+        <td class="erp-action-cell">
+            <div class="erp-row-actions">
+                ${section === 'repayment' && item.isRepayment ? `<button class="ant-btn erp-btn-compact" onclick='quickCreateBankRepayment(${JSON.stringify(item.id)})'>还款</button>` : ''}
+                ${section === 'repayment' ? `<button class="ant-btn erp-btn-compact" onclick='showBankRepaymentHistory(${JSON.stringify(item.id)})'>还款记录</button>` : ''}
+                <button class="ant-btn erp-btn-compact" onclick='editBankBusiness(${JSON.stringify(item.id)})'>修改</button>
+                <button class="ant-btn erp-btn-danger erp-btn-compact" onclick='deleteBankBusiness(${JSON.stringify(item.id)})'>删除</button>
+            </div>
+        </td>
+    `;
+
+    if (section === 'swipe') {
+        return `
+            <tr>
+                <td class="banking-col-select">
+                    <input class="erp-banking-row-checkbox" type="checkbox" data-id="${itemIdText}" data-section="${safeText(section)}"
+                        ${isBankBusinessRowSelected(item?.id) ? 'checked' : ''}
+                        onchange="onBankBusinessRowCheckedChange(this.getAttribute('data-id'), this.checked)">
+                </td>
+                <td class="erp-cell-nowrap">${safeText(dateText)}</td>
+                <td>
+                    <div class="erp-finance-cell-main">${bankMainText}</div>
+                </td>
+                <td>${safeText(settlementText)}</td>
+                <td><span class="erp-amount-text">${safeText(swipeAmountText)}</span></td>
+                <td><span class="erp-amount-text is-income">${safeText(actualAmountText)}</span></td>
+                <td>
+                    <div class="erp-finance-cell-main"><span class="erp-amount-text is-expense">${safeText(feeAmountText)}</span></div>
+                    <div class="erp-finance-cell-sub">费率：${safeText(feeRateText)}</div>
+                </td>
+                <td title="${remarksText}"><span class="erp-cell-ellipsis">${remarksText}</span></td>
+                ${actionCellHtml}
+            </tr>
+        `;
+    }
 
     return `
         <tr>
@@ -6593,27 +6624,12 @@ function buildBankBusinessRowHtml(item, section = 'repayment') {
             <td class="erp-cell-nowrap">${safeText(dateText)}</td>
             <td>
                 <div class="erp-finance-cell-main">${bankMainText}</div>
-                ${bankSubText ? `<div class="erp-finance-cell-sub">${bankSubText}</div>` : ''}
             </td>
-            <td>${safeText(settlementText)}</td>
             <td><span class="erp-amount-text is-expense">${safeText(repaymentAmountText)}</span></td>
-            <td><span class="erp-amount-text">${safeText(swipeAmountText)}</span></td>
-            <td><span class="erp-amount-text is-income">${safeText(actualAmountText)}</span></td>
-            <td>
-                <div class="erp-finance-cell-main"><span class="erp-amount-text is-expense">${safeText(feeAmountText)}</span></div>
-                <div class="erp-finance-cell-sub">费率：${safeText(feeRateText)}</div>
-            </td>
             <td>${safeText(billRepaymentText)}</td>
             <td><span class="${reminderClass}">${safeText(reminderMeta.text)}</span></td>
-            <td title="${safeText(item.description)}"><span class="erp-cell-ellipsis">${safeText(item.description)}</span></td>
-            <td class="erp-action-cell">
-                <div class="erp-row-actions">
-                    ${section === 'repayment' && item.isRepayment ? `<button class="ant-btn erp-btn-compact" onclick='quickCreateBankRepayment(${JSON.stringify(item.id)})'>还款</button>` : ''}
-                    ${section === 'repayment' ? `<button class="ant-btn erp-btn-compact" onclick='showBankRepaymentHistory(${JSON.stringify(item.id)})'>还款记录</button>` : ''}
-                    <button class="ant-btn erp-btn-compact" onclick='editBankBusiness(${JSON.stringify(item.id)})'>修改</button>
-                    <button class="ant-btn erp-btn-danger erp-btn-compact" onclick='deleteBankBusiness(${JSON.stringify(item.id)})'>删除</button>
-                </div>
-            </td>
+            <td title="${remarksText}"><span class="erp-cell-ellipsis">${remarksText}</span></td>
+            ${actionCellHtml}
         </tr>
     `;
 }
@@ -6638,7 +6654,8 @@ function renderBankBusinessSection(options = {}) {
 
     const sourceRows = Array.isArray(rows) ? rows : [];
     if (!sourceRows.length) {
-        tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding:20px; color:#999;">${emptyText}</td></tr>`;
+        const emptyColspan = section === 'swipe' ? 9 : 8;
+        tbody.innerHTML = `<tr><td colspan="${emptyColspan}" style="text-align:center; padding:20px; color:#999;">${emptyText}</td></tr>`;
         syncBankBusinessSelectionVisibleRows([], section);
         if (typeof cacheTableRenderRows === 'function') {
             cacheTableRenderRows(moduleKey, []);

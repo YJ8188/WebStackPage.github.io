@@ -41,7 +41,8 @@ const ERP = {
         initializedUserId: null,
         auditLogDisabled: false,
         orderMutationInProgress: false,
-        notesStorageMode: 'unknown'
+        notesStorageMode: 'unknown',
+        notesVersionStorageMode: 'unknown'
     },
 
     orderStatusMeta: {
@@ -1157,6 +1158,152 @@ const ERP = {
             }
             console.error('[ERP] 删除笔记失败:', error);
             return false;
+        }
+    },
+
+    getLocalNoteVersionsStorageKey(noteId) {
+        const userId = String(userData?.user?.id || 'guest').trim() || 'guest';
+        const safeNoteId = String(noteId || '').trim() || 'draft';
+        return `erp_note_versions_local_${userId}_${safeNoteId}`;
+    },
+
+    readLocalNoteVersions(noteId) {
+        try {
+            const raw = localStorage.getItem(this.getLocalNoteVersionsStorageKey(noteId)) || '[]';
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+            return [];
+        }
+    },
+
+    saveLocalNoteVersions(noteId, rows = []) {
+        try {
+            const list = Array.isArray(rows) ? rows.slice(0, 100) : [];
+            localStorage.setItem(this.getLocalNoteVersionsStorageKey(noteId), JSON.stringify(list));
+        } catch (error) {
+            console.warn('[ERP Notes] 写入本地版本历史失败:', error?.message || error);
+        }
+    },
+
+    isNoteVersionsTableMissingError(error) {
+        const code = String(error?.code || '').trim().toUpperCase();
+        const message = String(error?.message || '').toLowerCase();
+        return code === '42P01'
+            || code === 'PGRST205'
+            || (message.includes('relation') && message.includes('erp_note_versions') && message.includes('does not exist'))
+            || (message.includes('could not find the table') && message.includes('erp_note_versions'));
+    },
+
+    async addNoteVersion(noteId, versionData = {}) {
+        if (!noteId || !userData?.user?.id) {
+            return null;
+        }
+        const payload = {
+            note_id: String(noteId),
+            user_id: userData.user.id,
+            title: String(versionData?.title || '').trim() || '未命名笔记',
+            content_html: String(versionData?.content_html || '').trim(),
+            content_text: String(versionData?.content_text || '').trim(),
+            is_pinned: !!versionData?.is_pinned,
+            source: String(versionData?.source || 'manual').trim() || 'manual',
+            created_at: versionData?.created_at || new Date().toISOString()
+        };
+
+        if (this.runtime.notesVersionStorageMode === 'local') {
+            const rows = this.readLocalNoteVersions(noteId);
+            rows.unshift({
+                id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                ...payload
+            });
+            this.saveLocalNoteVersions(noteId, rows);
+            return rows[0];
+        }
+
+        try {
+            const { data, error } = await supabaseClient
+                .from('erp_note_versions')
+                .insert([payload])
+                .select()
+                .single();
+
+            if (error) {
+                throw error;
+            }
+
+            this.runtime.notesVersionStorageMode = 'supabase';
+            const localRows = this.readLocalNoteVersions(noteId);
+            localRows.unshift(data);
+            this.saveLocalNoteVersions(noteId, localRows);
+            return data;
+        } catch (error) {
+            if (this.isNoteVersionsTableMissingError(error)) {
+                this.runtime.notesVersionStorageMode = 'local';
+                return this.addNoteVersion(noteId, versionData);
+            }
+            console.error('[ERP] 新增笔记版本失败:', error);
+            return null;
+        }
+    },
+
+    async loadNoteVersions(noteId, limit = 80) {
+        if (!noteId || !userData?.user?.id) {
+            return [];
+        }
+        const safeLimit = Math.max(1, Math.min(200, Number(limit || 80)));
+
+        if (this.runtime.notesVersionStorageMode === 'local') {
+            return this.readLocalNoteVersions(noteId).slice(0, safeLimit);
+        }
+
+        try {
+            const fields = ['id', 'note_id', 'user_id', 'title', 'content_html', 'content_text', 'is_pinned', 'source', 'created_at'];
+            let currentFields = [...fields];
+            let data = null;
+            let error = null;
+
+            while (true) {
+                const response = await supabaseClient
+                    .from('erp_note_versions')
+                    .select(currentFields.join(', '))
+                    .eq('user_id', userData.user.id)
+                    .eq('note_id', String(noteId))
+                    .order('created_at', { ascending: false })
+                    .limit(safeLimit);
+                data = response.data;
+                error = response.error;
+
+                if (!error) break;
+                if (this.isNoteVersionsTableMissingError(error)) {
+                    throw error;
+                }
+                if (!this.isMissingColumnError(error)) {
+                    break;
+                }
+                const missingColumn = this.extractMissingColumnName(error);
+                if (!missingColumn) {
+                    break;
+                }
+                const nextFields = currentFields.filter(field => field !== missingColumn);
+                if (!nextFields.length || nextFields.length === currentFields.length) {
+                    break;
+                }
+                currentFields = nextFields;
+            }
+
+            if (error) {
+                throw error;
+            }
+
+            this.runtime.notesVersionStorageMode = 'supabase';
+            this.saveLocalNoteVersions(noteId, data || []);
+            return data || [];
+        } catch (error) {
+            if (!this.isNoteVersionsTableMissingError(error)) {
+                console.error('[ERP] 加载笔记版本失败:', error);
+            }
+            this.runtime.notesVersionStorageMode = 'local';
+            return this.readLocalNoteVersions(noteId).slice(0, safeLimit);
         }
     },
 

@@ -136,7 +136,18 @@ const dailyNotesViewState = {
     keyword: '',
     currentId: null,
     draftPinned: false,
-    initialized: false
+    initialized: false,
+    autoSaveTimer: null,
+    autoSaveDelay: 3000,
+    isAutoSaving: false,
+    isApplyingState: false,
+    lastSavedSignature: '',
+    historyRows: [],
+    imageCompression: {
+        maxWidth: 1600,
+        maxHeight: 1600,
+        quality: 0.82
+    }
 };
 const tablePaginationState = {
     customers: { page: 1, pageSize: 10 },
@@ -6871,6 +6882,50 @@ function getDailyNoteTitleElement() {
     return document.getElementById('dailyNoteTitle');
 }
 
+function getDailyNoteHistoryListElement() {
+    return document.getElementById('dailyNoteHistoryList');
+}
+
+function getDailyNoteHistoryStorageKey(noteId) {
+    const userId = String(window?.userData?.user?.id || 'guest').trim() || 'guest';
+    const safeNoteId = String(noteId || '').trim() || 'draft';
+    return `erp_note_history_${userId}_${safeNoteId}`;
+}
+
+function readLocalDailyNoteHistory(noteId) {
+    const key = getDailyNoteHistoryStorageKey(noteId);
+    try {
+        const parsed = JSON.parse(localStorage.getItem(key) || '[]');
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+        return [];
+    }
+}
+
+function writeLocalDailyNoteHistory(noteId, rows = []) {
+    const key = getDailyNoteHistoryStorageKey(noteId);
+    const list = Array.isArray(rows) ? rows.slice(0, 80) : [];
+    localStorage.setItem(key, JSON.stringify(list));
+}
+
+function clearDailyNoteAutoSaveTimer() {
+    if (dailyNotesViewState.autoSaveTimer) {
+        clearTimeout(dailyNotesViewState.autoSaveTimer);
+        dailyNotesViewState.autoSaveTimer = null;
+    }
+}
+
+function buildDailyNoteSignature(payload = {}) {
+    const title = String(payload?.title || '').trim();
+    const html = normalizeDailyNoteHtml(payload?.content_html || '');
+    const pinned = payload?.is_pinned ? '1' : '0';
+    return `${title}||${html}||${pinned}`;
+}
+
+function getNoteContentHasMedia(html = '') {
+    return /<img\b/i.test(String(html || ''));
+}
+
 function normalizeDailyNoteHtml(rawHtml = '') {
     const container = document.createElement('div');
     container.innerHTML = String(rawHtml || '');
@@ -6915,18 +6970,57 @@ function updateDailyNoteMetaText(text = '') {
     metaEl.textContent = text || '支持粘贴图片、超链接、文字排版；按 Ctrl+V 可直接贴图。';
 }
 
+function setDailyNoteSavedSignature(payload = {}) {
+    dailyNotesViewState.lastSavedSignature = buildDailyNoteSignature(payload);
+}
+
+function scheduleDailyNoteAutoSave() {
+    if (dailyNotesViewState.isApplyingState) {
+        return;
+    }
+    clearDailyNoteAutoSaveTimer();
+    dailyNotesViewState.autoSaveTimer = setTimeout(() => {
+        runDailyNoteAutoSave();
+    }, dailyNotesViewState.autoSaveDelay);
+}
+
+async function runDailyNoteAutoSave() {
+    if (dailyNotesViewState.isAutoSaving) {
+        return;
+    }
+    dailyNotesViewState.isAutoSaving = true;
+    try {
+        await saveDailyNote({
+            silent: true,
+            source: 'auto'
+        });
+    } finally {
+        dailyNotesViewState.isAutoSaving = false;
+    }
+}
+
 function applyDailyNoteEditorState(note = null) {
     const titleEl = getDailyNoteTitleElement();
     const editorEl = getDailyNoteEditorElement();
     if (!titleEl || !editorEl) {
         return;
     }
+    dailyNotesViewState.isApplyingState = true;
+
     if (!note) {
         titleEl.value = '';
         editorEl.innerHTML = '';
         dailyNotesViewState.currentId = null;
         dailyNotesViewState.draftPinned = false;
+        setDailyNoteSavedSignature({
+            title: '',
+            content_html: '',
+            is_pinned: false
+        });
         updateDailyNoteMetaText('新建笔记中，支持粘贴图片、链接、清单内容。');
+        setTimeout(() => {
+            dailyNotesViewState.isApplyingState = false;
+        }, 0);
         return;
     }
 
@@ -6934,8 +7028,16 @@ function applyDailyNoteEditorState(note = null) {
     editorEl.innerHTML = String(note?.content_html || '').trim();
     dailyNotesViewState.currentId = note?.id ?? null;
     dailyNotesViewState.draftPinned = !!note?.is_pinned;
+    setDailyNoteSavedSignature({
+        title: note?.title || '',
+        content_html: note?.content_html || '',
+        is_pinned: note?.is_pinned
+    });
     const updateText = toDateTimeText(note?.updated_at || note?.created_at || null);
     updateDailyNoteMetaText(`${note?.is_pinned ? '已置顶' : '未置顶'} · 最近更新 ${updateText}`);
+    setTimeout(() => {
+        dailyNotesViewState.isApplyingState = false;
+    }, 0);
 }
 
 function renderDailyNotesList(rows = []) {
@@ -6993,6 +7095,7 @@ function renderDailyNotesModule() {
 }
 
 async function createDailyNote() {
+    clearDailyNoteAutoSaveTimer();
     dailyNotesViewState.currentId = null;
     dailyNotesViewState.draftPinned = false;
     applyDailyNoteEditorState(null);
@@ -7008,6 +7111,7 @@ function searchDailyNotes(keyword = '') {
 }
 
 function selectDailyNote(noteId) {
+    clearDailyNoteAutoSaveTimer();
     const rows = getDailyNotesRows();
     const note = rows.find(item => isSameEntityId(item?.id, noteId)) || null;
     applyDailyNoteEditorState(note);
@@ -7033,30 +7137,214 @@ function collectDailyNoteFormData() {
     };
 }
 
-async function saveDailyNote() {
-    if (!window.ERP || typeof ERP.addNote !== 'function' || typeof ERP.updateNote !== 'function') {
-        showToast('笔记模块未就绪，请刷新页面', 'error');
+async function pushDailyNoteHistorySnapshot(noteId, snapshot = {}, source = 'manual') {
+    if (!noteId || !snapshot) {
         return;
     }
-    const payload = collectDailyNoteFormData();
-    if (!payload.content_html && !payload.title) {
-        showToast('笔记内容不能为空', 'warning');
+    const payload = {
+        note_id: noteId,
+        title: String(snapshot?.title || '').trim() || '未命名笔记',
+        content_html: normalizeDailyNoteHtml(snapshot?.content_html || ''),
+        content_text: String(snapshot?.content_text || getDailyNoteTextFromHtml(snapshot?.content_html || '') || '').trim(),
+        is_pinned: !!snapshot?.is_pinned,
+        source,
+        created_at: new Date().toISOString()
+    };
+    if (!payload.content_html && !payload.content_text && !payload.title) {
         return;
     }
 
-    const isEdit = !!dailyNotesViewState.currentId;
-    const saved = isEdit
-        ? await ERP.updateNote(dailyNotesViewState.currentId, payload)
-        : await ERP.addNote(payload);
-    if (!saved) {
-        showToast(isEdit ? '保存笔记失败' : '创建笔记失败', 'error');
+    if (window.ERP && typeof ERP.addNoteVersion === 'function') {
+        const result = await ERP.addNoteVersion(payload.note_id, payload);
+        if (result) {
+            return;
+        }
+    }
+
+    const existing = readLocalDailyNoteHistory(noteId);
+    existing.unshift({
+        id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        ...payload
+    });
+    writeLocalDailyNoteHistory(noteId, existing);
+}
+
+async function loadDailyNoteHistoryRows(noteId) {
+    if (!noteId) {
+        return [];
+    }
+    if (window.ERP && typeof ERP.loadNoteVersions === 'function') {
+        const rows = await ERP.loadNoteVersions(noteId, 80);
+        if (Array.isArray(rows) && rows.length) {
+            return rows;
+        }
+    }
+    return readLocalDailyNoteHistory(noteId);
+}
+
+function renderDailyNoteHistoryModal(rows = []) {
+    const listEl = getDailyNoteHistoryListElement();
+    if (!listEl) {
+        return;
+    }
+    const list = Array.isArray(rows) ? rows : [];
+    if (!list.length) {
+        listEl.innerHTML = '<div class="erp-note-history-item"><div class="erp-note-history-meta">暂无历史版本</div></div>';
+        return;
+    }
+    listEl.innerHTML = list.map((item) => {
+        const idText = escapeHtmlText(String(item?.id || ''));
+        const title = escapeHtmlText(String(item?.title || '未命名笔记'));
+        const snippet = escapeHtmlText(String(item?.content_text || '').slice(0, 100) || '（无正文）');
+        const timeText = escapeHtmlText(toDateTimeText(item?.created_at || item?.updated_at || null));
+        const sourceText = escapeHtmlText(String(item?.source || 'manual'));
+        return `
+            <div class="erp-note-history-item">
+                <div class="erp-note-history-title">${title}</div>
+                <div class="erp-note-history-snippet">${snippet}</div>
+                <div class="erp-note-history-meta">${timeText} · 来源：${sourceText}</div>
+                <div class="erp-note-history-actions">
+                    <button class="ant-btn" type="button" onclick="rollbackDailyNoteVersion('${idText}')">回滚到此版本</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+async function showDailyNoteHistoryModal() {
+    const noteId = dailyNotesViewState.currentId;
+    if (!noteId) {
+        showToast('请先选择一条笔记，再查看历史版本', 'info');
+        return;
+    }
+    const modal = document.getElementById('dailyNoteHistoryModal');
+    if (!modal) {
+        return;
+    }
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+    const rows = await loadDailyNoteHistoryRows(noteId);
+    dailyNotesViewState.historyRows = rows;
+    renderDailyNoteHistoryModal(rows);
+}
+
+function hideDailyNoteHistoryModal() {
+    const modal = document.getElementById('dailyNoteHistoryModal');
+    if (!modal) {
+        return;
+    }
+    modal.classList.remove('active');
+    modal.style.display = '';
+}
+
+async function rollbackDailyNoteVersion(versionId) {
+    const noteId = dailyNotesViewState.currentId;
+    if (!noteId) {
+        showToast('当前没有可回滚的笔记', 'warning');
+        return;
+    }
+    const historyRows = Array.isArray(dailyNotesViewState.historyRows) ? dailyNotesViewState.historyRows : [];
+    const target = historyRows.find(item => String(item?.id || '') === String(versionId || ''));
+    if (!target) {
+        showToast('未找到对应历史版本', 'error');
+        return;
+    }
+    if (!window.confirm('确认回滚到该历史版本吗？当前内容会被覆盖。')) {
+        return;
+    }
+
+    const currentRows = getDailyNotesRows();
+    const current = currentRows.find(item => isSameEntityId(item?.id, noteId));
+    if (current) {
+        await pushDailyNoteHistorySnapshot(noteId, current, 'rollback_backup');
+    }
+
+    const payload = {
+        title: target.title || '未命名笔记',
+        content_html: target.content_html || '',
+        content_text: target.content_text || '',
+        is_pinned: !!target.is_pinned
+    };
+    const updated = await ERP.updateNote(noteId, payload);
+    if (!updated) {
+        showToast('回滚失败，请稍后重试', 'error');
         return;
     }
 
     await ERP.loadNotes(true);
-    dailyNotesViewState.currentId = saved.id;
+    dailyNotesViewState.currentId = noteId;
     renderDailyNotesModule();
-    showToast(isEdit ? '笔记已保存' : '笔记已创建', 'success');
+    const rows = await loadDailyNoteHistoryRows(noteId);
+    dailyNotesViewState.historyRows = rows;
+    renderDailyNoteHistoryModal(rows);
+    showToast('已回滚到历史版本', 'success');
+}
+
+async function saveDailyNote(options = {}) {
+    if (!window.ERP || typeof ERP.addNote !== 'function' || typeof ERP.updateNote !== 'function') {
+        if (!options?.silent) {
+            showToast('笔记模块未就绪，请刷新页面', 'error');
+        }
+        return;
+    }
+    const payload = collectDailyNoteFormData();
+    const titleRaw = String(getDailyNoteTitleElement()?.value || '').trim();
+    const hasContent = !!payload.content_text || getNoteContentHasMedia(payload.content_html);
+    if (!hasContent && !titleRaw) {
+        if (!options?.silent) {
+            showToast('笔记内容不能为空', 'warning');
+        }
+        return null;
+    }
+
+    const currentSignature = buildDailyNoteSignature(payload);
+    if (currentSignature === dailyNotesViewState.lastSavedSignature) {
+        return null;
+    }
+
+    const isEdit = !!dailyNotesViewState.currentId;
+    const source = String(options?.source || 'manual');
+
+    if (isEdit) {
+        const currentRows = getDailyNotesRows();
+        const current = currentRows.find(item => isSameEntityId(item?.id, dailyNotesViewState.currentId));
+        if (current) {
+            const currentStoredSignature = buildDailyNoteSignature({
+                title: current?.title || '',
+                content_html: current?.content_html || '',
+                is_pinned: current?.is_pinned
+            });
+            if (currentStoredSignature !== currentSignature) {
+                await pushDailyNoteHistorySnapshot(dailyNotesViewState.currentId, current, source);
+            }
+        }
+    }
+
+    const saved = isEdit
+        ? await ERP.updateNote(dailyNotesViewState.currentId, payload)
+        : await ERP.addNote(payload);
+    if (!saved) {
+        if (!options?.silent) {
+            showToast(isEdit ? '保存笔记失败' : '创建笔记失败', 'error');
+        }
+        return null;
+    }
+
+    await ERP.loadNotes(true);
+    dailyNotesViewState.currentId = saved.id;
+    setDailyNoteSavedSignature({
+        title: payload.title,
+        content_html: payload.content_html,
+        is_pinned: payload.is_pinned
+    });
+    renderDailyNotesModule();
+    if (!options?.silent) {
+        showToast(isEdit ? '笔记已保存' : '笔记已创建', 'success');
+    } else {
+        const updateText = toDateTimeText(new Date());
+        updateDailyNoteMetaText(`自动保存成功 · ${updateText}`);
+    }
+    return saved;
 }
 
 async function deleteDailyNote(noteId = null) {
@@ -7113,6 +7401,7 @@ function execDailyNoteCommand(command, value = null) {
     }
     editorEl.focus();
     document.execCommand(command, false, value);
+    scheduleDailyNoteAutoSave();
 }
 
 function insertDailyNoteChecklist() {
@@ -7121,6 +7410,7 @@ function insertDailyNoteChecklist() {
     editorEl.focus();
     const html = '<div><label><input type="checkbox" style="margin-right:6px;">待办事项</label></div>';
     document.execCommand('insertHTML', false, html);
+    scheduleDailyNoteAutoSave();
 }
 
 function insertDailyNoteLink() {
@@ -7129,6 +7419,7 @@ function insertDailyNoteLink() {
         return;
     }
     execDailyNoteCommand('createLink', url);
+    scheduleDailyNoteAutoSave();
 }
 
 function triggerDailyNoteImagePicker() {
@@ -7147,34 +7438,141 @@ function insertDailyNoteImageDataUrl(dataUrl = '') {
     execDailyNoteCommand('insertImage', dataUrl);
 }
 
-function handleDailyNoteImageSelect(event) {
-    const files = Array.from(event?.target?.files || []);
-    files.forEach((file) => {
-        if (!file.type.startsWith('image/')) {
-            return;
-        }
+function estimateDataUrlBytes(dataUrl = '') {
+    const body = String(dataUrl || '').split(',')[1] || '';
+    return Math.floor((body.length * 3) / 4);
+}
+
+function formatFileSize(size = 0) {
+    const value = Math.max(0, Number(size || 0));
+    if (value < 1024) return `${value}B`;
+    if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)}KB`;
+    return `${(value / (1024 * 1024)).toFixed(2)}MB`;
+}
+
+function readFileAsDataUrl(file) {
+    return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => insertDailyNoteImageDataUrl(String(reader.result || ''));
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = reject;
         reader.readAsDataURL(file);
     });
 }
 
-function handleDailyNoteEditorPaste(event) {
+function loadImageElementByDataUrl(dataUrl = '') {
+    return new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = reject;
+        image.src = dataUrl;
+    });
+}
+
+async function compressImageFileToDataUrl(file) {
+    if (!file || !file.type.startsWith('image/')) {
+        return null;
+    }
+    const originalDataUrl = await readFileAsDataUrl(file);
+    if (file.type === 'image/gif') {
+        return {
+            dataUrl: originalDataUrl,
+            originalBytes: estimateDataUrlBytes(originalDataUrl),
+            compressedBytes: estimateDataUrlBytes(originalDataUrl),
+            compressed: false
+        };
+    }
+
+    const image = await loadImageElementByDataUrl(originalDataUrl);
+    const maxWidth = Number(dailyNotesViewState.imageCompression?.maxWidth || 1600);
+    const maxHeight = Number(dailyNotesViewState.imageCompression?.maxHeight || 1600);
+    const quality = Number(dailyNotesViewState.imageCompression?.quality || 0.82);
+    const ratio = Math.min(1, maxWidth / image.width, maxHeight / image.height);
+    const targetWidth = Math.max(1, Math.round(image.width * ratio));
+    const targetHeight = Math.max(1, Math.round(image.height * ratio));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+        return {
+            dataUrl: originalDataUrl,
+            originalBytes: estimateDataUrlBytes(originalDataUrl),
+            compressedBytes: estimateDataUrlBytes(originalDataUrl),
+            compressed: false
+        };
+    }
+    ctx.drawImage(image, 0, 0, targetWidth, targetHeight);
+    const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+    const originalBytes = estimateDataUrlBytes(originalDataUrl);
+    const compressedBytes = estimateDataUrlBytes(compressedDataUrl);
+    if (compressedBytes >= originalBytes && ratio === 1) {
+        return {
+            dataUrl: originalDataUrl,
+            originalBytes,
+            compressedBytes: originalBytes,
+            compressed: false
+        };
+    }
+    return {
+        dataUrl: compressedDataUrl,
+        originalBytes,
+        compressedBytes,
+        compressed: true
+    };
+}
+
+async function handleDailyNoteImageSelect(event) {
+    const files = Array.from(event?.target?.files || []);
+    for (const file of files) {
+        if (!file.type.startsWith('image/')) {
+            continue;
+        }
+        try {
+            const result = await compressImageFileToDataUrl(file);
+            if (!result?.dataUrl) {
+                continue;
+            }
+            insertDailyNoteImageDataUrl(result.dataUrl);
+            const detail = result.compressed
+                ? `图片已压缩：${formatFileSize(result.originalBytes)} → ${formatFileSize(result.compressedBytes)}`
+                : `图片已插入：${formatFileSize(result.originalBytes)}`;
+            updateDailyNoteMetaText(detail);
+            scheduleDailyNoteAutoSave();
+        } catch (error) {
+            console.error('[ERP Notes] 图片处理失败:', error);
+            showToast('图片处理失败，请重试', 'error');
+        }
+    }
+}
+
+async function handleDailyNoteEditorPaste(event) {
     const items = Array.from(event?.clipboardData?.items || []);
     const imageItems = items.filter(item => item.type && item.type.startsWith('image/'));
     if (!imageItems.length) {
         return;
     }
     event.preventDefault();
-    imageItems.forEach((item) => {
+    for (const item of imageItems) {
         const file = item.getAsFile();
         if (!file) {
-            return;
+            continue;
         }
-        const reader = new FileReader();
-        reader.onload = () => insertDailyNoteImageDataUrl(String(reader.result || ''));
-        reader.readAsDataURL(file);
-    });
+        try {
+            const result = await compressImageFileToDataUrl(file);
+            if (!result?.dataUrl) {
+                continue;
+            }
+            insertDailyNoteImageDataUrl(result.dataUrl);
+            const detail = result.compressed
+                ? `粘贴图片已压缩：${formatFileSize(result.originalBytes)} → ${formatFileSize(result.compressedBytes)}`
+                : `粘贴图片已插入：${formatFileSize(result.originalBytes)}`;
+            updateDailyNoteMetaText(detail);
+        } catch (error) {
+            console.error('[ERP Notes] 粘贴图片处理失败:', error);
+        }
+    }
+    scheduleDailyNoteAutoSave();
 }
 
 function initDailyNotesModule() {
@@ -7187,12 +7585,14 @@ function initDailyNotesModule() {
     if (editorEl) {
         editorEl.setAttribute('data-placeholder', '记录文字、图片、超链接，内容自动保存到当前账号。');
         editorEl.addEventListener('paste', handleDailyNoteEditorPaste);
+        editorEl.addEventListener('input', () => scheduleDailyNoteAutoSave());
     }
     if (titleEl) {
+        titleEl.addEventListener('input', () => scheduleDailyNoteAutoSave());
         titleEl.addEventListener('keydown', (event) => {
             if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
                 event.preventDefault();
-                saveDailyNote();
+                saveDailyNote({ silent: false, source: 'manual' });
             }
         });
     }
@@ -15279,6 +15679,9 @@ function markERPLoadedFlags(value) {
     ERP.state.loaded.products = value;
     ERP.state.loaded.orders = value;
     ERP.state.loaded.finances = value;
+    if (Object.prototype.hasOwnProperty.call(ERP.state.loaded, 'notes')) {
+        ERP.state.loaded.notes = value;
+    }
 }
 
 async function loadERPAllModules(options = {}) {

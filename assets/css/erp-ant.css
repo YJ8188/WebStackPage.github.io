@@ -2885,6 +2885,48 @@ select.ant-select option {
     color: #64748b;
 }
 
+.erp-note-history-list {
+    max-height: 58vh;
+    overflow-y: auto;
+}
+
+.erp-note-history-item {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    background: #fff;
+}
+
+.erp-note-history-item:last-child {
+    margin-bottom: 0;
+}
+
+.erp-note-history-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.erp-note-history-snippet {
+    margin-top: 4px;
+    font-size: 12px;
+    color: #475569;
+    line-height: 1.5;
+}
+
+.erp-note-history-meta {
+    margin-top: 6px;
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+.erp-note-history-actions {
+    margin-top: 8px;
+    display: flex;
+    justify-content: flex-end;
+}
+
 .erp-finance-block {
     margin-bottom: 14px;
 }

@@ -2895,6 +2895,12 @@ select.ant-select option {
     margin: 6px 0;
 }
 
+.erp-notes-editor-content a {
+    color: #1677ff;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
 .erp-notes-editor-content ul,
 .erp-notes-editor-content ol {
     margin: 0.5em 0;
@@ -2957,6 +2963,14 @@ select.ant-select option {
 .erp-notes-context-menu button:hover {
     background: #eff6ff;
     color: #1d4ed8;
+}
+
+.erp-notes-context-menu .erp-notes-link-action {
+    display: none;
+}
+
+.erp-notes-context-menu.has-link-target .erp-notes-link-action {
+    display: flex;
 }
 
 .erp-notes-context-divider {

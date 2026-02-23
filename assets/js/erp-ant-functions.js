@@ -140,14 +140,19 @@ const dailyNotesViewState = {
     draftPinned: false,
     initialized: false,
     autoSaveTimer: null,
-    autoSaveDelay: 3000,
+    autoSaveDelay: 0,
     isAutoSaving: false,
+    pendingAutoSave: false,
+    pendingSessionToken: 0,
+    listBound: false,
     isApplyingState: false,
     lastSavedSignature: '',
     historyRows: [],
     contextMenuEl: null,
     contextMenuRange: null,
     contextMenuVisible: false,
+    contextTargetLinkHref: '',
+    contextTargetLinkNode: null,
     imageCompression: {
         maxWidth: 1600,
         maxHeight: 1600,
@@ -6895,6 +6900,11 @@ function getDailyNoteContextMenuElement() {
     return dailyNotesViewState.contextMenuEl;
 }
 
+function resetDailyNoteContextLinkTarget() {
+    dailyNotesViewState.contextTargetLinkHref = '';
+    dailyNotesViewState.contextTargetLinkNode = null;
+}
+
 function getDailyNoteHistoryStorageKey(noteId) {
     const userId = String(window?.userData?.user?.id || 'guest').trim() || 'guest';
     const safeNoteId = String(noteId || '').trim() || 'draft';
@@ -6981,18 +6991,26 @@ function restoreDailyNoteSelectionRange() {
 function hideDailyNoteContextMenu() {
     const menuEl = getDailyNoteContextMenuElement();
     if (!menuEl) {
+        resetDailyNoteContextLinkTarget();
         return;
     }
     menuEl.classList.remove('is-visible');
+    menuEl.classList.remove('has-link-target');
     menuEl.style.left = '-9999px';
     menuEl.style.top = '-9999px';
     dailyNotesViewState.contextMenuVisible = false;
+    resetDailyNoteContextLinkTarget();
 }
 
 function showDailyNoteContextMenu(clientX = 0, clientY = 0) {
     const menuEl = ensureDailyNoteContextMenu();
     if (!menuEl) {
         return;
+    }
+    if (dailyNotesViewState.contextTargetLinkHref) {
+        menuEl.classList.add('has-link-target');
+    } else {
+        menuEl.classList.remove('has-link-target');
     }
     menuEl.classList.add('is-visible');
     menuEl.style.visibility = 'hidden';
@@ -7041,6 +7059,35 @@ async function pasteDailyNoteFromClipboard() {
     }
 }
 
+async function copyTextToClipboard(text = '') {
+    const value = String(text || '').trim();
+    if (!value) {
+        return false;
+    }
+    try {
+        if (navigator.clipboard?.writeText && window.isSecureContext) {
+            await navigator.clipboard.writeText(value);
+            return true;
+        }
+    } catch (error) {
+        // fallback below
+    }
+    try {
+        const textArea = document.createElement('textarea');
+        textArea.value = value;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-9999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        return !!ok;
+    } catch (error) {
+        return false;
+    }
+}
+
 function handleDailyNoteContextMenuAction(action = '') {
     const key = String(action || '').trim();
     if (!key) {
@@ -7063,6 +7110,37 @@ function handleDailyNoteContextMenuAction(action = '') {
     case 'paste':
         pasteDailyNoteFromClipboard();
         break;
+    case 'open-link': {
+        const link = normalizeDailyNoteUrl(dailyNotesViewState.contextTargetLinkHref);
+        if (link) {
+            window.open(link, '_blank', 'noopener,noreferrer');
+        }
+        break;
+    }
+    case 'copy-link':
+        copyTextToClipboard(dailyNotesViewState.contextTargetLinkHref)
+            .then((ok) => {
+                if (ok) {
+                    showToast('链接已复制', 'success');
+                } else {
+                    showToast('复制失败，请重试', 'error');
+                }
+            });
+        break;
+    case 'remove-link': {
+        const linkNode = dailyNotesViewState.contextTargetLinkNode;
+        if (linkNode && linkNode.parentNode) {
+            const parent = linkNode.parentNode;
+            while (linkNode.firstChild) {
+                parent.insertBefore(linkNode.firstChild, linkNode);
+            }
+            parent.removeChild(linkNode);
+            scheduleDailyNoteAutoSave();
+        } else {
+            execDailyNoteCommand('unlink');
+        }
+        break;
+    }
     case 'bold':
         execDailyNoteCommand('bold');
         break;
@@ -7101,6 +7179,10 @@ function ensureDailyNoteContextMenu() {
     menuEl.id = 'dailyNoteContextMenu';
     menuEl.className = 'erp-notes-context-menu';
     menuEl.innerHTML = `
+        <button type="button" data-action="open-link" class="erp-notes-link-action"><i class="fa fa-external-link"></i> 打开链接</button>
+        <button type="button" data-action="copy-link" class="erp-notes-link-action"><i class="fa fa-link"></i> 复制链接</button>
+        <button type="button" data-action="remove-link" class="erp-notes-link-action"><i class="fa fa-unlink"></i> 删除链接</button>
+        <div class="erp-notes-context-divider erp-notes-link-action"></div>
         <button type="button" data-action="undo"><i class="fa fa-undo"></i> 撤销</button>
         <button type="button" data-action="redo"><i class="fa fa-repeat"></i> 重做</button>
         <div class="erp-notes-context-divider"></div>
@@ -7135,6 +7217,14 @@ function handleDailyNoteEditorContextMenu(event) {
     if (!editorEl || !editorEl.contains(event.target)) {
         hideDailyNoteContextMenu();
         return;
+    }
+    const target = event.target instanceof Element ? event.target : null;
+    const linkEl = target ? target.closest('a[href]') : null;
+    if (linkEl && editorEl.contains(linkEl)) {
+        dailyNotesViewState.contextTargetLinkHref = String(linkEl.getAttribute('href') || linkEl.href || '').trim();
+        dailyNotesViewState.contextTargetLinkNode = linkEl;
+    } else {
+        resetDailyNoteContextLinkTarget();
     }
     event.preventDefault();
     cacheDailyNoteSelectionRange();
@@ -7254,6 +7344,11 @@ function scheduleDailyNoteAutoSave() {
     }
     clearDailyNoteAutoSaveTimer();
     const sessionToken = Number(dailyNotesViewState.editorSessionToken || 0);
+    dailyNotesViewState.pendingSessionToken = sessionToken;
+    if (dailyNotesViewState.autoSaveDelay <= 0) {
+        Promise.resolve().then(() => runDailyNoteAutoSave(sessionToken));
+        return;
+    }
     dailyNotesViewState.autoSaveTimer = setTimeout(() => {
         runDailyNoteAutoSave(sessionToken);
     }, dailyNotesViewState.autoSaveDelay);
@@ -7261,6 +7356,8 @@ function scheduleDailyNoteAutoSave() {
 
 async function runDailyNoteAutoSave(sessionToken = 0) {
     if (dailyNotesViewState.isAutoSaving) {
+        dailyNotesViewState.pendingAutoSave = true;
+        dailyNotesViewState.pendingSessionToken = Number(sessionToken || dailyNotesViewState.editorSessionToken || 0);
         return;
     }
     dailyNotesViewState.isAutoSaving = true;
@@ -7272,6 +7369,13 @@ async function runDailyNoteAutoSave(sessionToken = 0) {
         });
     } finally {
         dailyNotesViewState.isAutoSaving = false;
+        if (dailyNotesViewState.pendingAutoSave) {
+            dailyNotesViewState.pendingAutoSave = false;
+            const nextToken = Number(dailyNotesViewState.pendingSessionToken || dailyNotesViewState.editorSessionToken || 0);
+            runDailyNoteAutoSave(nextToken).catch(error => {
+                console.error('[ERP Notes] 实时自动保存失败:', error);
+            });
+        }
     }
 }
 
@@ -7345,7 +7449,7 @@ function renderDailyNotesList(rows = []) {
         const isActive = dailyNotesViewState.currentId !== null && isSameEntityId(note?.id, dailyNotesViewState.currentId);
         const pinnedTag = note?.is_pinned ? '<span class="erp-type-pill is-active" style="margin-left:6px;">置顶</span>' : '';
         return `
-            <div class="erp-note-item ${isActive ? 'active' : ''}" onclick="selectDailyNote(${JSON.stringify(note?.id ?? null)})" data-note-id="${idText}">
+            <div class="erp-note-item ${isActive ? 'active' : ''}" data-note-id="${idText}" tabindex="0" role="button">
                 <div class="erp-note-item-title">${title}${pinnedTag}</div>
                 <div class="erp-note-item-snippet">${snippet}</div>
                 <div class="erp-note-item-time">${timeText}</div>
@@ -7408,6 +7512,40 @@ function selectDailyNote(noteId) {
                 || String(item?.content_text || '').toLowerCase().includes(keyword);
         })
         : rows);
+}
+
+function handleDailyNotesListClick(event) {
+    const listEl = document.getElementById('dailyNotesList');
+    const target = event?.target instanceof Element ? event.target : null;
+    if (!listEl || !target) {
+        return;
+    }
+    const noteItem = target.closest('.erp-note-item[data-note-id]');
+    if (!noteItem || !listEl.contains(noteItem)) {
+        return;
+    }
+    const noteId = normalizeEntityId(noteItem.getAttribute('data-note-id'));
+    if (noteId === null) {
+        return;
+    }
+    selectDailyNote(noteId);
+}
+
+function handleDailyNotesListKeydown(event) {
+    if (!event || (event.key !== 'Enter' && event.key !== ' ')) {
+        return;
+    }
+    const target = event.target instanceof Element ? event.target : null;
+    const noteItem = target ? target.closest('.erp-note-item[data-note-id]') : null;
+    if (!noteItem) {
+        return;
+    }
+    event.preventDefault();
+    const noteId = normalizeEntityId(noteItem.getAttribute('data-note-id'));
+    if (noteId === null) {
+        return;
+    }
+    selectDailyNote(noteId);
 }
 
 function collectDailyNoteFormData() {
@@ -7965,11 +8103,24 @@ function initDailyNotesModule() {
     }
     const editorEl = getDailyNoteEditorElement();
     const titleEl = getDailyNoteTitleElement();
+    const listEl = document.getElementById('dailyNotesList');
 
     if (editorEl) {
         editorEl.setAttribute('data-placeholder', '记录文字、图片、超链接，内容自动保存到当前账号。');
         editorEl.addEventListener('paste', handleDailyNoteEditorPaste);
         editorEl.addEventListener('input', () => scheduleDailyNoteAutoSave());
+        editorEl.addEventListener('click', (event) => {
+            const target = event.target instanceof Element ? event.target.closest('a[href]') : null;
+            if (!target) {
+                return;
+            }
+            event.preventDefault();
+            const href = normalizeDailyNoteUrl(target.getAttribute('href') || target.href || '');
+            if (!href) {
+                return;
+            }
+            window.open(href, '_blank', 'noopener,noreferrer');
+        });
         editorEl.addEventListener('contextmenu', handleDailyNoteEditorContextMenu);
     }
     if (titleEl) {
@@ -7980,6 +8131,11 @@ function initDailyNotesModule() {
                 saveDailyNote({ silent: false, source: 'manual' });
             }
         });
+    }
+    if (listEl && !dailyNotesViewState.listBound) {
+        listEl.addEventListener('click', handleDailyNotesListClick);
+        listEl.addEventListener('keydown', handleDailyNotesListKeydown);
+        dailyNotesViewState.listBound = true;
     }
 
     ensureDailyNoteContextMenu();

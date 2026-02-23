@@ -2141,8 +2141,8 @@
     <script src="assets/js/user-data.js?v=20260214-20"></script>
     <script src="assets/js/erp.js?v=20260223-46"></script>
     <script src="assets/js/vendor/echarts.min.js?v=5.5.0"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260222-126"></script>
-    <script src="assets/js/pwa-register.js?v=20260223-4" defer></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260222-127"></script>
+    <script src="assets/js/pwa-register.js?v=20260223-5" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->
     <script>
@@ -2764,8 +2764,8 @@
                     <td data-finance-cell="order">${resolveFinanceOrderInfo(f)}</td>
                     <td data-finance-cell="description">${resolveFinanceDescription(f)}</td>
                     <td data-finance-cell="date" class="erp-cell-nowrap">${typeof toDateTimeText === 'function'
-                        ? toDateTimeText(f.transaction_date || '-')
-                        : formatHeaderDate(f.transaction_date)}</td>
+                        ? toDateTimeText(f.transaction_date || f.created_at || '-')
+                        : formatHeaderDate(f.transaction_date || f.created_at)}</td>
                     <td class="erp-action-cell" data-finance-cell="actions">
                         ${typeof getFinanceActionButtons === 'function'
                             ? getFinanceActionButtons(f)

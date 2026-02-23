@@ -5985,7 +5985,11 @@ function createBankFeeMirrorRows(rows = []) {
             const description = String(record?.description || '');
             const bankMatch = description.match(/(?:银行|还款卡|刷卡卡)[:：]\s*([^；\n]+)/);
             const bankName = bankMatch?.[1] ? String(bankMatch[1]).trim() : '信用卡业务';
-            const sourceDate = record?.transaction_date || record?.created_at || new Date().toISOString();
+            const sourceDateObj = parseBankTransactionDate(record, description);
+            const sourceDatePartMap = getShanghaiDatePartMap(sourceDateObj || record?.transaction_date || record?.created_at || null);
+            const sourceDate = sourceDatePartMap
+                ? `${sourceDatePartMap.year}-${sourceDatePartMap.month}-${sourceDatePartMap.day} ${sourceDatePartMap.hour || '00'}:${sourceDatePartMap.minute || '00'}:${sourceDatePartMap.second || '00'}`
+                : (record?.transaction_date || record?.created_at || new Date().toISOString());
 
             return {
                 id: `bank-fee::${sourceId}`,
@@ -6066,7 +6070,6 @@ function parseBankTransactionDate(record, description = '') {
     const rawValue = record?.transaction_date || record?.created_at || null;
     const descText = String(description || '');
     const rawText = String(rawValue || '').trim();
-    const isQQAutoSync = descText.includes('来源：QQ邮箱自动同步');
     const isManualRepayment = descText.includes('来源：手动登记还款')
         || String(record?.business_type || '').trim().toLowerCase() === 'credit_card_repayment_payment';
 
@@ -6077,12 +6080,11 @@ function parseBankTransactionDate(record, description = '') {
         }
     }
 
-    if (isQQAutoSync && rawText) {
-        const isoLikeMatch = rawText.match(
-            /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})$/i
-        );
-        if (isoLikeMatch) {
-            const normalizedLocalText = `${isoLikeMatch[1]} ${isoLikeMatch[2]}`;
+    if (rawText) {
+        const dateTimeHead = rawText.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})/);
+        const hasExplicitTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(rawText);
+        if (dateTimeHead && hasExplicitTimezone) {
+            const normalizedLocalText = `${dateTimeHead[1]} ${dateTimeHead[2]}`;
             const localDate = parseFinanceDate(normalizedLocalText);
             if (localDate instanceof Date && !Number.isNaN(localDate.getTime())) {
                 return localDate;

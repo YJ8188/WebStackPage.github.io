@@ -7080,6 +7080,42 @@ async function refreshBankSmartPlan() {
     renderBankSmartPlan();
 }
 
+async function handleRefreshBankSmartPlan(buttonEl) {
+    const button = buttonEl && typeof buttonEl === 'object'
+        ? buttonEl
+        : document.querySelector('#bankingSmartPlanModal .modal-footer .ant-btn');
+    const content = document.getElementById('bankingSmartPlanContent');
+    const originalText = button?.textContent || '重新计算';
+
+    if (button) {
+        button.disabled = true;
+        button.textContent = '计算中...';
+    }
+    if (content) {
+        content.dataset.reloading = '1';
+    }
+
+    try {
+        await refreshBankSmartPlan();
+        if (typeof showToast === 'function') {
+            showToast('智能倒卡建议已更新', 'success');
+        }
+    } catch (error) {
+        console.error('[ERP Ant] 智能倒卡重新计算失败:', error);
+        if (typeof showToast === 'function') {
+            showToast(`重新计算失败：${error?.message || '请稍后重试'}`, 'error');
+        }
+    } finally {
+        if (content) {
+            delete content.dataset.reloading;
+        }
+        if (button) {
+            button.disabled = false;
+            button.textContent = originalText;
+        }
+    }
+}
+
 async function showBankSmartPlanModal() {
     const modal = document.getElementById('bankingSmartPlanModal');
     const content = document.getElementById('bankingSmartPlanContent');

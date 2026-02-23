@@ -2233,7 +2233,7 @@
             </div>
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="hideBankSmartPlanModal()">关闭</button>
-                <button class="ant-btn" type="button" onclick="refreshBankSmartPlan()">重新计算</button>
+                <button class="ant-btn" type="button" onclick="handleRefreshBankSmartPlan(this)">重新计算</button>
             </div>
         </div>
     </div>
@@ -2355,7 +2355,7 @@
     <script src="assets/js/user-data.js?v=20260214-20"></script>
     <script src="assets/js/erp.js?v=20260223-46"></script>
     <script src="assets/js/vendor/echarts.min.js?v=5.5.0"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260222-135"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260222-136"></script>
     <script src="assets/js/pwa-register.js?v=20260223-5" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->
@@ -3323,6 +3323,10 @@
                 renderHeaderNotices();
             });
 
+            window.addEventListener('erpFinanceChanged', function () {
+                renderHeaderNotices();
+            });
+
             // Basic Init
             if (window.checkLoginStatus) {
                 window.checkLoginStatus();
@@ -3331,6 +3335,10 @@
             setTimeout(() => {
                 renderHeaderNotices();
             }, 600);
+
+            setInterval(() => {
+                renderHeaderNotices();
+            }, 5 * 60 * 1000);
         });
 
         // --- Re-implement missing modal functions for new IDs ---
@@ -3456,6 +3464,111 @@
                 '"': '&quot;',
                 "'": '&#39;'
             }[char]));
+        }
+
+        function getShanghaiDateKey(value = new Date()) {
+            if (typeof window.getShanghaiDatePartMap === 'function') {
+                const parts = window.getShanghaiDatePartMap(value);
+                if (parts?.year && parts?.month && parts?.day) {
+                    return `${parts.year}-${parts.month}-${parts.day}`;
+                }
+            }
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return '';
+            const y = String(date.getFullYear());
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        function toShanghaiDayStartTs(value) {
+            const key = getShanghaiDateKey(value);
+            if (!key) {
+                return NaN;
+            }
+            return new Date(`${key}T00:00:00+08:00`).getTime();
+        }
+
+        function getBankCardReminderDisplayName(record) {
+            const bank = String(record?.bank || '未知银行').trim();
+            const tail = String(record?.cardTail || '').trim();
+            return tail ? `${bank}（尾号${tail}）` : bank;
+        }
+
+        function getBankRepaymentReminderNotices(today = new Date()) {
+            if (!window.ERP || !Array.isArray(ERP.state?.finances)) {
+                return [];
+            }
+            if (typeof window.parseBankBusinessRecord !== 'function' || typeof window.getBankRepaymentDueDate !== 'function') {
+                return [];
+            }
+
+            const todayTs = toShanghaiDayStartTs(today);
+            const todayKey = getShanghaiDateKey(today);
+            if (!Number.isFinite(todayTs) || !todayKey) {
+                return [];
+            }
+
+            const parsedRows = ERP.state.finances
+                .map(item => window.parseBankBusinessRecord(item))
+                .filter(row => row?.isRepayment && !row?.isRepaymentPayment);
+
+            const rows = (typeof window.dedupeBankBusinessRowsForDisplay === 'function')
+                ? window.dedupeBankBusinessRowsForDisplay(parsedRows)
+                : parsedRows;
+
+            return rows
+                .map((row) => {
+                    const dueDate = window.getBankRepaymentDueDate(row);
+                    if (!(dueDate instanceof Date) || Number.isNaN(dueDate.getTime())) {
+                        return null;
+                    }
+
+                    const repaymentAmount = Number(row?.repaymentAmount || 0);
+                    const description = String(row?.description || '');
+                    const settledByText = /(状态[:：]\s*已结清|已还清|账单已结清|当月已还清)/.test(description);
+                    if (settledByText || repaymentAmount <= 0.0001 || row?.reminderEnabled === false) {
+                        return null;
+                    }
+
+                    const dueTs = toShanghaiDayStartTs(dueDate);
+                    if (!Number.isFinite(dueTs)) {
+                        return null;
+                    }
+
+                    const daysLeft = Math.floor((dueTs - todayTs) / 86400000);
+                    if (daysLeft > 3 || daysLeft < 0) {
+                        return null;
+                    }
+
+                    const cardName = getBankCardReminderDisplayName(row);
+                    const amountText = (typeof window.toMoneyText === 'function')
+                        ? window.toMoneyText(repaymentAmount)
+                        : `¥${repaymentAmount.toFixed(2)}`;
+                    const dueText = getShanghaiDateKey(dueDate) || '-';
+                    const countdownText = daysLeft === 0 ? '今天到期' : `剩余${daysLeft}天`;
+                    const rowId = String(row?.id || `${String(row?.bank || '').trim()}_${String(row?.cardTail || '').trim()}`).trim();
+
+                    return {
+                        key: `bank_due_${rowId}_${todayKey}`,
+                        title: `还款提醒：${cardName}`,
+                        subtitle: `最后还款日 ${dueText}｜${countdownText}｜应还金额 ${amountText}`,
+                        level: daysLeft <= 1 ? 'warning' : 'info',
+                        group: 'bank_repayment',
+                        action: {
+                            type: 'open_module',
+                            module: 'banking'
+                        }
+                    };
+                })
+                .filter(Boolean)
+                .sort((a, b) => {
+                    const getDay = (notice) => {
+                        const match = String(notice?.subtitle || '').match(/最后还款日\s+(\d{4}-\d{2}-\d{2})/);
+                        return match ? new Date(`${match[1]}T00:00:00+08:00`).getTime() : Number.POSITIVE_INFINITY;
+                    };
+                    return getDay(a) - getDay(b);
+                });
         }
 
         function getHeaderNoticeReadStorageKey() {
@@ -3639,6 +3752,11 @@
                 });
             });
 
+            const repaymentNotices = getBankRepaymentReminderNotices(now);
+            if (repaymentNotices.length) {
+                notices.push(...repaymentNotices);
+            }
+
             if (notices.length === 0) {
                 notices.push({
                     key: 'all_good',
@@ -3686,6 +3804,7 @@
                 { key: 'all', label: '全部' },
                 { key: 'inventory', label: '库存' },
                 { key: 'receivable', label: '回款' },
+                { key: 'bank_repayment', label: '还款' },
                 { key: 'purchase_approval', label: '采购审批' }
             ];
             const filteredNotices = selectedGroup === 'all'

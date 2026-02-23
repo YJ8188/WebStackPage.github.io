@@ -143,6 +143,9 @@ const dailyNotesViewState = {
     isApplyingState: false,
     lastSavedSignature: '',
     historyRows: [],
+    contextMenuEl: null,
+    contextMenuRange: null,
+    contextMenuVisible: false,
     imageCompression: {
         maxWidth: 1600,
         maxHeight: 1600,
@@ -6886,10 +6889,274 @@ function getDailyNoteHistoryListElement() {
     return document.getElementById('dailyNoteHistoryList');
 }
 
+function getDailyNoteContextMenuElement() {
+    return dailyNotesViewState.contextMenuEl;
+}
+
 function getDailyNoteHistoryStorageKey(noteId) {
     const userId = String(window?.userData?.user?.id || 'guest').trim() || 'guest';
     const safeNoteId = String(noteId || '').trim() || 'draft';
     return `erp_note_history_${userId}_${safeNoteId}`;
+}
+
+function normalizeDailyNoteUrl(rawUrl = '') {
+    const value = String(rawUrl || '').trim();
+    if (!value) {
+        return '';
+    }
+    const withProtocol = /^www\./i.test(value) ? `https://${value}` : value;
+    try {
+        const parsed = new URL(withProtocol);
+        if (!/^https?:$/i.test(parsed.protocol)) {
+            return '';
+        }
+        return parsed.href;
+    } catch (error) {
+        return '';
+    }
+}
+
+function isDailyNoteSingleUrlText(rawText = '') {
+    const value = String(rawText || '').trim();
+    if (!value) {
+        return false;
+    }
+    if (/\s/.test(value)) {
+        return false;
+    }
+    return !!normalizeDailyNoteUrl(value);
+}
+
+function normalizeDailyNoteEditorLists() {
+    const editorEl = getDailyNoteEditorElement();
+    if (!editorEl) {
+        return;
+    }
+    editorEl.querySelectorAll('ul').forEach((listEl) => {
+        listEl.style.listStyleType = 'disc';
+        listEl.style.paddingLeft = '1.45em';
+        listEl.style.margin = '0.5em 0';
+    });
+    editorEl.querySelectorAll('ol').forEach((listEl) => {
+        listEl.style.listStyleType = 'decimal';
+        listEl.style.paddingLeft = '1.45em';
+        listEl.style.margin = '0.5em 0';
+    });
+    editorEl.querySelectorAll('li').forEach((itemEl) => {
+        itemEl.style.margin = '0.22em 0';
+        itemEl.style.paddingLeft = '0.1em';
+    });
+}
+
+function cacheDailyNoteSelectionRange() {
+    const editorEl = getDailyNoteEditorElement();
+    const selection = window.getSelection?.();
+    if (!editorEl || !selection || selection.rangeCount < 1) {
+        dailyNotesViewState.contextMenuRange = null;
+        return;
+    }
+    const range = selection.getRangeAt(0);
+    if (!editorEl.contains(range.commonAncestorContainer)) {
+        dailyNotesViewState.contextMenuRange = null;
+        return;
+    }
+    dailyNotesViewState.contextMenuRange = range.cloneRange();
+}
+
+function restoreDailyNoteSelectionRange() {
+    const range = dailyNotesViewState.contextMenuRange;
+    if (!range) {
+        return;
+    }
+    const selection = window.getSelection?.();
+    if (!selection) {
+        return;
+    }
+    selection.removeAllRanges();
+    selection.addRange(range);
+}
+
+function hideDailyNoteContextMenu() {
+    const menuEl = getDailyNoteContextMenuElement();
+    if (!menuEl) {
+        return;
+    }
+    menuEl.classList.remove('is-visible');
+    menuEl.style.left = '-9999px';
+    menuEl.style.top = '-9999px';
+    dailyNotesViewState.contextMenuVisible = false;
+}
+
+function showDailyNoteContextMenu(clientX = 0, clientY = 0) {
+    const menuEl = ensureDailyNoteContextMenu();
+    if (!menuEl) {
+        return;
+    }
+    menuEl.classList.add('is-visible');
+    menuEl.style.visibility = 'hidden';
+    menuEl.style.left = `${Math.max(8, Number(clientX) || 0)}px`;
+    menuEl.style.top = `${Math.max(8, Number(clientY) || 0)}px`;
+
+    const width = menuEl.offsetWidth || 180;
+    const height = menuEl.offsetHeight || 280;
+    const maxLeft = Math.max(8, window.innerWidth - width - 8);
+    const maxTop = Math.max(8, window.innerHeight - height - 8);
+    const finalLeft = Math.min(Math.max(8, Number(clientX) || 0), maxLeft);
+    const finalTop = Math.min(Math.max(8, Number(clientY) || 0), maxTop);
+
+    menuEl.style.left = `${finalLeft}px`;
+    menuEl.style.top = `${finalTop}px`;
+    menuEl.style.visibility = 'visible';
+    dailyNotesViewState.contextMenuVisible = true;
+}
+
+async function pasteDailyNoteFromClipboard() {
+    const editorEl = getDailyNoteEditorElement();
+    if (!editorEl) {
+        return;
+    }
+    editorEl.focus();
+    try {
+        if (navigator.clipboard?.readText && window.isSecureContext) {
+            const text = String(await navigator.clipboard.readText() || '');
+            if (text) {
+                if (isDailyNoteSingleUrlText(text)) {
+                    insertDailyNoteHtml(`<a href="${escapeHtmlText(normalizeDailyNoteUrl(text))}" target="_blank" rel="noopener noreferrer">${escapeHtmlText(text.trim())}</a>`);
+                } else {
+                    document.execCommand('insertText', false, text);
+                    scheduleDailyNoteAutoSave();
+                }
+                return;
+            }
+        }
+        const applied = document.execCommand('paste');
+        if (!applied) {
+            throw new Error('paste_not_supported');
+        }
+        scheduleDailyNoteAutoSave();
+    } catch (error) {
+        showToast('浏览器限制右键粘贴，请使用 Ctrl+V', 'warning');
+    }
+}
+
+function handleDailyNoteContextMenuAction(action = '') {
+    const key = String(action || '').trim();
+    if (!key) {
+        return;
+    }
+    restoreDailyNoteSelectionRange();
+    switch (key) {
+    case 'undo':
+        execDailyNoteCommand('undo');
+        break;
+    case 'redo':
+        execDailyNoteCommand('redo');
+        break;
+    case 'cut':
+        execDailyNoteCommand('cut');
+        break;
+    case 'copy':
+        execDailyNoteCommand('copy');
+        break;
+    case 'paste':
+        pasteDailyNoteFromClipboard();
+        break;
+    case 'bold':
+        execDailyNoteCommand('bold');
+        break;
+    case 'italic':
+        execDailyNoteCommand('italic');
+        break;
+    case 'underline':
+        execDailyNoteCommand('underline');
+        break;
+    case 'bullet':
+        insertDailyNoteBulletList();
+        break;
+    case 'ordered':
+        execDailyNoteCommand('insertOrderedList');
+        break;
+    case 'divider':
+        insertDailyNoteDivider();
+        break;
+    case 'link':
+        insertDailyNoteLink();
+        break;
+    case 'clear':
+        execDailyNoteCommand('removeFormat');
+        break;
+    default:
+        break;
+    }
+    hideDailyNoteContextMenu();
+}
+
+function ensureDailyNoteContextMenu() {
+    if (dailyNotesViewState.contextMenuEl && document.body.contains(dailyNotesViewState.contextMenuEl)) {
+        return dailyNotesViewState.contextMenuEl;
+    }
+    const menuEl = document.createElement('div');
+    menuEl.id = 'dailyNoteContextMenu';
+    menuEl.className = 'erp-notes-context-menu';
+    menuEl.innerHTML = `
+        <button type="button" data-action="undo"><i class="fa fa-undo"></i> 撤销</button>
+        <button type="button" data-action="redo"><i class="fa fa-repeat"></i> 重做</button>
+        <div class="erp-notes-context-divider"></div>
+        <button type="button" data-action="cut"><i class="fa fa-scissors"></i> 剪切</button>
+        <button type="button" data-action="copy"><i class="fa fa-copy"></i> 复制</button>
+        <button type="button" data-action="paste"><i class="fa fa-clipboard"></i> 粘贴</button>
+        <div class="erp-notes-context-divider"></div>
+        <button type="button" data-action="bold"><i class="fa fa-bold"></i> 加粗</button>
+        <button type="button" data-action="italic"><i class="fa fa-italic"></i> 斜体</button>
+        <button type="button" data-action="underline"><i class="fa fa-underline"></i> 下划线</button>
+        <button type="button" data-action="bullet"><i class="fa fa-list-ul"></i> 项目符号</button>
+        <button type="button" data-action="ordered"><i class="fa fa-list-ol"></i> 有序列表</button>
+        <button type="button" data-action="link"><i class="fa fa-link"></i> 插入链接</button>
+        <button type="button" data-action="divider"><i class="fa fa-minus"></i> 分割线</button>
+        <button type="button" data-action="clear"><i class="fa fa-eraser"></i> 清除格式</button>
+    `;
+    menuEl.addEventListener('click', (event) => {
+        const target = event.target instanceof Element ? event.target : null;
+        const button = target ? target.closest('button[data-action]') : null;
+        if (!button) {
+            return;
+        }
+        handleDailyNoteContextMenuAction(button.dataset.action || '');
+    });
+    document.body.appendChild(menuEl);
+    dailyNotesViewState.contextMenuEl = menuEl;
+    return menuEl;
+}
+
+function handleDailyNoteEditorContextMenu(event) {
+    const editorEl = getDailyNoteEditorElement();
+    if (!editorEl || !editorEl.contains(event.target)) {
+        hideDailyNoteContextMenu();
+        return;
+    }
+    event.preventDefault();
+    cacheDailyNoteSelectionRange();
+    showDailyNoteContextMenu(event.clientX, event.clientY);
+}
+
+function handleDailyNoteGlobalPointerDown(event) {
+    if (!dailyNotesViewState.contextMenuVisible) {
+        return;
+    }
+    const menuEl = getDailyNoteContextMenuElement();
+    if (!menuEl) {
+        return;
+    }
+    if (menuEl.contains(event.target)) {
+        return;
+    }
+    hideDailyNoteContextMenu();
+}
+
+function handleDailyNoteGlobalKeydown(event) {
+    if (event.key === 'Escape') {
+        hideDailyNoteContextMenu();
+    }
 }
 
 function readLocalDailyNoteHistory(noteId) {
@@ -7401,11 +7668,15 @@ function execDailyNoteCommand(command, value = null) {
     }
     editorEl.focus();
     document.execCommand(command, false, value);
+    if (command === 'insertUnorderedList' || command === 'insertOrderedList') {
+        window.requestAnimationFrame(() => normalizeDailyNoteEditorLists());
+    }
     scheduleDailyNoteAutoSave();
 }
 
 function insertDailyNoteBulletList() {
     execDailyNoteCommand('insertUnorderedList');
+    normalizeDailyNoteEditorLists();
 }
 
 function insertDailyNoteDivider() {
@@ -7472,8 +7743,31 @@ function insertDailyNoteLink() {
     if (!url) {
         return;
     }
-    execDailyNoteCommand('createLink', url);
+    const normalized = normalizeDailyNoteUrl(url);
+    if (!normalized) {
+        showToast('链接格式不正确，请输入 http/https 地址', 'warning');
+        return;
+    }
+    execDailyNoteCommand('createLink', normalized);
     scheduleDailyNoteAutoSave();
+}
+
+function insertDailyNoteHtml(html = '') {
+    const editorEl = getDailyNoteEditorElement();
+    if (!editorEl) {
+        return false;
+    }
+    const safeHtml = String(html || '').trim();
+    if (!safeHtml) {
+        return false;
+    }
+    editorEl.focus();
+    const applied = document.execCommand('insertHTML', false, safeHtml);
+    if (!applied) {
+        return false;
+    }
+    scheduleDailyNoteAutoSave();
+    return true;
 }
 
 function triggerDailyNoteImagePicker() {
@@ -7603,30 +7897,41 @@ async function handleDailyNoteImageSelect(event) {
 async function handleDailyNoteEditorPaste(event) {
     const items = Array.from(event?.clipboardData?.items || []);
     const imageItems = items.filter(item => item.type && item.type.startsWith('image/'));
-    if (!imageItems.length) {
-        return;
-    }
-    event.preventDefault();
-    for (const item of imageItems) {
-        const file = item.getAsFile();
-        if (!file) {
-            continue;
-        }
-        try {
-            const result = await compressImageFileToDataUrl(file);
-            if (!result?.dataUrl) {
+    if (imageItems.length) {
+        event.preventDefault();
+        for (const item of imageItems) {
+            const file = item.getAsFile();
+            if (!file) {
                 continue;
             }
-            insertDailyNoteImageDataUrl(result.dataUrl);
-            const detail = result.compressed
-                ? `粘贴图片已压缩：${formatFileSize(result.originalBytes)} → ${formatFileSize(result.compressedBytes)}`
-                : `粘贴图片已插入：${formatFileSize(result.originalBytes)}`;
-            updateDailyNoteMetaText(detail);
-        } catch (error) {
-            console.error('[ERP Notes] 粘贴图片处理失败:', error);
+            try {
+                const result = await compressImageFileToDataUrl(file);
+                if (!result?.dataUrl) {
+                    continue;
+                }
+                insertDailyNoteImageDataUrl(result.dataUrl);
+                const detail = result.compressed
+                    ? `粘贴图片已压缩：${formatFileSize(result.originalBytes)} → ${formatFileSize(result.compressedBytes)}`
+                    : `粘贴图片已插入：${formatFileSize(result.originalBytes)}`;
+                updateDailyNoteMetaText(detail);
+            } catch (error) {
+                console.error('[ERP Notes] 粘贴图片处理失败:', error);
+            }
+        }
+        scheduleDailyNoteAutoSave();
+        return;
+    }
+
+    const clipboardText = String(event?.clipboardData?.getData('text/plain') || '').trim();
+    if (clipboardText && isDailyNoteSingleUrlText(clipboardText)) {
+        const normalized = normalizeDailyNoteUrl(clipboardText);
+        if (normalized) {
+            event.preventDefault();
+            insertDailyNoteHtml(`<a href="${escapeHtmlText(normalized)}" target="_blank" rel="noopener noreferrer">${escapeHtmlText(clipboardText)}</a>`);
+            updateDailyNoteMetaText('已自动将链接转换为超链接');
+            return;
         }
     }
-    scheduleDailyNoteAutoSave();
 }
 
 function initDailyNotesModule() {
@@ -7640,6 +7945,7 @@ function initDailyNotesModule() {
         editorEl.setAttribute('data-placeholder', '记录文字、图片、超链接，内容自动保存到当前账号。');
         editorEl.addEventListener('paste', handleDailyNoteEditorPaste);
         editorEl.addEventListener('input', () => scheduleDailyNoteAutoSave());
+        editorEl.addEventListener('contextmenu', handleDailyNoteEditorContextMenu);
     }
     if (titleEl) {
         titleEl.addEventListener('input', () => scheduleDailyNoteAutoSave());
@@ -7650,6 +7956,12 @@ function initDailyNotesModule() {
             }
         });
     }
+
+    ensureDailyNoteContextMenu();
+    document.addEventListener('mousedown', handleDailyNoteGlobalPointerDown, true);
+    document.addEventListener('keydown', handleDailyNoteGlobalKeydown, true);
+    document.addEventListener('scroll', hideDailyNoteContextMenu, true);
+    window.addEventListener('blur', hideDailyNoteContextMenu);
 
     dailyNotesViewState.initialized = true;
 }

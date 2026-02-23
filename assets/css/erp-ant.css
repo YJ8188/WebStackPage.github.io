@@ -2854,6 +2854,22 @@ select.ant-select option {
     margin-bottom: 10px;
 }
 
+.erp-notes-toolbar-select {
+    min-width: 92px;
+    height: 32px;
+    font-size: 12px;
+}
+
+.erp-notes-toolbar-color {
+    width: 34px;
+    height: 32px;
+    border: 1px solid #d9d9d9;
+    border-radius: 6px;
+    background: #fff;
+    padding: 3px;
+    cursor: pointer;
+}
+
 .erp-notes-editor-content {
     flex: 1;
     min-height: 420px;

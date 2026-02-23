@@ -7404,6 +7404,60 @@ function execDailyNoteCommand(command, value = null) {
     scheduleDailyNoteAutoSave();
 }
 
+function insertDailyNoteBulletList() {
+    execDailyNoteCommand('insertUnorderedList');
+}
+
+function insertDailyNoteDivider() {
+    execDailyNoteCommand('insertHorizontalRule');
+}
+
+function setDailyNoteTextColor(color = '') {
+    const safeColor = String(color || '').trim();
+    if (!safeColor) {
+        return;
+    }
+    execDailyNoteCommand('foreColor', safeColor);
+}
+
+function setDailyNoteHighlightColor(color = '') {
+    const safeColor = String(color || '').trim();
+    if (!safeColor) {
+        return;
+    }
+    const editorEl = getDailyNoteEditorElement();
+    if (!editorEl) {
+        return;
+    }
+    editorEl.focus();
+    let applied = false;
+    try {
+        applied = document.execCommand('hiliteColor', false, safeColor);
+    } catch (error) {
+        applied = false;
+    }
+    if (!applied) {
+        document.execCommand('backColor', false, safeColor);
+    }
+    scheduleDailyNoteAutoSave();
+}
+
+function setDailyNoteFontFamily(fontFamily = '') {
+    const safeFont = String(fontFamily || '').trim();
+    if (!safeFont) {
+        return;
+    }
+    execDailyNoteCommand('fontName', safeFont);
+}
+
+function setDailyNoteFontSize(fontSize = '') {
+    const safeSize = String(fontSize || '').trim();
+    if (!safeSize) {
+        return;
+    }
+    execDailyNoteCommand('fontSize', safeSize);
+}
+
 function insertDailyNoteChecklist() {
     const editorEl = getDailyNoteEditorElement();
     if (!editorEl) return;

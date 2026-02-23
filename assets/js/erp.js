@@ -125,6 +125,42 @@ const ERP = {
         return String(left) === String(right);
     },
 
+    isMissingColumnError(error) {
+        const code = String(error?.code || '').trim().toUpperCase();
+        if (code === '42703' || code === 'PGRST204' || code === 'PGRST205') {
+            return true;
+        }
+        const messageText = String(error?.message || '').toLowerCase();
+        if (!messageText) {
+            return false;
+        }
+        return (
+            (messageText.includes('column') && (messageText.includes('not found') || messageText.includes('does not exist')))
+            || messageText.includes('could not find the')
+        );
+    },
+
+    extractMissingColumnName(error) {
+        const messageText = String(error?.message || '');
+        if (!messageText) {
+            return '';
+        }
+        const matchers = [
+            /column\s+"?([a-zA-Z0-9_]+)"?\s+of/i,
+            /column\s+"?([a-zA-Z0-9_]+)"?\s+does not exist/i,
+            /could not find the\s+'([a-zA-Z0-9_]+)'\s+column/i,
+            /could not find the\s+([a-zA-Z0-9_]+)\s+column/i,
+            /'([a-zA-Z0-9_]+)'\s+column/i
+        ];
+        for (const matcher of matchers) {
+            const hit = messageText.match(matcher);
+            if (hit?.[1]) {
+                return String(hit[1]).trim();
+            }
+        }
+        return '';
+    },
+
     getConfiguredAdminEmails() {
         const values = [];
         const append = (source) => {
@@ -796,14 +832,11 @@ const ERP = {
                     break;
                 }
 
-                if (!lite || String(error.code || '') !== '42703') {
+                if (!lite || !this.isMissingColumnError(error)) {
                     break;
                 }
 
-                const messageText = String(error.message || '');
-                const columnMatch = messageText.match(/column\s+"?([a-zA-Z0-9_]+)"?\s+of/i)
-                    || messageText.match(/column\s+"?([a-zA-Z0-9_]+)"?\s+does not exist/i);
-                const missingColumn = String(columnMatch?.[1] || '').trim();
+                const missingColumn = this.extractMissingColumnName(error);
                 if (!missingColumn) {
                     break;
                 }
@@ -2811,13 +2844,11 @@ const ERP = {
                     break;
                 }
 
-                if (error.code !== '42703') {
+                if (!this.isMissingColumnError(error)) {
                     break;
                 }
 
-                const messageText = String(error.message || '');
-                const columnMatch = messageText.match(/column\s+"?([a-zA-Z0-9_]+)"?\s+of/i) || messageText.match(/column\s+"?([a-zA-Z0-9_]+)"?\s+does not exist/i);
-                const missingColumn = columnMatch?.[1] || null;
+                const missingColumn = this.extractMissingColumnName(error) || null;
                 if (missingColumn && Object.prototype.hasOwnProperty.call(payload, missingColumn)) {
                     delete payload[missingColumn];
                     removedColumns.push(missingColumn);
@@ -3141,11 +3172,9 @@ const ERP = {
                 error = response.error;
 
                 if (!error) break;
-                if (error.code !== '42703') break;
+                if (!this.isMissingColumnError(error)) break;
 
-                const messageText = String(error.message || '');
-                const columnMatch = messageText.match(/column\s+"?([a-zA-Z0-9_]+)"?\s+of/i) || messageText.match(/column\s+"?([a-zA-Z0-9_]+)"?\s+does not exist/i);
-                const missingColumn = columnMatch?.[1] || null;
+                const missingColumn = this.extractMissingColumnName(error) || null;
                 if (missingColumn && Object.prototype.hasOwnProperty.call(payload, missingColumn)) {
                     delete payload[missingColumn];
                     removedColumns.push(missingColumn);

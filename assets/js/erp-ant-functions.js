@@ -6873,10 +6873,10 @@ function buildSmartCardPlanRows() {
     const getRepayActionText = (daysToDue, dueDate, amount, suggestRepayDate) => {
         const safeAmount = Math.max(0, Number(amount || 0));
         const firstRepay = Math.max(0, Number((safeAmount * 0.5).toFixed(2)));
-        if (daysToDue < 0) return `已逾期，今天先还 ${toMoneyText(firstRepay)}，尽快全额结清 ${toMoneyText(safeAmount)}。`;
-        if (daysToDue <= 2) return `临近还款，优先全额还款 ${toMoneyText(safeAmount)}（最晚 ${formatRuleDate(dueDate)}）。`;
-        if (daysToDue <= 7) return `建议先还 ${toMoneyText(firstRepay)}，并在 ${formatRuleDate(suggestRepayDate)} 前还清。`;
-        return `可在账单后刷卡窗口操作，并于 ${formatRuleDate(suggestRepayDate)} 前还清。`;
+        if (daysToDue < 0) return `今日先还 ${toMoneyText(firstRepay)}，尽快结清 ${toMoneyText(safeAmount)}。`;
+        if (daysToDue <= 2) return `建议全额还款 ${toMoneyText(safeAmount)}（最晚 ${formatRuleDate(dueDate)}）。`;
+        if (daysToDue <= 7) return `先还 ${toMoneyText(firstRepay)}，${formatRuleDate(suggestRepayDate)} 前还清。`;
+        return `账单后可刷卡，${formatRuleDate(suggestRepayDate)} 前还清。`;
     };
 
     const planRows = [];
@@ -7033,7 +7033,7 @@ function renderBankSmartPlan() {
                 <td class="erp-smart-plan-window-cell" title="${safeText(`${formatRuleDate(item.recommendSwipeStart)} ~ ${formatRuleDate(item.recommendSwipeEnd)}`)}">${safeText(`${formatRuleDateShort(item.recommendSwipeStart)} ~ ${formatRuleDateShort(item.recommendSwipeEnd)}`)}</td>
                 <td class="erp-smart-plan-date-cell">${safeText(formatRuleDate(item.recommendRepayDate))}</td>
                 <td class="erp-smart-plan-urgency-cell"><span style="${urgencyStyle}font-weight:600;">${safeText(urgencyText)}</span></td>
-                <td class="erp-smart-plan-action-cell">${safeText(item.actionText)}</td>
+                <td class="erp-smart-plan-action-cell" title="${safeText(item.actionText)}">${safeText(item.actionText)}</td>
             </tr>
         `;
     }).join('');

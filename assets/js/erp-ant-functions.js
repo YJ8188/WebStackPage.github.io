@@ -140,7 +140,7 @@ const dailyNotesViewState = {
     draftPinned: false,
     initialized: false,
     autoSaveTimer: null,
-    autoSaveDelay: 0,
+    autoSaveDelay: 5000,
     isAutoSaving: false,
     pendingAutoSave: false,
     pendingSessionToken: 0,
@@ -6911,6 +6911,85 @@ function getDailyNoteHistoryStorageKey(noteId) {
     return `erp_note_history_${userId}_${safeNoteId}`;
 }
 
+function getDailyNoteDraftStorageKey(noteId = 'draft') {
+    const userId = String(window?.userData?.user?.id || 'guest').trim() || 'guest';
+    const safeNoteId = String(noteId || 'draft').trim() || 'draft';
+    return `erp_note_draft_${userId}_${safeNoteId}`;
+}
+
+function readDailyNoteLocalDraft(noteId = 'draft') {
+    try {
+        const raw = localStorage.getItem(getDailyNoteDraftStorageKey(noteId));
+        if (!raw) {
+            return null;
+        }
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') {
+            return null;
+        }
+        return {
+            note_id: parsed.note_id ?? null,
+            title: String(parsed.title || '').trim() || '未命名笔记',
+            content_html: normalizeDailyNoteHtml(parsed.content_html || ''),
+            content_text: String(parsed.content_text || '').trim(),
+            is_pinned: !!parsed.is_pinned,
+            pending_sync: !!parsed.pending_sync,
+            updated_at: parsed.updated_at || null
+        };
+    } catch (error) {
+        return null;
+    }
+}
+
+function writeDailyNoteLocalDraft(noteId = 'draft', payload = {}, pendingSync = true) {
+    try {
+        const data = {
+            note_id: noteId === 'draft' ? null : String(noteId || ''),
+            title: String(payload?.title || '').trim() || '未命名笔记',
+            content_html: normalizeDailyNoteHtml(payload?.content_html || ''),
+            content_text: String(payload?.content_text || '').trim(),
+            is_pinned: !!payload?.is_pinned,
+            pending_sync: !!pendingSync,
+            updated_at: new Date().toISOString()
+        };
+        localStorage.setItem(getDailyNoteDraftStorageKey(noteId), JSON.stringify(data));
+    } catch (error) {
+        console.warn('[ERP Notes] 写入本地草稿失败:', error?.message || error);
+    }
+}
+
+function removeDailyNoteLocalDraft(noteId = 'draft') {
+    try {
+        localStorage.removeItem(getDailyNoteDraftStorageKey(noteId));
+    } catch (error) {
+        // ignore
+    }
+}
+
+function getActiveDailyNoteDraftId() {
+    const currentId = normalizeEntityId(dailyNotesViewState.currentId);
+    return currentId === null ? 'draft' : String(currentId);
+}
+
+function cacheDailyNoteDraftFromForm(pendingSync = true) {
+    const editorEl = getDailyNoteEditorElement();
+    const titleEl = getDailyNoteTitleElement();
+    if (!editorEl || !titleEl || dailyNotesViewState.isApplyingState) {
+        return;
+    }
+    const payload = collectDailyNoteFormData();
+    const hasContent = !!payload.content_text || getNoteContentHasMedia(payload.content_html);
+    const hasTitle = !!String(titleEl.value || '').trim();
+    const draftId = getActiveDailyNoteDraftId();
+    if (!hasContent && !hasTitle) {
+        if (draftId === 'draft') {
+            removeDailyNoteLocalDraft('draft');
+        }
+        return;
+    }
+    writeDailyNoteLocalDraft(draftId, payload, pendingSync);
+}
+
 function normalizeDailyNoteUrl(rawUrl = '') {
     const value = String(rawUrl || '').trim();
     if (!value) {
@@ -7342,6 +7421,7 @@ function scheduleDailyNoteAutoSave() {
     if (dailyNotesViewState.isApplyingState) {
         return;
     }
+    cacheDailyNoteDraftFromForm(true);
     clearDailyNoteAutoSaveTimer();
     const sessionToken = Number(dailyNotesViewState.editorSessionToken || 0);
     dailyNotesViewState.pendingSessionToken = sessionToken;
@@ -7389,36 +7469,72 @@ function applyDailyNoteEditorState(note = null) {
     nextDailyNoteEditorSessionToken();
 
     if (!note) {
-        titleEl.value = '';
-        editorEl.innerHTML = '';
+        const draft = readDailyNoteLocalDraft('draft');
+        const draftHtml = String(draft?.content_html || '').trim();
+        titleEl.value = String(draft?.title || '');
+        editorEl.innerHTML = draftHtml;
         dailyNotesViewState.currentId = null;
         dailyNotesViewState.isDraftMode = true;
-        dailyNotesViewState.draftPinned = false;
+        dailyNotesViewState.draftPinned = !!draft?.is_pinned;
         setDailyNoteSavedSignature({
-            title: '',
-            content_html: '',
-            is_pinned: false
+            title: draft?.title || '',
+            content_html: draftHtml,
+            is_pinned: !!draft?.is_pinned
         });
-        updateDailyNoteMetaText('新建笔记中，支持粘贴图片、链接、清单内容。');
+        normalizeDailyNoteEditorLists();
+        if (draft) {
+            const draftTime = toDateTimeText(draft?.updated_at || null);
+            updateDailyNoteMetaText(`已恢复本地草稿 · ${draft?.pending_sync ? '待同步数据库' : '已缓存'} · ${draftTime}`);
+        } else {
+            updateDailyNoteMetaText('新建笔记中，支持粘贴图片、链接、清单内容。');
+        }
         setTimeout(() => {
             dailyNotesViewState.isApplyingState = false;
         }, 0);
         return;
     }
 
-    titleEl.value = String(note?.title || '');
-    editorEl.innerHTML = String(note?.content_html || '').trim();
+    const remotePayload = {
+        title: String(note?.title || ''),
+        content_html: String(note?.content_html || '').trim(),
+        is_pinned: !!note?.is_pinned,
+        updated_at: note?.updated_at || note?.created_at || null
+    };
+    const localDraft = readDailyNoteLocalDraft(String(note?.id ?? ''));
+    let effectivePayload = { ...remotePayload };
+    let usingLocalDraft = false;
+    if (localDraft) {
+        const localTs = new Date(localDraft?.updated_at || 0).getTime();
+        const remoteTs = new Date(remotePayload?.updated_at || 0).getTime();
+        if (localDraft?.pending_sync || localTs > remoteTs) {
+            effectivePayload = {
+                ...effectivePayload,
+                title: localDraft?.title || effectivePayload.title,
+                content_html: String(localDraft?.content_html || '').trim(),
+                is_pinned: !!localDraft?.is_pinned
+            };
+            usingLocalDraft = true;
+        }
+    }
+
+    titleEl.value = String(effectivePayload.title || '');
+    editorEl.innerHTML = String(effectivePayload.content_html || '').trim();
     dailyNotesViewState.currentId = note?.id ?? null;
     dailyNotesViewState.isDraftMode = false;
-    dailyNotesViewState.draftPinned = !!note?.is_pinned;
+    dailyNotesViewState.draftPinned = !!effectivePayload.is_pinned;
     normalizeDailyNoteEditorLists();
     setDailyNoteSavedSignature({
-        title: note?.title || '',
-        content_html: note?.content_html || '',
-        is_pinned: note?.is_pinned
+        title: effectivePayload.title || '',
+        content_html: effectivePayload.content_html || '',
+        is_pinned: effectivePayload.is_pinned
     });
     const updateText = toDateTimeText(note?.updated_at || note?.created_at || null);
-    updateDailyNoteMetaText(`${note?.is_pinned ? '已置顶' : '未置顶'} · 最近更新 ${updateText}`);
+    if (usingLocalDraft && localDraft?.pending_sync) {
+        const localText = toDateTimeText(localDraft?.updated_at || null);
+        updateDailyNoteMetaText(`${effectivePayload?.is_pinned ? '已置顶' : '未置顶'} · 本地已更新待同步 · ${localText}`);
+    } else {
+        updateDailyNoteMetaText(`${effectivePayload?.is_pinned ? '已置顶' : '未置顶'} · 最近更新 ${updateText}`);
+    }
     setTimeout(() => {
         dailyNotesViewState.isApplyingState = false;
     }, 0);
@@ -7483,6 +7599,7 @@ function renderDailyNotesModule() {
 }
 
 async function createDailyNote() {
+    cacheDailyNoteDraftFromForm(true);
     clearDailyNoteAutoSaveTimer();
     dailyNotesViewState.currentId = null;
     dailyNotesViewState.isDraftMode = true;
@@ -7500,6 +7617,7 @@ function searchDailyNotes(keyword = '') {
 }
 
 function selectDailyNote(noteId) {
+    cacheDailyNoteDraftFromForm(true);
     clearDailyNoteAutoSaveTimer();
     const rows = getDailyNotesRows();
     const note = rows.find(item => isSameEntityId(item?.id, noteId)) || null;
@@ -7695,7 +7813,7 @@ async function rollbackDailyNoteVersion(versionId) {
         return;
     }
 
-    await ERP.loadNotes(true);
+    removeDailyNoteLocalDraft(String(noteId));
     dailyNotesViewState.currentId = noteId;
     renderDailyNotesModule();
     const rows = await loadDailyNoteHistoryRows(noteId);
@@ -7727,6 +7845,8 @@ async function saveDailyNote(options = {}) {
     }
 
     const isEdit = !!dailyNotesViewState.currentId;
+    const draftIdBeforeSave = getActiveDailyNoteDraftId();
+    writeDailyNoteLocalDraft(draftIdBeforeSave, payload, true);
     const source = String(options?.source || 'manual');
 
     if (isEdit) {
@@ -7748,17 +7868,19 @@ async function saveDailyNote(options = {}) {
         ? await ERP.updateNote(dailyNotesViewState.currentId, payload)
         : await ERP.addNote(payload);
     if (!saved) {
+        updateDailyNoteMetaText('数据库保存失败，内容已保存在本地草稿，稍后自动重试');
         if (!options?.silent) {
             showToast(isEdit ? '保存笔记失败' : '创建笔记失败', 'error');
         }
         return null;
     }
 
-    await ERP.loadNotes(true);
     const sessionToken = Number(options?.sessionToken || 0);
     if (sessionToken > 0 && sessionToken !== Number(dailyNotesViewState.editorSessionToken || 0)) {
         return saved;
     }
+    removeDailyNoteLocalDraft(draftIdBeforeSave);
+    removeDailyNoteLocalDraft(String(saved.id || ''));
     dailyNotesViewState.isDraftMode = false;
     dailyNotesViewState.currentId = saved.id;
     setDailyNoteSavedSignature({
@@ -7794,7 +7916,7 @@ async function deleteDailyNote(noteId = null) {
         showToast('删除笔记失败', 'error');
         return;
     }
-    await ERP.loadNotes(true);
+    removeDailyNoteLocalDraft(String(targetId));
     dailyNotesViewState.currentId = null;
     dailyNotesViewState.isDraftMode = false;
     renderDailyNotesModule();
@@ -7818,7 +7940,7 @@ async function toggleDailyNotePinned() {
         showToast('更新置顶状态失败', 'error');
         return;
     }
-    await ERP.loadNotes(true);
+    removeDailyNoteLocalDraft(String(dailyNotesViewState.currentId));
     dailyNotesViewState.currentId = updated.id;
     renderDailyNotesModule();
     showToast(updated.is_pinned ? '已置顶笔记' : '已取消置顶', 'success');
@@ -8108,7 +8230,10 @@ function initDailyNotesModule() {
     if (editorEl) {
         editorEl.setAttribute('data-placeholder', '记录文字、图片、超链接，内容自动保存到当前账号。');
         editorEl.addEventListener('paste', handleDailyNoteEditorPaste);
-        editorEl.addEventListener('input', () => scheduleDailyNoteAutoSave());
+        editorEl.addEventListener('input', () => {
+            cacheDailyNoteDraftFromForm(true);
+            scheduleDailyNoteAutoSave();
+        });
         editorEl.addEventListener('click', (event) => {
             const target = event.target instanceof Element ? event.target.closest('a[href]') : null;
             if (!target) {
@@ -8124,7 +8249,10 @@ function initDailyNotesModule() {
         editorEl.addEventListener('contextmenu', handleDailyNoteEditorContextMenu);
     }
     if (titleEl) {
-        titleEl.addEventListener('input', () => scheduleDailyNoteAutoSave());
+        titleEl.addEventListener('input', () => {
+            cacheDailyNoteDraftFromForm(true);
+            scheduleDailyNoteAutoSave();
+        });
         titleEl.addEventListener('keydown', (event) => {
             if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
                 event.preventDefault();
@@ -8143,6 +8271,9 @@ function initDailyNotesModule() {
     document.addEventListener('keydown', handleDailyNoteGlobalKeydown, true);
     document.addEventListener('scroll', hideDailyNoteContextMenu, true);
     window.addEventListener('blur', hideDailyNoteContextMenu);
+    window.addEventListener('beforeunload', () => {
+        cacheDailyNoteDraftFromForm(true);
+    });
 
     dailyNotesViewState.initialized = true;
 }
@@ -16560,7 +16691,9 @@ if (typeof window !== 'undefined') {
         if (typeof ERP === 'undefined' || typeof ERP.loadNotes !== 'function') {
             return;
         }
-        await ERP.loadNotes(true);
+        if (!ERP.state?.loaded?.notes) {
+            await ERP.loadNotes(false);
+        }
         if (typeof renderDailyNotesModule === 'function') {
             renderDailyNotesModule();
         }

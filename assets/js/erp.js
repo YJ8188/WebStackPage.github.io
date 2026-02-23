@@ -799,7 +799,6 @@ const ERP = {
                 'created_at',
                 'business_type',
                 'card_bank',
-                'card_tail',
                 'card_bill_day',
                 'card_repayment_day',
                 'card_repayment_amount',
@@ -817,15 +816,19 @@ const ERP = {
 
             let data = null;
             let error = null;
-            let selectFields = lite ? [...liteFieldList] : ['*'];
+            let useLiteSelect = !!lite;
+            let selectFields = [...liteFieldList];
+            const orderCandidates = ['transaction_date', 'created_at', 'id'];
+            let orderFieldIndex = 0;
 
             while (true) {
-                const selectExpr = lite ? selectFields.join(', ') : '*';
+                const orderField = orderCandidates[Math.min(orderFieldIndex, orderCandidates.length - 1)];
+                const selectExpr = useLiteSelect ? selectFields.join(', ') : '*';
                 const response = await supabaseClient
                     .from('erp_finances')
                     .select(selectExpr)
                     .eq('user_id', userData.user.id)
-                    .order('transaction_date', { ascending: false });
+                    .order(orderField, { ascending: false });
                 data = response.data;
                 error = response.error;
 
@@ -833,7 +836,7 @@ const ERP = {
                     break;
                 }
 
-                if (!lite || !this.isMissingColumnError(error)) {
+                if (!this.isMissingColumnError(error)) {
                     break;
                 }
 
@@ -841,11 +844,27 @@ const ERP = {
                 if (!missingColumn) {
                     break;
                 }
-                const nextSelectFields = selectFields.filter(field => field !== missingColumn);
-                if (nextSelectFields.length === selectFields.length) {
+
+                let resolved = false;
+                if (missingColumn === orderField && orderFieldIndex < orderCandidates.length - 1) {
+                    orderFieldIndex += 1;
+                    resolved = true;
+                }
+
+                if (!resolved && useLiteSelect) {
+                    const nextSelectFields = selectFields.filter(field => field !== missingColumn);
+                    if (nextSelectFields.length !== selectFields.length) {
+                        selectFields = nextSelectFields;
+                        resolved = true;
+                    } else {
+                        useLiteSelect = false;
+                        resolved = true;
+                    }
+                }
+
+                if (!resolved) {
                     break;
                 }
-                selectFields = nextSelectFields;
             }
 
             if (error) {

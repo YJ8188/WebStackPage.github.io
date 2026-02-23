@@ -306,6 +306,104 @@
             padding: 6px 0;
             text-align: center;
         }
+
+        #bankingSmartPlanModal .erp-modal {
+            width: min(1160px, 94vw);
+            max-width: 1160px;
+        }
+
+        #bankingSmartPlanModal .modal-body {
+            max-height: 72vh;
+            overflow: auto;
+        }
+
+        .erp-smart-plan-headline {
+            font-size: 16px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 10px;
+        }
+
+        .erp-smart-plan-kpis {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .erp-smart-plan-kpi {
+            font-size: 12px;
+            color: #475569;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 7px 10px;
+            line-height: 1.45;
+        }
+
+        .erp-smart-plan-kpi strong {
+            color: #0f172a;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .erp-smart-plan-desc {
+            font-size: 12px;
+            line-height: 1.6;
+            color: #64748b;
+            margin-bottom: 10px;
+        }
+
+        .erp-smart-plan-table-wrap table th,
+        .erp-smart-plan-table-wrap table td {
+            font-size: 13px;
+            vertical-align: middle;
+        }
+
+        .erp-smart-plan-card-main {
+            font-weight: 600;
+            color: #0f172a;
+            line-height: 1.35;
+        }
+
+        .erp-smart-plan-card-sub {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 2px;
+        }
+
+        .erp-smart-plan-rank {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 36px;
+            height: 24px;
+            padding: 0 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #1d4ed8;
+            background: #dbeafe;
+            border: 1px solid #bfdbfe;
+        }
+
+        .erp-smart-plan-rank.is-danger {
+            color: #b91c1c;
+            background: #fee2e2;
+            border-color: #fecaca;
+        }
+
+        .erp-smart-plan-action-cell {
+            min-width: 220px;
+            color: #334155;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 900px) {
+            .erp-smart-plan-kpis {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
     </style>
 </head>
 
@@ -2051,7 +2149,7 @@
     <div id="bankingSmartPlanModal" class="modal-overlay">
         <div class="modal erp-modal erp-modal-lg">
             <div class="modal-header">
-                <h3>智能倒卡建议（按账单日/还款日）</h3>
+                <h3>智能倒卡建议（按应还金额/到期日）</h3>
                 <button class="btn-close" onclick="hideBankSmartPlanModal()">&times;</button>
             </div>
             <div class="modal-body">
@@ -2181,7 +2279,7 @@
     <script src="assets/js/user-data.js?v=20260214-20"></script>
     <script src="assets/js/erp.js?v=20260223-46"></script>
     <script src="assets/js/vendor/echarts.min.js?v=5.5.0"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260222-131"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260222-132"></script>
     <script src="assets/js/pwa-register.js?v=20260223-5" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->

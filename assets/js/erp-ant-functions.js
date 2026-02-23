@@ -6810,7 +6810,9 @@ function buildSmartCardPlanRows() {
         if (!tail && hasTailByBank.has(bank)) return false;
         if (!row?.billDay || !row?.repaymentDay) return false;
         const amount = Math.max(0, Number(row?.repaymentAmount || 0));
-        if (!Number.isFinite(amount) || amount <= 0) return false;
+        const descriptionText = String(row?.description || '').trim();
+        const isSettled = /(状态[:：]\s*已结清|已还清|账单已结清|当月已还清)/.test(descriptionText) || amount <= 0;
+        if (!Number.isFinite(amount) || amount <= 0 || isSettled) return false;
         const txDate = row?.transactionDate instanceof Date ? row.transactionDate : null;
         if (txDate && !Number.isNaN(txDate.getTime())) {
             if ((now.getTime() - txDate.getTime()) > maxAgeMs) return false;
@@ -6832,38 +6834,73 @@ function buildSmartCardPlanRows() {
     });
 
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const calcPriorityWeight = (daysToDue, amount) => {
+        const dueWeight = daysToDue < 0
+            ? 5
+            : (daysToDue <= 2
+                ? 4
+                : (daysToDue <= 7
+                    ? 3
+                    : (daysToDue <= 15 ? 2 : 1)));
+        const amountWeight = Math.max(0, Number(amount || 0));
+        return dueWeight * 1000000 + amountWeight;
+    };
+
+    const getRepayActionText = (daysToDue, dueDate, amount, suggestRepayDate) => {
+        const safeAmount = Math.max(0, Number(amount || 0));
+        const firstRepay = Math.max(0, Number((safeAmount * 0.5).toFixed(2)));
+        if (daysToDue < 0) {
+            return `已逾期，今天先还 ${toMoneyText(firstRepay)}，尽快全额结清 ${toMoneyText(safeAmount)}。`;
+        }
+        if (daysToDue <= 2) {
+            return `临近还款，优先全额还款 ${toMoneyText(safeAmount)}（最晚 ${formatRuleDate(dueDate)}）。`;
+        }
+        if (daysToDue <= 7) {
+            return `建议先还 ${toMoneyText(firstRepay)}，并在 ${formatRuleDate(suggestRepayDate)} 前还清。`;
+        }
+        return `可在账单后刷卡窗口操作，并于 ${formatRuleDate(suggestRepayDate)} 前还清。`;
+    };
+
     const planRows = [];
     latestByCard.forEach((row) => {
-        const recommendation = buildBankCycleRecommendation(now, row.billDay, row.repaymentDay);
-        if (!recommendation) return;
-        const dueDate = recommendation.dueDate;
+        const dueDate = getBankRepaymentDueDate(row);
+        if (!(dueDate instanceof Date) || Number.isNaN(dueDate.getTime())) return;
         const dueDay = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate(), 0, 0, 0, 0);
         const daysToDue = Math.ceil((dueDay.getTime() - today.getTime()) / 86400000);
         const urgency = daysToDue < 0 ? 'overdue' : (daysToDue <= 2 ? 'urgent' : (daysToDue <= 7 ? 'soon' : 'normal'));
+        const nextCycleRecommendation = buildBankCycleRecommendation(addDaysToDate(dueDate, 1), row.billDay, row.repaymentDay);
+        if (!nextCycleRecommendation) return;
+        const repaymentAmount = Math.max(0, Number(row?.repaymentAmount || 0));
+        const suggestRepayDate = addDaysToDate(dueDate, -2);
+        const priorityWeight = calcPriorityWeight(daysToDue, repaymentAmount);
         const cardLabel = `${row.bank || '未识别'}${row.cardTail ? `（尾号${row.cardTail}）` : ''}`;
-        const actionText = daysToDue < 0
-            ? '优先还款，暂停刷卡'
-            : (daysToDue <= 2
-                ? '先还款，后刷卡'
-                : (daysToDue <= 7
-                    ? '控制刷卡，预留资金'
-                    : '账单后可刷，还款前2天还清'));
         planRows.push({
             key: `${row.bank || ''}_${row.cardTail || ''}`,
             cardLabel,
             billDay: row.billDay || 0,
             repaymentDay: row.repaymentDay || 0,
-            recommendSwipeStart: recommendation.recommendSwipeStart,
-            recommendSwipeEnd: recommendation.recommendSwipeEnd,
-            recommendRepayDate: recommendation.recommendRepayDate,
+            repaymentAmount,
+            recommendSwipeStart: nextCycleRecommendation.recommendSwipeStart,
+            recommendSwipeEnd: nextCycleRecommendation.recommendSwipeEnd,
+            recommendRepayDate: suggestRepayDate,
             dueDate,
             daysToDue,
             urgency,
-            actionText
+            priorityWeight,
+            actionText: getRepayActionText(daysToDue, dueDate, repaymentAmount, suggestRepayDate)
         });
     });
 
-    return planRows.sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
+    return planRows.sort((a, b) => {
+        const weightDiff = b.priorityWeight - a.priorityWeight;
+        if (weightDiff !== 0) return weightDiff;
+        const dueDiff = a.dueDate.getTime() - b.dueDate.getTime();
+        if (dueDiff !== 0) return dueDiff;
+        return (b.repaymentAmount || 0) - (a.repaymentAmount || 0);
+    }).map((item, index) => ({
+        ...item,
+        priorityRank: index + 1
+    }));
 }
 
 function renderBankSmartPlan() {
@@ -6875,9 +6912,12 @@ function renderBankSmartPlan() {
         return;
     }
 
+    const totalRepay = planRows.reduce((sum, item) => sum + Number(item?.repaymentAmount || 0), 0);
+    const urgentCount = planRows.filter(item => item.urgency === 'urgent' || item.urgency === 'overdue').length;
+    const nearestDue = planRows.slice().sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())[0];
     const headerText = planRows.length >= 2
-        ? `建议顺序：先处理 ${safeText(planRows[0].cardLabel)}，再处理 ${safeText(planRows[1].cardLabel)}。`
-        : `建议顺序：优先处理 ${safeText(planRows[0].cardLabel)}。`;
+        ? `优先处理：${safeText(planRows[0].cardLabel)} → ${safeText(planRows[1].cardLabel)}`
+        : `优先处理：${safeText(planRows[0].cardLabel)}`;
     const rowsHtml = planRows.map((item) => {
         const urgencyText = item.urgency === 'overdue'
             ? '已逾期'
@@ -6893,8 +6933,13 @@ function renderBankSmartPlan() {
                 : (item.urgency === 'soon' ? 'color:#d97706;' : 'color:#166534;'));
         return `
             <tr>
-                <td>${safeText(item.cardLabel)}</td>
+                <td><span class="erp-smart-plan-rank ${item.urgency === 'overdue' || item.urgency === 'urgent' ? 'is-danger' : ''}">P${item.priorityRank}</span></td>
+                <td>
+                    <div class="erp-smart-plan-card-main">${safeText(item.cardLabel)}</div>
+                    <div class="erp-smart-plan-card-sub">应还：${safeText(toMoneyText(item.repaymentAmount))}</div>
+                </td>
                 <td>${safeText(`${item.billDay || '-'}日 / ${item.repaymentDay || '-'}日`)}</td>
+                <td>${safeText(formatRuleDate(item.dueDate))}</td>
                 <td>${safeText(`${formatRuleDate(item.recommendSwipeStart)} ~ ${formatRuleDate(item.recommendSwipeEnd)}`)}</td>
                 <td>${safeText(formatRuleDate(item.recommendRepayDate))}</td>
                 <td><span style="${urgencyStyle}font-weight:600;">${safeText(urgencyText)}</span></td>
@@ -6905,14 +6950,22 @@ function renderBankSmartPlan() {
 
     container.innerHTML = `
         <div class="erp-smart-plan-headline">${headerText}</div>
-        <div class="erp-smart-plan-desc">说明：按账单日优先安排刷卡窗口，按还款日前2天执行还款更稳妥。</div>
+        <div class="erp-smart-plan-kpis">
+            <span class="erp-smart-plan-kpi">待处理卡数：<strong>${planRows.length}</strong></span>
+            <span class="erp-smart-plan-kpi">紧急卡数：<strong>${urgentCount}</strong></span>
+            <span class="erp-smart-plan-kpi">总应还：<strong>${safeText(toMoneyText(totalRepay))}</strong></span>
+            <span class="erp-smart-plan-kpi">最近还款日：<strong>${safeText(formatRuleDate(nearestDue?.dueDate))}</strong></span>
+        </div>
+        <div class="erp-smart-plan-desc">规则：按“还款紧急程度 + 应还金额”排序，优先级越高越先处理；刷卡窗口按下一账期给出。</div>
         <div class="ant-table-wrapper erp-smart-plan-table-wrap">
             <div class="ant-table">
                 <table>
                     <thead class="ant-table-thead">
                         <tr>
+                            <th>优先级</th>
                             <th>卡片</th>
                             <th>账单/还款日</th>
+                            <th>本期还款日</th>
                             <th>推荐刷卡窗口</th>
                             <th>建议还款日</th>
                             <th>紧急程度</th>

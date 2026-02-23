@@ -1319,7 +1319,7 @@
                                 <button class="ant-btn ant-btn-primary" onclick="showBankSmartPlanModal()">
                                     <i class="fa fa-lightbulb-o"></i> 智能倒卡建议
                                 </button>
-                                <button class="ant-btn" onclick="refreshBankBusinessModule()">
+                                <button class="ant-btn" onclick="refreshBankBusinessModule(this)">
                                     <i class="fa fa-refresh"></i> 刷新
                                 </button>
                             </div>
@@ -1332,7 +1332,7 @@
                                         </div>
                                     </div>
                                     <div class="erp-form-col" style="display:flex;align-items:center;justify-content:flex-end;gap:8px;">
-                                        <button class="ant-btn" type="button" onclick="refreshQQMailAuthStatus()">刷新授权状态</button>
+                                        <button class="ant-btn" type="button" onclick="handleRefreshQQMailAuthStatus(this)">刷新授权状态</button>
                                     </div>
                                 </div>
                             </div>
@@ -2348,7 +2348,7 @@
     <script src="assets/js/user-data.js?v=20260214-20"></script>
     <script src="assets/js/erp.js?v=20260223-46"></script>
     <script src="assets/js/vendor/echarts.min.js?v=5.5.0"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260222-137"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260222-138"></script>
     <script src="assets/js/pwa-register.js?v=20260223-5" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->

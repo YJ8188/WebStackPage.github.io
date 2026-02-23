@@ -6800,9 +6800,37 @@ function resetBankBusinessFilters() {
     applyBankBusinessFilters();
 }
 
-async function refreshBankBusinessModule() {
-    await ERP.loadFinances(true);
-    applyBankBusinessFilters();
+async function refreshBankBusinessModule(buttonEl = null) {
+    const button = buttonEl && typeof buttonEl === 'object'
+        ? buttonEl
+        : null;
+    const originalHtml = button?.innerHTML || '<i class="fa fa-refresh"></i> 刷新';
+    if (button) {
+        button.disabled = true;
+        button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 刷新中...';
+    }
+
+    try {
+        await Promise.all([
+            ERP.loadFinances(true),
+            refreshQQMailAuthStatus(true)
+        ]);
+        applyBankBusinessFilters();
+        await refreshBankSmartPlanIfVisible();
+        if (typeof showToast === 'function') {
+            showToast('银行业务与授权状态已实时同步', 'success');
+        }
+    } catch (error) {
+        console.error('[ERP Ant] 刷新银行业务失败:', error);
+        if (typeof showToast === 'function') {
+            showToast(`刷新失败：${error?.message || '请稍后重试'}`, 'error');
+        }
+    } finally {
+        if (button) {
+            button.disabled = false;
+            button.innerHTML = originalHtml;
+        }
+    }
 }
 
 function buildSmartCardPlanRows() {
@@ -7108,8 +7136,10 @@ async function handleRefreshBankSmartPlan(buttonEl) {
         button.disabled = true;
         button.textContent = '计算中...';
     }
+    const previousContent = content?.innerHTML || '';
     if (content) {
         content.dataset.reloading = '1';
+        content.innerHTML = '<div class="erp-form-hint-card">正在重新为您计算，请稍候...</div>';
     }
 
     try {
@@ -7119,6 +7149,9 @@ async function handleRefreshBankSmartPlan(buttonEl) {
         }
     } catch (error) {
         console.error('[ERP Ant] 智能倒卡重新计算失败:', error);
+        if (content && previousContent) {
+            content.innerHTML = previousContent;
+        }
         if (typeof showToast === 'function') {
             showToast(`重新计算失败：${error?.message || '请稍后重试'}`, 'error');
         }
@@ -7126,6 +7159,33 @@ async function handleRefreshBankSmartPlan(buttonEl) {
         if (content) {
             delete content.dataset.reloading;
         }
+        if (button) {
+            button.disabled = false;
+            button.textContent = originalText;
+        }
+    }
+}
+
+async function handleRefreshQQMailAuthStatus(buttonEl) {
+    const button = buttonEl && typeof buttonEl === 'object'
+        ? buttonEl
+        : null;
+    const originalText = button?.textContent || '刷新授权状态';
+    if (button) {
+        button.disabled = true;
+        button.textContent = '刷新中...';
+    }
+    try {
+        const status = await refreshQQMailAuthStatus(true);
+        if (typeof showToast === 'function') {
+            showToast(status ? '授权状态已更新' : '未获取到授权状态', status ? 'success' : 'info');
+        }
+    } catch (error) {
+        console.error('[ERP Ant] 刷新授权状态失败:', error);
+        if (typeof showToast === 'function') {
+            showToast(`刷新授权状态失败：${error?.message || '请稍后重试'}`, 'error');
+        }
+    } finally {
         if (button) {
             button.disabled = false;
             button.textContent = originalText;

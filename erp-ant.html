@@ -2141,7 +2141,7 @@
     <script src="assets/js/user-data.js?v=20260214-20"></script>
     <script src="assets/js/erp.js?v=20260223-46"></script>
     <script src="assets/js/vendor/echarts.min.js?v=5.5.0"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260222-125"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260222-126"></script>
     <script src="assets/js/pwa-register.js?v=20260223-4" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->
@@ -2629,7 +2629,10 @@
             };
 
             const getTimeValue = (value) => {
-                const timestamp = new Date(value).getTime();
+                const parsed = (typeof window.parseFinanceDate === 'function')
+                    ? window.parseFinanceDate(value)
+                    : new Date(value);
+                const timestamp = parsed instanceof Date ? parsed.getTime() : NaN;
                 return Number.isFinite(timestamp) ? timestamp : 0;
             };
 
@@ -3213,7 +3216,9 @@
         }
 
         function formatHeaderDate(dateValue) {
-            const date = new Date(dateValue);
+            const date = (typeof window.parseFinanceDate === 'function')
+                ? window.parseFinanceDate(dateValue)
+                : new Date(dateValue);
             if (Number.isNaN(date.getTime())) {
                 return '-';
             }

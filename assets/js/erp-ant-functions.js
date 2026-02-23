@@ -5933,7 +5933,7 @@ function isBankBusinessFinanceRecord(record) {
     const category = String(record?.category || '').trim();
     const description = String(record?.description || '').trim();
     if (['credit_card', 'credit_card_repayment', 'credit_card_swipe', 'credit_card_repayment_payment'].includes(businessType)) return true;
-    if (category.includes('信用卡业务') || category.includes('信用卡还款') || category.includes('信用卡刷卡')) return true;
+    if (category.includes('信用卡业务') || category.includes('信用卡还款') || category.includes('信用卡刷卡') || category.includes('银行手续费')) return true;
     return /银行[:：]/.test(description) && /刷卡[:：]/.test(description);
 }
 
@@ -6099,7 +6099,8 @@ function parseBankBusinessRecord(record) {
     const category = String(record?.category || '').trim();
     const isRepaymentPayment = businessType === 'credit_card_repayment_payment' || category.includes('还款记录');
     const isRepayment = !isRepaymentPayment && (businessType === 'credit_card_repayment' || category.includes('信用卡还款'));
-    const isSwipe = businessType === 'credit_card_swipe' || category.includes('信用卡刷卡');
+    const isFeeOnly = businessType === 'credit_card_fee' || category.includes('银行手续费');
+    const isSwipe = isFeeOnly || businessType === 'credit_card_swipe' || category.includes('信用卡刷卡');
     const bankMatch = description.match(/银行[:：]\s*([^；\n]+)/);
     const swipeBankMatch = description.match(/刷卡卡[:：]\s*([^；\n]+)/);
     const settlementBankMatch = description.match(/到账卡[:：]\s*([^（；\n]+)/);
@@ -6114,18 +6115,21 @@ function parseBankBusinessRecord(record) {
     const creditLimit = parseBankCreditLimit(record, description);
 
     const repaymentAmountRaw = parseBankBusinessAmount(record, 'card_repayment_amount', /应还[:：]\s*[¥￥]?\s*([0-9]+(?:\.[0-9]+)?)/);
-    const swipeAmount = parseBankBusinessAmount(record, 'card_swipe_amount', /刷卡[:：]\s*[¥￥]?\s*([0-9]+(?:\.[0-9]+)?)/);
+    const swipeAmountRaw = parseBankBusinessAmount(record, 'card_swipe_amount', /刷卡[:：]\s*[¥￥]?\s*([0-9]+(?:\.[0-9]+)?)/);
     const actualAmountRaw = parseBankBusinessAmount(record, 'card_actual_amount', /到账[:：]\s*[¥￥]?\s*([0-9]+(?:\.[0-9]+)?)/);
     const feeAmountRaw = parseBankBusinessAmount(record, 'card_fee_amount', /手续费[:：]\s*[¥￥]?\s*([0-9]+(?:\.[0-9]+)?)/);
+    const swipeAmount = isFeeOnly ? 0 : swipeAmountRaw;
     const repaymentAmount = Number.isFinite(repaymentAmountRaw)
         ? repaymentAmountRaw
         : ((isRepayment || isRepaymentPayment) ? Math.abs(Number(record?.amount || 0)) : 0);
     const actualAmount = Number.isFinite(actualAmountRaw)
         ? actualAmountRaw
-        : (isSwipe ? Math.abs(Number(record?.amount || 0)) : 0);
+        : ((isSwipe && !isFeeOnly) ? Math.abs(Number(record?.amount || 0)) : 0);
     const feeAmount = Number.isFinite(feeAmountRaw)
         ? feeAmountRaw
-        : (Number.isFinite(swipeAmount) && Number.isFinite(actualAmount) ? Math.max(0, swipeAmount - actualAmount) : 0);
+        : (isFeeOnly
+            ? Math.abs(Number(record?.amount || 0))
+            : (Number.isFinite(swipeAmount) && Number.isFinite(actualAmount) ? Math.max(0, swipeAmount - actualAmount) : 0));
     const feeRateRaw = Number(record?.card_fee_rate);
     const feeRate = Number.isFinite(feeRateRaw)
         ? feeRateRaw
@@ -6181,13 +6185,14 @@ function parseBankBusinessRecord(record) {
         swipeCardBank: isSwipe ? (parsedSwipeCardBank || parsedBank || '未识别') : '',
         settlementBank: isSwipe ? (parsedSettlementBank || '未识别') : '',
         settlementCardTail: isSwipe ? parsedSettlementTail : '',
-        swipeAmount: isSwipe ? (Number.isFinite(swipeAmount) ? swipeAmount : 0) : 0,
-        actualAmount: isSwipe ? (Number.isFinite(actualAmount) ? actualAmount : Math.abs(Number(record?.amount || 0))) : 0,
+        swipeAmount: (isSwipe && !isFeeOnly) ? (Number.isFinite(swipeAmount) ? swipeAmount : 0) : 0,
+        actualAmount: (isSwipe && !isFeeOnly) ? (Number.isFinite(actualAmount) ? actualAmount : Math.abs(Number(record?.amount || 0))) : 0,
         feeAmount: isSwipe ? (Number.isFinite(feeAmount) ? feeAmount : 0) : 0,
         feeRate: isSwipe ? (Number.isFinite(feeRate) ? feeRate : 0) : 0,
         isRepayment,
         isRepaymentPayment,
         isSwipe,
+        isFeeOnly,
         transactionDate: parseBankTransactionDate(record, description),
         description: cleanedDescription || '-',
         raw: record
@@ -6520,20 +6525,22 @@ function renderBankBusiness(rows = null) {
         const dateText = toDateTimeText(item?.transactionDate || item?.raw?.transaction_date || '-');
         const billRepaymentText = formatBankBillRepaymentText(item);
         const reminderClass = `erp-bank-reminder ${reminderMeta.className}`;
-        const settlementText = item.isSwipe
+        const settlementText = (item.isSwipe && !item.isFeeOnly)
             ? (item.settlementBank === '未识别'
                 ? '未识别'
                 : `${item.settlementBank}${item.settlementCardTail ? `（尾号${item.settlementCardTail}）` : ''}`)
             : '-';
         const repaymentAmountText = item.isRepayment ? toMoneyText(item.repaymentAmount) : '-';
-        const swipeAmountText = item.isSwipe ? toMoneyText(item.swipeAmount) : '-';
-        const actualAmountText = item.isSwipe ? toMoneyText(item.actualAmount) : '-';
+        const swipeAmountText = (item.isSwipe && !item.isFeeOnly) ? toMoneyText(item.swipeAmount) : '-';
+        const actualAmountText = (item.isSwipe && !item.isFeeOnly) ? toMoneyText(item.actualAmount) : '-';
         const feeAmountText = item.isSwipe ? toMoneyText(item.feeAmount) : '-';
-        const feeRateText = item.isSwipe ? `${Number(item.feeRate || 0).toFixed(2)}%` : '-';
+        const feeRateText = (item.isSwipe && Number(item.feeRate || 0) > 0) ? `${Number(item.feeRate || 0).toFixed(2)}%` : '-';
         const bankMainText = `${safeText(item.bank || '-')}${item.cardTail ? `（尾号${safeText(item.cardTail)}）` : ''}`;
-        const bankSubText = item.isSwipe
-            ? `刷卡银行：${safeText(item.swipeCardBank || item.bank || '-')}${item.cardTail ? `（尾号${safeText(item.cardTail)}）` : ''}`
-            : '';
+        const bankSubText = item.isFeeOnly
+            ? '手续费记录'
+            : (item.isSwipe
+                ? `刷卡银行：${safeText(item.swipeCardBank || item.bank || '-')}${item.cardTail ? `（尾号${safeText(item.cardTail)}）` : ''}`
+                : '');
         return `
             <tr>
                 <td class="banking-col-select">

@@ -748,15 +748,71 @@ const ERP = {
         }
 
         try {
-            const selectFields = lite
-                ? 'id, user_id, type, category, amount, description, reference_id, order_id, transaction_date, created_at, business_type, card_bank, card_bill_day, card_repayment_day, card_repayment_amount, swipe_card_bank, settlement_bank, settlement_card_tail, card_swipe_amount, card_actual_amount, card_fee_amount, card_fee_rate, reminder_enabled, reminder_days_before, reminder_date'
-                : '*';
+            const liteFieldList = [
+                'id',
+                'user_id',
+                'type',
+                'category',
+                'amount',
+                'description',
+                'reference_id',
+                'order_id',
+                'transaction_date',
+                'created_at',
+                'updated_at',
+                'business_type',
+                'card_bank',
+                'card_tail',
+                'card_bill_day',
+                'card_repayment_day',
+                'card_repayment_amount',
+                'swipe_card_bank',
+                'settlement_bank',
+                'settlement_card_tail',
+                'card_swipe_amount',
+                'card_actual_amount',
+                'card_fee_amount',
+                'card_fee_rate',
+                'reminder_enabled',
+                'reminder_days_before',
+                'reminder_date'
+            ];
 
-            const { data, error } = await supabaseClient
-                .from('erp_finances')
-                .select(selectFields)
-                .eq('user_id', userData.user.id)
-                .order('transaction_date', { ascending: false });
+            let data = null;
+            let error = null;
+            let selectFields = lite ? [...liteFieldList] : ['*'];
+
+            while (true) {
+                const selectExpr = lite ? selectFields.join(', ') : '*';
+                const response = await supabaseClient
+                    .from('erp_finances')
+                    .select(selectExpr)
+                    .eq('user_id', userData.user.id)
+                    .order('transaction_date', { ascending: false });
+                data = response.data;
+                error = response.error;
+
+                if (!error) {
+                    break;
+                }
+
+                if (!lite || String(error.code || '') !== '42703') {
+                    break;
+                }
+
+                const messageText = String(error.message || '');
+                const columnMatch = messageText.match(/column\s+"?([a-zA-Z0-9_]+)"?\s+of/i)
+                    || messageText.match(/column\s+"?([a-zA-Z0-9_]+)"?\s+does not exist/i);
+                const missingColumn = String(columnMatch?.[1] || '').trim();
+                if (!missingColumn) {
+                    break;
+                }
+                const nextSelectFields = selectFields.filter(field => field !== missingColumn);
+                if (nextSelectFields.length === selectFields.length) {
+                    break;
+                }
+                selectFields = nextSelectFields;
+            }
 
             if (error) {
                 throw error;

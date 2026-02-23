@@ -146,16 +146,18 @@ const ERP = {
             return '';
         }
         const matchers = [
-            /column\s+"?([a-zA-Z0-9_]+)"?\s+of/i,
-            /column\s+"?([a-zA-Z0-9_]+)"?\s+does not exist/i,
-            /could not find the\s+'([a-zA-Z0-9_]+)'\s+column/i,
-            /could not find the\s+([a-zA-Z0-9_]+)\s+column/i,
-            /'([a-zA-Z0-9_]+)'\s+column/i
+            /column\s+"?([a-zA-Z0-9_.]+)"?\s+of/i,
+            /column\s+"?([a-zA-Z0-9_.]+)"?\s+does not exist/i,
+            /could not find the\s+'([a-zA-Z0-9_.]+)'\s+column/i,
+            /could not find the\s+([a-zA-Z0-9_.]+)\s+column/i,
+            /'([a-zA-Z0-9_.]+)'\s+column/i
         ];
         for (const matcher of matchers) {
             const hit = messageText.match(matcher);
             if (hit?.[1]) {
-                return String(hit[1]).trim();
+                const rawColumn = String(hit[1]).trim();
+                const plainColumn = rawColumn.split('.').pop();
+                return String(plainColumn || rawColumn).trim();
             }
         }
         return '';

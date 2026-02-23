@@ -797,7 +797,6 @@ const ERP = {
                 'order_id',
                 'transaction_date',
                 'created_at',
-                'updated_at',
                 'business_type',
                 'card_bank',
                 'card_tail',

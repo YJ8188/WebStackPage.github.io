@@ -7105,6 +7105,23 @@ function hideBankSmartPlanModal() {
     modal.style.display = '';
 }
 
+function isBankSmartPlanModalVisible() {
+    const modal = document.getElementById('bankingSmartPlanModal');
+    if (!modal) return false;
+    return modal.classList.contains('active') || modal.style.display === 'flex';
+}
+
+async function refreshBankSmartPlanIfVisible() {
+    if (!isBankSmartPlanModalVisible()) {
+        return;
+    }
+    try {
+        await refreshBankSmartPlan();
+    } catch (error) {
+        console.error('[ERP Ant] 智能倒卡自动刷新失败:', error);
+    }
+}
+
 function recalculateBankBusinessFee() {
     const swipeInput = document.getElementById('bankingSwipeAmount');
     const actualInput = document.getElementById('bankingActualAmount');
@@ -8255,6 +8272,7 @@ async function persistBankBusinessFinance(financeData, modalSelector, hideModal,
             renderFinances(generalRows);
             applyBankBusinessFilters();
             updateStatistics();
+            await refreshBankSmartPlanIfVisible();
             showToast(editId ? '银行业务修改成功' : '银行业务保存成功', 'success');
         }
     } catch (error) {
@@ -8402,6 +8420,7 @@ async function submitQuickBankRepayment() {
         renderFinances(generalRows);
         applyBankBusinessFilters();
         updateStatistics();
+        await refreshBankSmartPlanIfVisible();
         showToast(remainingAmount > 0 ? `登记成功，剩余应还 ${toMoneyText(remainingAmount)}` : '登记成功，账单已结清', 'success');
     } catch (error) {
         console.error('[ERP Ant] 登记还款失败:', error);
@@ -15096,6 +15115,7 @@ if (typeof window !== 'undefined') {
         }
         updateStatistics();
         renderFinanceAgingSummary();
+        await refreshBankSmartPlanIfVisible();
     });
 
     window.addEventListener('erpInventoryChanged', async function () {

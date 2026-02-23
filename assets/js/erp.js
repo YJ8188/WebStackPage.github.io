@@ -936,7 +936,7 @@ const ERP = {
 
     normalizeLocalNotePayload(noteData = {}, base = {}) {
         const now = new Date().toISOString();
-        const title = String(noteData?.title || base?.title || '').trim() || '未命名笔记';
+        const title = String(noteData?.title ?? base?.title ?? '').trim();
         const contentHtml = String(noteData?.content_html || base?.content_html || '').trim();
         const contentText = String(noteData?.content_text || base?.content_text || '').trim();
         const isPinned = !!(noteData?.is_pinned ?? base?.is_pinned);
@@ -1024,7 +1024,7 @@ const ERP = {
         const now = new Date().toISOString();
         const payload = {
             user_id: userData.user.id,
-            title: String(noteData?.title || '').trim() || '未命名笔记',
+            title: String(noteData?.title ?? '').trim(),
             content_html: String(noteData?.content_html || '').trim(),
             content_text: String(noteData?.content_text || '').trim(),
             is_pinned: !!noteData?.is_pinned,

@@ -141,6 +141,8 @@ const dailyNotesViewState = {
     initialized: false,
     autoSaveTimer: null,
     autoSaveDelay: 5000,
+    draftCacheTimer: null,
+    draftCacheDelay: 300,
     isAutoSaving: false,
     pendingAutoSave: false,
     pendingSessionToken: 0,
@@ -6929,7 +6931,7 @@ function readDailyNoteLocalDraft(noteId = 'draft') {
         }
         return {
             note_id: parsed.note_id ?? null,
-            title: String(parsed.title || '').trim() || '未命名笔记',
+            title: String(parsed.title ?? '').trim(),
             content_html: normalizeDailyNoteHtml(parsed.content_html || ''),
             content_text: String(parsed.content_text || '').trim(),
             is_pinned: !!parsed.is_pinned,
@@ -6945,8 +6947,8 @@ function writeDailyNoteLocalDraft(noteId = 'draft', payload = {}, pendingSync = 
     try {
         const data = {
             note_id: noteId === 'draft' ? null : String(noteId || ''),
-            title: String(payload?.title || '').trim() || '未命名笔记',
-            content_html: normalizeDailyNoteHtml(payload?.content_html || ''),
+            title: String(payload?.title ?? '').trim(),
+            content_html: String(payload?.content_html || ''),
             content_text: String(payload?.content_text || '').trim(),
             is_pinned: !!payload?.is_pinned,
             pending_sync: !!pendingSync,
@@ -6971,23 +6973,63 @@ function getActiveDailyNoteDraftId() {
     return currentId === null ? 'draft' : String(currentId);
 }
 
-function cacheDailyNoteDraftFromForm(pendingSync = true) {
+function collectDailyNoteDraftFormData() {
     const editorEl = getDailyNoteEditorElement();
     const titleEl = getDailyNoteTitleElement();
-    if (!editorEl || !titleEl || dailyNotesViewState.isApplyingState) {
+    if (!editorEl || !titleEl) {
+        return null;
+    }
+    const html = String(editorEl.innerHTML || '');
+    const text = String(editorEl.textContent || '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    return {
+        title: String(titleEl.value ?? '').trim(),
+        content_html: html,
+        content_text: text,
+        is_pinned: !!dailyNotesViewState.draftPinned
+    };
+}
+
+function clearDailyNoteDraftCacheTimer() {
+    if (dailyNotesViewState.draftCacheTimer) {
+        clearTimeout(dailyNotesViewState.draftCacheTimer);
+        dailyNotesViewState.draftCacheTimer = null;
+    }
+}
+
+function cacheDailyNoteDraftFromForm(pendingSync = true, immediate = false) {
+    if (dailyNotesViewState.isApplyingState) {
         return;
     }
-    const payload = collectDailyNoteFormData();
-    const hasContent = !!payload.content_text || getNoteContentHasMedia(payload.content_html);
-    const hasTitle = !!String(titleEl.value || '').trim();
-    const draftId = getActiveDailyNoteDraftId();
-    if (!hasContent && !hasTitle) {
-        if (draftId === 'draft') {
-            removeDailyNoteLocalDraft('draft');
+
+    const flush = () => {
+        const payload = collectDailyNoteDraftFormData();
+        if (!payload) {
+            return;
         }
+        const hasContent = !!payload.content_text || getNoteContentHasMedia(payload.content_html);
+        const hasTitle = !!payload.title;
+        const draftId = getActiveDailyNoteDraftId();
+        if (!hasContent && !hasTitle) {
+            if (draftId === 'draft') {
+                removeDailyNoteLocalDraft('draft');
+            }
+            return;
+        }
+        writeDailyNoteLocalDraft(draftId, payload, pendingSync);
+    };
+
+    if (immediate) {
+        clearDailyNoteDraftCacheTimer();
+        flush();
         return;
     }
-    writeDailyNoteLocalDraft(draftId, payload, pendingSync);
+
+    clearDailyNoteDraftCacheTimer();
+    dailyNotesViewState.draftCacheTimer = setTimeout(() => {
+        flush();
+    }, dailyNotesViewState.draftCacheDelay);
 }
 
 function normalizeDailyNoteUrl(rawUrl = '') {
@@ -7421,7 +7463,6 @@ function scheduleDailyNoteAutoSave() {
     if (dailyNotesViewState.isApplyingState) {
         return;
     }
-    cacheDailyNoteDraftFromForm(true);
     clearDailyNoteAutoSaveTimer();
     const sessionToken = Number(dailyNotesViewState.editorSessionToken || 0);
     dailyNotesViewState.pendingSessionToken = sessionToken;
@@ -7509,7 +7550,7 @@ function applyDailyNoteEditorState(note = null) {
         if (localDraft?.pending_sync || localTs > remoteTs) {
             effectivePayload = {
                 ...effectivePayload,
-                title: localDraft?.title || effectivePayload.title,
+                title: localDraft?.title ?? effectivePayload.title,
                 content_html: String(localDraft?.content_html || '').trim(),
                 is_pinned: !!localDraft?.is_pinned
             };
@@ -7599,7 +7640,7 @@ function renderDailyNotesModule() {
 }
 
 async function createDailyNote() {
-    cacheDailyNoteDraftFromForm(true);
+    cacheDailyNoteDraftFromForm(true, true);
     clearDailyNoteAutoSaveTimer();
     dailyNotesViewState.currentId = null;
     dailyNotesViewState.isDraftMode = true;
@@ -7617,7 +7658,7 @@ function searchDailyNotes(keyword = '') {
 }
 
 function selectDailyNote(noteId) {
-    cacheDailyNoteDraftFromForm(true);
+    cacheDailyNoteDraftFromForm(true, true);
     clearDailyNoteAutoSaveTimer();
     const rows = getDailyNotesRows();
     const note = rows.find(item => isSameEntityId(item?.id, noteId)) || null;
@@ -7672,7 +7713,7 @@ function collectDailyNoteFormData() {
     const html = normalizeDailyNoteHtml(editorEl?.innerHTML || '');
     const text = getDailyNoteTextFromHtml(html);
     return {
-        title: String(titleEl?.value || '').trim() || '未命名笔记',
+        title: String(titleEl?.value || '').trim(),
         content_html: html,
         content_text: text,
         is_pinned: !!dailyNotesViewState.draftPinned
@@ -8231,7 +8272,7 @@ function initDailyNotesModule() {
         editorEl.setAttribute('data-placeholder', '记录文字、图片、超链接，内容自动保存到当前账号。');
         editorEl.addEventListener('paste', handleDailyNoteEditorPaste);
         editorEl.addEventListener('input', () => {
-            cacheDailyNoteDraftFromForm(true);
+            cacheDailyNoteDraftFromForm(true, false);
             scheduleDailyNoteAutoSave();
         });
         editorEl.addEventListener('click', (event) => {
@@ -8250,7 +8291,7 @@ function initDailyNotesModule() {
     }
     if (titleEl) {
         titleEl.addEventListener('input', () => {
-            cacheDailyNoteDraftFromForm(true);
+            cacheDailyNoteDraftFromForm(true, false);
             scheduleDailyNoteAutoSave();
         });
         titleEl.addEventListener('keydown', (event) => {
@@ -8272,7 +8313,7 @@ function initDailyNotesModule() {
     document.addEventListener('scroll', hideDailyNoteContextMenu, true);
     window.addEventListener('blur', hideDailyNoteContextMenu);
     window.addEventListener('beforeunload', () => {
-        cacheDailyNoteDraftFromForm(true);
+        cacheDailyNoteDraftFromForm(true, true);
     });
 
     dailyNotesViewState.initialized = true;

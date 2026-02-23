@@ -40,7 +40,8 @@ const ERP = {
         initPromise: null,
         initializedUserId: null,
         auditLogDisabled: false,
-        orderMutationInProgress: false
+        orderMutationInProgress: false,
+        notesStorageMode: 'unknown'
     },
 
     orderStatusMeta: {
@@ -518,6 +519,7 @@ const ERP = {
         products: [],
         orders: [],
         finances: [],
+        notes: [],
         currentCustomerId: null,
         currentProductId: null,
         currentOrderId: null,
@@ -527,7 +529,8 @@ const ERP = {
             customers: false,
             products: false,
             orders: false,
-            finances: false
+            finances: false,
+            notes: false
         }
     },
 
@@ -878,6 +881,282 @@ const ERP = {
         } catch (error) {
             console.error('[ERP] 加载财务数据失败:', error);
             return [];
+        }
+    },
+
+    getLocalNotesStorageKey() {
+        const userId = String(userData?.user?.id || 'guest').trim() || 'guest';
+        return `erp_notes_local_${userId}`;
+    },
+
+    readLocalNotes() {
+        try {
+            const raw = localStorage.getItem(this.getLocalNotesStorageKey()) || '[]';
+            const parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed)) {
+                return [];
+            }
+            return parsed;
+        } catch (error) {
+            console.warn('[ERP Notes] 读取本地笔记失败:', error?.message || error);
+            return [];
+        }
+    },
+
+    saveLocalNotes(rows = []) {
+        try {
+            localStorage.setItem(this.getLocalNotesStorageKey(), JSON.stringify(Array.isArray(rows) ? rows : []));
+        } catch (error) {
+            console.warn('[ERP Notes] 写入本地笔记失败:', error?.message || error);
+        }
+    },
+
+    isNotesTableMissingError(error) {
+        const code = String(error?.code || '').trim().toUpperCase();
+        const message = String(error?.message || '').toLowerCase();
+        return code === '42P01'
+            || code === 'PGRST205'
+            || (message.includes('relation') && message.includes('erp_notes') && message.includes('does not exist'))
+            || (message.includes('could not find the table') && message.includes('erp_notes'));
+    },
+
+    sortNotesRows(rows = []) {
+        return [...(Array.isArray(rows) ? rows : [])].sort((left, right) => {
+            const leftPinned = left?.is_pinned ? 1 : 0;
+            const rightPinned = right?.is_pinned ? 1 : 0;
+            if (leftPinned !== rightPinned) {
+                return rightPinned - leftPinned;
+            }
+            const leftTime = new Date(left?.updated_at || left?.created_at || 0).getTime();
+            const rightTime = new Date(right?.updated_at || right?.created_at || 0).getTime();
+            return rightTime - leftTime;
+        });
+    },
+
+    normalizeLocalNotePayload(noteData = {}, base = {}) {
+        const now = new Date().toISOString();
+        const title = String(noteData?.title || base?.title || '').trim() || '未命名笔记';
+        const contentHtml = String(noteData?.content_html || base?.content_html || '').trim();
+        const contentText = String(noteData?.content_text || base?.content_text || '').trim();
+        const isPinned = !!(noteData?.is_pinned ?? base?.is_pinned);
+        return {
+            ...base,
+            user_id: String(userData?.user?.id || ''),
+            title,
+            content_html: contentHtml,
+            content_text: contentText,
+            is_pinned: isPinned,
+            updated_at: now,
+            created_at: base?.created_at || now
+        };
+    },
+
+    async loadNotes(forceRefresh = false) {
+        if (this.state.loaded.notes && !forceRefresh) {
+            return this.state.notes;
+        }
+
+        if (!userData?.isLoggedIn || !userData?.user?.id) {
+            this.state.notes = [];
+            this.state.loaded.notes = false;
+            return [];
+        }
+
+        try {
+            const selectFields = ['id', 'user_id', 'title', 'content_html', 'content_text', 'is_pinned', 'created_at', 'updated_at'];
+            let currentFields = [...selectFields];
+            let data = null;
+            let error = null;
+
+            while (true) {
+                const response = await supabaseClient
+                    .from('erp_notes')
+                    .select(currentFields.join(', '))
+                    .eq('user_id', userData.user.id)
+                    .order('is_pinned', { ascending: false })
+                    .order('updated_at', { ascending: false });
+
+                data = response.data;
+                error = response.error;
+                if (!error) break;
+
+                if (this.isNotesTableMissingError(error)) {
+                    throw error;
+                }
+                if (!this.isMissingColumnError(error)) {
+                    break;
+                }
+
+                const missingColumn = this.extractMissingColumnName(error);
+                if (!missingColumn) {
+                    break;
+                }
+                const nextFields = currentFields.filter(field => field !== missingColumn);
+                if (nextFields.length === currentFields.length || nextFields.length === 0) {
+                    break;
+                }
+                currentFields = nextFields;
+            }
+
+            if (error) {
+                throw error;
+            }
+
+            this.runtime.notesStorageMode = 'supabase';
+            this.state.notes = this.sortNotesRows(data || []);
+            this.state.loaded.notes = true;
+            this.saveLocalNotes(this.state.notes);
+            return this.state.notes;
+        } catch (error) {
+            if (!this.isNotesTableMissingError(error)) {
+                console.error('[ERP] 加载笔记失败:', error);
+            }
+            this.runtime.notesStorageMode = 'local';
+            this.state.notes = this.sortNotesRows(this.readLocalNotes());
+            this.state.loaded.notes = true;
+            return this.state.notes;
+        }
+    },
+
+    async addNote(noteData = {}) {
+        await this.loadNotes(false);
+        const now = new Date().toISOString();
+        const payload = {
+            user_id: userData.user.id,
+            title: String(noteData?.title || '').trim() || '未命名笔记',
+            content_html: String(noteData?.content_html || '').trim(),
+            content_text: String(noteData?.content_text || '').trim(),
+            is_pinned: !!noteData?.is_pinned,
+            created_at: now,
+            updated_at: now
+        };
+
+        if (this.runtime.notesStorageMode === 'local') {
+            const row = {
+                id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                ...payload
+            };
+            this.state.notes = this.sortNotesRows([row, ...(this.state.notes || [])]);
+            this.saveLocalNotes(this.state.notes);
+            this.emitEvent('erpNotesChanged', { action: 'created', record: row });
+            return row;
+        }
+
+        try {
+            const { data, error } = await supabaseClient
+                .from('erp_notes')
+                .insert([payload])
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            this.state.notes = this.sortNotesRows([data, ...(this.state.notes || [])]);
+            this.saveLocalNotes(this.state.notes);
+            this.emitEvent('erpNotesChanged', { action: 'created', record: data });
+            return data;
+        } catch (error) {
+            if (this.isNotesTableMissingError(error)) {
+                this.runtime.notesStorageMode = 'local';
+                return this.addNote(noteData);
+            }
+            console.error('[ERP] 新增笔记失败:', error);
+            return null;
+        }
+    },
+
+    async updateNote(noteId, noteData = {}) {
+        await this.loadNotes(false);
+        const index = this.state.notes.findIndex(item => this.isSameId(item?.id, noteId));
+        const before = index >= 0 ? this.state.notes[index] : null;
+        if (!before) {
+            return null;
+        }
+
+        const localPayload = this.normalizeLocalNotePayload(noteData, before);
+        if (this.runtime.notesStorageMode === 'local') {
+            const nextRows = [...this.state.notes];
+            nextRows[index] = { ...before, ...localPayload };
+            this.state.notes = this.sortNotesRows(nextRows);
+            this.saveLocalNotes(this.state.notes);
+            const updated = this.state.notes.find(item => this.isSameId(item?.id, noteId)) || null;
+            this.emitEvent('erpNotesChanged', { action: 'updated', record: updated });
+            return updated;
+        }
+
+        try {
+            const updatePayload = {
+                title: localPayload.title,
+                content_html: localPayload.content_html,
+                content_text: localPayload.content_text,
+                is_pinned: localPayload.is_pinned,
+                updated_at: localPayload.updated_at
+            };
+
+            const { data, error } = await supabaseClient
+                .from('erp_notes')
+                .update(updatePayload)
+                .eq('id', noteId)
+                .eq('user_id', userData.user.id)
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            const nextRows = [...this.state.notes];
+            const nextIndex = nextRows.findIndex(item => this.isSameId(item?.id, noteId));
+            if (nextIndex >= 0) {
+                nextRows[nextIndex] = data;
+            } else {
+                nextRows.unshift(data);
+            }
+            this.state.notes = this.sortNotesRows(nextRows);
+            this.saveLocalNotes(this.state.notes);
+            this.emitEvent('erpNotesChanged', { action: 'updated', record: data });
+            return data;
+        } catch (error) {
+            if (this.isNotesTableMissingError(error)) {
+                this.runtime.notesStorageMode = 'local';
+                return this.updateNote(noteId, noteData);
+            }
+            console.error('[ERP] 更新笔记失败:', error);
+            return null;
+        }
+    },
+
+    async deleteNote(noteId) {
+        await this.loadNotes(false);
+        const before = this.state.notes.find(item => this.isSameId(item?.id, noteId)) || null;
+        if (!before) {
+            return false;
+        }
+
+        if (this.runtime.notesStorageMode === 'local') {
+            this.state.notes = this.state.notes.filter(item => !this.isSameId(item?.id, noteId));
+            this.saveLocalNotes(this.state.notes);
+            this.emitEvent('erpNotesChanged', { action: 'deleted', record: before, recordId: noteId });
+            return true;
+        }
+
+        try {
+            const { error } = await supabaseClient
+                .from('erp_notes')
+                .delete()
+                .eq('id', noteId)
+                .eq('user_id', userData.user.id);
+            if (error) throw error;
+
+            this.state.notes = this.state.notes.filter(item => !this.isSameId(item?.id, noteId));
+            this.saveLocalNotes(this.state.notes);
+            this.emitEvent('erpNotesChanged', { action: 'deleted', record: before, recordId: noteId });
+            return true;
+        } catch (error) {
+            if (this.isNotesTableMissingError(error)) {
+                this.runtime.notesStorageMode = 'local';
+                return this.deleteNote(noteId);
+            }
+            console.error('[ERP] 删除笔记失败:', error);
+            return false;
         }
     },
 

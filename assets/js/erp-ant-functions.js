@@ -100,7 +100,8 @@ const financeViewState = {
 };
 const bankBusinessViewState = {
     currentRows: [],
-    source: 'all'
+    source: 'all',
+    activeTab: 'repayment'
 };
 const bankBusinessSelectionState = {
     selectedIds: new Set(),
@@ -421,6 +422,34 @@ function updateBankBusinessBatchActionState() {
     if (textEl) {
         textEl.textContent = `已选 ${selectedCount} 条`;
     }
+}
+
+function applyBankBusinessTabUI(activeTab = 'repayment') {
+    const resolvedTab = activeTab === 'swipe' ? 'swipe' : 'repayment';
+    bankBusinessViewState.activeTab = resolvedTab;
+
+    const repaymentBtn = document.getElementById('bankingTabRepaymentBtn');
+    const swipeBtn = document.getElementById('bankingTabSwipeBtn');
+    const repaymentSection = document.getElementById('bankingRepaymentSection');
+    const swipeSection = document.getElementById('bankingSwipeSection');
+
+    if (repaymentBtn) {
+        repaymentBtn.classList.toggle('ant-btn-primary', resolvedTab === 'repayment');
+    }
+    if (swipeBtn) {
+        swipeBtn.classList.toggle('ant-btn-primary', resolvedTab === 'swipe');
+    }
+    if (repaymentSection) {
+        repaymentSection.style.display = resolvedTab === 'repayment' ? '' : 'none';
+    }
+    if (swipeSection) {
+        swipeSection.style.display = resolvedTab === 'swipe' ? '' : 'none';
+    }
+}
+
+function setBankBusinessTab(tab = 'repayment') {
+    applyBankBusinessTabUI(tab);
+    renderBankBusinessHeaderCheckboxState(tab);
 }
 
 function onBankBusinessRowCheckedChange(financeId, checked) {
@@ -6686,7 +6715,9 @@ function renderBankBusiness(rows = null) {
     });
 
     pruneBankBusinessSelectionByAllRows();
-    renderBankBusinessHeaderCheckboxState();
+    const activeTab = bankBusinessViewState.activeTab === 'swipe' ? 'swipe' : 'repayment';
+    applyBankBusinessTabUI(activeTab);
+    renderBankBusinessHeaderCheckboxState(activeTab);
     updateBankBusinessBatchActionState();
 }
 

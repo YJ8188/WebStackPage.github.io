@@ -6602,7 +6602,7 @@ function buildBankBusinessRowHtml(item, section = 'repayment') {
             <td class="erp-action-cell">
                 <div class="erp-row-actions">
                     ${section === 'repayment' && item.isRepayment ? `<button class="ant-btn erp-btn-compact" onclick='quickCreateBankRepayment(${JSON.stringify(item.id)})'>还款</button>` : ''}
-                    <button class="ant-btn erp-btn-compact" onclick='showBankRepaymentHistory(${JSON.stringify(item.id)})'>还款记录</button>
+                    ${section === 'repayment' ? `<button class="ant-btn erp-btn-compact" onclick='showBankRepaymentHistory(${JSON.stringify(item.id)})'>还款记录</button>` : ''}
                     <button class="ant-btn erp-btn-compact" onclick='editBankBusiness(${JSON.stringify(item.id)})'>修改</button>
                     <button class="ant-btn erp-btn-danger erp-btn-compact" onclick='deleteBankBusiness(${JSON.stringify(item.id)})'>删除</button>
                 </div>

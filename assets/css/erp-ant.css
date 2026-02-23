@@ -2755,6 +2755,13 @@ select.ant-select option {
     color: #1677ff;
 }
 
+.erp-finance-summary-sub {
+    margin-top: 4px;
+    font-size: 12px;
+    color: #64748b;
+    line-height: 1.3;
+}
+
 .erp-finance-block {
     margin-bottom: 14px;
 }

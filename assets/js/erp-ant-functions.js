@@ -6527,24 +6527,48 @@ function syncBankBusinessRows(rows = [], source = 'all') {
     bankBusinessViewState.source = source;
 }
 
-function updateBankBusinessSummary(rows = []) {
+function updateBankBusinessSummary(rows = [], rawRows = []) {
     const list = Array.isArray(rows) ? rows : [];
-    const totalRepayment = list.reduce((sum, row) => sum + (row?.isRepayment ? Number(row?.repaymentAmount || 0) : 0), 0);
+    const source = Array.isArray(rawRows) ? rawRows : [];
+
+    const repaymentRemaining = list.reduce((sum, row) => sum + (row?.isRepayment ? Number(row?.repaymentAmount || 0) : 0), 0);
+    const repaidAmount = source.reduce((sum, row) => {
+        if (!row?.isRepaymentPayment) return sum;
+        const value = Number(row?.repaymentAmount || row?.raw?.amount || 0);
+        return sum + Math.max(0, value);
+    }, 0);
+    const repaymentTotal = repaymentRemaining + repaidAmount;
+
     const totalSwipe = list.reduce((sum, row) => sum + (row?.isSwipe ? Number(row?.swipeAmount || 0) : 0), 0);
     const totalActual = list.reduce((sum, row) => sum + (row?.isSwipe ? Number(row?.actualAmount || 0) : 0), 0);
     const totalFee = list.reduce((sum, row) => sum + (row?.isSwipe ? Number(row?.feeAmount || 0) : 0), 0);
-    const dueCount = list.filter(row => getBankReminderStatus(row).isDue).length;
 
-    const repaymentEl = document.getElementById('bankingSummaryRepayment');
+    let dueCount = list.filter(row => getBankReminderStatus(row).isDue).length;
+    if (typeof window !== 'undefined' && typeof window.getBankRepaymentReminderNotices === 'function') {
+        const notices = window.getBankRepaymentReminderNotices(new Date());
+        if (Array.isArray(notices)) {
+            dueCount = notices.length;
+        }
+    }
+
+    const repaymentTotalEl = document.getElementById('bankingSummaryRepaymentTotal');
+    const repaidEl = document.getElementById('bankingSummaryRepaid');
+    const repaymentRemainingEl = document.getElementById('bankingSummaryRepaymentRemaining');
     const swipeEl = document.getElementById('bankingSummarySwipe');
     const actualEl = document.getElementById('bankingSummaryActual');
     const feeEl = document.getElementById('bankingSummaryFee');
-    const dueEl = document.getElementById('bankingSummaryDue');
-    if (repaymentEl) repaymentEl.textContent = toMoneyText(totalRepayment);
+    const dueHintEl = document.getElementById('bankingSummaryDueHint');
+
+    if (repaymentTotalEl) repaymentTotalEl.textContent = toMoneyText(repaymentTotal);
+    if (repaidEl) repaidEl.textContent = toMoneyText(repaidAmount);
+    if (repaymentRemainingEl) repaymentRemainingEl.textContent = toMoneyText(repaymentRemaining);
     if (swipeEl) swipeEl.textContent = toMoneyText(totalSwipe);
     if (actualEl) actualEl.textContent = toMoneyText(totalActual);
     if (feeEl) feeEl.textContent = toMoneyText(totalFee);
-    if (dueEl) dueEl.textContent = String(dueCount);
+    if (dueHintEl) {
+        dueHintEl.textContent = `3天内到期提醒：${dueCount} 条`;
+        dueHintEl.style.color = dueCount > 0 ? '#cf1322' : '#64748b';
+    }
 }
 
 function syncBankBusinessTableHeightByPageSize(pageSize = 10, wrapperId = 'bankingTableWrapper') {
@@ -6710,7 +6734,7 @@ function renderBankBusiness(rows = null) {
         return right - left;
     });
 
-    updateBankBusinessSummary(sorted);
+    updateBankBusinessSummary(sorted, sourceAll);
 
     const repaymentRows = sorted.filter(item => item?.isRepayment && !item?.isRepaymentPayment);
     const swipeRows = sorted.filter(item => item?.isSwipe && !item?.isRepaymentPayment);

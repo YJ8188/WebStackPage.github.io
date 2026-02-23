@@ -1340,7 +1340,15 @@
                             <div class="erp-finance-summary-strip">
                                 <div class="erp-finance-summary-item">
                                     <div class="erp-finance-summary-label">总应还金额</div>
-                                    <div id="bankingSummaryRepayment" class="erp-finance-summary-value is-expense">¥0.00</div>
+                                    <div id="bankingSummaryRepaymentTotal" class="erp-finance-summary-value is-expense">¥0.00</div>
+                                </div>
+                                <div class="erp-finance-summary-item">
+                                    <div class="erp-finance-summary-label">已还金额</div>
+                                    <div id="bankingSummaryRepaid" class="erp-finance-summary-value is-income">¥0.00</div>
+                                </div>
+                                <div class="erp-finance-summary-item">
+                                    <div class="erp-finance-summary-label">剩余应还</div>
+                                    <div id="bankingSummaryRepaymentRemaining" class="erp-finance-summary-value is-expense">¥0.00</div>
                                 </div>
                                 <div class="erp-finance-summary-item">
                                     <div class="erp-finance-summary-label">总刷卡金额</div>
@@ -1353,10 +1361,7 @@
                                 <div class="erp-finance-summary-item">
                                     <div class="erp-finance-summary-label">总手续费</div>
                                     <div id="bankingSummaryFee" class="erp-finance-summary-value is-expense">¥0.00</div>
-                                </div>
-                                <div class="erp-finance-summary-item">
-                                    <div class="erp-finance-summary-label">到期提醒</div>
-                                    <div id="bankingSummaryDue" class="erp-finance-summary-value">0</div>
+                                    <div id="bankingSummaryDueHint" class="erp-finance-summary-sub">3天内到期提醒：0 条</div>
                                 </div>
                             </div>
 
@@ -2348,7 +2353,7 @@
     <script src="assets/js/user-data.js?v=20260214-20"></script>
     <script src="assets/js/erp.js?v=20260223-46"></script>
     <script src="assets/js/vendor/echarts.min.js?v=5.5.0"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260222-138"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260222-139"></script>
     <script src="assets/js/pwa-register.js?v=20260223-5" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->

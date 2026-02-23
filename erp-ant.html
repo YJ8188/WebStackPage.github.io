@@ -326,7 +326,7 @@
 
         .erp-smart-plan-kpis {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 8px;
             margin-bottom: 10px;
         }
@@ -358,6 +358,38 @@
         .erp-smart-plan-table-wrap table td {
             font-size: 13px;
             vertical-align: middle;
+        }
+
+        .erp-smart-plan-table-wrap .erp-smart-plan-table {
+            width: 100%;
+            min-width: 1080px;
+            table-layout: fixed;
+        }
+
+        .erp-smart-plan-table th:nth-child(1),
+        .erp-smart-plan-table td:nth-child(1) {
+            width: 72px;
+        }
+
+        .erp-smart-plan-table th:nth-child(2),
+        .erp-smart-plan-table td:nth-child(2) {
+            width: 210px;
+        }
+
+        .erp-smart-plan-table th:nth-child(3),
+        .erp-smart-plan-table td:nth-child(3),
+        .erp-smart-plan-table th:nth-child(4),
+        .erp-smart-plan-table td:nth-child(4),
+        .erp-smart-plan-table th:nth-child(5),
+        .erp-smart-plan-table td:nth-child(5),
+        .erp-smart-plan-table th:nth-child(6),
+        .erp-smart-plan-table td:nth-child(6) {
+            width: 120px;
+        }
+
+        .erp-smart-plan-table th:nth-child(7),
+        .erp-smart-plan-table td:nth-child(7) {
+            width: 120px;
         }
 
         .erp-smart-plan-card-main {
@@ -397,6 +429,16 @@
             min-width: 220px;
             color: #334155;
             line-height: 1.6;
+            font-size: 12px;
+            white-space: normal;
+            word-break: break-word;
+        }
+
+        .erp-smart-plan-date-cell,
+        .erp-smart-plan-window-cell,
+        .erp-smart-plan-urgency-cell {
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
         }
 
         @media (max-width: 900px) {
@@ -2279,7 +2321,7 @@
     <script src="assets/js/user-data.js?v=20260214-20"></script>
     <script src="assets/js/erp.js?v=20260223-46"></script>
     <script src="assets/js/vendor/echarts.min.js?v=5.5.0"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260222-132"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260222-133"></script>
     <script src="assets/js/pwa-register.js?v=20260223-5" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->

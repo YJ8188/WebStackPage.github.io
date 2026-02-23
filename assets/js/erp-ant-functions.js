@@ -6789,13 +6789,26 @@ async function refreshBankBusinessModule() {
 }
 
 function buildSmartCardPlanRows() {
-    const allRows = getBankBusinessRecords()
-        .map(parseBankBusinessRecord)
-        .filter(item => item?.isRepayment);
     const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
     const maxAgeMs = 180 * 24 * 60 * 60 * 1000;
+    const allRows = getBankBusinessRecords().map(parseBankBusinessRecord);
+    const repaymentRowsAll = allRows.filter(item => item?.isRepayment && !item?.isRepaymentPayment);
+    const paymentRows = allRows.filter(item => item?.isRepaymentPayment);
+
+    const buildCardKey = (row) => {
+        const bank = String(row?.bank || '').trim();
+        const tail = normalizeTail4(row?.cardTail || '');
+        return tail ? `${bank}#${tail}` : `${bank}#__NO_TAIL`;
+    };
+    const extractSourceIdFromPayment = (row) => {
+        const desc = String(row?.description || '');
+        const hit = desc.match(/来源账单ID[:：]\s*([a-zA-Z0-9_-]+)/i);
+        return String(hit?.[1] || '').trim();
+    };
+
     const hasTailByBank = new Set();
-    allRows.forEach((row) => {
+    repaymentRowsAll.forEach((row) => {
         const bank = String(row?.bank || '').trim();
         const tail = normalizeTail4(row?.cardTail || '');
         if (bank && tail) {
@@ -6803,28 +6816,22 @@ function buildSmartCardPlanRows() {
         }
     });
 
-    const sourceRows = allRows.filter((row) => {
+    const sourceRows = repaymentRowsAll.filter((row) => {
         const bank = String(row?.bank || '').trim();
         if (!bank) return false;
         const tail = normalizeTail4(row?.cardTail || '');
         if (!tail && hasTailByBank.has(bank)) return false;
         if (!row?.billDay || !row?.repaymentDay) return false;
-        const amount = Math.max(0, Number(row?.repaymentAmount || 0));
-        const descriptionText = String(row?.description || '').trim();
-        const isSettled = /(状态[:：]\s*已结清|已还清|账单已结清|当月已还清)/.test(descriptionText) || amount <= 0;
-        if (!Number.isFinite(amount) || amount <= 0 || isSettled) return false;
         const txDate = row?.transactionDate instanceof Date ? row.transactionDate : null;
-        if (txDate && !Number.isNaN(txDate.getTime())) {
-            if ((now.getTime() - txDate.getTime()) > maxAgeMs) return false;
+        if (txDate && !Number.isNaN(txDate.getTime()) && (now.getTime() - txDate.getTime()) > maxAgeMs) {
+            return false;
         }
         return true;
     });
 
     const latestByCard = new Map();
     sourceRows.forEach((row) => {
-        const bank = String(row?.bank || '').trim();
-        const tail = normalizeTail4(row?.cardTail || '');
-        const key = tail ? `${bank}#${tail}` : `${bank}#__NO_TAIL`;
+        const key = buildCardKey(row);
         const prev = latestByCard.get(key);
         const prevTs = prev?.transactionDate instanceof Date ? prev.transactionDate.getTime() : 0;
         const currTs = row?.transactionDate instanceof Date ? row.transactionDate.getTime() : 0;
@@ -6833,31 +6840,42 @@ function buildSmartCardPlanRows() {
         }
     });
 
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const paymentBuckets = new Map();
+    paymentRows.forEach((row) => {
+        const amount = Math.max(0, Number(row?.repaymentAmount || row?.raw?.amount || 0));
+        if (!(amount > 0)) return;
+        const key = buildCardKey(row);
+        const date = row?.transactionDate instanceof Date ? row.transactionDate : parseFinanceDate(row?.raw?.transaction_date || row?.raw?.created_at || null);
+        const sourceId = extractSourceIdFromPayment(row);
+        const payload = {
+            amount,
+            sourceId,
+            date: date instanceof Date && !Number.isNaN(date.getTime()) ? date : null,
+            used: false
+        };
+        if (!paymentBuckets.has(key)) paymentBuckets.set(key, []);
+        paymentBuckets.get(key).push(payload);
+    });
+    paymentBuckets.forEach((list) => {
+        list.sort((a, b) => {
+            const left = a?.date instanceof Date ? a.date.getTime() : 0;
+            const right = b?.date instanceof Date ? b.date.getTime() : 0;
+            return left - right;
+        });
+    });
+
     const calcPriorityWeight = (daysToDue, amount) => {
         const dueWeight = daysToDue < 0
             ? 5
-            : (daysToDue <= 2
-                ? 4
-                : (daysToDue <= 7
-                    ? 3
-                    : (daysToDue <= 15 ? 2 : 1)));
-        const amountWeight = Math.max(0, Number(amount || 0));
-        return dueWeight * 1000000 + amountWeight;
+            : (daysToDue <= 2 ? 4 : (daysToDue <= 7 ? 3 : (daysToDue <= 15 ? 2 : 1)));
+        return dueWeight * 1000000 + Math.max(0, Number(amount || 0));
     };
-
     const getRepayActionText = (daysToDue, dueDate, amount, suggestRepayDate) => {
         const safeAmount = Math.max(0, Number(amount || 0));
         const firstRepay = Math.max(0, Number((safeAmount * 0.5).toFixed(2)));
-        if (daysToDue < 0) {
-            return `已逾期，今天先还 ${toMoneyText(firstRepay)}，尽快全额结清 ${toMoneyText(safeAmount)}。`;
-        }
-        if (daysToDue <= 2) {
-            return `临近还款，优先全额还款 ${toMoneyText(safeAmount)}（最晚 ${formatRuleDate(dueDate)}）。`;
-        }
-        if (daysToDue <= 7) {
-            return `建议先还 ${toMoneyText(firstRepay)}，并在 ${formatRuleDate(suggestRepayDate)} 前还清。`;
-        }
+        if (daysToDue < 0) return `已逾期，今天先还 ${toMoneyText(firstRepay)}，尽快全额结清 ${toMoneyText(safeAmount)}。`;
+        if (daysToDue <= 2) return `临近还款，优先全额还款 ${toMoneyText(safeAmount)}（最晚 ${formatRuleDate(dueDate)}）。`;
+        if (daysToDue <= 7) return `建议先还 ${toMoneyText(firstRepay)}，并在 ${formatRuleDate(suggestRepayDate)} 前还清。`;
         return `可在账单后刷卡窗口操作，并于 ${formatRuleDate(suggestRepayDate)} 前还清。`;
     };
 
@@ -6865,42 +6883,100 @@ function buildSmartCardPlanRows() {
     latestByCard.forEach((row) => {
         const dueDate = getBankRepaymentDueDate(row);
         if (!(dueDate instanceof Date) || Number.isNaN(dueDate.getTime())) return;
+
+        const rawAmount = Math.max(0, Number(row?.repaymentAmount || 0));
+        const cardKey = buildCardKey(row);
+        const rowId = String(row?.id || row?.raw?.id || '').trim();
+        const payments = paymentBuckets.get(cardKey) || [];
+        const txDate = row?.transactionDate instanceof Date ? row.transactionDate : null;
+        const repayWindowEnd = addDaysToDate(dueDate, 45);
+        let paidAmount = 0;
+
+        // 优先：按来源账单ID精确抵扣
+        payments.forEach((payment) => {
+            if (payment.used || !rowId || !payment.sourceId || payment.sourceId !== rowId) return;
+            payment.used = true;
+            paidAmount += Number(payment.amount || 0);
+        });
+        // 兜底：按同卡+时间窗口抵扣
+        payments.forEach((payment) => {
+            if (payment.used) return;
+            const payDate = payment?.date instanceof Date ? payment.date : null;
+            if (payDate && txDate && payDate.getTime() < addDaysToDate(txDate, -2).getTime()) return;
+            if (payDate && payDate.getTime() > repayWindowEnd.getTime()) return;
+            if (paidAmount >= rawAmount - 0.0001) return;
+            payment.used = true;
+            paidAmount += Number(payment.amount || 0);
+        });
+
+        const descriptionText = String(row?.description || '').trim();
+        const settledByDescription = /(状态[:：]\s*已结清|已还清|账单已结清|当月已还清)/.test(descriptionText);
+        const outstandingAmount = Number(Math.max(0, rawAmount - paidAmount).toFixed(2));
+        const settled = settledByDescription || outstandingAmount <= 0.0001;
+
+        const nextCycleRecommendation = buildBankCycleRecommendation(addDaysToDate(dueDate, 1), row.billDay, row.repaymentDay);
+        if (!nextCycleRecommendation) return;
+
+        const cardLabel = `${row.bank || '未识别'}${row.cardTail ? `（尾号${row.cardTail}）` : ''}`;
+        if (settled) {
+            const cycleDueDate = nextCycleRecommendation.dueDate;
+            const cycleDays = Math.ceil((new Date(cycleDueDate.getFullYear(), cycleDueDate.getMonth(), cycleDueDate.getDate()).getTime() - today.getTime()) / 86400000);
+            planRows.push({
+                key: `${row.bank || ''}_${row.cardTail || ''}`,
+                cardLabel,
+                billDay: row.billDay || 0,
+                repaymentDay: row.repaymentDay || 0,
+                repaymentAmount: 0,
+                recommendSwipeStart: nextCycleRecommendation.recommendSwipeStart,
+                recommendSwipeEnd: nextCycleRecommendation.recommendSwipeEnd,
+                recommendRepayDate: addDaysToDate(cycleDueDate, -2),
+                dueDate: cycleDueDate,
+                daysToDue: cycleDays,
+                urgency: 'cycle',
+                priorityWeight: -cycleDays,
+                planType: 'cycle',
+                actionText: `本期已还清，下期可在 ${formatRuleDate(nextCycleRecommendation.recommendSwipeStart)}~${formatRuleDate(nextCycleRecommendation.recommendSwipeEnd)} 刷卡。`
+            });
+            return;
+        }
+
         const dueDay = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate(), 0, 0, 0, 0);
         const daysToDue = Math.ceil((dueDay.getTime() - today.getTime()) / 86400000);
         const urgency = daysToDue < 0 ? 'overdue' : (daysToDue <= 2 ? 'urgent' : (daysToDue <= 7 ? 'soon' : 'normal'));
-        const nextCycleRecommendation = buildBankCycleRecommendation(addDaysToDate(dueDate, 1), row.billDay, row.repaymentDay);
-        if (!nextCycleRecommendation) return;
-        const repaymentAmount = Math.max(0, Number(row?.repaymentAmount || 0));
         const suggestRepayDate = addDaysToDate(dueDate, -2);
-        const priorityWeight = calcPriorityWeight(daysToDue, repaymentAmount);
-        const cardLabel = `${row.bank || '未识别'}${row.cardTail ? `（尾号${row.cardTail}）` : ''}`;
         planRows.push({
             key: `${row.bank || ''}_${row.cardTail || ''}`,
             cardLabel,
             billDay: row.billDay || 0,
             repaymentDay: row.repaymentDay || 0,
-            repaymentAmount,
+            repaymentAmount: outstandingAmount,
             recommendSwipeStart: nextCycleRecommendation.recommendSwipeStart,
             recommendSwipeEnd: nextCycleRecommendation.recommendSwipeEnd,
             recommendRepayDate: suggestRepayDate,
             dueDate,
             daysToDue,
             urgency,
-            priorityWeight,
-            actionText: getRepayActionText(daysToDue, dueDate, repaymentAmount, suggestRepayDate)
+            priorityWeight: calcPriorityWeight(daysToDue, outstandingAmount),
+            planType: 'repay',
+            actionText: getRepayActionText(daysToDue, dueDate, outstandingAmount, suggestRepayDate)
         });
     });
 
     return planRows.sort((a, b) => {
-        const weightDiff = b.priorityWeight - a.priorityWeight;
-        if (weightDiff !== 0) return weightDiff;
-        const dueDiff = a.dueDate.getTime() - b.dueDate.getTime();
-        if (dueDiff !== 0) return dueDiff;
-        return (b.repaymentAmount || 0) - (a.repaymentAmount || 0);
-    }).map((item, index) => ({
-        ...item,
-        priorityRank: index + 1
-    }));
+        if (a.planType !== b.planType) {
+            return a.planType === 'repay' ? -1 : 1;
+        }
+        if (a.planType === 'repay') {
+            const weightDiff = b.priorityWeight - a.priorityWeight;
+            if (weightDiff !== 0) return weightDiff;
+            const dueDiff = a.dueDate.getTime() - b.dueDate.getTime();
+            if (dueDiff !== 0) return dueDiff;
+            return (b.repaymentAmount || 0) - (a.repaymentAmount || 0);
+        }
+        const swipeDiff = a.recommendSwipeStart.getTime() - b.recommendSwipeStart.getTime();
+        if (swipeDiff !== 0) return swipeDiff;
+        return a.dueDate.getTime() - b.dueDate.getTime();
+    }).map((item, index) => ({ ...item, priorityRank: index + 1 }));
 }
 
 function renderBankSmartPlan() {
@@ -6912,12 +6988,22 @@ function renderBankSmartPlan() {
         return;
     }
 
-    const totalRepay = planRows.reduce((sum, item) => sum + Number(item?.repaymentAmount || 0), 0);
-    const urgentCount = planRows.filter(item => item.urgency === 'urgent' || item.urgency === 'overdue').length;
-    const nearestDue = planRows.slice().sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())[0];
-    const headerText = planRows.length >= 2
-        ? `优先处理：${safeText(planRows[0].cardLabel)} → ${safeText(planRows[1].cardLabel)}`
-        : `优先处理：${safeText(planRows[0].cardLabel)}`;
+    const repayRows = planRows.filter(item => item.planType === 'repay');
+    const cycleRows = planRows.filter(item => item.planType === 'cycle');
+    const totalRepay = repayRows.reduce((sum, item) => sum + Number(item?.repaymentAmount || 0), 0);
+    const urgentCount = repayRows.filter(item => item.urgency === 'urgent' || item.urgency === 'overdue').length;
+    const nearestDue = (repayRows.length ? repayRows : planRows).slice().sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())[0];
+    const headerText = repayRows.length >= 2
+        ? `优先处理：${safeText(repayRows[0].cardLabel)} → ${safeText(repayRows[1].cardLabel)}`
+        : (repayRows.length === 1
+            ? `优先处理：${safeText(repayRows[0].cardLabel)}`
+            : (cycleRows.length >= 2
+                ? `本期已处理完，下一账期刷卡优先：${safeText(cycleRows[0].cardLabel)} → ${safeText(cycleRows[1].cardLabel)}`
+                : `本期已处理完，下一账期可优先刷卡：${safeText((cycleRows[0] || planRows[0]).cardLabel)}`));
+    const formatRuleDateShort = (date) => {
+        if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '-';
+        return `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    };
     const rowsHtml = planRows.map((item) => {
         const urgencyText = item.urgency === 'overdue'
             ? '已逾期'
@@ -6925,24 +7011,28 @@ function renderBankSmartPlan() {
                 ? `紧急（${item.daysToDue}天）`
                 : (item.urgency === 'soon'
                     ? `临近（${item.daysToDue}天）`
-                    : `正常（${item.daysToDue}天）`));
+                    : (item.urgency === 'cycle'
+                        ? `下期规划（${item.daysToDue}天）`
+                        : `正常（${item.daysToDue}天）`)));
         const urgencyStyle = item.urgency === 'overdue'
             ? 'color:#dc2626;'
             : (item.urgency === 'urgent'
                 ? 'color:#dc2626;'
-                : (item.urgency === 'soon' ? 'color:#d97706;' : 'color:#166534;'));
+                : (item.urgency === 'soon'
+                    ? 'color:#d97706;'
+                    : (item.urgency === 'cycle' ? 'color:#2563eb;' : 'color:#166534;')));
         return `
             <tr>
                 <td><span class="erp-smart-plan-rank ${item.urgency === 'overdue' || item.urgency === 'urgent' ? 'is-danger' : ''}">P${item.priorityRank}</span></td>
                 <td>
                     <div class="erp-smart-plan-card-main">${safeText(item.cardLabel)}</div>
-                    <div class="erp-smart-plan-card-sub">应还：${safeText(toMoneyText(item.repaymentAmount))}</div>
+                    <div class="erp-smart-plan-card-sub">${item.planType === 'repay' ? `应还：${safeText(toMoneyText(item.repaymentAmount))}` : '状态：本期已还清'}</div>
                 </td>
-                <td>${safeText(`${item.billDay || '-'}日 / ${item.repaymentDay || '-'}日`)}</td>
-                <td>${safeText(formatRuleDate(item.dueDate))}</td>
-                <td>${safeText(`${formatRuleDate(item.recommendSwipeStart)} ~ ${formatRuleDate(item.recommendSwipeEnd)}`)}</td>
-                <td>${safeText(formatRuleDate(item.recommendRepayDate))}</td>
-                <td><span style="${urgencyStyle}font-weight:600;">${safeText(urgencyText)}</span></td>
+                <td class="erp-smart-plan-date-cell">${safeText(`${item.billDay || '-'}日 / ${item.repaymentDay || '-'}日`)}</td>
+                <td class="erp-smart-plan-date-cell">${safeText(formatRuleDate(item.dueDate))}</td>
+                <td class="erp-smart-plan-window-cell" title="${safeText(`${formatRuleDate(item.recommendSwipeStart)} ~ ${formatRuleDate(item.recommendSwipeEnd)}`)}">${safeText(`${formatRuleDateShort(item.recommendSwipeStart)} ~ ${formatRuleDateShort(item.recommendSwipeEnd)}`)}</td>
+                <td class="erp-smart-plan-date-cell">${safeText(formatRuleDate(item.recommendRepayDate))}</td>
+                <td class="erp-smart-plan-urgency-cell"><span style="${urgencyStyle}font-weight:600;">${safeText(urgencyText)}</span></td>
                 <td class="erp-smart-plan-action-cell">${safeText(item.actionText)}</td>
             </tr>
         `;
@@ -6951,15 +7041,16 @@ function renderBankSmartPlan() {
     container.innerHTML = `
         <div class="erp-smart-plan-headline">${headerText}</div>
         <div class="erp-smart-plan-kpis">
-            <span class="erp-smart-plan-kpi">待处理卡数：<strong>${planRows.length}</strong></span>
+            <span class="erp-smart-plan-kpi">待处理卡数：<strong>${repayRows.length}</strong></span>
+            <span class="erp-smart-plan-kpi">下期规划卡数：<strong>${cycleRows.length}</strong></span>
             <span class="erp-smart-plan-kpi">紧急卡数：<strong>${urgentCount}</strong></span>
             <span class="erp-smart-plan-kpi">总应还：<strong>${safeText(toMoneyText(totalRepay))}</strong></span>
             <span class="erp-smart-plan-kpi">最近还款日：<strong>${safeText(formatRuleDate(nearestDue?.dueDate))}</strong></span>
         </div>
-        <div class="erp-smart-plan-desc">规则：按“还款紧急程度 + 应还金额”排序，优先级越高越先处理；刷卡窗口按下一账期给出。</div>
+        <div class="erp-smart-plan-desc">规则：先按“待还款优先”，再按“紧急程度 + 应还金额”排序；已还清卡自动进入下期刷卡规划。</div>
         <div class="ant-table-wrapper erp-smart-plan-table-wrap">
             <div class="ant-table">
-                <table>
+                <table class="erp-smart-plan-table">
                     <thead class="ant-table-thead">
                         <tr>
                             <th>优先级</th>
@@ -8237,12 +8328,14 @@ async function submitQuickBankRepayment() {
             amount: paymentAmount,
             description: [
                 '来源：手动登记还款',
+                `来源账单ID：${String(source?.id || '')}`,
                 `银行：${bank}${cardTail ? `（尾号${cardTail}）` : ''}`,
                 `本次还款：${toMoneyText(paymentAmount)}`,
                 `原应还：${toMoneyText(currentOutstanding)}`,
                 `剩余应还：${toMoneyText(remainingAmount)}`
             ].join('；'),
             transaction_date: payTransactionDate,
+            reference_id: source?.id ?? source?.raw?.reference_id ?? null,
             card_bank: bank,
             card_bill_day: billDay || null,
             card_repayment_day: repaymentDay || null,

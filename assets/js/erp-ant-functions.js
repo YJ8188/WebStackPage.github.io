@@ -11634,13 +11634,7 @@ function showFinanceModal() {
 
     form.reset();
     document.getElementById('financeId').value = '';
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    document.getElementById('financeTransactionDate').value = `${year}-${month}-${day}T${hours}:${minutes}`;
+    document.getElementById('financeTransactionDate').value = getNowDateTimeLocalValue();
     document.getElementById('financeBusinessType').value = 'life_expense';
     document.getElementById('financeType').value = 'expense';
     document.getElementById('financeCategory').value = '生活消费';
@@ -11816,7 +11810,16 @@ function parseERPDate(value) {
 }
 
 function getFinanceRangeFromPreset(preset) {
-    const now = new Date();
+    const shanghaiNowPartMap = getShanghaiDatePartMap(new Date());
+    const shanghaiNow = shanghaiNowPartMap
+        ? parseFinanceDate(
+            `${shanghaiNowPartMap.year}-${shanghaiNowPartMap.month}-${shanghaiNowPartMap.day} `
+            + `${shanghaiNowPartMap.hour || '00'}:${shanghaiNowPartMap.minute || '00'}:${shanghaiNowPartMap.second || '00'}`
+        )
+        : null;
+    const now = shanghaiNow instanceof Date && !Number.isNaN(shanghaiNow.getTime())
+        ? shanghaiNow
+        : new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
     const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
@@ -15401,24 +15404,40 @@ function renderFinanceCashflowOverview() {
 
 function buildFinanceTrendRows(finances, days = 30) {
     const safeDays = Math.max(1, parseInt(days, 10) || 30);
-    const now = new Date();
+    const todayPartMap = getShanghaiDatePartMap(new Date());
+    const fallbackNow = new Date();
+    const todayKey = todayPartMap
+        ? `${todayPartMap.year}-${todayPartMap.month}-${todayPartMap.day}`
+        : `${fallbackNow.getFullYear()}-${String(fallbackNow.getMonth() + 1).padStart(2, '0')}-${String(fallbackNow.getDate()).padStart(2, '0')}`;
+    let anchorKey = todayKey;
+    (Array.isArray(finances) ? finances : []).forEach(item => {
+        const partMap = getShanghaiDatePartMap(item?.transaction_date);
+        if (!partMap) {
+            return;
+        }
+        const key = `${partMap.year}-${partMap.month}-${partMap.day}`;
+        if (key > anchorKey) {
+            anchorKey = key;
+        }
+    });
+    const [anchorYear, anchorMonth, anchorDay] = anchorKey.split('-').map(value => Number(value));
     const dayRows = [];
     const dayMap = new Map();
 
     for (let offset = safeDays - 1; offset >= 0; offset -= 1) {
-        const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset);
-        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-        const row = { key, label: `${date.getMonth() + 1}/${date.getDate()}`, income: 0, expense: 0, net: 0 };
+        const date = new Date(Date.UTC(anchorYear, anchorMonth - 1, anchorDay - offset, 0, 0, 0));
+        const key = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+        const row = { key, label: `${date.getUTCMonth() + 1}/${date.getUTCDate()}`, income: 0, expense: 0, net: 0 };
         dayRows.push(row);
         dayMap.set(key, row);
     }
 
     (Array.isArray(finances) ? finances : []).forEach(item => {
-        const date = parseFinanceDate(item?.transaction_date);
-        if (!date) {
+        const partMap = getShanghaiDatePartMap(item?.transaction_date);
+        if (!partMap) {
             return;
         }
-        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        const key = `${partMap.year}-${partMap.month}-${partMap.day}`;
         const row = dayMap.get(key);
         if (!row) {
             return;
@@ -15907,6 +15926,12 @@ function renderFinanceTrendSummary(finances = null) {
     const rows7 = rows30.slice(-7);
     const rows1 = rows30.slice(-1);
     const rowsSelected = selectedRange === 30 ? rows30 : buildFinanceTrendRows(source, selectedRange);
+    const latestTrendRow = rows30[rows30.length - 1] || null;
+    const todayPartMap = getShanghaiDatePartMap(new Date());
+    const todayKey = todayPartMap ? `${todayPartMap.year}-${todayPartMap.month}-${todayPartMap.day}` : '';
+    const daySummaryLabel = latestTrendRow && latestTrendRow.key && latestTrendRow.key !== todayKey
+        ? `最新日净额（${latestTrendRow.label}）`
+        : '今日净额';
 
     const summary1 = calcFinanceSummaryFromRows(rows1);
     summary1.net = summary1.income - summary1.expense;
@@ -15931,7 +15956,7 @@ function renderFinanceTrendSummary(finances = null) {
     container.innerHTML = `
         <div style="display:flex;flex-wrap:wrap;gap:12px;">
             <div style="flex:1;min-width:180px;padding:10px 12px;border:1px solid #ffd6e7;border-radius:8px;background:#fff1f8;">
-                <div style="font-size:12px;color:#8c8c8c;">今日净额</div>
+                <div style="font-size:12px;color:#8c8c8c;">${daySummaryLabel}</div>
                 <div style="font-size:18px;font-weight:600;color:#cf1322;">${formatCurrency(summary1.net)}</div>
                 <div style="font-size:12px;color:#8c8c8c;">收 ${formatCurrency(summary1.income)} / 支 ${formatCurrency(summary1.expense)}</div>
             </div>
@@ -15975,16 +16000,32 @@ function renderFinanceTrendSummary(finances = null) {
 
 function buildMonthlyProfitRows(finances, months = 6) {
     const safeMonths = Math.max(3, parseInt(months, 10) || 6);
-    const now = new Date();
+    const todayPartMap = getShanghaiDatePartMap(new Date());
+    const fallbackNow = new Date();
+    const currentMonthKey = todayPartMap
+        ? `${todayPartMap.year}-${todayPartMap.month}`
+        : `${fallbackNow.getFullYear()}-${String(fallbackNow.getMonth() + 1).padStart(2, '0')}`;
+    let anchorMonthKey = currentMonthKey;
+    (Array.isArray(finances) ? finances : []).forEach(item => {
+        const partMap = getShanghaiDatePartMap(item?.transaction_date);
+        if (!partMap) {
+            return;
+        }
+        const monthKey = `${partMap.year}-${partMap.month}`;
+        if (monthKey > anchorMonthKey) {
+            anchorMonthKey = monthKey;
+        }
+    });
+    const [anchorYear, anchorMonth] = anchorMonthKey.split('-').map(value => Number(value));
     const monthRows = [];
     const monthMap = new Map();
 
     for (let offset = safeMonths - 1; offset >= 0; offset -= 1) {
-        const date = new Date(now.getFullYear(), now.getMonth() - offset, 1);
-        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        const date = new Date(Date.UTC(anchorYear, anchorMonth - 1 - offset, 1, 0, 0, 0));
+        const key = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
         const row = {
             key,
-            label: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`,
+            label: `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`,
             income: 0,
             expense: 0,
             net: 0
@@ -15994,11 +16035,11 @@ function buildMonthlyProfitRows(finances, months = 6) {
     }
 
     (Array.isArray(finances) ? finances : []).forEach(item => {
-        const date = parseFinanceDate(item?.transaction_date);
-        if (!date) {
+        const partMap = getShanghaiDatePartMap(item?.transaction_date);
+        if (!partMap) {
             return;
         }
-        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        const key = `${partMap.year}-${partMap.month}`;
         const row = monthMap.get(key);
         if (!row) {
             return;

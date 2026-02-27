@@ -6746,7 +6746,9 @@ function renderBankBusiness(rows = null) {
         sourceAll.filter(item => !item?.isRepaymentPayment)
     );
 
-    const sorted = [...source].sort((a, b) => {
+    const repaymentRows = source
+        .filter(item => item?.isRepayment && !item?.isRepaymentPayment)
+        .sort((a, b) => {
         const leftDueTs = getBankRepaymentDueDateForSort(a);
         const rightDueTs = getBankRepaymentDueDateForSort(b);
         if (leftDueTs !== rightDueTs) {
@@ -6763,10 +6765,20 @@ function renderBankBusiness(rows = null) {
         return right - left;
     });
 
-    updateBankBusinessSummary(sorted, sourceAll);
+    const swipeRows = source
+        .filter(item => item?.isSwipe && !item?.isRepaymentPayment)
+        .sort((a, b) => {
+            const left = a?.transactionDate instanceof Date ? a.transactionDate.getTime() : 0;
+            const right = b?.transactionDate instanceof Date ? b.transactionDate.getTime() : 0;
+            if (left !== right) {
+                return right - left;
+            }
+            const leftId = String(a?.id || '');
+            const rightId = String(b?.id || '');
+            return rightId.localeCompare(leftId, 'zh-CN');
+        });
 
-    const repaymentRows = sorted.filter(item => item?.isRepayment && !item?.isRepaymentPayment);
-    const swipeRows = sorted.filter(item => item?.isSwipe && !item?.isRepaymentPayment);
+    updateBankBusinessSummary([...repaymentRows, ...swipeRows], sourceAll);
 
     syncBankBusinessSelectionVisibleRows([], 'repayment');
     syncBankBusinessSelectionVisibleRows([], 'swipe');

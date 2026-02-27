@@ -7411,16 +7411,59 @@ function getNoteContentHasMedia(html = '') {
     return /<img\b/i.test(String(html || ''));
 }
 
+function isAllowedDailyNoteDataUrl(urlText = '') {
+    const value = String(urlText || '').trim();
+    return /^data:image\/(?:png|jpe?g|gif|webp);base64,[a-z0-9+/=\s]+$/i.test(value);
+}
+
+function isSafeDailyNoteResourceUrl(urlText = '') {
+    const value = String(urlText || '').trim();
+    if (!value) return false;
+    if (value.startsWith('#')) return true;
+    if (/^(?:\/(?!\/)|\.{1,2}\/)/.test(value)) return true;
+    if (isAllowedDailyNoteDataUrl(value)) return true;
+
+    try {
+        const parsed = new URL(value, window.location.origin);
+        const protocol = String(parsed.protocol || '').toLowerCase();
+        return protocol === 'http:' || protocol === 'https:' || protocol === 'mailto:' || protocol === 'tel:';
+    } catch (error) {
+        return false;
+    }
+}
+
 function normalizeDailyNoteHtml(rawHtml = '') {
     const container = document.createElement('div');
     container.innerHTML = String(rawHtml || '');
-    container.querySelectorAll('script,style,iframe,object,embed').forEach(node => node.remove());
+    container.querySelectorAll('script,style,iframe,object,embed,base,meta,link,svg,math').forEach(node => node.remove());
     container.querySelectorAll('*').forEach((element) => {
+        const tagName = String(element.tagName || '').toUpperCase();
         [...element.attributes].forEach((attr) => {
-            if (/^on/i.test(attr.name)) {
+            const attrName = String(attr.name || '').toLowerCase();
+            const attrValue = String(attr.value || '').trim();
+            if (/^on/i.test(attrName)) {
                 element.removeAttribute(attr.name);
+                return;
+            }
+            if (['href', 'src', 'xlink:href', 'formaction', 'poster'].includes(attrName)) {
+                if (!isSafeDailyNoteResourceUrl(attrValue)) {
+                    element.removeAttribute(attr.name);
+                }
             }
         });
+        if (tagName === 'A') {
+            const href = String(element.getAttribute('href') || '').trim();
+            if (!href || !isSafeDailyNoteResourceUrl(href)) {
+                element.removeAttribute('href');
+            }
+            if (String(element.getAttribute('target') || '').toLowerCase() === '_blank') {
+                const rel = String(element.getAttribute('rel') || '').toLowerCase();
+                const relParts = new Set(rel.split(/\s+/).filter(Boolean));
+                relParts.add('noopener');
+                relParts.add('noreferrer');
+                element.setAttribute('rel', Array.from(relParts).join(' '));
+            }
+        }
     });
     return container.innerHTML.trim();
 }

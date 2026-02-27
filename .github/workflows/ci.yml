@@ -23,6 +23,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          node --check .github/qq-mail-sync/qq_mail_sync.mjs
           while IFS= read -r -d '' file; do
             echo "node --check $file"
             node --check "$file"
@@ -41,6 +42,18 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: "v1.x"
+
+      - name: Check Supabase Edge Functions
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno check supabase/functions/qq-mail-auth/index.ts
+          deno check supabase/functions/logistics-track/index.ts
 
       - name: Check Python syntax
         shell: bash

@@ -475,8 +475,8 @@
 
             function makeStatus(value, okText = '正常', badText = '异常') {
                 return value
-                    ? `<span class="self-check-status-ok">${okText}</span>`
-                    : `<span class="self-check-status-bad">${badText}</span>`;
+                    ? `正常（${okText}）`
+                    : `异常（${badText}）`;
             }
 
             function toShanghaiDateTimeText(value) {
@@ -534,31 +534,50 @@
                 return [
                     ['当前时间', toShanghaiDateTimeText(new Date())],
                     ['当前地址', window.location.href],
-                    ['页面协议', isFileProtocol ? '<span class="self-check-status-warn">file://（建议改本地服务器）</span>' : `${protocol}//`],
+                    ['页面协议', isFileProtocol ? 'file://（建议改本地服务器）' : `${protocol}//`],
                     ['当前域名', window.location.origin || 'file:// 本地文件'],
                     ['回跳参数(returnTo)', rawReturnTo || '-'],
                     ['回跳目标(安全)', safeReturnTo],
                     ['Supabase 库', makeStatus(hasSupabaseLib)],
                     ['Supabase 客户端', makeStatus(hasSupabaseClient)],
-                    ['Session 状态', sessionOk ? '<span class="self-check-status-ok">已登录</span>' : '<span class="self-check-status-warn">未登录/未建立</span>'],
+                    ['Session 状态', sessionOk ? '已登录' : '未登录/未建立'],
                     ['Session 用户', sessionUser],
                     ['Session 错误', sessionError],
                     ['记住我偏好', rememberMe ?? 'null'],
                     ['记住我到期时间', rememberMeExpireText],
-                    ['记住我是否过期', rememberMeExpired ? '<span class="self-check-status-warn">已过期</span>' : '<span class="self-check-status-ok">未过期</span>'],
-                    ['网络状态', navigator.onLine ? '<span class="self-check-status-ok">online</span>' : '<span class="self-check-status-bad">offline</span>']
+                    ['记住我是否过期', rememberMeExpired ? '已过期' : '未过期'],
+                    ['网络状态', navigator.onLine ? 'online' : 'offline']
                 ];
             }
 
             async function renderSelfCheck() {
-                list.innerHTML = '<li class="self-check-item"><span class="self-check-key">状态</span><span class="self-check-value">检测中...</span></li>';
+                list.innerHTML = '';
+                const loadingItem = document.createElement('li');
+                loadingItem.className = 'self-check-item';
+                const loadingKey = document.createElement('span');
+                loadingKey.className = 'self-check-key';
+                loadingKey.textContent = '状态';
+                const loadingValue = document.createElement('span');
+                loadingValue.className = 'self-check-value';
+                loadingValue.textContent = '检测中...';
+                loadingItem.appendChild(loadingKey);
+                loadingItem.appendChild(loadingValue);
+                list.appendChild(loadingItem);
                 const rows = await collectSelfCheckRows();
-                list.innerHTML = rows.map(([key, value]) => `
-                    <li class="self-check-item">
-                        <span class="self-check-key">${key}</span>
-                        <span class="self-check-value">${value}</span>
-                    </li>
-                `).join('');
+                list.innerHTML = '';
+                rows.forEach(([key, value]) => {
+                    const item = document.createElement('li');
+                    item.className = 'self-check-item';
+                    const keyEl = document.createElement('span');
+                    keyEl.className = 'self-check-key';
+                    keyEl.textContent = String(key || '');
+                    const valueEl = document.createElement('span');
+                    valueEl.className = 'self-check-value';
+                    valueEl.textContent = String(value ?? '');
+                    item.appendChild(keyEl);
+                    item.appendChild(valueEl);
+                    list.appendChild(item);
+                });
             }
 
             async function copySelfCheckReport() {

@@ -951,31 +951,60 @@ function updateAPIStatus(name, isConnected) {
 
 // ==================== 汇率显示功能 ====================
 
-const _0x4f2a = atob('YjgzYjI1ODBjOGVhOTVjYQ==');
+function getOptionalXXApiHeaders() {
+    const token = String(window?.__XXAPI_TOKEN || localStorage.getItem('xxapi_token') || '').trim();
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
 
-// 汇率API配置（使用xxapi.cn - Bearer Token方式）
-const rateAPIs = [
-    {
-        name: 'XXAPI',
-        url: 'https://v2.xxapi.cn/api/allrates',
-        timeout: 10000,
-        headers: {
-            'Authorization': `Bearer ${_0x4f2a}`
-        },
-        handler: (data) => {
-            Logger.debug('[XXAPI] 原始数据:', data);
-            if (data && data.data && data.data.rates && data.data.rates.CNY) {
-                // API返回的rate表示：1 USD = ? 该货币
-                // 所以CNY.rate = 7.33 表示 1 USD = 7.33 CNY
-                const usdToCnyRate = data.data.rates.CNY.rate;
-                Logger.debug('[XXAPI] USD/CNY汇率:', usdToCnyRate);
-                return usdToCnyRate;
+function getRateAPIs() {
+    const apis = [
+        {
+            name: 'OpenERAPI',
+            url: 'https://open.er-api.com/v6/latest/USD',
+            timeout: 10000,
+            headers: {},
+            handler: (data) => {
+                const usdToCnyRate = Number(data?.rates?.CNY);
+                if (Number.isFinite(usdToCnyRate) && usdToCnyRate > 0) {
+                    return usdToCnyRate;
+                }
+                throw new Error('Invalid OpenERAPI data');
             }
-            Logger.error('[XXAPI] 数据格式不匹配');
-            throw new Error('Invalid data');
+        },
+        {
+            name: 'Frankfurter',
+            url: 'https://api.frankfurter.app/latest?from=USD&to=CNY',
+            timeout: 10000,
+            headers: {},
+            handler: (data) => {
+                const usdToCnyRate = Number(data?.rates?.CNY);
+                if (Number.isFinite(usdToCnyRate) && usdToCnyRate > 0) {
+                    return usdToCnyRate;
+                }
+                throw new Error('Invalid Frankfurter data');
+            }
         }
+    ];
+
+    const xxapiHeaders = getOptionalXXApiHeaders();
+    if (Object.keys(xxapiHeaders).length > 0) {
+        apis.unshift({
+            name: 'XXAPI',
+            url: 'https://v2.xxapi.cn/api/allrates',
+            timeout: 10000,
+            headers: xxapiHeaders,
+            handler: (data) => {
+                const usdToCnyRate = Number(data?.data?.rates?.CNY?.rate);
+                if (Number.isFinite(usdToCnyRate) && usdToCnyRate > 0) {
+                    return usdToCnyRate;
+                }
+                throw new Error('Invalid XXAPI data');
+            }
+        });
     }
-];
+
+    return apis;
+}
 
 // ==================== UI 更新节流 ====================
 /**
@@ -1061,7 +1090,8 @@ async function checkNetworkStatus() {
 
     // 测试各个API的连通性
     const testURLs = [
-        { name: 'XXAPI汇率', url: 'https://v2.xxapi.cn/api/allrates', headers: { 'Authorization': `Bearer ${_0x4f2a}` } },
+        { name: 'OpenERAPI汇率', url: 'https://open.er-api.com/v6/latest/USD' },
+        { name: 'Frankfurter汇率', url: 'https://api.frankfurter.app/latest?from=USD&to=CNY' },
         { name: 'CryptoCompare', url: 'https://min-api.cryptocompare.com/data/top/totalvolfull?limit=10&tsym=USD' },
         { name: 'CoinCap', url: 'https://api.coincap.io/v2/assets?limit=10' }
     ];
@@ -1223,34 +1253,23 @@ async function showRateDetailModal() {
 
     modal.style.display = 'flex';
 
-    // 使用XXAPI汇率API（Bearer Token方式）
-    const rateAPIs = [
-        {
-            name: 'XXAPI',
-            url: 'https://v2.xxapi.cn/api/allrates',
-            timeout: 10000,
-            headers: {
-                'Authorization': `Bearer ${_0x4f2a}`
-            },
-            handler: (data) => {
-                Logger.debug('[XXAPI] 原始数据:', data);
-                if (data && data.data && data.data.rates && data.data.rates.CNY) {
-                    // API返回的rate表示：1 USD = ? 该货币
-                    // 所以CNY.rate = 7.33 表示 1 USD = 7.33 CNY
-                    const current = data.data.rates.CNY.rate;
-                    return {
-                        current: current,
-                        high: current * 1.002, // 模拟24h最高价
-                        low: current * 0.998,  // 模拟24h最低价
-                        volume: 1000000, // 模拟成交量
-                        change: 0, // API不提供涨跌幅
-                        source: 'XXAPI'
-                    };
-                }
-                throw new Error('Invalid data format');
+    const rateAPIs = getRateAPIs().map((api) => ({
+        ...api,
+        handler: (data) => {
+            const current = Number(api.handler(data));
+            if (!Number.isFinite(current) || current <= 0) {
+                throw new Error('Invalid rate data');
             }
+            return {
+                current,
+                high: current * 1.002,
+                low: current * 0.998,
+                volume: 1000000,
+                change: 0,
+                source: api.name
+            };
         }
-    ];
+    }));
 
     // 尝试从API获取数据
     let successData = null;
@@ -1496,6 +1515,7 @@ const syncRate = async () => {
     try {
         Logger.debug('[汇率同步] 开始获取USDT/CNY汇率...');
         Logger.debug('[汇率同步] 当前汇率:', USD_CNY_RATE);
+        const rateAPIs = getRateAPIs();
 
         // 尝试从多个API获取数据
         for (const api of rateAPIs) {

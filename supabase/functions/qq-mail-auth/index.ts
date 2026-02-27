@@ -112,18 +112,6 @@ async function getAuthenticatedUserId(req: Request): Promise<string> {
   return String(data.user.id);
 }
 
-async function resolveRequestUserId(req: Request, body: Record<string, unknown>): Promise<string> {
-  try {
-    return await getAuthenticatedUserId(req);
-  } catch (_error) {
-    const fallbackUserId = String(body.user_id || "").trim();
-    if (isUuid(fallbackUserId)) {
-      return fallbackUserId;
-    }
-    throw new Error("未登录或登录已过期");
-  }
-}
-
 function verifySyncToken(req: Request): void {
   const expected = requiredEnv("QQ_MAIL_SYNC_TOKEN");
   const provided = String(req.headers.get("x-sync-token") || "").trim();
@@ -159,7 +147,7 @@ serve(async (req) => {
     if (action === "resolve") {
       verifySyncToken(req);
       const userId = String(body.user_id || "").trim();
-      if (!userId) return jsonResponse({ ok: false, message: "缺少 user_id" }, 400);
+      if (!isUuid(userId)) return jsonResponse({ ok: false, message: "user_id 格式错误" }, 400);
 
       const { data, error } = await admin
         .from(TABLE_NAME)
@@ -185,7 +173,7 @@ serve(async (req) => {
     if (action === "update_sync_status") {
       verifySyncToken(req);
       const userId = String(body.user_id || "").trim();
-      if (!userId) return jsonResponse({ ok: false, message: "缺少 user_id" }, 400);
+      if (!isUuid(userId)) return jsonResponse({ ok: false, message: "user_id 格式错误" }, 400);
       const syncStatus = String(body.sync_status || "").trim() || "unknown";
       const syncMessage = String(body.sync_message || "").trim().slice(0, 500);
       const syncAt = String(body.last_sync_at || "").trim() || new Date().toISOString();
@@ -207,7 +195,7 @@ serve(async (req) => {
       return jsonResponse({ ok: true });
     }
 
-    const userId = await resolveRequestUserId(req, body);
+    const userId = await getAuthenticatedUserId(req);
 
     if (action === "status") {
       const { data, error } = await admin

@@ -1217,7 +1217,16 @@ function buildFunctionsBaseUrl(supabaseUrl) {
   return String(supabaseUrl || '').replace('.supabase.co', '.functions.supabase.co').replace(/\/+$/, '');
 }
 
-async function resolveQQMailCredential({ supabaseUrl, userId }) {
+function maskEmailAddress(rawEmail) {
+  const email = String(rawEmail || '').trim();
+  if (!email || !email.includes('@')) return '';
+  const [name, domain] = email.split('@');
+  if (!name) return `***@${domain || ''}`;
+  if (name.length <= 2) return `${name[0] || '*'}***@${domain || ''}`;
+  return `${name.slice(0, 2)}***@${domain || ''}`;
+}
+
+async function resolveQQMailCredential({ supabaseUrl, supabaseServiceRoleKey, userId }) {
   const legacyEmail = String(process.env.QQ_EMAIL_ADDRESS || '').trim();
   const legacyAuthCode = String(process.env.QQ_EMAIL_AUTH_CODE || '').trim();
   const legacyHost = String(process.env.QQ_IMAP_HOST || 'imap.qq.com').trim();
@@ -1235,10 +1244,12 @@ async function resolveQQMailCredential({ supabaseUrl, userId }) {
   const syncToken = requireEnv('QQ_MAIL_SYNC_TOKEN');
   const functionsBase = buildFunctionsBaseUrl(supabaseUrl);
   const endpoint = `${functionsBase}/qq-mail-auth`;
+  const adminAuthorization = `Bearer ${String(supabaseServiceRoleKey || '').trim()}`;
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      Authorization: adminAuthorization,
       'x-sync-token': syncToken
     },
     body: JSON.stringify({
@@ -1260,7 +1271,7 @@ async function resolveQQMailCredential({ supabaseUrl, userId }) {
   };
 }
 
-async function reportSyncStatus({ supabaseUrl, supabase, userId, syncStatus, syncMessage }) {
+async function reportSyncStatus({ supabaseUrl, supabaseServiceRoleKey, supabase, userId, syncStatus, syncMessage }) {
   const syncToken = String(process.env.QQ_MAIL_SYNC_TOKEN || '').trim();
   const payload = {
     last_sync_status: String(syncStatus || '').trim() || 'unknown',
@@ -1273,11 +1284,13 @@ async function reportSyncStatus({ supabaseUrl, supabase, userId, syncStatus, syn
   if (syncToken) {
     const functionsBase = buildFunctionsBaseUrl(supabaseUrl);
     const endpoint = `${functionsBase}/qq-mail-auth`;
+    const adminAuthorization = `Bearer ${String(supabaseServiceRoleKey || '').trim()}`;
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: adminAuthorization,
           'x-sync-token': syncToken
         },
         body: JSON.stringify({
@@ -1392,6 +1405,7 @@ async function resolveTargetUserIds({ supabase, explicitUserId }) {
 
 async function syncOneUser({
   supabaseUrl,
+  supabaseServiceRoleKey,
   supabase,
   userId,
   mailboxText,
@@ -1411,7 +1425,7 @@ async function syncOneUser({
   let clientConnected = false;
 
   try {
-    const credential = await resolveQQMailCredential({ supabaseUrl, userId });
+    const credential = await resolveQQMailCredential({ supabaseUrl, supabaseServiceRoleKey, userId });
     const email = String(credential.email || '').trim();
     const password = String(credential.authCode || '').trim();
     const host = String(credential.host || 'imap.qq.com').trim();
@@ -1420,7 +1434,7 @@ async function syncOneUser({
       throw new Error('邮箱授权不存在或已失效，请先在ERP页面完成QQ邮箱授权');
     }
 
-    console.log(`[QQ同步][${userId}] 启动：邮箱=${email}, 范围=${dateScope === 'current_month' ? '当月' : `最近${lookbackDays}天`}, 来源=${credential.source}`);
+    console.log(`[QQ同步][${userId}] 启动：邮箱=${maskEmailAddress(email) || '***'}, 范围=${dateScope === 'current_month' ? '当月' : `最近${lookbackDays}天`}, 来源=${credential.source}`);
     let messages = [];
     const maxAttempts = 2;
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -1763,6 +1777,7 @@ async function syncOneUser({
     }
     await reportSyncStatus({
       supabaseUrl,
+      supabaseServiceRoleKey,
       supabase,
       userId,
       syncStatus,
@@ -1809,6 +1824,7 @@ async function main() {
   for (const userId of userIds) {
     const result = await syncOneUser({
       supabaseUrl,
+      supabaseServiceRoleKey,
       supabase,
       userId,
       mailboxText,

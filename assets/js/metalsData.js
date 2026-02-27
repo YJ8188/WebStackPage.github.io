@@ -54,19 +54,6 @@ var MetalsData = {
     cachedProvider: '',       // 缓存来源
     cacheSavedAt: 0,          // 缓存时间戳
     cacheStorageKey: 'metals-data-cache-v1',
-    // 内置兜底金店快照（接口全部不可用时仍可展示）
-    bundledTenStoresSnapshot: [
-        { 品牌: '周大福', 黄金价格: '1576', 铂金价格: '-', 金条价格: '1386', 报价时间: '2026-02-27', 单位: '元/克' },
-        { 品牌: '周生生', 黄金价格: '1568', 铂金价格: '905', 金条价格: '1386', 报价时间: '2026-02-27', 单位: '元/克' },
-        { 品牌: '六福珠宝', 黄金价格: '1576', 铂金价格: '905', 金条价格: '1386', 报价时间: '2026-02-27', 单位: '元/克' },
-        { 品牌: '谢瑞麟', 黄金价格: '1576', 铂金价格: '-', 金条价格: '1386', 报价时间: '2026-02-27', 单位: '元/克' },
-        { 品牌: '金至尊', 黄金价格: '1576', 铂金价格: '905', 金条价格: '1386', 报价时间: '2026-02-27', 单位: '元/克' },
-        { 品牌: '潮宏基', 黄金价格: '1576', 铂金价格: '905', 金条价格: '1386', 报价时间: '2026-02-27', 单位: '元/克' },
-        { 品牌: '菜百首饰', 黄金价格: '1538', 铂金价格: '745', 金条价格: '1325', 报价时间: '2026-02-27', 单位: '元/克' },
-        { 品牌: '老庙黄金', 黄金价格: '1566', 铂金价格: '860', 金条价格: '1391', 报价时间: '2026-02-27', 单位: '元/克' },
-        { 品牌: '老凤祥', 黄金价格: '1566', 铂金价格: '960', 金条价格: '1435', 报价时间: '2026-02-27', 单位: '元/克' },
-        { 品牌: '中国黄金', 黄金价格: '1538', 铂金价格: '745', 金条价格: '-', 报价时间: '2026-02-27', 单位: '元/克' }
-    ],
     initialized: false,       // 是否已初始化
     themeObserver: null,      // 主题监听器
     mediaThemeQuery: null,    // 系统主题监听
@@ -138,24 +125,7 @@ var MetalsData = {
         return Number.isFinite(value) ? value : 0;
     },
 
-    getBundledTenStoresSnapshot: function() {
-        return JSON.parse(JSON.stringify(this.bundledTenStoresSnapshot || []));
-    },
-
-    fillBundledTenStoresIfNeeded: function() {
-        if (Array.isArray(this.prices.bankGoldBars) && this.prices.bankGoldBars.length > 0) {
-            return false;
-        }
-
-        var bundled = this.getBundledTenStoresSnapshot();
-        if (bundled.length > 0) {
-            this.prices.bankGoldBars = bundled;
-            return true;
-        }
-        return false;
-    },
-
-    // XXAPI 金店数据适配（用于补全国内十大金店）
+    // IYuns/XXAPI 金店数据适配（用于补全国内十大金店）
     adaptXXAPITenStores: function(data) {
         if (!data || data.code !== 200 || !data.data || !Array.isArray(data.data.precious_metal_price)) {
             throw new Error('XXAPI store payload invalid');
@@ -188,12 +158,35 @@ var MetalsData = {
         return Object.values(unique);
     },
 
-    fetchTenStoresFromXXAPI: function() {
+    fetchTenStoresFromNetworkCandidates: function() {
         var self = this;
-        return self.fetchJsonWithTimeout('https://v2.xxapi.cn/api/goldprice', 12000)
-            .then(function(data) {
-                return self.adaptXXAPITenStores(data);
-            });
+        var candidates = [
+            { name: 'IYuns', url: 'https://api.iyuns.com/api/goldprice' },
+            { name: 'XXAPI', url: 'https://v2.xxapi.cn/api/goldprice' }
+        ];
+        var lastError = null;
+
+        function requestByIndex(index) {
+            if (index >= candidates.length) {
+                return Promise.reject(lastError || new Error('All store API providers failed'));
+            }
+
+            var candidate = candidates[index];
+            return self.fetchJsonWithTimeout(candidate.url, 12000)
+                .then(function(data) {
+                    return {
+                        rows: self.adaptXXAPITenStores(data),
+                        provider: candidate.name
+                    };
+                })
+                .catch(function(error) {
+                    lastError = error;
+                    console.warn('%c[金价行情] 金店API源失败: ' + candidate.name, 'color: #f59e0b;', error);
+                    return requestByIndex(index + 1);
+                });
+        }
+
+        return requestByIndex(0);
     },
 
     supplementBankGoldBarsIfNeeded: function() {
@@ -210,19 +203,17 @@ var MetalsData = {
             return Promise.resolve('Cache(金店)');
         }
 
-        return this.fetchTenStoresFromXXAPI()
-            .then(function(tenStores) {
+        return this.fetchTenStoresFromNetworkCandidates()
+            .then(function(result) {
+                var tenStores = result.rows || [];
                 if (Array.isArray(tenStores) && tenStores.length > 0) {
                     self.prices.bankGoldBars = tenStores;
-                    return 'XXAPI(金店)';
+                    return result.provider + '(金店)';
                 }
                 return null;
             })
             .catch(function(error) {
                 console.warn('%c[金价行情] 金店备用源获取失败', 'color: #f59e0b;', error);
-                if (self.fillBundledTenStoresIfNeeded()) {
-                    return '内置快照(金店)';
-                }
                 return null;
             });
     },
@@ -751,21 +742,10 @@ var MetalsData = {
                 self.prices.bankGoldBars = localCache['国内十大金店'] || [];
                 self.prices.goldRecycle = localCache['国内黄金'] || [];
                 self.prices.preciousMetals = localCache['国际黄金'] || [];
-                var usedBundled = self.fillBundledTenStoresIfNeeded();
                 self.updateUI();
-                if (usedBundled) {
-                    self.setApiIndicator((self.cachedProvider || 'Cache') + ' + 内置快照(金店)', '#f59e0b');
-                } else {
-                    self.setApiIndicator((self.cachedProvider || 'Cache') + ' (缓存)', '#f59e0b');
-                }
+                self.setApiIndicator((self.cachedProvider || 'Cache') + ' (缓存)', '#f59e0b');
             } else {
-                var fallbackApplied = self.fillBundledTenStoresIfNeeded();
-                if (fallbackApplied) {
-                    self.updateUI();
-                    self.setApiIndicator('内置快照(金店)', '#f59e0b');
-                } else {
-                    self.setApiIndicator('Unavailable', '#ef4444');
-                }
+                self.setApiIndicator('Unavailable', '#ef4444');
             }
         })
         .finally(function() {

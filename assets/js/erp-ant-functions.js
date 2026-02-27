@@ -7757,20 +7757,74 @@ function setDailyNoteSavedSignature(payload = {}) {
     dailyNotesViewState.lastSavedSignature = buildDailyNoteSignature(payload);
 }
 
-function scheduleDailyNoteAutoSave() {
+function hasDailyNotePendingChanges() {
     if (dailyNotesViewState.isApplyingState) {
-        return;
+        return false;
     }
+    const titleEl = getDailyNoteTitleElement();
+    const editorEl = getDailyNoteEditorElement();
+    if (!titleEl || !editorEl) {
+        return false;
+    }
+    const payload = collectDailyNoteFormData();
+    const currentSignature = buildDailyNoteSignature(payload);
+    return currentSignature !== String(dailyNotesViewState.lastSavedSignature || '');
+}
+
+function discardCurrentDailyNoteChanges() {
+    const draftId = getActiveDailyNoteDraftId();
+    removeDailyNoteLocalDraft(draftId);
     clearDailyNoteAutoSaveTimer();
-    const sessionToken = Number(dailyNotesViewState.editorSessionToken || 0);
-    dailyNotesViewState.pendingSessionToken = sessionToken;
-    if (dailyNotesViewState.autoSaveDelay <= 0) {
-        Promise.resolve().then(() => runDailyNoteAutoSave(sessionToken));
-        return;
+    clearDailyNoteDraftCacheTimer();
+    const payload = collectDailyNoteFormData();
+    if (payload) {
+        // Mark current content as handled to avoid repeated prompts in the same interaction.
+        setDailyNoteSavedSignature(payload);
     }
-    dailyNotesViewState.autoSaveTimer = setTimeout(() => {
-        runDailyNoteAutoSave(sessionToken);
-    }, dailyNotesViewState.autoSaveDelay);
+}
+
+async function confirmDailyNoteSaveBeforeNavigate(options = {}) {
+    const currentModule = String(window?.ERP?.config?.currentModule || '').trim();
+    const targetModule = String(options?.targetModule || '').trim();
+    const forceCheck = !!options?.forceCheck;
+    const inNotesContext = forceCheck || currentModule === 'notes';
+    if (!inNotesContext) {
+        return true;
+    }
+    if (!forceCheck && targetModule && targetModule === 'notes') {
+        return true;
+    }
+    if (!hasDailyNotePendingChanges()) {
+        return true;
+    }
+
+    const shouldSave = window.confirm('日常笔记有未保存内容，是否先保存？\n确定：保存并继续\n取消：不保存并继续');
+    if (!shouldSave) {
+        discardCurrentDailyNoteChanges();
+        return true;
+    }
+
+    const saved = await saveDailyNote({ silent: false, source: 'manual' });
+    if (saved || !hasDailyNotePendingChanges()) {
+        return true;
+    }
+    showToast('保存失败，已取消当前操作，请先保存后再继续', 'error');
+    return false;
+}
+
+function handleDailyNoteBeforeUnload(event) {
+    cacheDailyNoteDraftFromForm(true, true);
+    if (!hasDailyNotePendingChanges()) {
+        return undefined;
+    }
+    event.preventDefault();
+    event.returnValue = '';
+    return '';
+}
+
+function scheduleDailyNoteAutoSave() {
+    // Auto-save disabled by design. User saves explicitly.
+    clearDailyNoteAutoSaveTimer();
 }
 
 async function runDailyNoteAutoSave(sessionToken = 0) {
@@ -7940,6 +7994,10 @@ function renderDailyNotesModule() {
 }
 
 async function createDailyNote() {
+    const canContinue = await confirmDailyNoteSaveBeforeNavigate({ forceCheck: true });
+    if (!canContinue) {
+        return;
+    }
     cacheDailyNoteDraftFromForm(true, true);
     clearDailyNoteAutoSaveTimer();
     dailyNotesViewState.currentId = null;
@@ -7957,7 +8015,11 @@ function searchDailyNotes(keyword = '') {
     renderDailyNotesModule();
 }
 
-function selectDailyNote(noteId) {
+async function selectDailyNote(noteId) {
+    const canContinue = await confirmDailyNoteSaveBeforeNavigate({ forceCheck: true });
+    if (!canContinue) {
+        return;
+    }
     cacheDailyNoteDraftFromForm(true, true);
     clearDailyNoteAutoSaveTimer();
     const rows = getDailyNotesRows();
@@ -7987,7 +8049,9 @@ function handleDailyNotesListClick(event) {
     if (noteId === null) {
         return;
     }
-    selectDailyNote(noteId);
+    selectDailyNote(noteId).catch(error => {
+        console.error('[ERP Notes] 切换笔记失败:', error);
+    });
 }
 
 function handleDailyNotesListKeydown(event) {
@@ -8004,7 +8068,9 @@ function handleDailyNotesListKeydown(event) {
     if (noteId === null) {
         return;
     }
-    selectDailyNote(noteId);
+    selectDailyNote(noteId).catch(error => {
+        console.error('[ERP Notes] 切换笔记失败:', error);
+    });
 }
 
 function collectDailyNoteFormData() {
@@ -8188,28 +8254,12 @@ async function saveDailyNote(options = {}) {
     const isEdit = !!dailyNotesViewState.currentId;
     const draftIdBeforeSave = getActiveDailyNoteDraftId();
     writeDailyNoteLocalDraft(draftIdBeforeSave, payload, true);
-    const source = String(options?.source || 'manual');
-
-    if (isEdit) {
-        const currentRows = getDailyNotesRows();
-        const current = currentRows.find(item => isSameEntityId(item?.id, dailyNotesViewState.currentId));
-        if (current) {
-            const currentStoredSignature = buildDailyNoteSignature({
-                title: current?.title || '',
-                content_html: current?.content_html || '',
-                is_pinned: current?.is_pinned
-            });
-            if (currentStoredSignature !== currentSignature) {
-                await pushDailyNoteHistorySnapshot(dailyNotesViewState.currentId, current, source);
-            }
-        }
-    }
 
     const saved = isEdit
         ? await ERP.updateNote(dailyNotesViewState.currentId, payload)
         : await ERP.addNote(payload);
     if (!saved) {
-        updateDailyNoteMetaText('数据库保存失败，内容已保存在本地草稿，稍后自动重试');
+        updateDailyNoteMetaText('数据库保存失败，内容已保存在本地草稿，请稍后手动重试');
         if (!options?.silent) {
             showToast(isEdit ? '保存笔记失败' : '创建笔记失败', 'error');
         }
@@ -8232,9 +8282,6 @@ async function saveDailyNote(options = {}) {
     renderDailyNotesModule();
     if (!options?.silent) {
         showToast(isEdit ? '笔记已保存' : '笔记已创建', 'success');
-    } else {
-        const updateText = toDateTimeText(new Date());
-        updateDailyNoteMetaText(`自动保存成功 · ${updateText}`);
     }
     return saved;
 }
@@ -8584,7 +8631,7 @@ function initDailyNotesModule() {
     const listEl = document.getElementById('dailyNotesList');
 
     if (editorEl) {
-        editorEl.setAttribute('data-placeholder', '记录文字、图片、超链接，内容自动保存到当前账号。');
+        editorEl.setAttribute('data-placeholder', '记录文字、图片、超链接，内容需手动点击“保存笔记”。');
         editorEl.addEventListener('paste', handleDailyNoteEditorPaste);
         editorEl.addEventListener('input', () => {
             cacheDailyNoteDraftFromForm(true, false);
@@ -8639,9 +8686,7 @@ function initDailyNotesModule() {
     document.addEventListener('keydown', handleDailyNoteGlobalKeydown, true);
     document.addEventListener('scroll', hideDailyNoteContextMenu, true);
     window.addEventListener('blur', hideDailyNoteContextMenu);
-    window.addEventListener('beforeunload', () => {
-        cacheDailyNoteDraftFromForm(true, true);
-    });
+    window.addEventListener('beforeunload', handleDailyNoteBeforeUnload);
 
     dailyNotesViewState.initialized = true;
     scheduleDailyNoteToolbarStateRefresh();

@@ -1454,9 +1454,6 @@
                                 <button class="ant-btn ant-btn-primary" type="button" onclick="saveDailyNote()">
                                     <i class="fa fa-save"></i> 保存笔记
                                 </button>
-                                <button class="ant-btn" type="button" onclick="showDailyNoteHistoryModal()">
-                                    <i class="fa fa-history"></i> 历史版本
-                                </button>
                                 <button class="ant-btn" type="button" onclick="toggleDailyNotePinned()">
                                     <i class="fa fa-thumb-tack"></i> 置顶/取消置顶
                                 </button>
@@ -1520,21 +1517,6 @@
                     </div>
                 </div>
             </main>
-        </div>
-    </div>
-
-    <div id="dailyNoteHistoryModal" class="modal-overlay" onclick="if(event.target===this) hideDailyNoteHistoryModal()">
-        <div class="modal erp-modal erp-modal-lg">
-            <div class="modal-header">
-                <h3>笔记历史版本</h3>
-                <button class="btn-close" onclick="hideDailyNoteHistoryModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div id="dailyNoteHistoryList" class="erp-note-history-list"></div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-secondary" onclick="hideDailyNoteHistoryModal()">关闭</button>
-            </div>
         </div>
     </div>
 
@@ -2453,7 +2435,7 @@
     <script src="assets/js/user-data.js?v=20260214-20"></script>
     <script src="assets/js/erp.js?v=20260223-49"></script>
     <script src="assets/js/vendor/echarts.min.js?v=5.5.0"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260223-148"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260227-149"></script>
     <script src="assets/js/pwa-register.js?v=20260223-5" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->
@@ -2475,17 +2457,25 @@
             }
         }
 
-        function switchTab(moduleName) {
+        async function switchTab(moduleName) {
+            const targetModule = String(moduleName || '').trim() || 'dashboard';
+            if (typeof window.confirmDailyNoteSaveBeforeNavigate === 'function') {
+                const canContinue = await window.confirmDailyNoteSaveBeforeNavigate({ targetModule });
+                if (!canContinue) {
+                    return false;
+                }
+            }
+
             if (window.ERP && ERP.config) {
-                ERP.config.currentModule = moduleName;
+                ERP.config.currentModule = targetModule;
             }
 
             // Update Menu
             document.querySelectorAll('.ant-menu-item[data-module]').forEach(item => {
-                const targetModule = item.getAttribute('data-module');
-                item.classList.toggle('ant-menu-item-selected', targetModule === moduleName);
+                const menuModule = item.getAttribute('data-module');
+                item.classList.toggle('ant-menu-item-selected', menuModule === targetModule);
             });
-            setBusinessDomainActive(moduleName);
+            setBusinessDomainActive(targetModule);
 
             // Update Tabs
             document.querySelectorAll('.ant-tag').forEach(tag => {
@@ -2494,8 +2484,8 @@
             });
             // Always show dashboard tab + current tab
             document.getElementById('tab-dashboard').style.display = 'inline-block';
-            if (moduleName !== 'dashboard') {
-                const activeTab = document.getElementById('tab-' + moduleName);
+            if (targetModule !== 'dashboard') {
+                const activeTab = document.getElementById('tab-' + targetModule);
                 if (activeTab) {
                     activeTab.style.display = 'inline-block';
                     activeTab.classList.add('active');
@@ -2513,21 +2503,21 @@
                 
             });
 
-            const targetView = document.getElementById(moduleName + 'View');
+            const targetView = document.getElementById(targetModule + 'View');
 
             if (targetView) {
                 targetView.classList.add('active');
             } else {
-                console.error('[switchTab] 找不到目标视图:', moduleName + 'View');
+                console.error('[switchTab] 找不到目标视图:', targetModule + 'View');
             }
 
-            if (moduleName === 'finance' && typeof window.refreshFinanceCharts === 'function') {
+            if (targetModule === 'finance' && typeof window.refreshFinanceCharts === 'function') {
                 requestAnimationFrame(() => {
                     window.refreshFinanceCharts();
                 });
             }
 
-            if (moduleName === 'notes' && window.ERP && typeof ERP.loadNotes === 'function') {
+            if (targetModule === 'notes' && window.ERP && typeof ERP.loadNotes === 'function') {
                 ERP.loadNotes(false)
                     .then(() => {
                         if (typeof window.renderDailyNotesModule === 'function') {
@@ -2545,13 +2535,17 @@
                 // openModule sets display:none on styles we don't control, so we must be careful.
                 // Actually, we should redefine openModule to match this new UI.
             }
+            return true;
         }
 
         // --- Overriding/Updating Logic for New UI ---
 
         // Redefine openModule to use new UI logic
         window.openModule = async function (moduleName) {
-            switchTab(moduleName);
+            const switched = await switchTab(moduleName);
+            if (switched === false) {
+                return;
+            }
             
             // 按需加载模块数据
             try {

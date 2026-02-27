@@ -125,6 +125,75 @@ var MetalsData = {
         return Number.isFinite(value) ? value : 0;
     },
 
+    // XXAPI 金店数据适配（用于补全国内十大金店）
+    adaptXXAPITenStores: function(data) {
+        if (!data || data.code !== 200 || !data.data || !Array.isArray(data.data.precious_metal_price)) {
+            throw new Error('XXAPI store payload invalid');
+        }
+
+        var rows = data.data.precious_metal_price.map(function(item) {
+            if (!item || !item.brand) {
+                return null;
+            }
+
+            return {
+                品牌: item.brand,
+                黄金价格: item.gold_price || '-',
+                铂金价格: item.platinum_price || '-',
+                金条价格: item.bullion_price || '-',
+                报价时间: item.updated_date || '-',
+                单位: '元/克'
+            };
+        }).filter(function(item) {
+            return !!item;
+        });
+
+        // 去重：同品牌仅保留一条
+        var unique = {};
+        rows.forEach(function(item) {
+            if (!unique[item.品牌]) {
+                unique[item.品牌] = item;
+            }
+        });
+        return Object.values(unique);
+    },
+
+    fetchTenStoresFromXXAPI: function() {
+        var self = this;
+        return self.fetchJsonWithTimeout('https://v2.xxapi.cn/api/goldprice', 12000)
+            .then(function(data) {
+                return self.adaptXXAPITenStores(data);
+            });
+    },
+
+    supplementBankGoldBarsIfNeeded: function() {
+        var self = this;
+        if (Array.isArray(this.prices.bankGoldBars) && this.prices.bankGoldBars.length > 0) {
+            return Promise.resolve(null);
+        }
+
+        var localCache = this.loadCacheFromStorage();
+        if (localCache &&
+            Array.isArray(localCache['国内十大金店']) &&
+            localCache['国内十大金店'].length > 0) {
+            this.prices.bankGoldBars = localCache['国内十大金店'];
+            return Promise.resolve('Cache(金店)');
+        }
+
+        return this.fetchTenStoresFromXXAPI()
+            .then(function(tenStores) {
+                if (Array.isArray(tenStores) && tenStores.length > 0) {
+                    self.prices.bankGoldBars = tenStores;
+                    return 'XXAPI(金店)';
+                }
+                return null;
+            })
+            .catch(function(error) {
+                console.warn('%c[金价行情] 金店备用源获取失败', 'color: #f59e0b;', error);
+                return null;
+            });
+    },
+
     // 适配 Pear/MGTV 类型接口到现有UI结构
     adaptPearGoldPayload: function(data) {
         if (!data || !Array.isArray(data.data)) {
@@ -593,37 +662,50 @@ var MetalsData = {
         .then(function(result) {
             var newData = result.payload;
             var provider = result.provider;
+            var providerLabel = provider;
             console.log('%c[金价行情] 数据获取成功，来源: ' + provider, 'color: #10b981;', newData);
 
             self.prices.bankGoldBars = newData['国内十大金店'] || [];
             self.prices.goldRecycle = newData['国内黄金'] || [];
             self.prices.preciousMetals = newData['国际黄金'] || [];
 
-            self.saveCacheToStorage(newData, provider);
-
-            // 调用新API获取白银价格
-            return self.fetchSilverPrice().then(function(silverData) {
-                if (silverData) {
-                    // 更新国内黄金数据中的白银价格
-                    var silverIndex = self.prices.goldRecycle.findIndex(function(item) {
-                        return item.品种 && item.品种.includes('银');
-                    });
-                    if (silverIndex !== -1) {
-                        console.log('%c[金价行情] 更新白银价格:', 'color: #10b981;', silverData);
-                        self.prices.goldRecycle[silverIndex] = {
-                            品种: silverData.品种,
-                            最新价: silverData.最新价,
-                            涨跌: silverData.涨跌,
-                            幅度: silverData.幅度,
-                            最高价: silverData.最高价,
-                            最低价: silverData.最低价,
-                            报价时间: silverData.报价时间
-                        };
-                    }
+            return self.supplementBankGoldBarsIfNeeded().then(function(bankProvider) {
+                if (bankProvider) {
+                    providerLabel = providerLabel + ' + ' + bankProvider;
                 }
 
-                self.updateUI();
-                self.setApiIndicator(provider, '#10b981');
+                // 调用新API获取白银价格
+                return self.fetchSilverPrice().then(function(silverData) {
+                    if (silverData) {
+                        // 更新国内黄金数据中的白银价格
+                        var silverIndex = self.prices.goldRecycle.findIndex(function(item) {
+                            return item.品种 && item.品种.includes('银');
+                        });
+                        if (silverIndex !== -1) {
+                            console.log('%c[金价行情] 更新白银价格:', 'color: #10b981;', silverData);
+                            self.prices.goldRecycle[silverIndex] = {
+                                品种: silverData.品种,
+                                最新价: silverData.最新价,
+                                涨跌: silverData.涨跌,
+                                幅度: silverData.幅度,
+                                最高价: silverData.最高价,
+                                最低价: silverData.最低价,
+                                报价时间: silverData.报价时间
+                            };
+                        }
+                    }
+
+                    // 保存合并后的最新有效数据
+                    self.saveCacheToStorage({
+                        code: 200,
+                        '国内十大金店': self.prices.bankGoldBars || [],
+                        '国内黄金': self.prices.goldRecycle || [],
+                        '国际黄金': self.prices.preciousMetals || []
+                    }, providerLabel);
+
+                    self.updateUI();
+                    self.setApiIndicator(providerLabel, '#10b981');
+                });
             });
         })
         .catch(function(error) {

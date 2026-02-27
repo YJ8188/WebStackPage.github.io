@@ -125,6 +125,19 @@ var MetalsData = {
         return Number.isFinite(value) ? value : 0;
     },
 
+    normalizeQuoteDate: function(dateText) {
+        var text = String(dateText || '').trim();
+        var matched = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+        if (!matched) {
+            return text || '-';
+        }
+
+        var year = matched[1];
+        var month = matched[2].padStart(2, '0');
+        var day = matched[3].padStart(2, '0');
+        return year + '-' + month + '-' + day;
+    },
+
     // IYuns/XXAPI 金店数据适配（用于补全国内十大金店）
     adaptXXAPITenStores: function(data) {
         if (!data || data.code !== 200 || !data.data || !Array.isArray(data.data.precious_metal_price)) {
@@ -638,8 +651,7 @@ var MetalsData = {
                     var changePercent = silverData.changepercent.replace('+', '').replace('%', '');
                     var changeValue = parseFloat(changePercent);
 
-                    // 格式化日期，统一格式为 2026-1-14（去掉前导零）
-                    var formattedDate = silverData.date.replace(/-0(\d)/g, '-$1');
+                    var formattedDate = self.normalizeQuoteDate(silverData.date);
 
                     return {
                         品种: silverData.title,

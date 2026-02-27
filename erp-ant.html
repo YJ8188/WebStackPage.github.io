@@ -3746,7 +3746,7 @@
                 await ERP.loadFinances(false);
             }
             if (typeof ERP.loadNotes === 'function' && !ERP.state.loaded.notes) {
-                await ERP.loadNotes(false);
+                await ERP.loadNotes(true);
             }
         }
 

@@ -149,7 +149,6 @@ const dailyNotesViewState = {
     listBound: false,
     isApplyingState: false,
     lastSavedSignature: '',
-    historyRows: [],
     contextMenuEl: null,
     contextMenuRange: null,
     contextMenuVisible: false,
@@ -6908,10 +6907,6 @@ function getDailyNoteTitleElement() {
     return document.getElementById('dailyNoteTitle');
 }
 
-function getDailyNoteHistoryListElement() {
-    return document.getElementById('dailyNoteHistoryList');
-}
-
 function getDailyNoteContextMenuElement() {
     return dailyNotesViewState.contextMenuEl;
 }
@@ -7160,12 +7155,6 @@ function clearDailyNoteHighlightColor() {
 function resetDailyNoteContextLinkTarget() {
     dailyNotesViewState.contextTargetLinkHref = '';
     dailyNotesViewState.contextTargetLinkNode = null;
-}
-
-function getDailyNoteHistoryStorageKey(noteId) {
-    const userId = String(window?.userData?.user?.id || 'guest').trim() || 'guest';
-    const safeNoteId = String(noteId || '').trim() || 'draft';
-    return `erp_note_history_${userId}_${safeNoteId}`;
 }
 
 function getDailyNoteDraftStorageKey(noteId = 'draft') {
@@ -7627,22 +7616,6 @@ function handleDailyNoteGlobalKeydown(event) {
     }
 }
 
-function readLocalDailyNoteHistory(noteId) {
-    const key = getDailyNoteHistoryStorageKey(noteId);
-    try {
-        const parsed = JSON.parse(localStorage.getItem(key) || '[]');
-        return Array.isArray(parsed) ? parsed : [];
-    } catch (error) {
-        return [];
-    }
-}
-
-function writeLocalDailyNoteHistory(noteId, rows = []) {
-    const key = getDailyNoteHistoryStorageKey(noteId);
-    const list = Array.isArray(rows) ? rows.slice(0, 80) : [];
-    localStorage.setItem(key, JSON.stringify(list));
-}
-
 function clearDailyNoteAutoSaveTimer() {
     if (dailyNotesViewState.autoSaveTimer) {
         clearTimeout(dailyNotesViewState.autoSaveTimer);
@@ -7798,8 +7771,12 @@ async function confirmDailyNoteSaveBeforeNavigate(options = {}) {
         return true;
     }
 
-    const shouldSave = window.confirm('日常笔记有未保存内容，是否先保存？\n确定：保存并继续\n取消：不保存并继续');
+    const shouldSave = window.confirm('日常笔记有未保存内容，是否先保存？\n确定：保存并继续\n取消：进入不保存确认');
     if (!shouldSave) {
+        const shouldDiscard = window.confirm('确定不保存并继续吗？未保存内容将丢失。');
+        if (!shouldDiscard) {
+            return false;
+        }
         discardCurrentDailyNoteChanges();
         return true;
     }
@@ -8089,147 +8066,9 @@ function collectDailyNoteFormData() {
     };
 }
 
-async function pushDailyNoteHistorySnapshot(noteId, snapshot = {}, source = 'manual') {
-    if (!noteId || !snapshot) {
-        return;
-    }
-    const payload = {
-        note_id: noteId,
-        title: String(snapshot?.title || '').trim() || '未命名笔记',
-        content_html: normalizeDailyNoteHtml(snapshot?.content_html || ''),
-        content_text: String(snapshot?.content_text || getDailyNoteTextFromHtml(snapshot?.content_html || '') || '').trim(),
-        is_pinned: !!snapshot?.is_pinned,
-        source,
-        created_at: new Date().toISOString()
-    };
-    if (!payload.content_html && !payload.content_text && !payload.title) {
-        return;
-    }
-
-    if (window.ERP && typeof ERP.addNoteVersion === 'function') {
-        const result = await ERP.addNoteVersion(payload.note_id, payload);
-        if (result) {
-            return;
-        }
-    }
-
-    const existing = readLocalDailyNoteHistory(noteId);
-    existing.unshift({
-        id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        ...payload
-    });
-    writeLocalDailyNoteHistory(noteId, existing);
-}
-
-async function loadDailyNoteHistoryRows(noteId) {
-    if (!noteId) {
-        return [];
-    }
-    if (window.ERP && typeof ERP.loadNoteVersions === 'function') {
-        const rows = await ERP.loadNoteVersions(noteId, 80);
-        if (Array.isArray(rows) && rows.length) {
-            return rows;
-        }
-    }
-    return readLocalDailyNoteHistory(noteId);
-}
-
-function renderDailyNoteHistoryModal(rows = []) {
-    const listEl = getDailyNoteHistoryListElement();
-    if (!listEl) {
-        return;
-    }
-    const list = Array.isArray(rows) ? rows : [];
-    if (!list.length) {
-        listEl.innerHTML = '<div class="erp-note-history-item"><div class="erp-note-history-meta">暂无历史版本</div></div>';
-        return;
-    }
-    listEl.innerHTML = list.map((item) => {
-        const idText = escapeHtmlText(String(item?.id || ''));
-        const title = escapeHtmlText(String(item?.title || '未命名笔记'));
-        const snippet = escapeHtmlText(String(item?.content_text || '').slice(0, 100) || '（无正文）');
-        const timeText = escapeHtmlText(toDateTimeText(item?.created_at || item?.updated_at || null));
-        const sourceText = escapeHtmlText(String(item?.source || 'manual'));
-        return `
-            <div class="erp-note-history-item">
-                <div class="erp-note-history-title">${title}</div>
-                <div class="erp-note-history-snippet">${snippet}</div>
-                <div class="erp-note-history-meta">${timeText} · 来源：${sourceText}</div>
-                <div class="erp-note-history-actions">
-                    <button class="ant-btn" type="button" onclick="rollbackDailyNoteVersion('${idText}')">回滚到此版本</button>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-async function showDailyNoteHistoryModal() {
-    const noteId = dailyNotesViewState.currentId;
-    if (!noteId) {
-        showToast('请先选择一条笔记，再查看历史版本', 'info');
-        return;
-    }
-    const modal = document.getElementById('dailyNoteHistoryModal');
-    if (!modal) {
-        return;
-    }
-    modal.classList.add('active');
-    modal.style.display = 'flex';
-    const rows = await loadDailyNoteHistoryRows(noteId);
-    dailyNotesViewState.historyRows = rows;
-    renderDailyNoteHistoryModal(rows);
-}
-
-function hideDailyNoteHistoryModal() {
-    const modal = document.getElementById('dailyNoteHistoryModal');
-    if (!modal) {
-        return;
-    }
-    modal.classList.remove('active');
-    modal.style.display = '';
-}
-
-async function rollbackDailyNoteVersion(versionId) {
-    const noteId = dailyNotesViewState.currentId;
-    if (!noteId) {
-        showToast('当前没有可回滚的笔记', 'warning');
-        return;
-    }
-    const historyRows = Array.isArray(dailyNotesViewState.historyRows) ? dailyNotesViewState.historyRows : [];
-    const target = historyRows.find(item => String(item?.id || '') === String(versionId || ''));
-    if (!target) {
-        showToast('未找到对应历史版本', 'error');
-        return;
-    }
-    if (!window.confirm('确认回滚到该历史版本吗？当前内容会被覆盖。')) {
-        return;
-    }
-
-    const currentRows = getDailyNotesRows();
-    const current = currentRows.find(item => isSameEntityId(item?.id, noteId));
-    if (current) {
-        await pushDailyNoteHistorySnapshot(noteId, current, 'rollback_backup');
-    }
-
-    const payload = {
-        title: target.title || '未命名笔记',
-        content_html: target.content_html || '',
-        content_text: target.content_text || '',
-        is_pinned: !!target.is_pinned
-    };
-    const updated = await ERP.updateNote(noteId, payload);
-    if (!updated) {
-        showToast('回滚失败，请稍后重试', 'error');
-        return;
-    }
-
-    removeDailyNoteLocalDraft(String(noteId));
-    dailyNotesViewState.currentId = noteId;
-    renderDailyNotesModule();
-    const rows = await loadDailyNoteHistoryRows(noteId);
-    dailyNotesViewState.historyRows = rows;
-    renderDailyNoteHistoryModal(rows);
-    showToast('已回滚到历史版本', 'success');
+function isDailyNoteCloudUnavailableMode() {
+    const notesMode = String(window?.ERP?.runtime?.notesStorageMode || '').trim();
+    return notesMode === 'supabase_unavailable' || notesMode === 'local';
 }
 
 async function saveDailyNote(options = {}) {
@@ -8262,8 +8101,7 @@ async function saveDailyNote(options = {}) {
         ? await ERP.updateNote(dailyNotesViewState.currentId, payload)
         : await ERP.addNote(payload);
     if (!saved) {
-        const notesMode = String(window?.ERP?.runtime?.notesStorageMode || '').trim();
-        const cloudUnavailable = notesMode === 'supabase_unavailable' || notesMode === 'local';
+        const cloudUnavailable = isDailyNoteCloudUnavailableMode();
         if (cloudUnavailable) {
             updateDailyNoteMetaText('云端暂不可用：已阻止本地写入，避免跨设备数据不一致。内容保存在本地草稿。');
         } else {
@@ -8315,7 +8153,11 @@ async function deleteDailyNote(noteId = null) {
     }
     const ok = await ERP.deleteNote(targetId);
     if (!ok) {
-        showToast('删除笔记失败', 'error');
+        if (isDailyNoteCloudUnavailableMode()) {
+            showToast('云端不可用，已阻止本地写入（避免跨设备不一致）', 'error');
+        } else {
+            showToast('删除笔记失败', 'error');
+        }
         return;
     }
     removeDailyNoteLocalDraft(String(targetId));
@@ -8339,7 +8181,11 @@ async function toggleDailyNotePinned() {
     payload.is_pinned = !dailyNotesViewState.draftPinned;
     const updated = await ERP.updateNote(dailyNotesViewState.currentId, payload);
     if (!updated) {
-        showToast('更新置顶状态失败', 'error');
+        if (isDailyNoteCloudUnavailableMode()) {
+            showToast('云端不可用，已阻止本地写入（避免跨设备不一致）', 'error');
+        } else {
+            showToast('更新置顶状态失败', 'error');
+        }
         return;
     }
     removeDailyNoteLocalDraft(String(dailyNotesViewState.currentId));
@@ -16805,7 +16651,7 @@ async function loadERPAllModules(options = {}) {
         ERP.loadProducts(false),
         ERP.loadOrders(false),
         ERP.loadFinances(false),
-        typeof ERP.loadNotes === 'function' ? ERP.loadNotes(false) : Promise.resolve([])
+        typeof ERP.loadNotes === 'function' ? ERP.loadNotes(true) : Promise.resolve([])
     ]);
 }
 
@@ -17087,7 +16933,7 @@ if (typeof window !== 'undefined') {
             applyBankBusinessFilters();
         }
         if (typeof renderDailyNotesModule === 'function' && window.ERP && typeof ERP.loadNotes === 'function') {
-            ERP.loadNotes(false)
+            ERP.loadNotes(true)
                 .then(() => renderDailyNotesModule())
                 .catch(error => {
                     console.error('[ERP Ant] 加载笔记数据失败:', error);
@@ -17120,7 +16966,7 @@ if (typeof window !== 'undefined') {
             return;
         }
         if (!ERP.state?.loaded?.notes) {
-            await ERP.loadNotes(false);
+            await ERP.loadNotes(true);
         }
         if (typeof renderDailyNotesModule === 'function') {
             renderDailyNotesModule();

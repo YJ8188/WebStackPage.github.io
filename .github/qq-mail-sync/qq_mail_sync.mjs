@@ -218,6 +218,38 @@ function extractStatementPeriodEndDate(text) {
   return endDate || null;
 }
 
+function parseEverbrightAccountSummary(text) {
+  const source = String(text || '');
+  if (!source) return null;
+  if (!/(中国光大银行|光大银行|光大信用卡|CEB)/i.test(source)) return null;
+  const summaryAnchor = /(Account\s*Summary|信用卡账户信息|人民币本期账单金额|RMB\s*Statement\s*Balance)/i;
+  const anchorIndex = source.search(summaryAnchor);
+  if (anchorIndex < 0) return null;
+
+  const windowStart = Math.max(0, anchorIndex - 160);
+  const summaryWindow = source.slice(windowStart, Math.min(source.length, windowStart + 2600));
+  const hasStructuredHeader = /(?:账单日期|Statement\s*Date)[\s\S]{0,120}(?:到期还款日|Payment\s*Due\s*Date)[\s\S]{0,180}(?:本期账单金额|Statement\s*Balance)/i.test(summaryWindow);
+  if (!hasStructuredHeader) return null;
+
+  const dateTokens = Array.from(summaryWindow.matchAll(/(20\d{2}[年\/\-.]\d{1,2}[月\/\-.]\d{1,2}日?|20\d{2}\d{2}\d{2})/g))
+    .map((match) => parseDateToken(match?.[1]))
+    .filter((date) => date instanceof Date && !Number.isNaN(date.getTime()));
+  if (dateTokens.length < 2) return null;
+
+  const amountTokens = Array.from(summaryWindow.matchAll(/(?:CNY|RMB|¥|￥)\s*([0-9][0-9,]{0,15}(?:\.\d{1,2})?)/ig))
+    .map((match) => toNumber(match?.[1], NaN))
+    .filter((value) => Number.isFinite(value) && value > 0 && value < 1_000_000_000);
+  if (amountTokens.length < 2) return null;
+
+  return {
+    statementDate: dateTokens[0] || null,
+    dueDate: dateTokens[1] || null,
+    creditLimit: amountTokens[0] || NaN,
+    statementBalance: amountTokens[1] || NaN,
+    minimumDue: amountTokens[2] || NaN
+  };
+}
+
 function extractDay(text, patterns) {
   const source = String(text || '');
   for (const pattern of patterns) {
@@ -376,6 +408,8 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
   const forcedBankName = /(中信银行信用卡|citiccard\.com)/i.test(text) ? '中信银行' : '';
   const hasStatementSignal = /(账单|statement|billing|电子账单)/i.test(text);
   const isCiticStatement = /(中信银行信用卡|citiccard\.com|总账信息\s*\|\s*Statement Information|Total Payment)/i.test(text);
+  const isEverbrightStatement = /(中国光大银行|光大银行|光大信用卡|CEB)/i.test(text);
+  const everbrightSummary = isEverbrightStatement ? parseEverbrightAccountSummary(text) : null;
   const mode = isCiticStatement ? 'repayment' : detectMode(text);
 
   const statementDateByLabel = extractDateByLabels(text, [
@@ -404,12 +438,12 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
     /(?:还款日|最后还款日|到期还款日|本期还款日|最迟还款日)[：:\s]{0,16}(?:每月|每期)?\s*((?:[12]?\d|3[01]))\s*日/i,
     /(?:每月|每期)\s*((?:[12]?\d|3[01]))\s*日(?:为)?[^。\n]{0,8}(?:还款日|最后还款日|到期还款日|最迟还款日)/i
   ]);
-  const statementDate = statementDateByLabel || statementPeriodEndDate || extractDate(text, [
+  const statementDate = everbrightSummary?.statementDate || statementDateByLabel || statementPeriodEndDate || extractDate(text, [
     /(?:账单日期|账单日|交易日期|记账日)[：:\s]*([0-9]{8})/,
     /(?:账单日期|账单日|交易日期|记账日)[：:\s]*([0-9]{4}[年\/\-.][0-9]{1,2}[月\/\-.][0-9]{1,2}日?)/,
     /(?:账单日期|账单日|交易日期|记账日|出账日期|结单日期)[：:\s]*([0-9]{1,2}[\/\-.][0-9]{1,2})/
   ]);
-  const dueDate = dueDateByLabel || extractDate(text, [
+  const dueDate = everbrightSummary?.dueDate || dueDateByLabel || extractDate(text, [
     /(?:最后还款日|到期还款日|本期还款日|Payment\s*Due\s*Date|Due\s*Date)[：:\s]*([0-9]{8})/i,
     /(?:最后还款日|到期还款日|本期还款日)[：:\s]*([0-9]{4}[年\/\-.][0-9]{1,2}[月\/\-.][0-9]{1,2}日?)/,
     /(?:最后还款日|到期还款日|本期还款日|最迟还款日|Payment\s*Due\s*Date|Due\s*Date)[：:\s]*([0-9]{1,2}[\/\-.][0-9]{1,2})/i
@@ -503,8 +537,10 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
     if (!amounts.length) return NaN;
     return Math.max(...amounts);
   })();
-  let repaymentAmount = Number.isFinite(repaymentAmountByLabel)
-    ? repaymentAmountByLabel
+  let repaymentAmount = Number.isFinite(everbrightSummary?.statementBalance)
+    ? everbrightSummary.statementBalance
+    : (Number.isFinite(repaymentAmountByLabel)
+      ? repaymentAmountByLabel
     : (Number.isFinite(repaymentAmountByCiticTemplate)
       ? repaymentAmountByCiticTemplate
       : (Number.isFinite(repaymentAmountByCiticStrict)
@@ -517,7 +553,7 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
     /(?:本期应还(?:金额|款总额|总额)?|本期应还款总额|应还金额|应还款额|应还款总额|到期应还|本期还款总额|本期账单金额|Total Statement Balance|Statement Balance)[^0-9¥￥]{0,80}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/i,
     /(?:本期应还款金额|本期应还款|总账信息)[^0-9¥￥]{0,80}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/i,
     /(?:最低应还(?:金额|款额)?|最低还款额|最低还款|Minimum Payment)[^0-9¥￥]{0,80}([¥￥]?\s*[\d,]+(?:\.\d{1,2})?)/i
-  ])))));
+  ]))))));
   if ((!Number.isFinite(repaymentAmount) || repaymentAmount <= 0) && isCiticStatement) {
     repaymentAmount = extractAmount(text, [
       /(?:Total\s*Payment|本期应还款总额)[\s:：]*(?:CNY|RMB|¥|￥)?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.\d{1,2})?)/i,
@@ -547,6 +583,24 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
   const dateText = toYmd(transactionDate);
   const stableBankName = forcedBankName || bankName;
   const referenceId = buildReferenceId(userId, uid, messageId, mode, stableBankName, repaymentAmount, dateText);
+  const referenceAliases = [];
+  if (
+    Number.isFinite(everbrightSummary?.creditLimit)
+    && Math.abs(Number(everbrightSummary.creditLimit) - Number(repaymentAmount)) > 0.009
+  ) {
+    const legacyRef = buildReferenceId(
+      userId,
+      uid,
+      messageId,
+      mode,
+      stableBankName,
+      Number(everbrightSummary.creditLimit),
+      dateText
+    );
+    if (legacyRef && legacyRef !== referenceId) {
+      referenceAliases.push(legacyRef);
+    }
+  }
 
   return {
     type: 'expense',
@@ -562,7 +616,8 @@ function parseMailToFinance({ userId, uid, messageId, subject, fromText, bodyTex
     reminder_enabled: true,
     reminder_days_before: reminderDaysBefore,
     reminder_date: reminderDate ? reminderDate.toISOString() : null,
-    reference_id: referenceId
+    reference_id: referenceId,
+    reference_aliases: referenceAliases
   };
 }
 
@@ -754,7 +809,7 @@ async function fetchExistingRowsByReference(supabase, userId, refs) {
     const chunk = refs.slice(i, i + chunkSize);
     const { data, error } = await supabase
       .from('erp_finances')
-      .select('id, reference_id, description, card_bank, card_bill_day, card_repayment_day, reminder_enabled, reminder_days_before, reminder_date')
+      .select('id, reference_id, description, business_type, amount, transaction_date, card_bank, card_bill_day, card_repayment_day, card_repayment_amount, reminder_enabled, reminder_days_before, reminder_date')
       .eq('user_id', userId)
       .in('reference_id', chunk);
     if (error) throw error;
@@ -1391,14 +1446,18 @@ async function syncOneUser({
       return { userId, ok: true, syncStatus, syncMessage };
     }
 
-    const refs = parsedRows.map((item) => item.reference_id).filter(Boolean);
+    const refs = parsedRows.flatMap((item) => {
+      const aliases = Array.isArray(item?.reference_aliases) ? item.reference_aliases : [];
+      return [item?.reference_id, ...aliases].filter(Boolean);
+    });
     const existingRefs = await fetchExistingReferenceIds(supabase, userId, refs);
     const existingRowsByRef = await fetchExistingRowsByReference(supabase, userId, refs);
     const existingDedupKeys = await fetchExistingDedupKeys(supabase, userId, parsedRows);
     const existingRowsByDedup = await fetchExistingSyncedRowsByDedup(supabase, userId, parsedRows);
     const updateRows = [];
-    const buildPatchByExisting = (existingRow, parsedRow) => {
+    const buildPatchByExisting = (existingRow, parsedRow, options = {}) => {
       if (!existingRow || !parsedRow || !existingRow.id) return null;
+      const matchedByAlias = options?.matchedByAlias === true;
       const patch = { id: existingRow.id };
       let changed = false;
 
@@ -1420,6 +1479,37 @@ async function syncOneUser({
       if (hasTailInNext && !hasTailInExisting) {
         patch.description = nextDesc;
         changed = true;
+      }
+      if (
+        matchedByAlias
+        && parsedRow.business_type === 'credit_card_repayment'
+        && String(parsedRow.reference_id || '').trim()
+        && String(existingRow.reference_id || '').trim() !== String(parsedRow.reference_id || '').trim()
+      ) {
+        patch.reference_id = parsedRow.reference_id;
+        changed = true;
+      }
+      if (matchedByAlias && parsedRow.business_type === 'credit_card_repayment') {
+        const nextAmount = Number(parsedRow.amount || 0);
+        const oldAmount = Number(existingRow.amount || 0);
+        if (Number.isFinite(nextAmount) && nextAmount > 0 && Math.abs(nextAmount - oldAmount) > 0.009) {
+          patch.amount = Number(nextAmount.toFixed(2));
+          changed = true;
+        }
+        const nextRepaymentAmount = Number(parsedRow.card_repayment_amount || 0);
+        const oldRepaymentAmount = Number(existingRow.card_repayment_amount || 0);
+        if (
+          Number.isFinite(nextRepaymentAmount)
+          && nextRepaymentAmount > 0
+          && Math.abs(nextRepaymentAmount - oldRepaymentAmount) > 0.009
+        ) {
+          patch.card_repayment_amount = Number(nextRepaymentAmount.toFixed(2));
+          changed = true;
+        }
+        if (nextDesc && nextDesc !== existingDesc && existingDesc.includes('QQ邮箱自动同步')) {
+          patch.description = nextDesc;
+          changed = true;
+        }
       }
 
       if (!String(existingRow.card_bank || '').trim() && String(parsedRow.card_bank || '').trim()) {
@@ -1443,17 +1533,23 @@ async function syncOneUser({
       return changed ? patch : null;
     };
     const insertRows = parsedRows.filter((item) => {
-      const referenceExists = existingRefs.has(String(item.reference_id || ''));
-      if (referenceExists) {
-        const existing = existingRowsByRef.get(String(item.reference_id || '').trim());
-        const patch = buildPatchByExisting(existing, item);
+      const refCandidates = [
+        String(item?.reference_id || '').trim(),
+        ...(Array.isArray(item?.reference_aliases) ? item.reference_aliases : []).map((ref) => String(ref || '').trim())
+      ].filter(Boolean);
+      const matchedRef = refCandidates.find((ref) => existingRefs.has(ref)) || '';
+      if (matchedRef) {
+        const existing = existingRowsByRef.get(matchedRef);
+        const patch = buildPatchByExisting(existing, item, {
+          matchedByAlias: matchedRef !== String(item?.reference_id || '').trim()
+        });
         if (patch) updateRows.push(patch);
         return false;
       }
       const dedupKey = buildFinanceDedupKey(item);
       if (dedupKey && existingDedupKeys.has(dedupKey)) {
         const existing = existingRowsByDedup.get(dedupKey);
-        const patch = buildPatchByExisting(existing, item);
+        const patch = buildPatchByExisting(existing, item, { matchedByAlias: false });
         if (patch) updateRows.push(patch);
         return false;
       }
@@ -1496,7 +1592,12 @@ async function syncOneUser({
       return { userId, ok: true, syncStatus, syncMessage };
     }
 
-    const inserted = await insertFinanceRowsCompat(supabase, insertRows);
+    const insertPayloadRows = insertRows.map((row) => {
+      const next = { ...row };
+      delete next.reference_aliases;
+      return next;
+    });
+    const inserted = await insertFinanceRowsCompat(supabase, insertPayloadRows);
     let patchedExisting = 0;
     const dedupedUpdates = new Map();
     updateRows.forEach((row) => {

@@ -5830,9 +5830,33 @@ const ERP_CREDIT_CARD_BANKS = [
 ];
 
 const ERP_FINANCE_BUSINESS_PRESET = {
-    life_expense: { type: 'expense', category: '生活消费' },
-    salary_income: { type: 'income', category: '工资到账' }
+    life_expense: { allowedTypes: ['expense'], defaultType: 'expense', category: '生活消费' },
+    salary_income: { allowedTypes: ['income'], defaultType: 'income', category: '工资到账' },
+    other: { allowedTypes: ['income', 'expense'], defaultType: 'expense', category: '其他' }
 };
+
+const ERP_FINANCE_TYPE_LABEL_MAP = {
+    income: '收入',
+    expense: '支出'
+};
+
+function resolveFinanceBusinessPreset(businessType = '') {
+    const key = String(businessType || '').trim();
+    return ERP_FINANCE_BUSINESS_PRESET[key] || ERP_FINANCE_BUSINESS_PRESET.life_expense;
+}
+
+function normalizeFinanceTypeByBusinessType(businessType = '', selectedType = '') {
+    const preset = resolveFinanceBusinessPreset(businessType);
+    const allowedTypes = Array.isArray(preset.allowedTypes) && preset.allowedTypes.length
+        ? preset.allowedTypes
+        : ['expense'];
+    const selected = String(selectedType || '').trim();
+    if (selected && allowedTypes.includes(selected)) {
+        return selected;
+    }
+    const defaultType = String(preset.defaultType || allowedTypes[0] || 'expense').trim();
+    return allowedTypes.includes(defaultType) ? defaultType : allowedTypes[0];
+}
 
 function toValidDay(rawValue, fallback = 1) {
     const day = Math.floor(Number(rawValue));
@@ -11560,13 +11584,20 @@ async function runPersonalBankSync() {
 
 function applyFinanceBusinessPreset() {
     const businessType = String(document.getElementById('financeBusinessType')?.value || '').trim();
-    const preset = ERP_FINANCE_BUSINESS_PRESET[businessType] || ERP_FINANCE_BUSINESS_PRESET.life_expense;
+    const preset = resolveFinanceBusinessPreset(businessType);
     const typeSelect = document.getElementById('financeType');
     const categoryInput = document.getElementById('financeCategory');
 
     if (typeSelect) {
-        typeSelect.disabled = false;
-        typeSelect.value = preset.type;
+        const allowedTypes = Array.isArray(preset.allowedTypes) && preset.allowedTypes.length
+            ? preset.allowedTypes
+            : ['expense'];
+        const nextType = normalizeFinanceTypeByBusinessType(businessType, typeSelect.value);
+        typeSelect.innerHTML = allowedTypes
+            .map(typeValue => `<option value="${typeValue}">${ERP_FINANCE_TYPE_LABEL_MAP[typeValue] || typeValue}</option>`)
+            .join('');
+        typeSelect.value = nextType;
+        typeSelect.disabled = allowedTypes.length <= 1;
     }
     if (categoryInput && !String(categoryInput.value || '').trim()) {
         categoryInput.value = preset.category;
@@ -11648,11 +11679,12 @@ async function saveFinance() {
         return;
     }
 
-    const preset = ERP_FINANCE_BUSINESS_PRESET[businessType] || ERP_FINANCE_BUSINESS_PRESET.life_expense;
+    const preset = resolveFinanceBusinessPreset(businessType);
     const category = String(categoryInput?.value || '').trim() || preset.category;
+    const normalizedType = normalizeFinanceTypeByBusinessType(businessType, type);
     const financeData = {
         business_type: businessType,
-        type: preset.type || type,
+        type: normalizedType,
         category,
         amount,
         description,

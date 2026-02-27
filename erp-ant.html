@@ -1478,15 +1478,15 @@
                                 </div>
                                 <div class="erp-notes-editor-card erp-block-card">
                                     <input id="dailyNoteTitle" class="ant-input erp-notes-title-input" placeholder="请输入笔记标题">
-                                    <div class="erp-notes-toolbar">
-                                        <button class="ant-btn" type="button" title="加粗" onclick="execDailyNoteCommand('bold')"><i class="fa fa-bold"></i></button>
-                                        <button class="ant-btn" type="button" title="斜体" onclick="execDailyNoteCommand('italic')"><i class="fa fa-italic"></i></button>
-                                        <button class="ant-btn" type="button" title="下划线" onclick="execDailyNoteCommand('underline')"><i class="fa fa-underline"></i></button>
-                                        <button class="ant-btn" type="button" title="项目符号" onclick="insertDailyNoteBulletList()"><i class="fa fa-list-ul"></i></button>
-                                        <button class="ant-btn" type="button" title="有序列表" onclick="execDailyNoteCommand('insertOrderedList')"><i class="fa fa-list-ol"></i></button>
+                                    <div id="dailyNoteToolbar" class="erp-notes-toolbar">
+                                        <button class="ant-btn" type="button" title="加粗" data-note-command="bold" onclick="execDailyNoteCommand('bold')"><i class="fa fa-bold"></i></button>
+                                        <button class="ant-btn" type="button" title="斜体" data-note-command="italic" onclick="execDailyNoteCommand('italic')"><i class="fa fa-italic"></i></button>
+                                        <button class="ant-btn" type="button" title="下划线" data-note-command="underline" onclick="execDailyNoteCommand('underline')"><i class="fa fa-underline"></i></button>
+                                        <button class="ant-btn" type="button" title="项目符号" data-note-command="insertUnorderedList" onclick="insertDailyNoteBulletList()"><i class="fa fa-list-ul"></i></button>
+                                        <button class="ant-btn" type="button" title="有序列表" data-note-command="insertOrderedList" onclick="execDailyNoteCommand('insertOrderedList')"><i class="fa fa-list-ol"></i></button>
                                         <button class="ant-btn" type="button" title="待办清单" onclick="insertDailyNoteChecklist()"><i class="fa fa-check-square-o"></i></button>
                                         <button class="ant-btn" type="button" title="分割线" onclick="insertDailyNoteDivider()"><i class="fa fa-minus"></i></button>
-                                        <button class="ant-btn" type="button" title="高亮" onclick="setDailyNoteHighlightColor('#fff59d')">高亮</button>
+                                        <button class="ant-btn" type="button" title="高亮" data-note-role="highlight" onclick="setDailyNoteHighlightColor('#fff59d')">高亮</button>
                                         <input type="color" id="dailyNoteTextColor" class="erp-notes-toolbar-color" title="文字颜色" value="#0f172a" onchange="setDailyNoteTextColor(this.value)">
                                         <input type="color" id="dailyNoteHighlightColor" class="erp-notes-toolbar-color" title="高亮颜色" value="#fff59d" onchange="setDailyNoteHighlightColor(this.value)">
                                         <select id="dailyNoteFontFamily" class="ant-select erp-notes-toolbar-select" title="字体样式" onchange="setDailyNoteFontFamily(this.value)">
@@ -4143,5 +4143,4 @@
 </body>
 
 </html>
-
 

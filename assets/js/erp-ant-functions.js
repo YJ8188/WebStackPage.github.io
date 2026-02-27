@@ -155,6 +155,8 @@ const dailyNotesViewState = {
     contextMenuVisible: false,
     contextTargetLinkHref: '',
     contextTargetLinkNode: null,
+    selectionBound: false,
+    toolbarStateRaf: 0,
     imageCompression: {
         maxWidth: 1600,
         maxHeight: 1600,
@@ -6914,6 +6916,150 @@ function getDailyNoteContextMenuElement() {
     return dailyNotesViewState.contextMenuEl;
 }
 
+function getDailyNoteToolbarElement() {
+    return document.getElementById('dailyNoteToolbar');
+}
+
+function isDailyNoteNodeInsideEditor(node, editorEl) {
+    if (!node || !editorEl) {
+        return false;
+    }
+    if (node === editorEl) {
+        return true;
+    }
+    if (node instanceof Element) {
+        return editorEl.contains(node);
+    }
+    return !!(node.parentElement && editorEl.contains(node.parentElement));
+}
+
+function isDailyNoteSelectionInsideEditor(selection, editorEl) {
+    if (!selection || !editorEl || selection.rangeCount <= 0) {
+        return false;
+    }
+    const anchorInside = isDailyNoteNodeInsideEditor(selection.anchorNode, editorEl);
+    const focusInside = isDailyNoteNodeInsideEditor(selection.focusNode, editorEl);
+    if (anchorInside || focusInside) {
+        return true;
+    }
+    const range = selection.getRangeAt(0);
+    return isDailyNoteNodeInsideEditor(range.commonAncestorContainer, editorEl);
+}
+
+function normalizeDailyNoteCommandColor(value = '') {
+    const raw = String(value || '').trim().toLowerCase();
+    if (!raw || raw === 'inherit' || raw === 'initial' || raw === 'transparent') {
+        return '';
+    }
+    if (raw.startsWith('#')) {
+        if (/^#[0-9a-f]{3}$/.test(raw)) {
+            return `#${raw[1]}${raw[1]}${raw[2]}${raw[2]}${raw[3]}${raw[3]}`;
+        }
+        if (/^#[0-9a-f]{6}$/.test(raw)) {
+            return raw;
+        }
+        return '';
+    }
+    const rgbMatch = raw.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([0-9.]+)\s*)?\)$/i);
+    if (!rgbMatch) {
+        return '';
+    }
+    const alpha = rgbMatch[4] === undefined ? 1 : Number(rgbMatch[4]);
+    if (!Number.isFinite(alpha) || alpha <= 0) {
+        return '';
+    }
+    const toHex = (num) => {
+        const valueNum = Math.max(0, Math.min(255, Number(num || 0)));
+        return valueNum.toString(16).padStart(2, '0');
+    };
+    return `#${toHex(rgbMatch[1])}${toHex(rgbMatch[2])}${toHex(rgbMatch[3])}`;
+}
+
+function queryDailyNoteCommandState(command = '') {
+    try {
+        return !!document.queryCommandState(command);
+    } catch (error) {
+        return false;
+    }
+}
+
+function queryDailyNoteCommandValue(command = '') {
+    try {
+        return String(document.queryCommandValue(command) || '').trim();
+    } catch (error) {
+        return '';
+    }
+}
+
+function setDailyNoteToolbarButtonState(button, isActive = false) {
+    if (!(button instanceof Element)) {
+        return;
+    }
+    button.classList.toggle('is-active', !!isActive);
+    button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+}
+
+function refreshDailyNoteToolbarState() {
+    const editorEl = getDailyNoteEditorElement();
+    const toolbarEl = getDailyNoteToolbarElement();
+    if (!editorEl || !toolbarEl) {
+        return;
+    }
+
+    const selection = typeof window.getSelection === 'function' ? window.getSelection() : null;
+    const activeEl = document.activeElement;
+    const isEditorFocused = activeEl === editorEl || (activeEl instanceof Element && editorEl.contains(activeEl));
+    const selectionInsideEditor = isDailyNoteSelectionInsideEditor(selection, editorEl);
+    const canReadCommandState = isEditorFocused || selectionInsideEditor;
+
+    const commandButtons = toolbarEl.querySelectorAll('button[data-note-command]');
+    commandButtons.forEach((button) => {
+        const command = String(button.getAttribute('data-note-command') || '').trim();
+        const isActive = canReadCommandState && command ? queryDailyNoteCommandState(command) : false;
+        setDailyNoteToolbarButtonState(button, isActive);
+    });
+
+    const highlightButton = toolbarEl.querySelector('button[data-note-role="highlight"]');
+    if (highlightButton) {
+        const hiliteValue = canReadCommandState ? normalizeDailyNoteCommandColor(queryDailyNoteCommandValue('hiliteColor')) : '';
+        const backValue = canReadCommandState ? normalizeDailyNoteCommandColor(queryDailyNoteCommandValue('backColor')) : '';
+        const isHighlightActive = !!(hiliteValue || backValue);
+        setDailyNoteToolbarButtonState(highlightButton, isHighlightActive);
+    }
+
+    const textColorInput = document.getElementById('dailyNoteTextColor');
+    if (canReadCommandState && textColorInput instanceof HTMLInputElement) {
+        const textColor = normalizeDailyNoteCommandColor(queryDailyNoteCommandValue('foreColor'));
+        if (textColor) {
+            textColorInput.value = textColor;
+        }
+    }
+
+    const highlightColorInput = document.getElementById('dailyNoteHighlightColor');
+    if (canReadCommandState && highlightColorInput instanceof HTMLInputElement) {
+        const hiliteValue = normalizeDailyNoteCommandColor(queryDailyNoteCommandValue('hiliteColor'));
+        const backValue = normalizeDailyNoteCommandColor(queryDailyNoteCommandValue('backColor'));
+        const color = hiliteValue || backValue;
+        if (color) {
+            highlightColorInput.value = color;
+        }
+    }
+}
+
+function scheduleDailyNoteToolbarStateRefresh() {
+    if (dailyNotesViewState.toolbarStateRaf) {
+        return;
+    }
+    if (typeof window.requestAnimationFrame !== 'function') {
+        refreshDailyNoteToolbarState();
+        return;
+    }
+    dailyNotesViewState.toolbarStateRaf = window.requestAnimationFrame(() => {
+        dailyNotesViewState.toolbarStateRaf = 0;
+        refreshDailyNoteToolbarState();
+    });
+}
+
 function resetDailyNoteContextLinkTarget() {
     dailyNotesViewState.contextTargetLinkHref = '';
     dailyNotesViewState.contextTargetLinkNode = null;
@@ -7586,6 +7732,7 @@ function applyDailyNoteEditorState(note = null) {
         }
         setTimeout(() => {
             dailyNotesViewState.isApplyingState = false;
+            scheduleDailyNoteToolbarStateRefresh();
         }, 0);
         return;
     }
@@ -7633,6 +7780,7 @@ function applyDailyNoteEditorState(note = null) {
     }
     setTimeout(() => {
         dailyNotesViewState.isApplyingState = false;
+        scheduleDailyNoteToolbarStateRefresh();
     }, 0);
 }
 
@@ -8053,6 +8201,7 @@ function execDailyNoteCommand(command, value = null) {
         window.requestAnimationFrame(() => normalizeDailyNoteEditorLists());
     }
     scheduleDailyNoteAutoSave();
+    scheduleDailyNoteToolbarStateRefresh();
 }
 
 function insertDailyNoteBulletList() {
@@ -8092,6 +8241,7 @@ function setDailyNoteHighlightColor(color = '') {
         document.execCommand('backColor', false, safeColor);
     }
     scheduleDailyNoteAutoSave();
+    scheduleDailyNoteToolbarStateRefresh();
 }
 
 function setDailyNoteFontFamily(fontFamily = '') {
@@ -8117,6 +8267,7 @@ function insertDailyNoteChecklist() {
     const html = '<div><label><input type="checkbox" style="margin-right:6px;">待办事项</label></div>';
     document.execCommand('insertHTML', false, html);
     scheduleDailyNoteAutoSave();
+    scheduleDailyNoteToolbarStateRefresh();
 }
 
 function insertDailyNoteLink() {
@@ -8148,6 +8299,7 @@ function insertDailyNoteHtml(html = '') {
         return false;
     }
     scheduleDailyNoteAutoSave();
+    scheduleDailyNoteToolbarStateRefresh();
     return true;
 }
 
@@ -8329,18 +8481,26 @@ function initDailyNotesModule() {
         editorEl.addEventListener('input', () => {
             cacheDailyNoteDraftFromForm(true, false);
             scheduleDailyNoteAutoSave();
+            scheduleDailyNoteToolbarStateRefresh();
         });
+        editorEl.addEventListener('keyup', scheduleDailyNoteToolbarStateRefresh);
+        editorEl.addEventListener('mouseup', scheduleDailyNoteToolbarStateRefresh);
+        editorEl.addEventListener('focus', scheduleDailyNoteToolbarStateRefresh);
+        editorEl.addEventListener('blur', scheduleDailyNoteToolbarStateRefresh);
         editorEl.addEventListener('click', (event) => {
             const target = event.target instanceof Element ? event.target.closest('a[href]') : null;
             if (!target) {
+                scheduleDailyNoteToolbarStateRefresh();
                 return;
             }
             event.preventDefault();
             const href = normalizeDailyNoteUrl(target.getAttribute('href') || target.href || '');
             if (!href) {
+                scheduleDailyNoteToolbarStateRefresh();
                 return;
             }
             window.open(href, '_blank', 'noopener,noreferrer');
+            scheduleDailyNoteToolbarStateRefresh();
         });
         editorEl.addEventListener('contextmenu', handleDailyNoteEditorContextMenu);
     }
@@ -8363,6 +8523,10 @@ function initDailyNotesModule() {
     }
 
     ensureDailyNoteContextMenu();
+    if (!dailyNotesViewState.selectionBound) {
+        document.addEventListener('selectionchange', scheduleDailyNoteToolbarStateRefresh);
+        dailyNotesViewState.selectionBound = true;
+    }
     document.addEventListener('mousedown', handleDailyNoteGlobalPointerDown, true);
     document.addEventListener('keydown', handleDailyNoteGlobalKeydown, true);
     document.addEventListener('scroll', hideDailyNoteContextMenu, true);
@@ -8372,6 +8536,7 @@ function initDailyNotesModule() {
     });
 
     dailyNotesViewState.initialized = true;
+    scheduleDailyNoteToolbarStateRefresh();
 }
 
 function buildSmartCardPlanRows() {

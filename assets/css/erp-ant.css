@@ -2854,6 +2854,13 @@ select.ant-select option {
     margin-bottom: 10px;
 }
 
+.erp-notes-toolbar .ant-btn.is-active,
+.erp-notes-toolbar .ant-btn[aria-pressed="true"] {
+    color: #1677ff;
+    border-color: #91caff;
+    background: #e6f4ff;
+}
+
 .erp-notes-toolbar-select {
     min-width: 92px;
     height: 32px;

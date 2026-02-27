@@ -381,6 +381,12 @@ var MetalsData = {
                 return null;
             }
 
+            // 清理历史版本写入的“内置快照”缓存，避免继续显示非实时值
+            if (parsed.provider && String(parsed.provider).indexOf('内置快照') !== -1) {
+                localStorage.removeItem(this.cacheStorageKey);
+                return null;
+            }
+
             this.cachedData = parsed.payload;
             this.cachedProvider = parsed.provider || 'Cache';
             this.cacheSavedAt = parsed.savedAt || 0;

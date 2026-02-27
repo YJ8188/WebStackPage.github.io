@@ -2433,9 +2433,9 @@
     <script src="assets/js/supabase.min.js"></script>
     <script src="assets/js/supabase-config.js?v=20260212-14"></script>
     <script src="assets/js/user-data.js?v=20260214-20"></script>
-    <script src="assets/js/erp.js?v=20260223-49"></script>
+    <script src="assets/js/erp.js?v=20260227-50"></script>
     <script src="assets/js/vendor/echarts.min.js?v=5.5.0"></script>
-    <script src="assets/js/erp-ant-functions.js?v=20260227-149"></script>
+    <script src="assets/js/erp-ant-functions.js?v=20260227-150"></script>
     <script src="assets/js/pwa-register.js?v=20260223-5" defer></script>
 
     <!-- UI Logic Script (Adapted for Ant Design) -->
@@ -2518,7 +2518,7 @@
             }
 
             if (targetModule === 'notes' && window.ERP && typeof ERP.loadNotes === 'function') {
-                ERP.loadNotes(false)
+                ERP.loadNotes(true)
                     .then(() => {
                         if (typeof window.renderDailyNotesModule === 'function') {
                             window.renderDailyNotesModule();
@@ -2603,8 +2603,8 @@
                         }
                         break;
                     case 'notes':
-                        if (window.ERP && typeof ERP.loadNotes === 'function' && !ERP.state.loaded.notes) {
-                            await ERP.loadNotes(false);
+                        if (window.ERP && typeof ERP.loadNotes === 'function') {
+                            await ERP.loadNotes(true);
                         }
                         if (typeof window.renderDailyNotesModule === 'function') {
                             window.renderDailyNotesModule();

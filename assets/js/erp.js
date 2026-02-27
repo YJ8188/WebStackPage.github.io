@@ -921,6 +921,17 @@ const ERP = {
             || (message.includes('could not find the table') && message.includes('erp_notes'));
     },
 
+    async ensureNotesCloudWritable() {
+        if (!userData?.isLoggedIn || !userData?.user?.id) {
+            return false;
+        }
+        if (this.runtime.notesStorageMode === 'supabase') {
+            return true;
+        }
+        await this.loadNotes(true);
+        return this.runtime.notesStorageMode === 'supabase';
+    },
+
     sortNotesRows(rows = []) {
         return [...(Array.isArray(rows) ? rows : [])].sort((left, right) => {
             const leftPinned = left?.is_pinned ? 1 : 0;
@@ -1009,18 +1020,28 @@ const ERP = {
             this.saveLocalNotes(this.state.notes);
             return this.state.notes;
         } catch (error) {
-            if (!this.isNotesTableMissingError(error)) {
-                console.error('[ERP] 加载笔记失败:', error);
+            if (this.isNotesTableMissingError(error)) {
+                this.runtime.notesStorageMode = 'local';
+                this.state.notes = this.sortNotesRows(this.readLocalNotes());
+                this.state.loaded.notes = true;
+                return this.state.notes;
             }
-            this.runtime.notesStorageMode = 'local';
+
+            console.error('[ERP] 加载笔记失败（已回退本地只读缓存）:', error);
+            this.runtime.notesStorageMode = 'supabase_unavailable';
             this.state.notes = this.sortNotesRows(this.readLocalNotes());
-            this.state.loaded.notes = true;
+            // Keep retrying cloud on next access to avoid staying in stale local mode.
+            this.state.loaded.notes = false;
             return this.state.notes;
         }
     },
 
     async addNote(noteData = {}) {
         await this.loadNotes(false);
+        if (!(await this.ensureNotesCloudWritable())) {
+            console.warn('[ERP] 笔记云端不可用，已阻止本地写入以避免跨设备不一致');
+            return null;
+        }
         const now = new Date().toISOString();
         const payload = {
             user_id: userData.user.id,
@@ -1031,17 +1052,6 @@ const ERP = {
             created_at: now,
             updated_at: now
         };
-
-        if (this.runtime.notesStorageMode === 'local') {
-            const row = {
-                id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-                ...payload
-            };
-            this.state.notes = this.sortNotesRows([row, ...(this.state.notes || [])]);
-            this.saveLocalNotes(this.state.notes);
-            this.emitEvent('erpNotesChanged', { action: 'created', record: row });
-            return row;
-        }
 
         try {
             const { data, error } = await supabaseClient
@@ -1057,10 +1067,6 @@ const ERP = {
             this.emitEvent('erpNotesChanged', { action: 'created', record: data });
             return data;
         } catch (error) {
-            if (this.isNotesTableMissingError(error)) {
-                this.runtime.notesStorageMode = 'local';
-                return this.addNote(noteData);
-            }
             console.error('[ERP] 新增笔记失败:', error);
             return null;
         }
@@ -1068,6 +1074,10 @@ const ERP = {
 
     async updateNote(noteId, noteData = {}) {
         await this.loadNotes(false);
+        if (!(await this.ensureNotesCloudWritable())) {
+            console.warn('[ERP] 笔记云端不可用，已阻止本地写入以避免跨设备不一致');
+            return null;
+        }
         const index = this.state.notes.findIndex(item => this.isSameId(item?.id, noteId));
         const before = index >= 0 ? this.state.notes[index] : null;
         if (!before) {
@@ -1075,15 +1085,6 @@ const ERP = {
         }
 
         const localPayload = this.normalizeLocalNotePayload(noteData, before);
-        if (this.runtime.notesStorageMode === 'local') {
-            const nextRows = [...this.state.notes];
-            nextRows[index] = { ...before, ...localPayload };
-            this.state.notes = this.sortNotesRows(nextRows);
-            this.saveLocalNotes(this.state.notes);
-            const updated = this.state.notes.find(item => this.isSameId(item?.id, noteId)) || null;
-            this.emitEvent('erpNotesChanged', { action: 'updated', record: updated });
-            return updated;
-        }
 
         try {
             const updatePayload = {
@@ -1116,10 +1117,6 @@ const ERP = {
             this.emitEvent('erpNotesChanged', { action: 'updated', record: data });
             return data;
         } catch (error) {
-            if (this.isNotesTableMissingError(error)) {
-                this.runtime.notesStorageMode = 'local';
-                return this.updateNote(noteId, noteData);
-            }
             console.error('[ERP] 更新笔记失败:', error);
             return null;
         }
@@ -1127,16 +1124,13 @@ const ERP = {
 
     async deleteNote(noteId) {
         await this.loadNotes(false);
+        if (!(await this.ensureNotesCloudWritable())) {
+            console.warn('[ERP] 笔记云端不可用，已阻止本地删除以避免跨设备不一致');
+            return false;
+        }
         const before = this.state.notes.find(item => this.isSameId(item?.id, noteId)) || null;
         if (!before) {
             return false;
-        }
-
-        if (this.runtime.notesStorageMode === 'local') {
-            this.state.notes = this.state.notes.filter(item => !this.isSameId(item?.id, noteId));
-            this.saveLocalNotes(this.state.notes);
-            this.emitEvent('erpNotesChanged', { action: 'deleted', record: before, recordId: noteId });
-            return true;
         }
 
         try {
@@ -1152,10 +1146,6 @@ const ERP = {
             this.emitEvent('erpNotesChanged', { action: 'deleted', record: before, recordId: noteId });
             return true;
         } catch (error) {
-            if (this.isNotesTableMissingError(error)) {
-                this.runtime.notesStorageMode = 'local';
-                return this.deleteNote(noteId);
-            }
             console.error('[ERP] 删除笔记失败:', error);
             return false;
         }

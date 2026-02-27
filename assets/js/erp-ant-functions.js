@@ -7253,7 +7253,7 @@ function clearDailyNoteDraftCacheTimer() {
     }
 }
 
-function cacheDailyNoteDraftFromForm(pendingSync = true, immediate = false) {
+function cacheDailyNoteDraftFromForm(pendingSync = false, immediate = false) {
     if (dailyNotesViewState.isApplyingState) {
         return;
     }
@@ -7813,7 +7813,7 @@ async function confirmDailyNoteSaveBeforeNavigate(options = {}) {
 }
 
 function handleDailyNoteBeforeUnload(event) {
-    cacheDailyNoteDraftFromForm(true, true);
+    cacheDailyNoteDraftFromForm(false, true);
     if (!hasDailyNotePendingChanges()) {
         return undefined;
     }
@@ -7900,7 +7900,7 @@ function applyDailyNoteEditorState(note = null) {
     if (localDraft) {
         const localTs = new Date(localDraft?.updated_at || 0).getTime();
         const remoteTs = new Date(remotePayload?.updated_at || 0).getTime();
-        if (localDraft?.pending_sync || localTs > remoteTs) {
+        if (localTs > remoteTs) {
             effectivePayload = {
                 ...effectivePayload,
                 title: localDraft?.title ?? effectivePayload.title,
@@ -7923,9 +7923,12 @@ function applyDailyNoteEditorState(note = null) {
         is_pinned: effectivePayload.is_pinned
     });
     const updateText = toDateTimeText(note?.updated_at || note?.created_at || null);
-    if (usingLocalDraft && localDraft?.pending_sync) {
+    if (usingLocalDraft) {
         const localText = toDateTimeText(localDraft?.updated_at || null);
-        updateDailyNoteMetaText(`${effectivePayload?.is_pinned ? '已置顶' : '未置顶'} · 本地已更新待同步 · ${localText}`);
+        const hint = localDraft?.pending_sync
+            ? '本地草稿较新（上次云端保存失败）'
+            : '本地草稿较新';
+        updateDailyNoteMetaText(`${effectivePayload?.is_pinned ? '已置顶' : '未置顶'} · ${hint} · ${localText}`);
     } else {
         updateDailyNoteMetaText(`${effectivePayload?.is_pinned ? '已置顶' : '未置顶'} · 最近更新 ${updateText}`);
     }
@@ -7998,7 +8001,7 @@ async function createDailyNote() {
     if (!canContinue) {
         return;
     }
-    cacheDailyNoteDraftFromForm(true, true);
+    cacheDailyNoteDraftFromForm(false, true);
     clearDailyNoteAutoSaveTimer();
     dailyNotesViewState.currentId = null;
     dailyNotesViewState.isDraftMode = true;
@@ -8020,7 +8023,7 @@ async function selectDailyNote(noteId) {
     if (!canContinue) {
         return;
     }
-    cacheDailyNoteDraftFromForm(true, true);
+    cacheDailyNoteDraftFromForm(false, true);
     clearDailyNoteAutoSaveTimer();
     const rows = getDailyNotesRows();
     const note = rows.find(item => isSameEntityId(item?.id, noteId)) || null;
@@ -8259,9 +8262,20 @@ async function saveDailyNote(options = {}) {
         ? await ERP.updateNote(dailyNotesViewState.currentId, payload)
         : await ERP.addNote(payload);
     if (!saved) {
-        updateDailyNoteMetaText('数据库保存失败，内容已保存在本地草稿，请稍后手动重试');
+        const notesMode = String(window?.ERP?.runtime?.notesStorageMode || '').trim();
+        const cloudUnavailable = notesMode === 'supabase_unavailable' || notesMode === 'local';
+        if (cloudUnavailable) {
+            updateDailyNoteMetaText('云端暂不可用：已阻止本地写入，避免跨设备数据不一致。内容保存在本地草稿。');
+        } else {
+            updateDailyNoteMetaText('数据库保存失败，内容已保存在本地草稿，请稍后手动重试');
+        }
         if (!options?.silent) {
-            showToast(isEdit ? '保存笔记失败' : '创建笔记失败', 'error');
+            showToast(
+                cloudUnavailable
+                    ? '云端不可用，已阻止本地写入（避免跨设备不一致）'
+                    : (isEdit ? '保存笔记失败' : '创建笔记失败'),
+                'error'
+            );
         }
         return null;
     }
@@ -8634,7 +8648,7 @@ function initDailyNotesModule() {
         editorEl.setAttribute('data-placeholder', '记录文字、图片、超链接，内容需手动点击“保存笔记”。');
         editorEl.addEventListener('paste', handleDailyNoteEditorPaste);
         editorEl.addEventListener('input', () => {
-            cacheDailyNoteDraftFromForm(true, false);
+            cacheDailyNoteDraftFromForm(false, false);
             scheduleDailyNoteAutoSave();
             scheduleDailyNoteToolbarStateRefresh();
         });
@@ -8661,7 +8675,7 @@ function initDailyNotesModule() {
     }
     if (titleEl) {
         titleEl.addEventListener('input', () => {
-            cacheDailyNoteDraftFromForm(true, false);
+            cacheDailyNoteDraftFromForm(false, false);
             scheduleDailyNoteAutoSave();
         });
         titleEl.addEventListener('keydown', (event) => {

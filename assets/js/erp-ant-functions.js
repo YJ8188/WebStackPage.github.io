@@ -1471,19 +1471,25 @@ function isSystemLinkedFinanceCategory(category) {
 }
 
 function toDbDateTimeString(inputValue) {
+    const toShanghaiOffsetDateTime = (partMap) => {
+        if (!partMap || !partMap.year || !partMap.month || !partMap.day) {
+            return '';
+        }
+        return `${partMap.year}-${partMap.month}-${partMap.day}T${partMap.hour || '00'}:${partMap.minute || '00'}:${partMap.second || '00'}+08:00`;
+    };
     const raw = String(inputValue || '').trim();
     if (!raw) {
         const currentPartMap = getShanghaiDatePartMap(new Date());
         if (!currentPartMap) {
             return new Date().toISOString();
         }
-        return `${currentPartMap.year}-${currentPartMap.month}-${currentPartMap.day} ${currentPartMap.hour || '00'}:${currentPartMap.minute || '00'}:${currentPartMap.second || '00'}`;
+        return toShanghaiOffsetDateTime(currentPartMap);
     }
 
     if (raw.includes(' ')) {
         const match = raw.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})(?::(\d{2}))?$/);
         if (match) {
-            return `${match[1]} ${match[2]}:${match[3] || '00'}`;
+            return `${match[1]}T${match[2]}:${match[3] || '00'}+08:00`;
         }
         return raw;
     }
@@ -1491,12 +1497,12 @@ function toDbDateTimeString(inputValue) {
     if (raw.includes('T')) {
         const plainLocalMatch = raw.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(?::(\d{2}))?$/);
         if (plainLocalMatch) {
-            return `${plainLocalMatch[1]} ${plainLocalMatch[2]}:${plainLocalMatch[3] || '00'}`;
+            return `${plainLocalMatch[1]}T${plainLocalMatch[2]}:${plainLocalMatch[3] || '00'}+08:00`;
         }
 
         const shanghaiPartMap = getShanghaiDatePartMap(raw);
         if (shanghaiPartMap) {
-            return `${shanghaiPartMap.year}-${shanghaiPartMap.month}-${shanghaiPartMap.day} ${shanghaiPartMap.hour || '00'}:${shanghaiPartMap.minute || '00'}:${shanghaiPartMap.second || '00'}`;
+            return toShanghaiOffsetDateTime(shanghaiPartMap);
         }
         return '';
     }
@@ -6022,33 +6028,39 @@ function setSelectValueWithFallback(selectId, preferredValue, fallbackValue = ''
 }
 
 function normalizeFinanceDateTimeForDb(dateValue) {
+    const toShanghaiOffsetDateTime = (partMap) => {
+        if (!partMap || !partMap.year || !partMap.month || !partMap.day) {
+            return '';
+        }
+        return `${partMap.year}-${partMap.month}-${partMap.day}T${partMap.hour || '00'}:${partMap.minute || '00'}:${partMap.second || '00'}+08:00`;
+    };
     let transactionDate = String(dateValue || '').trim();
     if (!transactionDate) {
         const currentPartMap = getShanghaiDatePartMap(new Date());
         if (!currentPartMap) {
             transactionDate = new Date().toISOString();
         } else {
-            return `${currentPartMap.year}-${currentPartMap.month}-${currentPartMap.day} ${currentPartMap.hour || '00'}:${currentPartMap.minute || '00'}:${currentPartMap.second || '00'}`;
+            return toShanghaiOffsetDateTime(currentPartMap);
         }
     }
     if (!transactionDate.includes('T')) {
         const plainDateTimeMatch = transactionDate.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})(?::(\d{2}))?$/);
         if (plainDateTimeMatch) {
-            return `${plainDateTimeMatch[1]} ${plainDateTimeMatch[2]}:${plainDateTimeMatch[3] || '00'}`;
+            return `${plainDateTimeMatch[1]}T${plainDateTimeMatch[2]}:${plainDateTimeMatch[3] || '00'}+08:00`;
         }
         return transactionDate;
     }
 
     const plainLocalMatch = transactionDate.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(?::(\d{2}))?$/);
     if (plainLocalMatch) {
-        return `${plainLocalMatch[1]} ${plainLocalMatch[2]}:${plainLocalMatch[3] || '00'}`;
+        return `${plainLocalMatch[1]}T${plainLocalMatch[2]}:${plainLocalMatch[3] || '00'}+08:00`;
     }
 
     const shanghaiPartMap = getShanghaiDatePartMap(transactionDate);
     if (!shanghaiPartMap) {
         return '';
     }
-    return `${shanghaiPartMap.year}-${shanghaiPartMap.month}-${shanghaiPartMap.day} ${shanghaiPartMap.hour || '00'}:${shanghaiPartMap.minute || '00'}:${shanghaiPartMap.second || '00'}`;
+    return toShanghaiOffsetDateTime(shanghaiPartMap);
 }
 
 function toMoneyText(value) {

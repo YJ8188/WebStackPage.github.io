@@ -7060,6 +7060,103 @@ function scheduleDailyNoteToolbarStateRefresh() {
     });
 }
 
+function getDailyNoteActiveHighlightColor() {
+    const hiliteValue = normalizeDailyNoteCommandColor(queryDailyNoteCommandValue('hiliteColor'));
+    const backValue = normalizeDailyNoteCommandColor(queryDailyNoteCommandValue('backColor'));
+    return hiliteValue || backValue || '';
+}
+
+function tryExecDailyNoteHighlightCommand(command = '', value = '') {
+    if (!command) {
+        return false;
+    }
+    try {
+        return !!document.execCommand(command, false, value);
+    } catch (error) {
+        return false;
+    }
+}
+
+function clearDailyNoteHighlightFromSelection(editorEl) {
+    const selection = typeof window.getSelection === 'function' ? window.getSelection() : null;
+    if (!selection || selection.rangeCount <= 0 || !isDailyNoteSelectionInsideEditor(selection, editorEl)) {
+        return false;
+    }
+    const range = selection.getRangeAt(0);
+    const candidates = [];
+    if (range.collapsed) {
+        const node = selection.anchorNode;
+        if (node) {
+            const parent = node instanceof Element ? node : node.parentElement;
+            if (parent && editorEl.contains(parent)) {
+                candidates.push(parent);
+            }
+        }
+    } else {
+        const root = range.commonAncestorContainer;
+        const walkerRoot = root instanceof Element ? root : root.parentElement;
+        if (!walkerRoot) {
+            return false;
+        }
+        const walker = document.createTreeWalker(walkerRoot, NodeFilter.SHOW_ELEMENT);
+        let current = walker.currentNode;
+        while (current) {
+            if (current instanceof Element && editorEl.contains(current) && range.intersectsNode(current)) {
+                candidates.push(current);
+            }
+            current = walker.nextNode();
+        }
+    }
+
+    let changed = false;
+    candidates.forEach((element) => {
+        const style = element.style;
+        if (style && (style.backgroundColor || style.background)) {
+            style.removeProperty('background-color');
+            style.removeProperty('background');
+            if (!String(style.cssText || '').trim()) {
+                element.removeAttribute('style');
+            }
+            changed = true;
+        }
+        if (element.hasAttribute('bgcolor')) {
+            element.removeAttribute('bgcolor');
+            changed = true;
+        }
+    });
+    return changed;
+}
+
+function clearDailyNoteHighlightColor() {
+    const editorEl = getDailyNoteEditorElement();
+    if (!editorEl) {
+        return;
+    }
+    editorEl.focus();
+    const clearValues = ['transparent', 'rgba(0,0,0,0)', 'inherit'];
+    const commands = ['hiliteColor', 'backColor'];
+    let cleared = false;
+
+    for (let commandIndex = 0; commandIndex < commands.length && !cleared; commandIndex += 1) {
+        const command = commands[commandIndex];
+        for (let valueIndex = 0; valueIndex < clearValues.length; valueIndex += 1) {
+            const value = clearValues[valueIndex];
+            tryExecDailyNoteHighlightCommand(command, value);
+            const activeColor = getDailyNoteActiveHighlightColor();
+            if (!activeColor) {
+                cleared = true;
+                break;
+            }
+        }
+    }
+
+    if (!cleared) {
+        cleared = clearDailyNoteHighlightFromSelection(editorEl);
+    }
+    scheduleDailyNoteAutoSave();
+    scheduleDailyNoteToolbarStateRefresh();
+}
+
 function resetDailyNoteContextLinkTarget() {
     dailyNotesViewState.contextTargetLinkHref = '';
     dailyNotesViewState.contextTargetLinkNode = null;
@@ -8221,7 +8318,7 @@ function setDailyNoteTextColor(color = '') {
     execDailyNoteCommand('foreColor', safeColor);
 }
 
-function setDailyNoteHighlightColor(color = '') {
+function setDailyNoteHighlightColor(color = '', options = {}) {
     const safeColor = String(color || '').trim();
     if (!safeColor) {
         return;
@@ -8231,17 +8328,28 @@ function setDailyNoteHighlightColor(color = '') {
         return;
     }
     editorEl.focus();
-    let applied = false;
-    try {
-        applied = document.execCommand('hiliteColor', false, safeColor);
-    } catch (error) {
-        applied = false;
+    const currentColor = getDailyNoteActiveHighlightColor();
+    const toggleMode = !!options?.toggle;
+    const normalizedTargetColor = normalizeDailyNoteCommandColor(safeColor);
+    if (toggleMode && currentColor && (!normalizedTargetColor || currentColor === normalizedTargetColor)) {
+        clearDailyNoteHighlightColor();
+        return;
     }
+    let applied = tryExecDailyNoteHighlightCommand('hiliteColor', safeColor);
     if (!applied) {
-        document.execCommand('backColor', false, safeColor);
+        tryExecDailyNoteHighlightCommand('backColor', safeColor);
     }
     scheduleDailyNoteAutoSave();
     scheduleDailyNoteToolbarStateRefresh();
+}
+
+function toggleDailyNoteHighlight() {
+    const colorInput = document.getElementById('dailyNoteHighlightColor');
+    const selectedColor = colorInput instanceof HTMLInputElement
+        ? String(colorInput.value || '').trim()
+        : '';
+    const fallbackColor = '#fff59d';
+    setDailyNoteHighlightColor(selectedColor || fallbackColor, { toggle: true });
 }
 
 function setDailyNoteFontFamily(fontFamily = '') {

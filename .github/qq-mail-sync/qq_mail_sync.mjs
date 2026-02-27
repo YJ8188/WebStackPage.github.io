@@ -963,8 +963,14 @@ function buildRepaymentSupersedeKey(row) {
   const bank = String(row?.card_bank || '').trim();
   const dateKey = toDateKey(row?.transaction_date);
   const tail = extractCardTailFromDescription(row?.description || '');
-  if (!bank || !dateKey) return '';
+  if (!bank || !dateKey || !tail) return '';
   return [bank, dateKey, tail || '-'].join('|');
+}
+
+function isEverbrightRepaymentRow(row) {
+  const bank = String(row?.card_bank || '').trim();
+  const desc = String(row?.description || '');
+  return /光大/.test(bank) || /光大/.test(desc);
 }
 
 function hasDifferentBillAndRepay(row) {
@@ -995,6 +1001,7 @@ async function cleanupSupersededRepaymentRowsForUser(supabase, userId) {
   (data || []).forEach((row) => {
     const desc = String(row?.description || '');
     if (!desc.includes('QQ邮箱自动同步')) return;
+    if (!isEverbrightRepaymentRow(row)) return;
     const key = buildRepaymentSupersedeKey(row);
     if (!key) return;
     if (!grouped.has(key)) grouped.set(key, []);

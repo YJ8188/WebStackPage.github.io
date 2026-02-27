@@ -51,10 +51,252 @@ var MetalsData = {
     nextRefreshTime: 0,       // 下次刷新时间
     isRefreshing: false,      // 是否正在刷新
     cachedData: null,         // 缓存的数据
+    cachedProvider: '',       // 缓存来源
+    cacheSavedAt: 0,          // 缓存时间戳
+    cacheStorageKey: 'metals-data-cache-v1',
     initialized: false,       // 是否已初始化
     themeObserver: null,      // 主题监听器
     mediaThemeQuery: null,    // 系统主题监听
     mediaThemeHandler: null,  // 系统主题回调
+
+    // API源配置（按优先级）
+    getGoldApiCandidates: function() {
+        return [
+            {
+                name: 'Lolimi',
+                url: 'https://api.lolimi.cn/API/huangj/api',
+                adapter: 'lolimi'
+            },
+            {
+                name: 'PearAPI',
+                url: 'https://api.pearktrue.cn/api/goldprice/',
+                adapter: 'peargold'
+            },
+            {
+                name: 'MGTV100',
+                url: 'https://tools.mgtv100.com/external/v1/pear/goldPrice',
+                adapter: 'peargold'
+            }
+        ];
+    },
+
+    // 使用超时控制拉取JSON
+    fetchJsonWithTimeout: function(url, timeoutMs) {
+        timeoutMs = timeoutMs || 10000;
+        var hasAbort = typeof AbortController !== 'undefined';
+        var controller = hasAbort ? new AbortController() : null;
+        var timer = null;
+
+        if (controller) {
+            timer = setTimeout(function() {
+                controller.abort();
+            }, timeoutMs);
+        }
+
+        return fetch(url, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            },
+            cache: 'no-store',
+            signal: controller ? controller.signal : undefined
+        })
+        .then(function(response) {
+            if (!response.ok) {
+                throw new Error('HTTP ' + response.status);
+            }
+            return response.json();
+        })
+        .finally(function() {
+            if (timer) {
+                clearTimeout(timer);
+            }
+        });
+    },
+
+    // 统一解析涨跌幅
+    parseChangeValue: function(changePercent) {
+        if (typeof changePercent === 'number') {
+            return changePercent;
+        }
+
+        var normalized = String(changePercent || '0').replace('%', '').replace('+', '').trim();
+        var value = parseFloat(normalized);
+        return Number.isFinite(value) ? value : 0;
+    },
+
+    // 适配 Pear/MGTV 类型接口到现有UI结构
+    adaptPearGoldPayload: function(data) {
+        if (!data || !Array.isArray(data.data)) {
+            throw new Error('Fallback payload invalid');
+        }
+
+        var formattedRows = data.data.map(function(item) {
+            if (!item || !item.title) {
+                return null;
+            }
+
+            return {
+                _dir: item.dir || '',
+                品种: item.title,
+                最新价: Number(item.buyprice) || 0,
+                涨跌: MetalsData.parseChangeValue(item.changepercent),
+                幅度: item.changepercent || '0%',
+                最高价: Number(item.maxprice) || 0,
+                最低价: Number(item.minprice) || 0,
+                报价时间: item.date || '-'
+            };
+        }).filter(function(item) {
+            return !!item;
+        });
+
+        // 兜底分类：上海黄金交易所归到“国际黄金”表，其余归到“国内黄金”表
+        var domestic = [];
+        var intl = [];
+        formattedRows.forEach(function(item) {
+            var itemCopy = {
+                品种: item.品种,
+                最新价: item.最新价,
+                涨跌: item.涨跌,
+                幅度: item.幅度,
+                最高价: item.最高价,
+                最低价: item.最低价,
+                报价时间: item.报价时间
+            };
+
+            if (String(item._dir).indexOf('SH_') === 0) {
+                intl.push(itemCopy);
+            } else {
+                domestic.push(itemCopy);
+            }
+        });
+
+        // 备用源不含金店报价，优先复用历史缓存避免空表
+        var bankGoldBars = [];
+        if (this.cachedData && Array.isArray(this.cachedData['国内十大金店'])) {
+            bankGoldBars = this.cachedData['国内十大金店'];
+        }
+
+        if (intl.length === 0 && domestic.length > 0) {
+            intl = domestic.slice(0, Math.min(domestic.length, 5));
+        }
+
+        return {
+            code: 200,
+            '国内十大金店': bankGoldBars,
+            '国内黄金': domestic,
+            '国际黄金': intl
+        };
+    },
+
+    isValidPayload: function(payload) {
+        if (!payload || payload.code !== 200) {
+            return false;
+        }
+
+        return Array.isArray(payload['国内十大金店']) &&
+            Array.isArray(payload['国内黄金']) &&
+            Array.isArray(payload['国际黄金']);
+    },
+
+    // 多源容错抓取黄金数据
+    fetchGoldPayloadWithFallback: function() {
+        var self = this;
+        var apiCandidates = this.getGoldApiCandidates();
+        var lastError = null;
+
+        function applyAdapter(rawData, adapter) {
+            if (adapter === 'lolimi') {
+                return rawData;
+            }
+            if (adapter === 'peargold') {
+                return self.adaptPearGoldPayload(rawData);
+            }
+            return rawData;
+        }
+
+        function requestByIndex(index) {
+            if (index >= apiCandidates.length) {
+                return Promise.reject(lastError || new Error('All API providers failed'));
+            }
+
+            var candidate = apiCandidates[index];
+            return self.fetchJsonWithTimeout(candidate.url, 12000)
+                .then(function(rawData) {
+                    var normalized = applyAdapter(rawData, candidate.adapter);
+                    if (!self.isValidPayload(normalized)) {
+                        throw new Error('Invalid payload from ' + candidate.name);
+                    }
+                    return {
+                        payload: normalized,
+                        provider: candidate.name
+                    };
+                })
+                .catch(function(error) {
+                    lastError = error;
+                    console.warn('%c[金价行情] API源失败: ' + candidate.name, 'color: #f59e0b;', error);
+                    return requestByIndex(index + 1);
+                });
+        }
+
+        return requestByIndex(0);
+    },
+
+    setApiIndicator: function(providerName, color) {
+        var providerEl = document.getElementById('metals-api-provider');
+        var statusDot = document.getElementById('metals-api-status-dot');
+
+        if (providerEl && providerName) {
+            providerEl.innerText = providerName;
+        }
+
+        if (statusDot && color) {
+            statusDot.style.color = color;
+        }
+    },
+
+    saveCacheToStorage: function(payload, provider) {
+        this.cachedData = JSON.parse(JSON.stringify(payload));
+        this.cachedProvider = provider || 'Unknown';
+        this.cacheSavedAt = Date.now();
+
+        try {
+            var cachePayload = {
+                payload: this.cachedData,
+                provider: this.cachedProvider,
+                savedAt: this.cacheSavedAt
+            };
+            localStorage.setItem(this.cacheStorageKey, JSON.stringify(cachePayload));
+        } catch (error) {
+            console.warn('%c[金价行情] 缓存写入失败', 'color: #f59e0b;', error);
+        }
+    },
+
+    loadCacheFromStorage: function() {
+        if (this.cachedData) {
+            return this.cachedData;
+        }
+
+        try {
+            var rawCache = localStorage.getItem(this.cacheStorageKey);
+            if (!rawCache) {
+                return null;
+            }
+
+            var parsed = JSON.parse(rawCache);
+            if (!parsed || !this.isValidPayload(parsed.payload)) {
+                return null;
+            }
+
+            this.cachedData = parsed.payload;
+            this.cachedProvider = parsed.provider || 'Cache';
+            this.cacheSavedAt = parsed.savedAt || 0;
+            return this.cachedData;
+        } catch (error) {
+            console.warn('%c[金价行情] 缓存读取失败', 'color: #f59e0b;', error);
+            return null;
+        }
+    },
 
     // 初始化数据
     init: function() {
@@ -63,6 +305,14 @@ var MetalsData = {
         }
         this.initialized = true;
         console.log('%c[金价行情] 初始化数据模块', 'color: #10b981; font-weight: bold;');
+        var cached = this.loadCacheFromStorage();
+        if (cached) {
+            this.prices.bankGoldBars = cached['国内十大金店'] || [];
+            this.prices.goldRecycle = cached['国内黄金'] || [];
+            this.prices.preciousMetals = cached['国际黄金'] || [];
+            this.updateUI();
+            this.setApiIndicator((this.cachedProvider || 'Cache') + ' (缓存)', '#f59e0b');
+        }
         this.fetchGoldPrice();
         this.startAutoRefresh();
         this.checkDarkMode();
@@ -337,85 +587,59 @@ var MetalsData = {
         }
 
         // 更新API状态指示
-        var statusDot = document.getElementById('metals-api-status-dot');
-        if (statusDot) {
-            statusDot.style.color = '#f59e0b';
-        }
+        self.setApiIndicator('连接中', '#f59e0b');
 
-        fetch('https://api.lolimi.cn/API/huangj/api', {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json'
-            }
-        })
-        .then(function(response) {
-            if (!response.ok) {
-                throw new Error('HTTP ' + response.status);
-            }
-            return response.json();
-        })
-        .then(function(data) {
-            console.log('%c[金价行情] 数据获取成功:', 'color: #10b981;', data);
+        this.fetchGoldPayloadWithFallback()
+        .then(function(result) {
+            var newData = result.payload;
+            var provider = result.provider;
+            console.log('%c[金价行情] 数据获取成功，来源: ' + provider, 'color: #10b981;', newData);
 
-            if (data.code === 200) {
-                // 直接使用API返回的最新数据
-                var newData = data;
+            self.prices.bankGoldBars = newData['国内十大金店'] || [];
+            self.prices.goldRecycle = newData['国内黄金'] || [];
+            self.prices.preciousMetals = newData['国际黄金'] || [];
 
-                // 更新数据 - 适配新的API结构
-                self.prices.bankGoldBars = newData['国内十大金店'] || [];
-                self.prices.goldRecycle = newData['国内黄金'] || [];
-                self.prices.preciousMetals = newData['国际黄金'] || [];
+            self.saveCacheToStorage(newData, provider);
 
-                // 缓存数据
-                self.cachedData = JSON.parse(JSON.stringify(newData));
-
-                // 调用新API获取白银价格
-                return self.fetchSilverPrice().then(function(silverData) {
-                    if (silverData) {
-                        // 更新国内黄金数据中的白银价格
-                        var silverIndex = self.prices.goldRecycle.findIndex(function(item) {
-                            return item.品种 && item.品种.includes('银');
-                        });
-                        if (silverIndex !== -1) {
-                            console.log('%c[金价行情] 更新白银价格:', 'color: #10b981;', silverData);
-                            self.prices.goldRecycle[silverIndex] = {
-                                品种: silverData.品种,
-                                最新价: silverData.最新价,
-                                涨跌: silverData.涨跌,
-                                幅度: silverData.幅度,
-                                最高价: silverData.最高价,
-                                最低价: silverData.最低价,
-                                报价时间: silverData.报价时间
-                            };
-                        }
+            // 调用新API获取白银价格
+            return self.fetchSilverPrice().then(function(silverData) {
+                if (silverData) {
+                    // 更新国内黄金数据中的白银价格
+                    var silverIndex = self.prices.goldRecycle.findIndex(function(item) {
+                        return item.品种 && item.品种.includes('银');
+                    });
+                    if (silverIndex !== -1) {
+                        console.log('%c[金价行情] 更新白银价格:', 'color: #10b981;', silverData);
+                        self.prices.goldRecycle[silverIndex] = {
+                            品种: silverData.品种,
+                            最新价: silverData.最新价,
+                            涨跌: silverData.涨跌,
+                            幅度: silverData.幅度,
+                            最高价: silverData.最高价,
+                            最低价: silverData.最低价,
+                            报价时间: silverData.报价时间
+                        };
                     }
-                    // 更新UI显示
-                    self.updateUI();
-                });
-            } else {
-                console.error('%c[金价行情] 数据格式错误:', 'color: #f59e0b;', data);
-
-                // 更新API状态指示为错误
-                if (statusDot) {
-                    statusDot.style.color = '#ef4444';
                 }
-            }
+
+                self.updateUI();
+                self.setApiIndicator(provider, '#10b981');
+            });
         })
         .catch(function(error) {
             console.error('%c[金价行情] 数据获取失败:', 'color: #f59e0b;', error);
 
             // 如果有缓存数据,使用缓存
-            if (self.cachedData) {
+            var localCache = self.loadCacheFromStorage();
+            if (localCache) {
                 console.log('%c[金价行情] 使用缓存数据', 'color: #10b981;');
-                self.prices.bankGoldBars = self.cachedData['国内十大金店'] || [];
-                self.prices.goldRecycle = self.cachedData['国内黄金'] || [];
-                self.prices.preciousMetals = self.cachedData['国际黄金'] || [];
+                self.prices.bankGoldBars = localCache['国内十大金店'] || [];
+                self.prices.goldRecycle = localCache['国内黄金'] || [];
+                self.prices.preciousMetals = localCache['国际黄金'] || [];
                 self.updateUI();
-            }
-
-            // 更新API状态指示为错误
-            if (statusDot) {
-                statusDot.style.color = '#ef4444';
+                self.setApiIndicator((self.cachedProvider || 'Cache') + ' (缓存)', '#f59e0b');
+            } else {
+                self.setApiIndicator('Unavailable', '#ef4444');
             }
         })
         .finally(function() {
@@ -791,7 +1015,7 @@ function initMetalsUI() {
         <h4 class="text-gray">
             <i class="linecons-diamond" style="margin-right: 7px;" id="金价行情"></i>金价行情
             <span style="float: right; display: flex; align-items: center; font-size: 12px; gap: 8px;">
-                <button id="refresh-metals-btn" class="btn btn-xs btn-white" onclick="MetalsData.init()"
+                <button id="refresh-metals-btn" class="btn btn-xs btn-white" onclick="MetalsData.fetchGoldPrice()"
                     style="margin-right: 0; padding: 4px 8px;" title="刷新数据">
                     <i class="fa fa-refresh"></i>
                 </button>

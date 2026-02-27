@@ -103,6 +103,8 @@ python -m http.server 8000
 - 触发条件：`master` 分支 Push、PR
 - 检查内容：
   - `assets/js/**/*.js` 语法检查（`node --check`）
+  - `.github/qq-mail-sync/qq_mail_sync.mjs` 语法检查（`node --check`）
+  - `supabase/functions/*` 类型检查（`deno check`）
   - `tools/**/*.py` 语法检查（`python -m py_compile`）
   - 关键页面与 PWA 文件存在性校验
 
@@ -132,7 +134,7 @@ python -m http.server 8000
 supabase functions deploy logistics-track
 ```
 
-> 说明：本函数配置 `verify_jwt = false`，用于兼容当前前端登录态（否则会出现 `Invalid JWT` 导致 non-2xx）。
+> 说明：本函数现已配置 `verify_jwt = true`，调用方需要有效登录态 JWT。
 
 ### 2）配置 17TRACK Key（服务端）
 ```bash
@@ -217,3 +219,13 @@ const supabaseKey = 'YOUR_SUPABASE_ANON_KEY';
 ## 维护说明
 - 当前文档仅覆盖已保留工具链（Manager + ERP EXE）。
 - 已移除历史遗留的 Desktop/Installer 相关链路说明。
+
+## 稳定推送（网络抖动场景）
+- 若偶发出现 `Failed to connect to github.com port 443`，可使用内置稳定推送脚本自动重试：
+```bat
+tools\git-safe-push.bat D:\phpstudy_pro\WebStackPage_github_push_tmp origin master 8
+```
+- PowerShell 版本：
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\git-safe-push.ps1 -RepoPath D:\phpstudy_pro\WebStackPage_github_push_tmp -Remote origin -Branch master -MaxAttempts 8
+```

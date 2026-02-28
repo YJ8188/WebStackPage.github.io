@@ -1045,7 +1045,23 @@ class API {
         description: String(financeData?.description || '').trim(),
         reference_id: financeData?.reference_id || null,
         order_id: financeData?.order_id || null,
-        transaction_date: financeData?.transaction_date || new Date().toISOString()
+        transaction_date: financeData?.transaction_date || new Date().toISOString(),
+        business_type: financeData?.business_type || null,
+        card_bank: financeData?.card_bank || null,
+        card_bill_day: financeData?.card_bill_day ?? null,
+        card_repayment_day: financeData?.card_repayment_day ?? null,
+        card_repayment_amount: financeData?.card_repayment_amount ?? null,
+        card_swipe_amount: financeData?.card_swipe_amount ?? null,
+        card_actual_amount: financeData?.card_actual_amount ?? null,
+        card_fee_amount: financeData?.card_fee_amount ?? null,
+        card_fee_rate: financeData?.card_fee_rate ?? null,
+        card_tail: financeData?.card_tail || null,
+        swipe_card_bank: financeData?.swipe_card_bank || null,
+        settlement_bank: financeData?.settlement_bank || null,
+        settlement_card_tail: financeData?.settlement_card_tail || null,
+        reminder_enabled: typeof financeData?.reminder_enabled === 'boolean' ? financeData.reminder_enabled : null,
+        reminder_days_before: financeData?.reminder_days_before ?? null,
+        reminder_date: financeData?.reminder_date || null
       };
 
       let { data, error } = await this.supabase
@@ -1055,7 +1071,16 @@ class API {
         .single();
 
       if (error && error.code === '42703') {
-        const { order_id, ...fallbackPayload } = insertPayload;
+        const fallbackPayload = {
+          user_id: insertPayload.user_id,
+          type: insertPayload.type,
+          category: insertPayload.category,
+          amount: insertPayload.amount,
+          description: insertPayload.description,
+          reference_id: insertPayload.reference_id,
+          order_id: insertPayload.order_id,
+          transaction_date: insertPayload.transaction_date
+        };
         const retry = await this.supabase
           .from(this.tableNames.financeRecords)
           .insert([fallbackPayload])

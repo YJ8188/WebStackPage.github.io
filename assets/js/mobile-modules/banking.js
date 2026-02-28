@@ -15,6 +15,15 @@ window.BankingModule = {
   syncEventsBound: false,
   realtimeChannel: null,
   realtimeRefreshTimer: null,
+  creditCardBanks: [
+    '中国工商银行', '中国农业银行', '中国银行', '中国建设银行', '交通银行', '中国邮政储蓄银行',
+    '招商银行', '浦发银行', '中信银行', '中国民生银行', '兴业银行', '平安银行', '华夏银行',
+    '广发银行', '光大银行', '浙商银行', '渤海银行', '恒丰银行', '北京银行', '上海银行', '江苏银行',
+    '南京银行', '宁波银行', '杭州银行', '徽商银行', '广州银行', '东莞银行', '天津银行',
+    '重庆银行', '成都银行', '长沙银行', '青岛银行', '郑州银行', '兰州银行', '西安银行',
+    '厦门银行', '苏州银行', '齐鲁银行', '江西银行', '哈尔滨银行', '盛京银行', '吉林银行',
+    '汉口银行', '中原银行', '桂林银行', '农商银行信用卡', '其他银行'
+  ],
 
   async init(params = {}) {
     this.currentFlow = String(params?.type || this.currentFlow || '').trim().toLowerCase();
@@ -56,12 +65,8 @@ window.BankingModule = {
       });
     });
 
-    document.getElementById('bankingAddRepaymentBtn')?.addEventListener('click', () => {
-      this.showAddRepaymentModal();
-    });
-
-    document.getElementById('bankingAddSwipeBtn')?.addEventListener('click', () => {
-      this.showAddSwipeModal();
+    document.getElementById('bankingAddBtn')?.addEventListener('click', async () => {
+      await this.showCreateActionSheet();
     });
 
     const searchInput = document.getElementById('bankingSearchInput');
@@ -192,9 +197,68 @@ window.BankingModule = {
     await this.loadRecords();
   },
 
+  async showCreateActionSheet() {
+    const openRepayment = async () => this.showAddRepaymentModal();
+    const openSwipe = async () => this.showAddSwipeModal();
+    const preferSwipe = this.currentFlow === 'swipe';
+    const actions = preferSwipe
+      ? [
+          { text: '新增刷卡业务', icon: 'exchange', handler: openSwipe },
+          { text: '新增还款业务', icon: 'credit-card', handler: openRepayment }
+        ]
+      : [
+          { text: '新增还款业务', icon: 'credit-card', handler: openRepayment },
+          { text: '新增刷卡业务', icon: 'exchange', handler: openSwipe }
+        ];
+    if (window.ActionSheet?.show) {
+      await window.ActionSheet.show({
+        title: '选择新增类型',
+        actions
+      });
+      return;
+    }
+    if (preferSwipe) {
+      await openSwipe();
+      return;
+    }
+    await openRepayment();
+  },
+
+  getBankOptionsHtml(selected = '') {
+    const selectedBank = String(selected || '').trim();
+    return this.creditCardBanks.map(name => {
+      const safeName = this.escapeHtml(name);
+      const isSelected = selectedBank && selectedBank === name ? ' selected' : '';
+      return `<option value="${safeName}"${isSelected}>${safeName}</option>`;
+    }).join('');
+  },
+
+  parseTail4(value) {
+    return String(value || '').replace(/\D/g, '').slice(-4);
+  },
+
   formatMoneyText(amount) {
     const value = this.toAbsAmount(amount, 0);
     return window.Utils.formatMoney(value);
+  },
+
+  toShanghaiOffsetDateTime(value) {
+    const partMap = window.Utils?.getDateParts?.(value || new Date());
+    if (!partMap?.year || !partMap?.month || !partMap?.day) {
+      const nowParts = window.Utils?.getDateParts?.(new Date());
+      if (!nowParts?.year) return new Date().toISOString();
+      return `${nowParts.year}-${nowParts.month}-${nowParts.day}T${nowParts.hour || '00'}:${nowParts.minute || '00'}:${nowParts.second || '00'}+08:00`;
+    }
+    return `${partMap.year}-${partMap.month}-${partMap.day}T${partMap.hour || '00'}:${partMap.minute || '00'}:${partMap.second || '00'}+08:00`;
+  },
+
+  toShanghaiDateTimeText(value) {
+    return window.Utils.formatDate(value, 'YYYY/MM/DD HH:mm');
+  },
+
+  parseShanghaiDate(value) {
+    const parsed = window.Utils?.parseDate?.(value);
+    return parsed instanceof Date && !Number.isNaN(parsed.getTime()) ? parsed : null;
   },
 
   parseOptionalDay(value) {
@@ -205,12 +269,91 @@ window.BankingModule = {
     return day;
   },
 
+  parseReminderDays(value, fallback = 3) {
+    const num = Math.floor(Number(value));
+    if (!Number.isFinite(num)) return fallback;
+    return Math.min(30, Math.max(0, num));
+  },
+
+  getMonthlyDateByDay(baseDate, day, monthOffset = 0) {
+    const safeDay = this.parseOptionalDay(day);
+    if (!safeDay || Number.isNaN(safeDay)) return null;
+    const target = new Date(baseDate.getFullYear(), baseDate.getMonth() + monthOffset, 1, 9, 0, 0, 0);
+    const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+    target.setDate(Math.min(Math.max(1, safeDay), lastDay));
+    return target;
+  },
+
+  getUpcomingMonthlyDate(baseDate, day) {
+    const thisMonth = this.getMonthlyDateByDay(baseDate, day, 0);
+    if (!thisMonth) return null;
+    const baseDayStart = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), 0, 0, 0, 0);
+    const thisMonthDayStart = new Date(thisMonth.getFullYear(), thisMonth.getMonth(), thisMonth.getDate(), 0, 0, 0, 0);
+    if (baseDayStart.getTime() <= thisMonthDayStart.getTime()) {
+      return thisMonth;
+    }
+    return this.getMonthlyDateByDay(baseDate, day, 1);
+  },
+
+  addDaysToDate(date, days) {
+    const next = new Date(date);
+    next.setDate(next.getDate() + Number(days || 0));
+    return next;
+  },
+
+  formatRuleDate(date) {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '-';
+    return window.Utils.formatDate(date, 'YYYY-MM-DD');
+  },
+
+  buildBankCycleRecommendation(baseDateRaw, billDayRaw, repaymentDayRaw) {
+    const billDay = this.parseOptionalDay(billDayRaw);
+    const repaymentDay = this.parseOptionalDay(repaymentDayRaw);
+    if (!billDay || !repaymentDay || Number.isNaN(billDay) || Number.isNaN(repaymentDay)) {
+      return null;
+    }
+    const baseDate = this.parseShanghaiDate(baseDateRaw) || new Date();
+    const nextBillDate = this.getUpcomingMonthlyDate(baseDate, billDay);
+    if (!nextBillDate) return null;
+    const recommendSwipeStart = this.addDaysToDate(nextBillDate, 1);
+    const recommendSwipeEnd = this.addDaysToDate(nextBillDate, 5);
+    const dueDate = repaymentDay > billDay
+      ? this.getMonthlyDateByDay(nextBillDate, repaymentDay, 0)
+      : this.getMonthlyDateByDay(nextBillDate, repaymentDay, 1);
+    if (!dueDate) return null;
+    const recommendRepayDate = this.addDaysToDate(dueDate, -2);
+    const remindSuggestDate = this.addDaysToDate(dueDate, -3);
+    return {
+      nextBillDate,
+      recommendSwipeStart,
+      recommendSwipeEnd,
+      dueDate,
+      recommendRepayDate,
+      remindSuggestDate
+    };
+  },
+
+  getCreditReminderDate(transactionDateText, repaymentDay, reminderDaysBefore = 0) {
+    const baseDate = this.parseShanghaiDate(transactionDateText) || new Date();
+    const dueThisMonth = this.getMonthlyDateByDay(baseDate, repaymentDay, 0);
+    if (!dueThisMonth) return null;
+    let dueDate = dueThisMonth;
+    if (dueDate.getTime() < baseDate.getTime()) {
+      const next = this.getMonthlyDateByDay(baseDate, repaymentDay, 1);
+      if (next) dueDate = next;
+    }
+    const reminderDate = new Date(dueDate);
+    reminderDate.setDate(dueDate.getDate() - this.parseReminderDays(reminderDaysBefore, 0));
+    return Number.isNaN(reminderDate.getTime()) ? null : reminderDate;
+  },
+
   bindDateTimePickerButton({
     buttonId,
     textId,
     isoInputId,
     dateTitle = '选择日期',
-    timeTitle = '选择时间'
+    timeTitle = '选择时间',
+    onChange = null
   }) {
     setTimeout(() => {
       const pickerBtn = document.getElementById(buttonId);
@@ -220,8 +363,8 @@ window.BankingModule = {
 
       pickerBtn.addEventListener('click', async () => {
         try {
-          const baseDate = new Date(String(isoInput.value || ''));
-          const currentDate = Number.isNaN(baseDate.getTime()) ? new Date() : baseDate;
+          const baseDate = this.parseShanghaiDate(String(isoInput.value || ''));
+          const currentDate = baseDate || new Date();
 
           const pickedDate = await window.Picker.showDatePicker({
             title: dateTitle,
@@ -248,8 +391,9 @@ window.BankingModule = {
             return;
           }
 
-          isoInput.value = mergedDate.toISOString();
-          pickerText.textContent = window.Utils.formatDate(mergedDate, 'YYYY-MM-DD HH:mm');
+          isoInput.value = this.toShanghaiOffsetDateTime(mergedDate);
+          pickerText.textContent = this.toShanghaiDateTimeText(mergedDate);
+          if (typeof onChange === 'function') onChange(mergedDate);
         } catch (error) {
           console.error('选择交易时间失败:', error);
           window.Toast.error('选择交易时间失败');
@@ -270,96 +414,224 @@ window.BankingModule = {
     await this.loadRecords();
   },
 
+  updateRepaymentRuleHint() {
+    const hintEl = document.getElementById('mobileBankRepaymentRuleHint');
+    if (!hintEl) return;
+    const billDay = this.parseOptionalDay(document.getElementById('mobileBankRepaymentBillDayInput')?.value || '');
+    const repaymentDay = this.parseOptionalDay(document.getElementById('mobileBankRepaymentDayInput')?.value || '');
+    const reminderDaysBefore = this.parseReminderDays(document.getElementById('mobileBankRepaymentReminderDaysInput')?.value || 3, 3);
+    const repaymentAmount = Math.max(0, Number(document.getElementById('mobileBankRepaymentAmountInput')?.value || 0));
+    const transactionDate = String(document.getElementById('mobileBankRepaymentDateIsoInput')?.value || '').trim() || this.toShanghaiOffsetDateTime(new Date());
+    const recommendation = this.buildBankCycleRecommendation(transactionDate, billDay, repaymentDay);
+
+    if (!recommendation) {
+      hintEl.textContent = '规则建议：请先填写账单日与还款日，系统将自动推荐最佳刷卡时间与还款时间。';
+      return;
+    }
+
+    hintEl.innerHTML = [
+      '规则建议：账单日后刷卡更容易拿到更长免息期。',
+      repaymentAmount > 0 ? `本期应还金额：${this.escapeHtml(this.formatMoneyText(repaymentAmount))}。` : '本期应还金额：未填写。',
+      `推荐刷卡窗口：${this.escapeHtml(this.formatRuleDate(recommendation.recommendSwipeStart))} 至 ${this.escapeHtml(this.formatRuleDate(recommendation.recommendSwipeEnd))}。`,
+      `下次账单日：${this.escapeHtml(this.formatRuleDate(recommendation.nextBillDate))}；下次还款日：${this.escapeHtml(this.formatRuleDate(recommendation.dueDate))}。`,
+      `推荐还款时间：${this.escapeHtml(this.formatRuleDate(recommendation.recommendRepayDate))}（建议至少提前 2 天），提醒可设在 ${this.escapeHtml(this.formatRuleDate(recommendation.remindSuggestDate))}。`,
+      `<strong>提醒提前天数：</strong>${this.escapeHtml(String(reminderDaysBefore))} 天`
+    ].join('<br>');
+  },
+
+  updateSwipeFeePreview() {
+    const swipeInput = document.getElementById('mobileBankSwipeAmountInput');
+    const actualInput = document.getElementById('mobileBankSwipeActualInput');
+    const feeInput = document.getElementById('mobileBankSwipeFeeInput');
+    const feeRateInput = document.getElementById('mobileBankSwipeFeeRateInput');
+    if (!swipeInput || !actualInput || !feeInput || !feeRateInput) return;
+    const swipe = Math.max(0, Number(swipeInput.value || 0));
+    const actual = Math.max(0, Number(actualInput.value || 0));
+    const fee = Math.max(0, swipe - actual);
+    const rate = swipe > 0 ? (fee / swipe) * 100 : 0;
+    feeInput.value = fee.toFixed(2);
+    feeRateInput.value = `${rate.toFixed(2)}%`;
+  },
+
+  setupRepaymentModalBehavior() {
+    this.bindDateTimePickerButton({
+      buttonId: 'mobileBankRepaymentDatePickerBtn',
+      textId: 'mobileBankRepaymentDatePickerText',
+      isoInputId: 'mobileBankRepaymentDateIsoInput',
+      dateTitle: '选择还款日期',
+      timeTitle: '选择还款时间',
+      onChange: () => this.updateRepaymentRuleHint()
+    });
+
+    const billInput = document.getElementById('mobileBankRepaymentBillDayInput');
+    const repaymentInput = document.getElementById('mobileBankRepaymentDayInput');
+    const amountInput = document.getElementById('mobileBankRepaymentAmountInput');
+    const reminderInput = document.getElementById('mobileBankRepaymentReminderDaysInput');
+    [billInput, repaymentInput, amountInput, reminderInput].forEach(el => {
+      if (!el) return;
+      el.addEventListener('input', () => this.updateRepaymentRuleHint());
+    });
+    this.updateRepaymentRuleHint();
+  },
+
+  setupSwipeModalBehavior() {
+    this.bindDateTimePickerButton({
+      buttonId: 'mobileBankSwipeDatePickerBtn',
+      textId: 'mobileBankSwipeDatePickerText',
+      isoInputId: 'mobileBankSwipeDateIsoInput',
+      dateTitle: '选择刷卡日期',
+      timeTitle: '选择刷卡时间'
+    });
+
+    const swipeInput = document.getElementById('mobileBankSwipeAmountInput');
+    const actualInput = document.getElementById('mobileBankSwipeActualInput');
+    [swipeInput, actualInput].forEach(el => {
+      if (!el) return;
+      el.addEventListener('input', () => this.updateSwipeFeePreview());
+    });
+    this.updateSwipeFeePreview();
+  },
+
   async showAddRepaymentModal() {
     const now = new Date();
-    const defaultDateIso = now.toISOString();
-    const defaultDateText = window.Utils.formatDate(now, 'YYYY-MM-DD HH:mm');
+    const defaultDateIso = this.toShanghaiOffsetDateTime(now);
+    const defaultDateText = this.toShanghaiDateTimeText(now);
+    const bankOptionsHtml = this.getBankOptionsHtml();
 
     const modalPromise = window.Modal.show({
       title: '新增还款业务',
       confirmText: '保存',
       cancelText: '取消',
+      showClose: true,
+      maxWidth: '560px',
+      containerClass: 'mobile-banking-modal',
+      bodyClass: 'mobile-banking-modal-body',
       content: `
-        <div style="text-align:left;">
-          <div style="margin-bottom:10px;">
-            <div style="margin-bottom:6px;color:#475569;font-size:12px;">还款银行 <span style="color:#dc2626;">*</span></div>
-            <input id="mobileBankRepaymentBankInput" type="text" maxlength="30" placeholder="例如：光大银行"
-              style="width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;box-sizing:border-box;" />
-          </div>
-          <div style="margin-bottom:10px;">
-            <div style="margin-bottom:6px;color:#475569;font-size:12px;">本期账单金额 <span style="color:#dc2626;">*</span></div>
-            <input id="mobileBankRepaymentAmountInput" type="number" min="0.01" step="0.01" placeholder="0.00"
-              style="width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;box-sizing:border-box;" />
-          </div>
-          <div style="display:flex;gap:8px;margin-bottom:10px;">
-            <div style="flex:1;min-width:0;">
-              <div style="margin-bottom:6px;color:#475569;font-size:12px;">账单日</div>
-              <input id="mobileBankRepaymentBillDayInput" type="number" min="1" max="31" step="1" placeholder="1-31"
-                style="width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;box-sizing:border-box;" />
+        <div class="mobile-banking-form">
+          <div class="mobile-banking-panel">
+            <div class="mobile-banking-panel-title">还款业务板块</div>
+            <div class="mobile-banking-row">
+              <label class="mobile-banking-label">交易时间</label>
+              <input id="mobileBankRepaymentDateIsoInput" type="hidden" value="${defaultDateIso}" />
+              <button id="mobileBankRepaymentDatePickerBtn" type="button" class="mobile-banking-date-btn">
+                <span id="mobileBankRepaymentDatePickerText">${defaultDateText}</span>
+                <i class="fa fa-calendar-o"></i>
+              </button>
             </div>
-            <div style="flex:1;min-width:0;">
-              <div style="margin-bottom:6px;color:#475569;font-size:12px;">还款日</div>
-              <input id="mobileBankRepaymentDayInput" type="number" min="1" max="31" step="1" placeholder="1-31"
-                style="width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;box-sizing:border-box;" />
+            <div class="mobile-banking-row">
+              <label class="mobile-banking-label">还款信用卡银行 <span class="required">*</span></label>
+              <select id="mobileBankRepaymentBankInput" class="mobile-banking-select">
+                <option value="">请选择银行</option>
+                ${bankOptionsHtml}
+              </select>
             </div>
-          </div>
-          <div style="margin-bottom:10px;">
-            <div style="margin-bottom:6px;color:#475569;font-size:12px;">交易时间</div>
-            <input id="mobileBankRepaymentDateIsoInput" type="hidden" value="${defaultDateIso}" />
-            <button id="mobileBankRepaymentDatePickerBtn" type="button"
-              style="width:100%;max-width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;box-sizing:border-box;background:#fff;color:#334155;text-align:left;display:flex;align-items:center;justify-content:space-between;">
-              <span id="mobileBankRepaymentDatePickerText">${defaultDateText}</span>
-              <i class="fa fa-calendar" style="color:#94a3b8;"></i>
-            </button>
-          </div>
-          <div>
-            <div style="margin-bottom:6px;color:#475569;font-size:12px;">备注</div>
-            <textarea id="mobileBankRepaymentDescInput" rows="2" placeholder="选填：还款备注"
-              style="width:100%;border:1px solid #d9d9d9;border-radius:8px;padding:8px 10px;resize:none;box-sizing:border-box;"></textarea>
+            <div class="mobile-banking-row">
+              <label class="mobile-banking-label">信用卡尾号4位（可选）</label>
+              <input id="mobileBankRepaymentCardTailInput" class="mobile-banking-input" type="text" maxlength="4" placeholder="例如 1234" />
+            </div>
+            <div class="mobile-banking-row two-col">
+              <div>
+                <label class="mobile-banking-label">账单日（每月）<span class="required">*</span></label>
+                <input id="mobileBankRepaymentBillDayInput" class="mobile-banking-input" type="number" min="1" max="31" step="1" placeholder="1-31" />
+              </div>
+              <div>
+                <label class="mobile-banking-label">还款日（每月）<span class="required">*</span></label>
+                <input id="mobileBankRepaymentDayInput" class="mobile-banking-input" type="number" min="1" max="31" step="1" placeholder="1-31" />
+              </div>
+            </div>
+            <div class="mobile-banking-row two-col">
+              <div>
+                <label class="mobile-banking-label">提醒设置</label>
+                <select id="mobileBankRepaymentReminderEnabledInput" class="mobile-banking-select">
+                  <option value="1">开启提醒</option>
+                  <option value="0">关闭提醒</option>
+                </select>
+              </div>
+              <div>
+                <label class="mobile-banking-label">提前天数</label>
+                <input id="mobileBankRepaymentReminderDaysInput" class="mobile-banking-input" type="number" min="0" max="30" step="1" value="3" />
+              </div>
+            </div>
+            <div class="mobile-banking-row">
+              <label class="mobile-banking-label">应还金额 <span class="required">*</span></label>
+              <input id="mobileBankRepaymentAmountInput" class="mobile-banking-input" type="number" min="0.01" step="0.01" placeholder="本期需还金额" />
+            </div>
+            <div class="mobile-banking-row">
+              <div id="mobileBankRepaymentRuleHint" class="mobile-banking-hint">规则建议：请先填写账单日与还款日，系统将自动推荐最佳刷卡时间与还款时间。</div>
+            </div>
+            <div class="mobile-banking-row">
+              <label class="mobile-banking-label">备注</label>
+              <input id="mobileBankRepaymentDescInput" class="mobile-banking-input" type="text" maxlength="120" placeholder="可选：还款备注" />
+            </div>
           </div>
         </div>
       `,
       onConfirm: async () => {
         const bank = String(document.getElementById('mobileBankRepaymentBankInput')?.value || '').trim();
+        const cardTail = this.parseTail4(document.getElementById('mobileBankRepaymentCardTailInput')?.value || '');
         const amount = Number(document.getElementById('mobileBankRepaymentAmountInput')?.value || 0);
         const billDay = this.parseOptionalDay(document.getElementById('mobileBankRepaymentBillDayInput')?.value || '');
         const repaymentDay = this.parseOptionalDay(document.getElementById('mobileBankRepaymentDayInput')?.value || '');
+        const reminderEnabled = String(document.getElementById('mobileBankRepaymentReminderEnabledInput')?.value || '1') === '1';
+        const reminderDaysBefore = this.parseReminderDays(document.getElementById('mobileBankRepaymentReminderDaysInput')?.value || 3, 3);
         const transactionDateIso = String(document.getElementById('mobileBankRepaymentDateIsoInput')?.value || '').trim();
         const customDesc = String(document.getElementById('mobileBankRepaymentDescInput')?.value || '').trim();
 
         if (!bank) {
-          window.Toast.error('请输入还款银行');
+          window.Toast.error('请选择还款信用卡银行');
           return false;
         }
         if (!Number.isFinite(amount) || amount <= 0) {
-          window.Toast.error('本期账单金额必须大于0');
+          window.Toast.error('应还金额必须大于0');
           return false;
         }
-        if (Number.isNaN(billDay) || Number.isNaN(repaymentDay)) {
-          window.Toast.error('账单日和还款日需在1-31之间');
+        if (!billDay || !repaymentDay || Number.isNaN(billDay) || Number.isNaN(repaymentDay)) {
+          window.Toast.error('账单日与还款日需在1-31之间');
           return false;
         }
 
-        const parsedDate = transactionDateIso ? new Date(transactionDateIso) : new Date();
-        if (Number.isNaN(parsedDate.getTime())) {
+        const parsedDate = this.parseShanghaiDate(transactionDateIso);
+        if (!(parsedDate instanceof Date) || Number.isNaN(parsedDate.getTime())) {
           window.Toast.error('交易时间格式不正确');
           return false;
         }
+        const normalizedDate = this.toShanghaiOffsetDateTime(parsedDate);
+        const reminderDateObj = reminderEnabled
+          ? this.getCreditReminderDate(normalizedDate, repaymentDay, reminderDaysBefore)
+          : null;
+        const recommendation = this.buildBankCycleRecommendation(normalizedDate, billDay, repaymentDay);
+        const reminderText = reminderEnabled
+          ? `提醒：提前${reminderDaysBefore}天（${reminderDateObj ? this.formatRuleDate(reminderDateObj) : '待计算'}）`
+          : '提醒：关闭';
+        const recommendationText = recommendation
+          ? `建议：账单后刷卡 ${this.formatRuleDate(recommendation.recommendSwipeStart)}~${this.formatRuleDate(recommendation.recommendSwipeEnd)}，还款建议 ${this.formatRuleDate(recommendation.recommendRepayDate)}`
+          : '';
 
         const description = [
           customDesc,
-          `银行：${bank}`,
-          `本期账单金额：${this.formatMoneyText(amount)}`,
-          billDay > 0 ? `账单日：每月${billDay}日` : '',
-          repaymentDay > 0 ? `还款日：每月${repaymentDay}日` : ''
+          `银行：${bank}${cardTail ? `（尾号${cardTail}）` : ''}`,
+          `应还：${this.formatMoneyText(amount)}`,
+          `账单日：每月${billDay}日`,
+          `还款日：每月${repaymentDay}日`,
+          reminderText,
+          recommendationText
         ].filter(Boolean).join('；');
 
         await window.API.createFinanceRecord({
+          business_type: 'credit_card_repayment',
           type: 'expense',
           category: '信用卡还款',
           amount,
           description,
-          transaction_date: parsedDate.toISOString()
+          transaction_date: normalizedDate,
+          card_bank: bank,
+          card_bill_day: billDay,
+          card_repayment_day: repaymentDay,
+          card_repayment_amount: amount,
+          card_tail: cardTail || null,
+          reminder_enabled: reminderEnabled,
+          reminder_days_before: reminderDaysBefore,
+          reminder_date: reminderDateObj ? this.toShanghaiOffsetDateTime(reminderDateObj) : null
         });
 
         window.Toast.success('还款业务已保存');
@@ -368,80 +640,104 @@ window.BankingModule = {
       }
     });
 
-    this.bindDateTimePickerButton({
-      buttonId: 'mobileBankRepaymentDatePickerBtn',
-      textId: 'mobileBankRepaymentDatePickerText',
-      isoInputId: 'mobileBankRepaymentDateIsoInput',
-      dateTitle: '选择还款日期',
-      timeTitle: '选择还款时间'
-    });
+    this.setupRepaymentModalBehavior();
 
     await modalPromise;
   },
 
   async showAddSwipeModal() {
     const now = new Date();
-    const defaultDateIso = now.toISOString();
-    const defaultDateText = window.Utils.formatDate(now, 'YYYY-MM-DD HH:mm');
+    const defaultDateIso = this.toShanghaiOffsetDateTime(now);
+    const defaultDateText = this.toShanghaiDateTimeText(now);
+    const bankOptionsHtml = this.getBankOptionsHtml();
 
     const modalPromise = window.Modal.show({
       title: '新增刷卡业务',
       confirmText: '保存',
       cancelText: '取消',
+      showClose: true,
+      maxWidth: '560px',
+      containerClass: 'mobile-banking-modal',
+      bodyClass: 'mobile-banking-modal-body',
       content: `
-        <div style="text-align:left;">
-          <div style="margin-bottom:10px;">
-            <div style="margin-bottom:6px;color:#475569;font-size:12px;">刷卡银行 <span style="color:#dc2626;">*</span></div>
-            <input id="mobileBankSwipeBankInput" type="text" maxlength="30" placeholder="例如：光大银行"
-              style="width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;box-sizing:border-box;" />
-          </div>
-          <div style="margin-bottom:10px;">
-            <div style="margin-bottom:6px;color:#475569;font-size:12px;">到账银行 <span style="color:#dc2626;">*</span></div>
-            <input id="mobileBankSettlementBankInput" type="text" maxlength="30" placeholder="例如：招商银行"
-              style="width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;box-sizing:border-box;" />
-          </div>
-          <div style="display:flex;gap:8px;margin-bottom:10px;">
-            <div style="flex:1;min-width:0;">
-              <div style="margin-bottom:6px;color:#475569;font-size:12px;">刷卡金额 <span style="color:#dc2626;">*</span></div>
-              <input id="mobileBankSwipeAmountInput" type="number" min="0.01" step="0.01" placeholder="0.00"
-                style="width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;box-sizing:border-box;" />
+        <div class="mobile-banking-form">
+          <div class="mobile-banking-panel">
+            <div class="mobile-banking-panel-title">刷卡业务板块</div>
+            <div class="mobile-banking-row">
+              <label class="mobile-banking-label">交易时间</label>
+              <input id="mobileBankSwipeDateIsoInput" type="hidden" value="${defaultDateIso}" />
+              <button id="mobileBankSwipeDatePickerBtn" type="button" class="mobile-banking-date-btn">
+                <span id="mobileBankSwipeDatePickerText">${defaultDateText}</span>
+                <i class="fa fa-calendar-o"></i>
+              </button>
             </div>
-            <div style="flex:1;min-width:0;">
-              <div style="margin-bottom:6px;color:#475569;font-size:12px;">到账金额 <span style="color:#dc2626;">*</span></div>
-              <input id="mobileBankSwipeActualInput" type="number" min="0.01" step="0.01" placeholder="0.00"
-                style="width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;box-sizing:border-box;" />
+            <div class="mobile-banking-row two-col">
+              <div>
+                <label class="mobile-banking-label">刷卡信用卡银行 <span class="required">*</span></label>
+                <select id="mobileBankSwipeBankInput" class="mobile-banking-select">
+                  <option value="">请选择银行</option>
+                  ${bankOptionsHtml}
+                </select>
+              </div>
+              <div>
+                <label class="mobile-banking-label">到账储蓄卡银行 <span class="required">*</span></label>
+                <select id="mobileBankSettlementBankInput" class="mobile-banking-select">
+                  <option value="">请选择银行</option>
+                  ${bankOptionsHtml}
+                </select>
+              </div>
             </div>
-          </div>
-          <div style="margin-bottom:10px;">
-            <div style="margin-bottom:6px;color:#475569;font-size:12px;">交易时间</div>
-            <input id="mobileBankSwipeDateIsoInput" type="hidden" value="${defaultDateIso}" />
-            <button id="mobileBankSwipeDatePickerBtn" type="button"
-              style="width:100%;max-width:100%;height:36px;border:1px solid #d9d9d9;border-radius:8px;padding:0 10px;box-sizing:border-box;background:#fff;color:#334155;text-align:left;display:flex;align-items:center;justify-content:space-between;">
-              <span id="mobileBankSwipeDatePickerText">${defaultDateText}</span>
-              <i class="fa fa-calendar" style="color:#94a3b8;"></i>
-            </button>
-          </div>
-          <div>
-            <div style="margin-bottom:6px;color:#475569;font-size:12px;">备注</div>
-            <textarea id="mobileBankSwipeDescInput" rows="2" placeholder="选填：刷卡渠道、备注"
-              style="width:100%;border:1px solid #d9d9d9;border-radius:8px;padding:8px 10px;resize:none;box-sizing:border-box;"></textarea>
+            <div class="mobile-banking-row two-col">
+              <div>
+                <label class="mobile-banking-label">刷卡信用卡尾号（可选）</label>
+                <input id="mobileBankSwipeCardTailInput" class="mobile-banking-input" type="text" maxlength="4" placeholder="例如 1234" />
+              </div>
+              <div>
+                <label class="mobile-banking-label">到账储蓄卡尾号（可选）</label>
+                <input id="mobileBankSettlementCardTailInput" class="mobile-banking-input" type="text" maxlength="4" placeholder="例如 6688" />
+              </div>
+            </div>
+            <div class="mobile-banking-row two-col">
+              <div>
+                <label class="mobile-banking-label">刷卡金额（本次） <span class="required">*</span></label>
+                <input id="mobileBankSwipeAmountInput" class="mobile-banking-input" type="number" min="0.01" step="0.01" placeholder="例如 1000" />
+              </div>
+              <div>
+                <label class="mobile-banking-label">实际到账金额（储蓄卡） <span class="required">*</span></label>
+                <input id="mobileBankSwipeActualInput" class="mobile-banking-input" type="number" min="0.01" step="0.01" placeholder="例如 994" />
+              </div>
+            </div>
+            <div class="mobile-banking-row">
+              <label class="mobile-banking-label">扣除费用（自动计算）</label>
+              <input id="mobileBankSwipeFeeInput" class="mobile-banking-readonly" type="text" readonly value="0.00" />
+            </div>
+            <div class="mobile-banking-row">
+              <label class="mobile-banking-label">扣费费率（自动计算）</label>
+              <input id="mobileBankSwipeFeeRateInput" class="mobile-banking-readonly" type="text" readonly value="0.00%" />
+            </div>
+            <div class="mobile-banking-row">
+              <label class="mobile-banking-label">备注</label>
+              <input id="mobileBankSwipeDescInput" class="mobile-banking-input" type="text" maxlength="120" placeholder="可选：刷卡备注、渠道" />
+            </div>
           </div>
         </div>
       `,
       onConfirm: async () => {
         const swipeBank = String(document.getElementById('mobileBankSwipeBankInput')?.value || '').trim();
         const settlementBank = String(document.getElementById('mobileBankSettlementBankInput')?.value || '').trim();
+        const swipeCardTail = this.parseTail4(document.getElementById('mobileBankSwipeCardTailInput')?.value || '');
+        const settlementCardTail = this.parseTail4(document.getElementById('mobileBankSettlementCardTailInput')?.value || '');
         const swipeAmount = Number(document.getElementById('mobileBankSwipeAmountInput')?.value || 0);
         const actualAmount = Number(document.getElementById('mobileBankSwipeActualInput')?.value || 0);
         const transactionDateIso = String(document.getElementById('mobileBankSwipeDateIsoInput')?.value || '').trim();
         const customDesc = String(document.getElementById('mobileBankSwipeDescInput')?.value || '').trim();
 
         if (!swipeBank) {
-          window.Toast.error('请输入刷卡银行');
+          window.Toast.error('请选择刷卡信用卡银行');
           return false;
         }
         if (!settlementBank) {
-          window.Toast.error('请输入到账银行');
+          window.Toast.error('请选择到账储蓄卡银行');
           return false;
         }
         if (!Number.isFinite(swipeAmount) || swipeAmount <= 0) {
@@ -457,19 +753,21 @@ window.BankingModule = {
           return false;
         }
 
-        const parsedDate = transactionDateIso ? new Date(transactionDateIso) : new Date();
-        if (Number.isNaN(parsedDate.getTime())) {
+        const parsedDate = this.parseShanghaiDate(transactionDateIso);
+        if (!(parsedDate instanceof Date) || Number.isNaN(parsedDate.getTime())) {
           window.Toast.error('交易时间格式不正确');
           return false;
         }
+        const normalizedDate = this.toShanghaiOffsetDateTime(parsedDate);
 
         const feeAmount = Math.max(0, swipeAmount - actualAmount);
         const feeRate = swipeAmount > 0 ? (feeAmount / swipeAmount) * 100 : 0;
+        const settlementCardText = `${settlementBank}${settlementCardTail ? `（尾号${settlementCardTail}）` : ''}`;
         const description = [
           customDesc,
-          `银行：${swipeBank}`,
-          `刷卡卡：${swipeBank}`,
-          `到账卡：${settlementBank}`,
+          `银行：${swipeBank}${swipeCardTail ? `（尾号${swipeCardTail}）` : ''}`,
+          `刷卡卡：${swipeBank}${swipeCardTail ? `（尾号${swipeCardTail}）` : ''}`,
+          `到账卡：${settlementCardText}`,
           `刷卡：${this.formatMoneyText(swipeAmount)}`,
           `到账：${this.formatMoneyText(actualAmount)}`,
           `手续费：${this.formatMoneyText(feeAmount)}`,
@@ -477,11 +775,21 @@ window.BankingModule = {
         ].filter(Boolean).join('；');
 
         await window.API.createFinanceRecord({
+          business_type: 'credit_card_swipe',
           type: 'income',
           category: '信用卡刷卡',
           amount: actualAmount,
           description,
-          transaction_date: parsedDate.toISOString()
+          transaction_date: normalizedDate,
+          card_bank: swipeBank,
+          card_swipe_amount: swipeAmount,
+          card_actual_amount: actualAmount,
+          card_fee_amount: feeAmount,
+          card_fee_rate: Number(feeRate.toFixed(4)),
+          card_tail: swipeCardTail || null,
+          swipe_card_bank: swipeBank,
+          settlement_bank: settlementBank,
+          settlement_card_tail: settlementCardTail || null
         });
 
         window.Toast.success('刷卡业务已保存');
@@ -490,13 +798,7 @@ window.BankingModule = {
       }
     });
 
-    this.bindDateTimePickerButton({
-      buttonId: 'mobileBankSwipeDatePickerBtn',
-      textId: 'mobileBankSwipeDatePickerText',
-      isoInputId: 'mobileBankSwipeDateIsoInput',
-      dateTitle: '选择刷卡日期',
-      timeTitle: '选择刷卡时间'
-    });
+    this.setupSwipeModalBehavior();
 
     await modalPromise;
   },

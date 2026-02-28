@@ -25,6 +25,7 @@
     <link rel="stylesheet" href="assets/css/mobile-modules/product.css?v=20260219-14">
     <link rel="stylesheet" href="assets/css/mobile-modules/inventory.css?v=20260219-14">
     <link rel="stylesheet" href="assets/css/mobile-modules/finance.css?v=20260219-16">
+    <link rel="stylesheet" href="assets/css/mobile-modules/banking.css?v=20260228-01">
     <link rel="stylesheet" href="assets/css/mobile-modules/profile.css?v=20260219-14">
 
     <!-- Supabase -->
@@ -267,20 +268,16 @@
                     <div class="navbar-center">
                         <div class="navbar-title">银行业务</div>
                     </div>
-                    <div class="navbar-right"></div>
+                    <div class="navbar-right">
+                        <div class="navbar-icon" id="bankingAddBtn">
+                            <i class="fa fa-plus"></i>
+                        </div>
+                    </div>
                 </div>
                 <div class="tabs" id="bankingTabs">
                     <div class="tab-item active" data-type="">全部</div>
                     <div class="tab-item" data-type="repayment">还款流水</div>
                     <div class="tab-item" data-type="swipe">刷卡流水</div>
-                </div>
-                <div class="banking-action-bar">
-                    <button type="button" class="btn btn-primary btn-sm banking-action-btn" id="bankingAddRepaymentBtn">
-                        <i class="fa fa-credit-card"></i>新增还款业务
-                    </button>
-                    <button type="button" class="btn btn-primary btn-sm banking-action-btn" id="bankingAddSwipeBtn">
-                        <i class="fa fa-exchange"></i>新增刷卡业务
-                    </button>
                 </div>
                 <div class="search-bar">
                     <div class="search-input-wrapper">
@@ -393,7 +390,7 @@
 
     <!-- UI组件 -->
     <script src="assets/js/mobile-components/toast.js?v=20260219-14"></script>
-    <script src="assets/js/mobile-components/modal.js?v=20260219-14"></script>
+    <script src="assets/js/mobile-components/modal.js?v=20260228-01"></script>
     <script src="assets/js/mobile-components/loading.js?v=20260219-14"></script>
     <script src="assets/js/mobile-components/actionsheet.js?v=20260219-14"></script>
     <script src="assets/js/mobile-components/picker.js?v=20260219-23"></script>
@@ -405,7 +402,7 @@
     <script src="assets/js/mobile-modules/product.js?v=20260219-17"></script>
     <script src="assets/js/mobile-modules/inventory.js?v=20260219-17"></script>
     <script src="assets/js/mobile-modules/finance.js?v=20260219-23"></script>
-    <script src="assets/js/mobile-modules/banking.js?v=20260228-02"></script>
+    <script src="assets/js/mobile-modules/banking.js?v=20260228-03"></script>
     <script src="assets/js/mobile-modules/notes.js?v=20260228-01"></script>
     <script src="assets/js/mobile-modules/profile.js?v=20260219-16"></script>
 

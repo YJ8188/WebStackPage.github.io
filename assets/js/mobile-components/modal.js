@@ -15,6 +15,11 @@ class Modal {
       showCancel = true,
       cancelText = '取消',
       confirmText = '确定',
+      showClose = false,
+      maxWidth = '',
+      containerClass = '',
+      bodyClass = '',
+      footerClass = '',
       onCancel = null,
       onConfirm = null
     } = options;
@@ -22,12 +27,17 @@ class Modal {
     return new Promise((resolve) => {
       const modal = document.createElement('div');
       modal.className = 'modal-overlay';
+      const safeContainerClass = String(containerClass || '').trim();
+      const safeBodyClass = String(bodyClass || '').trim();
+      const safeFooterClass = String(footerClass || '').trim();
+      const safeMaxWidth = String(maxWidth || '').trim();
+      const containerStyle = safeMaxWidth ? ` style="max-width:${safeMaxWidth};"` : '';
 
       modal.innerHTML = `
-        <div class="modal-container">
-          ${title ? `<div class="modal-header">${title}</div>` : ''}
-          <div class="modal-body">${content}</div>
-          <div class="modal-footer">
+        <div class="modal-container ${safeContainerClass}"${containerStyle}>
+          ${title ? `<div class="modal-header">${title}${showClose ? '<button class="modal-close-btn" type="button" aria-label="关闭"><i class="fa fa-times"></i></button>' : ''}</div>` : ''}
+          <div class="modal-body ${safeBodyClass}">${content}</div>
+          <div class="modal-footer ${safeFooterClass}">
             ${showCancel ? `<button class="modal-btn modal-btn-cancel">${cancelText}</button>` : ''}
             <button class="modal-btn modal-btn-confirm">${confirmText}</button>
           </div>
@@ -44,6 +54,19 @@ class Modal {
       const cancelBtn = modal.querySelector('.modal-btn-cancel');
       if (cancelBtn) {
         cancelBtn.addEventListener('click', async () => {
+          if (onCancel) {
+            const result = await onCancel();
+            if (result === false) return;
+          }
+          this.hide(modal);
+          resolve(false);
+        });
+      }
+
+      // 关闭按钮
+      const closeBtn = modal.querySelector('.modal-close-btn');
+      if (closeBtn) {
+        closeBtn.addEventListener('click', async () => {
           if (onCancel) {
             const result = await onCancel();
             if (result === false) return;
@@ -134,6 +157,25 @@ modalStyle.textContent = `
   color: #262626;
   border-bottom: 1px solid #f0f0f0;
   text-align: center;
+  position: relative;
+}
+
+.modal-close-btn {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+.modal-close-btn:active {
+  background: #f1f5f9;
 }
 
 .modal-body {

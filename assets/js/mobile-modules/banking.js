@@ -925,13 +925,14 @@ window.BankingModule = {
   },
 
   isSwipeRow(row = {}) {
+    if (this.isFeeOnlyRow(row)) return true;
+    if (this.isRepaymentRow(row)) return false;
     const businessType = String(row?.business_type || '').trim().toLowerCase();
     const category = String(row?.category || '').trim();
     const description = String(row?.description || '').trim();
-    return this.isFeeOnlyRow(row)
-      || businessType === 'credit_card_swipe'
+    return businessType === 'credit_card_swipe'
       || category.includes('信用卡刷卡')
-      || /刷卡|到账/.test(description);
+      || /刷卡卡|到账卡|刷卡[:：]|到账[:：]|手续费|费率/.test(description);
   },
 
   getCycleMonthKey(row = {}) {
@@ -1128,7 +1129,18 @@ window.BankingModule = {
 
   sortRowsForDisplay(rows = []) {
     const list = Array.isArray(rows) ? rows : [];
-    const repaymentRows = list
+    const uniqueById = new Map();
+    list.forEach((row) => {
+      const id = String(row?.id || '').trim();
+      const key = id || `fallback|${this.buildFlowFingerprint(row) || this.buildRepaymentSemanticKey(row) || Math.random()}`;
+      const current = uniqueById.get(key);
+      if (!current || this.shouldReplaceDisplayRow(row, current)) {
+        uniqueById.set(key, row);
+      }
+    });
+    const safeList = Array.from(uniqueById.values());
+
+    const repaymentRows = safeList
       .filter(row => this.isRepaymentPlanRow(row))
       .sort((left, right) => {
         const leftDue = this.getRepaymentDueDateForSort(left);
@@ -1146,7 +1158,7 @@ window.BankingModule = {
         return String(right?.id || '').localeCompare(String(left?.id || ''), 'zh-CN');
       });
 
-    const swipeRows = list
+    const swipeRows = safeList
       .filter(row => this.isSwipeRow(row))
       .sort((left, right) => {
         const leftTs = this.getTransactionTimestamp(left);

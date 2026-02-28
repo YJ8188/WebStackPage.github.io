@@ -1,0 +1,1 @@
+const o={login:"Login",register:"Register",codeLogin:"Code Login",qrcodeLogin:"Qr Code Login",forgetPassword:"Forget Password",profile:"Profile"},e={title:"Dashboard",analytics:"Analytics",workspace:"Workspace"},r={auth:o,dashboard:e};export{o as auth,e as dashboard,r as default};

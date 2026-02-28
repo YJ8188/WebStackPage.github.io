@@ -167,6 +167,7 @@
         <p>纯静态部署版本（GitHub Pages 可直接运行），用于验证 Vue 方案可行性。</p>
       </div>
       <div>
+        <button class="btn" @click="goVben" style="margin-right:8px;">打开Vben版</button>
         <button class="btn" @click="goBack">返回PC ERP</button>
       </div>
     </div>
@@ -357,6 +358,11 @@
             window.location.href = target.toString();
           }
 
+          function goVben() {
+            const target = new URL("../admin-vben/index.html", window.location.href);
+            window.open(target.toString(), "_blank");
+          }
+
           return {
             records,
             form,
@@ -368,6 +374,7 @@
             formatMoney,
             addRecord,
             resetSeed,
+            goVben,
             goBack
           };
         }

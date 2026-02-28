@@ -1,0 +1,1 @@
+import{a2 as s,an as o,ay as n,b3 as t,ar as c,b4 as d,aq as l}from"../jse/index-index-DKMuiBgj.js";const u=s({__name:"Card",props:{class:{}},setup(r){const a=r;return(e,p)=>(o(),n("div",{class:t(c(d)("rounded-xl border border-border bg-card text-card-foreground",a.class))},[l(e.$slots,"default")],2))}});export{u as _};

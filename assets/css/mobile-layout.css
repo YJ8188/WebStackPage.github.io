@@ -163,6 +163,27 @@
   background-color: var(--bg-color);
 }
 
+.banking-action-bar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px var(--spacing-md) 6px;
+  background-color: var(--bg-color);
+}
+
+.banking-action-btn {
+  min-width: 0;
+  height: 36px;
+  padding: 0 var(--spacing-sm);
+  font-size: 13px;
+  white-space: nowrap;
+  border-radius: 8px;
+}
+
+.banking-action-btn i {
+  margin-right: 6px;
+}
+
 .search-input-wrapper {
   display: flex;
   align-items: center;

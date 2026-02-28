@@ -78,6 +78,20 @@
             meta: { title: 'page.dashboard.workspace' }
           }
         ]
+      },
+      {
+        name: 'ERPNew',
+        path: '/erp-new',
+        redirect: '/erp-new/desktop',
+        meta: { icon: 'mdi:monitor-dashboard', title: '新ERP（试点）' },
+        children: [
+          {
+            name: 'ERPNewDesktop',
+            path: '/erp-new/desktop',
+            component: 'IFrameView',
+            meta: { title: '新ERP-桌面版', iframeSrc: '/erp-ant.html' }
+          }
+        ]
       }
     ];
   }

@@ -13,6 +13,8 @@ window.FinanceModule = {
   },
   currentPage: 1,
   pageSize: 20,
+  rawRecords: [],
+  allViewRecords: [],
   records: [],
   hasMore: true,
   eventsBound: false,
@@ -31,6 +33,8 @@ window.FinanceModule = {
     }
     this.startRealtimeSync();
     this.currentPage = 1;
+    this.rawRecords = [];
+    this.allViewRecords = [];
     this.records = [];
     this.hasMore = true;
     await this.loadRecords();
@@ -43,6 +47,8 @@ window.FinanceModule = {
         tab.classList.add('active');
         this.currentType = String(tab.dataset.type || '').trim();
         this.currentPage = 1;
+        this.rawRecords = [];
+        this.allViewRecords = [];
         this.records = [];
         this.hasMore = true;
         this.loadRecords();
@@ -99,6 +105,8 @@ window.FinanceModule = {
     this.realtimeRefreshTimer = setTimeout(async () => {
       if (!this.isPageActive()) return;
       this.currentPage = 1;
+      this.rawRecords = [];
+      this.allViewRecords = [];
       this.records = [];
       this.hasMore = true;
       await this.loadRecords();
@@ -146,57 +154,188 @@ window.FinanceModule = {
     }
   },
 
-  isBankingMainFlowRecord(row = {}) {
+  isBankBusinessFinanceRecord(row = {}) {
     const businessType = String(row?.business_type || '').trim().toLowerCase();
     const category = String(row?.category || '').trim();
     const description = String(row?.description || '').trim();
 
-    if (businessType === 'credit_card_swipe'
-      || businessType === 'credit_card_repayment'
-      || businessType === 'credit_card_repayment_payment') {
+    if (['credit_card', 'credit_card_repayment', 'credit_card_swipe', 'credit_card_repayment_payment'].includes(businessType)) {
       return true;
     }
 
-    if (category.includes('信用卡刷卡')
+    if (category.includes('信用卡业务')
       || category.includes('信用卡还款')
-      || category.includes('还款记录')) {
+      || category.includes('信用卡刷卡')
+      || category.includes('银行手续费')) {
       return true;
     }
 
-    if (category.includes('银行手续费')) {
-      return false;
+    return /银行[:：]/.test(description) && /刷卡[:：]/.test(description);
+  },
+
+  parseBankFeeAmountFromFinance(record = {}) {
+    const businessType = String(record?.business_type || '').trim().toLowerCase();
+    const category = String(record?.category || '').trim();
+    const description = String(record?.description || '');
+    const isSwipeRecord = businessType === 'credit_card_swipe'
+      || category.includes('信用卡刷卡')
+      || /刷卡[:：]/.test(description);
+    if (!isSwipeRecord) {
+      return 0;
     }
 
-    return /刷卡卡[:：]|还款入账卡[:：]|本次还款[:：]|账单\/还款日[:：]/.test(description);
+    const directFee = Number(record?.card_fee_amount);
+    if (Number.isFinite(directFee) && directFee > 0) {
+      return directFee;
+    }
+
+    const match = description.match(/手续费[:：]\s*[¥￥]?\s*([0-9]+(?:\.[0-9]+)?)/);
+    if (!match || !match[1]) {
+      return 0;
+    }
+
+    const parsed = Number(match[1]);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  },
+
+  buildShanghaiDateTimeText(value) {
+    const parts = window.Utils?.getDateParts?.(value || null);
+    if (!parts?.year || !parts?.month || !parts?.day) {
+      return String(value || new Date().toISOString());
+    }
+    return `${parts.year}-${parts.month}-${parts.day} ${parts.hour || '00'}:${parts.minute || '00'}:${parts.second || '00'}`;
+  },
+
+  createBankFeeMirrorRows(rows = []) {
+    const list = Array.isArray(rows) ? rows : [];
+    const bankRows = list.filter(row => this.isBankBusinessFinanceRecord(row));
+    if (!bankRows.length) return [];
+
+    return bankRows
+      .map((record, index) => {
+        const feeAmount = this.parseBankFeeAmountFromFinance(record);
+        if (!(feeAmount > 0)) return null;
+
+        const sourceId = String(record?.id ?? `${index}`);
+        const description = String(record?.description || '');
+        const bankMatch = description.match(/(?:银行|还款卡|刷卡卡)[:：]\s*([^；\n]+)/);
+        const bankName = bankMatch?.[1] ? String(bankMatch[1]).trim() : '信用卡业务';
+        const sourceDate = this.buildShanghaiDateTimeText(record?.transaction_date || record?.created_at || null);
+
+        return {
+          id: `bank-fee::${sourceId}`,
+          type: 'expense',
+          category: '银行手续费',
+          amount: feeAmount,
+          description: `银行手续费（来源：${bankName}）`,
+          transaction_date: sourceDate,
+          reference_id: null,
+          order_id: null,
+          __virtual_bank_fee: true,
+          __source_finance_id: record?.id ?? null
+        };
+      })
+      .filter(Boolean);
+  },
+
+  getGeneralFinanceRows(rows = []) {
+    const sourceRows = Array.isArray(rows) ? rows : [];
+    const existingVirtualFeeRows = sourceRows.filter(item => item?.__virtual_bank_fee === true);
+    const materialRows = sourceRows.filter(item => item?.__virtual_bank_fee !== true);
+    const generalRows = materialRows.filter(item => !this.isBankBusinessFinanceRecord(item));
+    const derivedFeeRows = this.createBankFeeMirrorRows(materialRows);
+
+    if (derivedFeeRows.length > 0) {
+      return [...generalRows, ...derivedFeeRows];
+    }
+    if (existingVirtualFeeRows.length > 0) {
+      return [...generalRows, ...existingVirtualFeeRows];
+    }
+    return generalRows;
+  },
+
+  sortRowsByDateDesc(rows = []) {
+    const list = Array.isArray(rows) ? rows : [];
+    return [...list].sort((left, right) => {
+      const leftTs = window.Utils?.parseDate?.(left?.transaction_date || left?.created_at || null)?.getTime?.() || 0;
+      const rightTs = window.Utils?.parseDate?.(right?.transaction_date || right?.created_at || null)?.getTime?.() || 0;
+      if (leftTs !== rightTs) return rightTs - leftTs;
+      return String(right?.id || '').localeCompare(String(left?.id || ''), 'zh-CN');
+    });
   },
 
   filterRowsForDisplay(rows = []) {
     const list = Array.isArray(rows) ? rows : [];
-    return list.filter(row => !this.isBankingMainFlowRecord(row));
+    const keyword = String(this.filters.keyword || '').trim().toLowerCase();
+    const category = String(this.filters.category || '').trim().toLowerCase();
+    const dateFrom = String(this.filters.dateFrom || '').trim();
+    const dateTo = String(this.filters.dateTo || '').trim();
+    const startDate = dateFrom ? new Date(`${dateFrom}T00:00:00`) : null;
+    const endDate = dateTo ? new Date(`${dateTo}T23:59:59.999`) : null;
+    const currentType = String(this.currentType || '').trim().toLowerCase();
+
+    return list.filter((row) => {
+      const rowType = String(row?.type || '').trim().toLowerCase();
+      if (currentType && rowType !== currentType) return false;
+
+      if (keyword) {
+        const keywordText = `${row?.category || ''} ${row?.description || ''}`.toLowerCase();
+        if (!keywordText.includes(keyword)) return false;
+      }
+
+      if (category) {
+        const categoryText = String(row?.category || '').toLowerCase();
+        if (!categoryText.includes(category)) return false;
+      }
+
+      const date = window.Utils?.parseDate?.(row?.transaction_date || row?.created_at || null);
+      if (startDate && (!(date instanceof Date) || Number.isNaN(date.getTime()) || date < startDate)) return false;
+      if (endDate && (!(date instanceof Date) || Number.isNaN(date.getTime()) || date > endDate)) return false;
+      return true;
+    });
+  },
+
+  async fetchAllFinanceRows() {
+    const pageLimit = 200;
+    const maxBatches = 80;
+    let offset = 0;
+    const rows = [];
+
+    for (let i = 0; i < maxBatches; i += 1) {
+      const batch = await window.API.getFinanceRecords({
+        type: '',
+        keyword: '',
+        category: '',
+        dateFrom: this.filters.dateFrom,
+        dateTo: this.filters.dateTo,
+        limit: pageLimit,
+        offset
+      });
+      if (!Array.isArray(batch) || batch.length === 0) break;
+      rows.push(...batch);
+      if (batch.length < pageLimit) break;
+      offset += pageLimit;
+    }
+
+    return rows;
+  },
+
+  applyPagedViewRows() {
+    const baseRows = this.getGeneralFinanceRows(this.rawRecords);
+    const filteredRows = this.filterRowsForDisplay(baseRows);
+    this.allViewRecords = this.sortRowsByDateDesc(filteredRows);
+
+    const safePage = Math.max(1, Number(this.currentPage) || 1);
+    const end = safePage * this.pageSize;
+    this.records = this.allViewRecords.slice(0, end);
+    this.hasMore = end < this.allViewRecords.length;
   },
 
   async loadRecords() {
     try {
       window.Loading.show('加载财务记录...');
-      const offset = (this.currentPage - 1) * this.pageSize;
-      const rows = await window.API.getFinanceRecords({
-        type: this.currentType,
-        keyword: this.filters.keyword,
-        category: this.filters.category,
-        dateFrom: this.filters.dateFrom,
-        dateTo: this.filters.dateTo,
-        limit: this.pageSize,
-        offset
-      });
-
-      const sourceRows = Array.isArray(rows) ? rows : [];
-      const visibleRows = this.filterRowsForDisplay(sourceRows);
-
-      if (sourceRows.length < this.pageSize) {
-        this.hasMore = false;
-      }
-
-      this.records = this.currentPage === 1 ? visibleRows : [...this.records, ...visibleRows];
+      this.rawRecords = await this.fetchAllFinanceRows();
+      this.applyPagedViewRows();
       this.renderRecords();
       if (this.currentPage === 1 && this.records.length === 0 && this.hasActiveFilters()) {
         window.Toast.info('当前筛选条件下暂无财务记录');
@@ -212,7 +351,8 @@ window.FinanceModule = {
   async loadMore() {
     if (!this.hasMore) return;
     this.currentPage += 1;
-    await this.loadRecords();
+    this.applyPagedViewRows();
+    this.renderRecords();
   },
 
   async showAddFinanceModal() {
@@ -486,6 +626,8 @@ window.FinanceModule = {
           dateTo: nextDateTo
         };
         this.currentPage = 1;
+        this.rawRecords = [];
+        this.allViewRecords = [];
         this.records = [];
         this.hasMore = true;
         await this.loadRecords();
@@ -565,6 +707,8 @@ window.FinanceModule = {
         clearBtn.addEventListener('click', async () => {
           this.filters = { keyword: '', category: '', dateFrom: '', dateTo: '' };
           this.currentPage = 1;
+          this.rawRecords = [];
+          this.allViewRecords = [];
           this.records = [];
           this.hasMore = true;
           await this.loadRecords();
@@ -611,6 +755,8 @@ window.FinanceModule = {
       clearBtn.addEventListener('click', async () => {
         this.filters = { keyword: '', category: '', dateFrom: '', dateTo: '' };
         this.currentPage = 1;
+        this.rawRecords = [];
+        this.allViewRecords = [];
         this.records = [];
         this.hasMore = true;
         await this.loadRecords();

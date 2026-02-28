@@ -13,6 +13,7 @@
   var MOCK_ORIGIN = 'https://mock-napi.vben.pro';
   var API_PREFIX = '/api';
   var DEMO_TOKEN = 'demo-access-token';
+  var USER_PROFILE_KEY = 'vben-local-user-profile';
 
   function absUrl(input) {
     try { return new URL(String(input), window.location.origin); } catch (e) { return null; }
@@ -45,13 +46,61 @@
     };
   }
 
-  function getUserInfo() {
+  function getDefaultUserInfo() {
     return {
       id: 1,
       username: 'admin',
       realName: 'Admin',
       avatar: '/admin-vben/favicon.ico',
       desc: 'Static demo user',
+      homePath: '/workspace',
+      roles: ['admin']
+    };
+  }
+
+  function saveUserInfo(profile) {
+    try {
+      localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(profile || {}));
+    } catch (e) {}
+  }
+
+  function clearUserInfo() {
+    try {
+      localStorage.removeItem(USER_PROFILE_KEY);
+    } catch (e) {}
+  }
+
+  function getUserInfo() {
+    var defaults = getDefaultUserInfo();
+    try {
+      var raw = localStorage.getItem(USER_PROFILE_KEY);
+      if (!raw) return defaults;
+      var parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return defaults;
+      return Object.assign({}, defaults, parsed);
+    } catch (e) {
+      return defaults;
+    }
+  }
+
+  function normalizeLoginProfile(body) {
+    var source = body || {};
+    var identity = String(
+      source.username || source.email || source.account || source.mobile || 'admin'
+    ).trim();
+    if (!identity) identity = 'admin';
+
+    var realName = identity;
+    if (identity.indexOf('@') > 0) {
+      realName = identity.split('@')[0] || identity;
+    }
+
+    return {
+      id: 1,
+      username: identity,
+      realName: realName,
+      avatar: '/admin-vben/favicon.ico',
+      desc: 'ERP user',
       homePath: '/workspace',
       roles: ['admin']
     };
@@ -109,6 +158,8 @@
     var m = String(method || 'GET').toUpperCase();
 
     if (p === '/auth/login' && m === 'POST') {
+      var profile = normalizeLoginProfile(body);
+      saveUserInfo(profile);
       return ok({ accessToken: DEMO_TOKEN, refreshToken: 'demo-refresh-token', tokenType: 'Bearer' });
     }
 
@@ -117,6 +168,7 @@
     }
 
     if (p === '/auth/logout' && m === 'POST') {
+      clearUserInfo();
       return ok(true);
     }
 

@@ -41,18 +41,151 @@ window.ProfileModule = {
     return date.getTime() >= from.getTime() && date.getTime() <= now.getTime();
   },
 
+  isBankBusinessFinanceRecord(row = {}) {
+    const businessType = String(row?.business_type || '').trim().toLowerCase();
+    const category = String(row?.category || '').trim();
+    const description = String(row?.description || '').trim();
+
+    if (['credit_card', 'credit_card_repayment', 'credit_card_swipe', 'credit_card_repayment_payment'].includes(businessType)) {
+      return true;
+    }
+
+    if (category.includes('信用卡业务')
+      || category.includes('信用卡还款')
+      || category.includes('信用卡刷卡')
+      || category.includes('银行手续费')) {
+      return true;
+    }
+
+    return /银行[:：]/.test(description) && /刷卡[:：]/.test(description);
+  },
+
+  parseBankFeeAmountFromFinance(record = {}) {
+    const businessType = String(record?.business_type || '').trim().toLowerCase();
+    const category = String(record?.category || '').trim();
+    const description = String(record?.description || '');
+    const isSwipeRecord = businessType === 'credit_card_swipe'
+      || category.includes('信用卡刷卡')
+      || /刷卡[:：]/.test(description);
+    if (!isSwipeRecord) return 0;
+
+    const directFee = Number(record?.card_fee_amount);
+    if (Number.isFinite(directFee) && directFee > 0) {
+      return directFee;
+    }
+
+    const match = description.match(/手续费[:：]\s*[¥￥]?\s*([0-9]+(?:\.[0-9]+)?)/);
+    if (!match || !match[1]) return 0;
+    const parsed = Number(match[1]);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  },
+
+  buildShanghaiDateTimeText(value) {
+    const parts = window.Utils?.getDateParts?.(value || null);
+    if (!parts?.year || !parts?.month || !parts?.day) {
+      return String(value || new Date().toISOString());
+    }
+    return `${parts.year}-${parts.month}-${parts.day} ${parts.hour || '00'}:${parts.minute || '00'}:${parts.second || '00'}`;
+  },
+
+  createBankFeeMirrorRows(rows = []) {
+    const list = Array.isArray(rows) ? rows : [];
+    const bankRows = list.filter(row => this.isBankBusinessFinanceRecord(row));
+    if (!bankRows.length) return [];
+
+    return bankRows
+      .map((record, index) => {
+        const feeAmount = this.parseBankFeeAmountFromFinance(record);
+        if (!(feeAmount > 0)) return null;
+
+        const sourceId = String(record?.id ?? `${index}`);
+        const description = String(record?.description || '');
+        const bankMatch = description.match(/(?:银行|还款卡|刷卡卡)[:：]\s*([^；\n]+)/);
+        const bankName = bankMatch?.[1] ? String(bankMatch[1]).trim() : '信用卡业务';
+        const sourceDate = this.buildShanghaiDateTimeText(record?.transaction_date || record?.created_at || null);
+
+        return {
+          id: `bank-fee::${sourceId}`,
+          type: 'expense',
+          category: '银行手续费',
+          amount: feeAmount,
+          description: `银行手续费（来源：${bankName}）`,
+          transaction_date: sourceDate,
+          reference_id: null,
+          order_id: null,
+          __virtual_bank_fee: true,
+          __source_finance_id: record?.id ?? null
+        };
+      })
+      .filter(Boolean);
+  },
+
+  getGeneralFinanceRows(rows = []) {
+    const sourceRows = Array.isArray(rows) ? rows : [];
+    const existingVirtualFeeRows = sourceRows.filter(item => item?.__virtual_bank_fee === true);
+    const materialRows = sourceRows.filter(item => item?.__virtual_bank_fee !== true);
+    const generalRows = materialRows.filter(item => !this.isBankBusinessFinanceRecord(item));
+    const derivedFeeRows = this.createBankFeeMirrorRows(materialRows);
+
+    if (derivedFeeRows.length > 0) return [...generalRows, ...derivedFeeRows];
+    if (existingVirtualFeeRows.length > 0) return [...generalRows, ...existingVirtualFeeRows];
+    return generalRows;
+  },
+
+  async fetchAllOrders() {
+    const pageLimit = 200;
+    const maxBatches = 80;
+    let offset = 0;
+    const rows = [];
+
+    for (let i = 0; i < maxBatches; i += 1) {
+      const batch = await window.API.getOrders({ limit: pageLimit, offset });
+      if (!Array.isArray(batch) || batch.length === 0) break;
+      rows.push(...batch);
+      if (batch.length < pageLimit) break;
+      offset += pageLimit;
+    }
+
+    return rows;
+  },
+
+  async fetchAllFinanceRows() {
+    const pageLimit = 200;
+    const maxBatches = 80;
+    let offset = 0;
+    const rows = [];
+
+    for (let i = 0; i < maxBatches; i += 1) {
+      const batch = await window.API.getFinanceRecords({
+        type: '',
+        keyword: '',
+        category: '',
+        dateFrom: '',
+        dateTo: '',
+        limit: pageLimit,
+        offset
+      });
+      if (!Array.isArray(batch) || batch.length === 0) break;
+      rows.push(...batch);
+      if (batch.length < pageLimit) break;
+      offset += pageLimit;
+    }
+
+    return rows;
+  },
+
   async showStatsReport() {
     try {
       window.Loading.show('生成经营报表...');
 
       const [stats, orders, finances] = await Promise.all([
         window.API.getDashboardStats(),
-        window.API.getOrders({ limit: 500, offset: 0 }),
-        window.API.getFinanceRecords({ limit: 500, offset: 0 })
+        this.fetchAllOrders(),
+        this.fetchAllFinanceRows()
       ]);
 
       const orderRows = Array.isArray(orders) ? orders : [];
-      const financeRows = Array.isArray(finances) ? finances : [];
+      const financeRows = this.getGeneralFinanceRows(Array.isArray(finances) ? finances : []);
       const completedStatuses = new Set(['completed', 'signed', 'delivered']);
 
       const orders7d = orderRows.filter(item => this.isWithinDays(item?.order_date || item?.created_at, 7));
@@ -88,6 +221,7 @@ window.ProfileModule = {
             </div>
             <div style="padding:10px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;">
               <div style="font-size:12px;color:#64748b;margin-bottom:6px;">近30天经营</div>
+              <div style="font-size:11px;color:#94a3b8;margin-bottom:6px;">口径：剔除信用卡还款/刷卡主流水，仅保留银行手续费</div>
               <div style="font-size:13px;line-height:1.8;color:#1f2937;">
                 <div>订单数：<strong>${orders30d.length}</strong>（近7天：${orders7d.length}）</div>
                 <div>已完成订单：<strong>${completed30d.length}</strong></div>

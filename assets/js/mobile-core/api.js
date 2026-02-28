@@ -51,6 +51,29 @@ class API {
     return window.MobileERP?.getCurrentUser?.()?.id || null;
   }
 
+  escapeNoteHtmlText(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  buildNoteHtmlFromPlainText(value) {
+    const normalized = String(value ?? '').replace(/\r\n/g, '\n');
+    if (!normalized.trim()) {
+      return '';
+    }
+    return normalized
+      .split('\n')
+      .map(line => {
+        const safeLine = this.escapeNoteHtmlText(line).replace(/ {2}/g, ' &nbsp;');
+        return safeLine ? `<p>${safeLine}</p>` : '<p><br></p>';
+      })
+      .join('');
+  }
+
   // 通用请求方法
   async request(fn, options = {}) {
     const { showLoading = false, showError = true, offline = false } = options;
@@ -1138,7 +1161,7 @@ class API {
       const userId = this.getCurrentUserId();
       const now = new Date().toISOString();
       const contentText = String(noteData?.content_text || '').trim();
-      const contentHtml = String(noteData?.content_html || '').trim() || (contentText ? `<p>${contentText}</p>` : '');
+      const contentHtml = String(noteData?.content_html || '').trim() || this.buildNoteHtmlFromPlainText(contentText);
       const payload = {
         user_id: userId || noteData?.user_id || null,
         title: String(noteData?.title || '').trim(),
@@ -1162,15 +1185,31 @@ class API {
   async updateNote(noteId, noteData = {}) {
     return this.request(async () => {
       const userId = this.getCurrentUserId();
-      const contentText = String(noteData?.content_text || '').trim();
-      const contentHtml = String(noteData?.content_html || '').trim() || (contentText ? `<p>${contentText}</p>` : '');
       const payload = {
-        title: String(noteData?.title || '').trim(),
-        content_text: contentText,
-        content_html: contentHtml,
-        is_pinned: !!noteData?.is_pinned,
         updated_at: new Date().toISOString()
       };
+
+      const hasTitle = Object.prototype.hasOwnProperty.call(noteData, 'title');
+      const hasPinned = Object.prototype.hasOwnProperty.call(noteData, 'is_pinned');
+      const hasContentText = Object.prototype.hasOwnProperty.call(noteData, 'content_text');
+      const hasContentHtml = Object.prototype.hasOwnProperty.call(noteData, 'content_html');
+
+      if (hasTitle) {
+        payload.title = String(noteData?.title || '').trim();
+      }
+      if (hasPinned) {
+        payload.is_pinned = !!noteData?.is_pinned;
+      }
+      if (hasContentText) {
+        const contentText = String(noteData?.content_text || '').trim();
+        payload.content_text = contentText;
+        if (!hasContentHtml) {
+          payload.content_html = this.buildNoteHtmlFromPlainText(contentText);
+        }
+      }
+      if (hasContentHtml) {
+        payload.content_html = String(noteData?.content_html || '').trim();
+      }
 
       let query = this.supabase
         .from(this.tableNames.notes)

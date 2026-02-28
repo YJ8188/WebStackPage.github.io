@@ -174,6 +174,30 @@ window.NotesModule = {
       .replace(/'/g, '&#39;');
   },
 
+  buildHtmlFromPlainText(text) {
+    const normalized = String(text ?? '').replace(/\r\n/g, '\n');
+    if (!normalized.trim()) {
+      return '';
+    }
+    return normalized
+      .split('\n')
+      .map(line => {
+        const safeLine = this.escapeHtml(line).replace(/ {2}/g, ' &nbsp;');
+        return safeLine ? `<p>${safeLine}</p>` : '<p><br></p>';
+      })
+      .join('');
+  },
+
+  resolveEditedContentHtml(note, nextContent) {
+    const nextText = String(nextContent ?? '').replace(/\r\n/g, '\n').trim();
+    const beforeText = String(note?.content_text || '').replace(/\r\n/g, '\n').trim();
+    const beforeHtml = String(note?.content_html || '').trim();
+    if (beforeHtml && nextText === beforeText) {
+      return beforeHtml;
+    }
+    return this.buildHtmlFromPlainText(nextText);
+  },
+
   getPreviewText(note) {
     const contentText = String(note?.content_text || '').trim();
     if (contentText) return contentText.slice(0, 90);
@@ -299,15 +323,19 @@ window.NotesModule = {
         }
 
         if (isEdit) {
+          const nextHtml = this.resolveEditedContentHtml(note, nextContent);
           await window.API.updateNote(note.id, {
             title: nextTitle,
             content_text: nextContent,
+            content_html: nextHtml,
             is_pinned: nextPinned
           });
         } else {
+          const nextHtml = this.buildHtmlFromPlainText(nextContent);
           await window.API.createNote({
             title: nextTitle,
             content_text: nextContent,
+            content_html: nextHtml,
             is_pinned: nextPinned
           });
         }
@@ -325,8 +353,6 @@ window.NotesModule = {
   async togglePinned(note) {
     try {
       await window.API.updateNote(note.id, {
-        title: note.title || '',
-        content_text: note.content_text || '',
         is_pinned: !note.is_pinned
       });
       this.currentPage = 1;

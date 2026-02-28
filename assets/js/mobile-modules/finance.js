@@ -146,6 +146,35 @@ window.FinanceModule = {
     }
   },
 
+  isBankingMainFlowRecord(row = {}) {
+    const businessType = String(row?.business_type || '').trim().toLowerCase();
+    const category = String(row?.category || '').trim();
+    const description = String(row?.description || '').trim();
+
+    if (businessType === 'credit_card_swipe'
+      || businessType === 'credit_card_repayment'
+      || businessType === 'credit_card_repayment_payment') {
+      return true;
+    }
+
+    if (category.includes('信用卡刷卡')
+      || category.includes('信用卡还款')
+      || category.includes('还款记录')) {
+      return true;
+    }
+
+    if (category.includes('银行手续费')) {
+      return false;
+    }
+
+    return /刷卡卡[:：]|还款入账卡[:：]|本次还款[:：]|账单\/还款日[:：]/.test(description);
+  },
+
+  filterRowsForDisplay(rows = []) {
+    const list = Array.isArray(rows) ? rows : [];
+    return list.filter(row => !this.isBankingMainFlowRecord(row));
+  },
+
   async loadRecords() {
     try {
       window.Loading.show('加载财务记录...');
@@ -160,11 +189,14 @@ window.FinanceModule = {
         offset
       });
 
-      if (rows.length < this.pageSize) {
+      const sourceRows = Array.isArray(rows) ? rows : [];
+      const visibleRows = this.filterRowsForDisplay(sourceRows);
+
+      if (sourceRows.length < this.pageSize) {
         this.hasMore = false;
       }
 
-      this.records = this.currentPage === 1 ? rows : [...this.records, ...rows];
+      this.records = this.currentPage === 1 ? visibleRows : [...this.records, ...visibleRows];
       this.renderRecords();
       if (this.currentPage === 1 && this.records.length === 0 && this.hasActiveFilters()) {
         window.Toast.info('当前筛选条件下暂无财务记录');

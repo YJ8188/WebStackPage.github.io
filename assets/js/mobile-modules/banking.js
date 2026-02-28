@@ -951,6 +951,16 @@ window.BankingModule = {
       .replace(/[）)]/g, '');
   },
 
+  normalizeBankName(value) {
+    return String(value || '')
+      .trim()
+      .replace(/（?\s*尾号\s*\d{3,4}\s*）?/g, '')
+      .replace(/\(.*?\)/g, '')
+      .replace(/（.*?）/g, '')
+      .replace(/\s+/g, '')
+      .toLowerCase();
+  },
+
   getTransactionMinuteKey(row = {}) {
     const partMap = window.Utils?.getDateParts?.(
       row?.transaction_date || row?.created_at || null
@@ -961,12 +971,12 @@ window.BankingModule = {
 
   buildDisplayDedupKey(row = {}) {
     if (!this.isRepaymentPlanRow(row)) return '';
-    const bank = String(this.getBankName(row) || '').trim().toLowerCase();
+    const bank = this.normalizeBankName(this.getBankName(row) || '') || 'unknown_bank';
     const tail = this.parseTail4(this.getRepaymentCardTail(row) || '') || 'no_tail';
     const billDay = Number(this.getRepaymentBillDay(row) || 0);
     const repaymentDay = Number(this.getRepaymentDay(row) || 0);
     const cycleMonth = this.getCycleMonthKey(row) || 'unknown_month';
-    return `repayment|${bank || 'unknown_bank'}|${tail}|${billDay}|${repaymentDay}|${cycleMonth}`;
+    return `repayment|${bank}|${tail}|${billDay}|${repaymentDay}|${cycleMonth}`;
   },
 
   getFieldTimestamp(row = {}, fieldName = '') {
@@ -998,7 +1008,7 @@ window.BankingModule = {
   buildFlowFingerprint(row = {}) {
     const txMinute = this.getTransactionMinuteKey(row) || 'unknown_minute';
     if (this.isRepaymentPlanRow(row)) {
-      const bank = this.normalizeKeyText(this.getBankName(row) || '') || 'unknown_bank';
+      const bank = this.normalizeBankName(this.getBankName(row) || '') || 'unknown_bank';
       const tail = this.parseTail4(this.getRepaymentCardTail(row) || '') || 'no_tail';
       const billDay = Number(this.getRepaymentBillDay(row) || 0) || 0;
       const repaymentDay = Number(this.getRepaymentDay(row) || 0) || 0;
@@ -1006,9 +1016,9 @@ window.BankingModule = {
       return `repayment|${bank}|${tail}|${billDay}|${repaymentDay}|${dueAmount}|${txMinute}`;
     }
     if (this.isSwipeRow(row)) {
-      const swipeBank = this.normalizeKeyText(row?.swipe_card_bank || row?.card_bank || this.getBankName(row) || '') || 'unknown_bank';
+      const swipeBank = this.normalizeBankName(row?.swipe_card_bank || row?.card_bank || this.getBankName(row) || '') || 'unknown_bank';
       const swipeTail = this.parseTail4(this.getSwipeCardTail(row) || this.getRepaymentCardTail(row) || '') || 'no_tail';
-      const settlementBank = this.normalizeKeyText(row?.settlement_bank || '') || 'unknown_settlement';
+      const settlementBank = this.normalizeBankName(row?.settlement_bank || '') || 'unknown_settlement';
       const settlementTail = this.parseTail4(this.getSettlementCardTail(row) || '') || 'no_tail';
       const gross = Number(this.getSwipeGrossAmount(row) || 0).toFixed(2);
       const actual = Number(this.getSwipeActualAmount(row) || 0).toFixed(2);
@@ -1017,6 +1027,40 @@ window.BankingModule = {
       return `swipe|${feeOnly}|${swipeBank}|${swipeTail}|${settlementBank}|${settlementTail}|${gross}|${actual}|${fee}|${txMinute}`;
     }
     return '';
+  },
+
+  buildRepaymentSemanticKey(row = {}) {
+    if (!this.isRepaymentPlanRow(row)) return '';
+    const bank = this.normalizeBankName(this.getBankName(row) || '') || 'unknown_bank';
+    const billDay = Number(this.getRepaymentBillDay(row) || 0) || 0;
+    const repaymentDay = Number(this.getRepaymentDay(row) || 0) || 0;
+    const dueAmount = Number(this.getRepaymentDueAmount(row) || 0).toFixed(2);
+    const cycleMonth = this.getCycleMonthKey(row) || 'unknown_month';
+    const reminderDate = String(row?.reminder_date || '').trim();
+    const reminderKey = row?.reminder_enabled === false
+      ? 'off'
+      : (reminderDate ? `on:${window.Utils.formatDate(reminderDate, 'YYYY-MM-DD')}` : 'on:pending');
+    return `repay-sem|${bank}|${billDay}|${repaymentDay}|${dueAmount}|${cycleMonth}|${reminderKey}`;
+  },
+
+  dedupeRepaymentSemanticRows(rows = []) {
+    const list = Array.isArray(rows) ? rows : [];
+    if (!list.length) return [];
+
+    const keepMap = new Map();
+    const passthrough = [];
+    list.forEach((row) => {
+      const key = this.buildRepaymentSemanticKey(row);
+      if (!key) {
+        passthrough.push(row);
+        return;
+      }
+      const current = keepMap.get(key);
+      if (!current || this.shouldReplaceDisplayRow(row, current)) {
+        keepMap.set(key, row);
+      }
+    });
+    return [...passthrough, ...Array.from(keepMap.values())];
   },
 
   dedupeRowsByFingerprint(rows = []) {
@@ -1119,7 +1163,8 @@ window.BankingModule = {
     const filtered = source.filter(row => !this.isRepaymentPaymentRow(row));
     const dedupedByCycle = this.dedupeRowsForDisplay(filtered);
     const dedupedByFingerprint = this.dedupeRowsByFingerprint(dedupedByCycle);
-    return this.sortRowsForDisplay(dedupedByFingerprint);
+    const dedupedByRepaymentSemantic = this.dedupeRepaymentSemanticRows(dedupedByFingerprint);
+    return this.sortRowsForDisplay(dedupedByRepaymentSemantic);
   },
 
   filterRowsByFlow(rows = []) {
@@ -1271,7 +1316,7 @@ window.BankingModule = {
       if (text) return text;
     }
     const description = String(row?.description || '');
-    const match = description.match(/(?:银行|还款卡|刷卡卡)[:：]\s*([^；\n]+)/);
+    const match = description.match(/(?:银行|还款卡|还款入账卡|刷卡卡|到账卡)[:：]\s*([^；\n]+)/);
     return match?.[1] ? String(match[1]).trim() : '未标注银行';
   },
 
@@ -1288,7 +1333,7 @@ window.BankingModule = {
   getRepaymentCardTail(row = {}) {
     const direct = this.parseTail4(row?.card_tail || '');
     if (direct) return direct;
-    const fromBankLine = this.extractTailFromText(row?.description, /(?:银行|还款卡|刷卡卡)[:：][^；\n]*尾号\s*(\d{3,4})/);
+    const fromBankLine = this.extractTailFromText(row?.description, /(?:银行|还款卡|还款入账卡|刷卡卡|到账卡)[:：][^；\n]*尾号\s*(\d{3,4})/);
     if (fromBankLine) return fromBankLine;
     const cardNoMatch = String(row?.description || '').match(/Card\s*No\.?\s*(\d{4})/i);
     return cardNoMatch?.[1] ? this.parseTail4(cardNoMatch[1]) : '';

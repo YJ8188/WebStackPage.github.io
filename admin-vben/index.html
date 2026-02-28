@@ -8,5 +8,209 @@
           var s = document.getElementsByTagName('script')[0];
           s.parentNode.insertBefore(hm, s);
         })();
-      }</script><script type="module" crossorigin src="/admin-vben/jse/index-index-DKMuiBgj.js"></script></head><body><script data-app-loading="inject-js">var theme = localStorage.getItem('vben-web-antd-5.6.0-prod-preferences-theme');
+      }</script><script>
+(function(){
+  var MOCK_ORIGIN = 'https://mock-napi.vben.pro';
+  var API_PREFIX = '/api';
+  var DEMO_TOKEN = 'demo-access-token';
+
+  function absUrl(input) {
+    try { return new URL(String(input), window.location.origin); } catch (e) { return null; }
+  }
+
+  function isMockRequest(input) {
+    var u = absUrl(input);
+    if (!u) return false;
+    var sameOriginApi = u.origin === window.location.origin && u.pathname.indexOf(API_PREFIX) === 0;
+    var remoteMockApi = u.origin === MOCK_ORIGIN && u.pathname.indexOf(API_PREFIX) === 0;
+    return sameOriginApi || remoteMockApi;
+  }
+
+  function normalizePath(input) {
+    var u = absUrl(input);
+    if (!u) return '/';
+    if (u.pathname.indexOf(API_PREFIX) === 0) {
+      var p = u.pathname.slice(API_PREFIX.length);
+      return p || '/';
+    }
+    return u.pathname || '/';
+  }
+
+  function ok(data, message) {
+    return {
+      code: 0,
+      data: data,
+      message: message || 'ok',
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  function getUserInfo() {
+    return {
+      userId: '1',
+      username: 'admin',
+      realName: 'Admin',
+      avatar: '/admin-vben/favicon.ico',
+      desc: 'Static demo user',
+      homePath: '/dashboard/analytics',
+      roles: ['super']
+    };
+  }
+
+  function getMenuTree() {
+    return [
+      {
+        name: 'Dashboard',
+        path: '/dashboard',
+        meta: { title: 'Dashboard', icon: 'lucide:layout-dashboard' },
+        children: [
+          {
+            name: 'Analytics',
+            path: '/dashboard/analytics',
+            component: '/dashboard/analytics/index',
+            meta: { title: 'Analytics', icon: 'lucide:line-chart' }
+          },
+          {
+            name: 'Workspace',
+            path: '/dashboard/workspace',
+            component: '/dashboard/workspace/index',
+            meta: { title: 'Workspace', icon: 'lucide:briefcase' }
+          }
+        ]
+      },
+      {
+        name: 'Profile',
+        path: '/_core/profile',
+        component: '/_core/profile/index',
+        meta: { title: 'Profile', icon: 'lucide:user-round' }
+      }
+    ];
+  }
+
+  function parseBody(raw) {
+    if (!raw) return {};
+    if (typeof raw === 'string') {
+      try { return JSON.parse(raw); } catch (e) { return {}; }
+    }
+    return raw;
+  }
+
+  function routeMock(path, method, body) {
+    var p = String(path || '/');
+    var m = String(method || 'GET').toUpperCase();
+
+    if (p === '/auth/login' && m === 'POST') {
+      return ok({ accessToken: DEMO_TOKEN, refreshToken: 'demo-refresh-token', tokenType: 'Bearer' });
+    }
+
+    if (p === '/auth/refresh' && m === 'POST') {
+      return { accessToken: DEMO_TOKEN, refreshToken: 'demo-refresh-token', tokenType: 'Bearer' };
+    }
+
+    if (p === '/auth/logout' && m === 'POST') {
+      return ok(true);
+    }
+
+    if (p === '/auth/codes' && m === 'GET') {
+      return ok(['dashboard:analytics', 'dashboard:workspace', 'profile:view']);
+    }
+
+    if (p === '/user/info' && m === 'GET') {
+      return ok(getUserInfo());
+    }
+
+    if (p === '/menu/all' && m === 'GET') {
+      return ok(getMenuTree());
+    }
+
+    return ok({ mocked: true, path: p, method: m, body: body || {} });
+  }
+
+  function makeJsonResponse(payload) {
+    return new Response(JSON.stringify(payload), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  if (typeof window.fetch === 'function') {
+    var rawFetch = window.fetch.bind(window);
+    window.fetch = function(input, init) {
+      var url = (typeof input === 'string' || input instanceof URL) ? String(input) : ((input && input.url) || '');
+      if (!isMockRequest(url)) {
+        return rawFetch(input, init);
+      }
+      var method = (init && init.method) || (input && input.method) || 'GET';
+      var body = (init && init.body) || null;
+      var payload = routeMock(normalizePath(url), method, parseBody(body));
+      return Promise.resolve(makeJsonResponse(payload));
+    };
+  }
+
+  if (typeof window.XMLHttpRequest === 'function') {
+    var XHR = window.XMLHttpRequest;
+    var rawOpen = XHR.prototype.open;
+    var rawSend = XHR.prototype.send;
+
+    function setProp(obj, key, value) {
+      try {
+        Object.defineProperty(obj, key, { value: value, configurable: true, writable: true });
+      } catch (e) {
+        try { obj[key] = value; } catch (err) {}
+      }
+    }
+
+    XHR.prototype.open = function(method, url) {
+      this.__vbenMock = {
+        enabled: isMockRequest(url),
+        method: String(method || 'GET').toUpperCase(),
+        url: String(url || '')
+      };
+      return rawOpen.apply(this, arguments);
+    };
+
+    XHR.prototype.send = function(body) {
+      var meta = this.__vbenMock;
+      if (!meta || !meta.enabled) {
+        return rawSend.apply(this, arguments);
+      }
+
+      var self = this;
+      var payload = routeMock(normalizePath(meta.url), meta.method, parseBody(body));
+      var text = JSON.stringify(payload);
+
+      setTimeout(function() {
+        setProp(self, 'status', 200);
+        setProp(self, 'statusText', 'OK');
+        setProp(self, 'responseURL', absUrl(meta.url) ? absUrl(meta.url).href : meta.url);
+        setProp(self, 'responseText', text);
+        setProp(self, 'response', text);
+        setProp(self, 'readyState', 4);
+
+        self.getAllResponseHeaders = function() { return 'content-type: application/json\r\n'; };
+        self.getResponseHeader = function(name) {
+          return String(name || '').toLowerCase() === 'content-type' ? 'application/json' : null;
+        };
+
+        if (typeof self.onreadystatechange === 'function') {
+          self.onreadystatechange(new Event('readystatechange'));
+        }
+        if (typeof self.onload === 'function') {
+          self.onload(new Event('load'));
+        }
+        if (typeof self.onloadend === 'function') {
+          self.onloadend(new Event('loadend'));
+        }
+        if (typeof self.dispatchEvent === 'function') {
+          try { self.dispatchEvent(new Event('readystatechange')); } catch (e) {}
+          try { self.dispatchEvent(new Event('load')); } catch (e) {}
+          try { self.dispatchEvent(new Event('loadend')); } catch (e) {}
+        }
+      }, 0);
+    };
+  }
+
+  window.__VBEN_LOCAL_MOCK__ = true;
+})();
+</script><script type="module" crossorigin src="/admin-vben/jse/index-index-DKMuiBgj.js"></script></head><body><script data-app-loading="inject-js">var theme = localStorage.getItem('vben-web-antd-5.6.0-prod-preferences-theme');
   document.documentElement.classList.toggle('dark', /dark/.test(theme));</script><style data-app-loading="inject-css">html{line-height:1.15}.loading{align-items:center;background-color:#f4f7f9;display:flex;flex-direction:column;height:100%;justify-content:center;left:0;overflow:hidden;position:fixed;top:0;width:100%;z-index:9999}.loading.hidden{opacity:0;pointer-events:none;transition:all .8s ease-out;visibility:hidden}.dark .loading{background:#0d0d10}.title{color:rgba(0,0,0,.85);font-size:28px;font-weight:600;margin-top:66px}.dark .title{color:#fff}.loader{height:48px;position:relative;width:48px}.loader:before{animation:shadow-ani .5s linear infinite;background:rgba(0,128,255,.5);background:hsl(var(--primary,210 100% 50%)/50%);border-radius:50%;height:5px;top:60px;width:48px}.loader:after,.loader:before{content:"";left:0;position:absolute}.loader:after{animation:jump-ani .5s linear infinite;background:#0080ff;background:hsl(var(--primary,210 100% 50%));border-radius:4px;height:100%;top:0;width:100%}@keyframes jump-ani{15%{border-bottom-right-radius:3px}25%{transform:translateY(9px) rotate(22.5deg)}50%{border-bottom-right-radius:40px;transform:translateY(18px) scaleY(.9) rotate(45deg)}75%{transform:translateY(9px) rotate(67.5deg)}to{transform:translateY(0) rotate(90deg)}}@keyframes shadow-ani{0%,to{transform:scale(1)}50%{transform:scaleX(1.2)}}</style><div class="loading" id="__app-loading__"><div class="loader"></div><div class="title">Vben Admin Antd</div></div><div id="app"></div></body></html>

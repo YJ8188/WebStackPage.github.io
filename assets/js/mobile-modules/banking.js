@@ -1111,20 +1111,57 @@ window.BankingModule = {
     const repaymentDay = this.getRepaymentDay(row);
     if (!repaymentDay) return Number.POSITIVE_INFINITY;
 
-    let dueDate = null;
+    let dueDateByCycle = null;
     if (billDay) {
-      dueDate = this.buildBankCycleRecommendation(baseDate, billDay, repaymentDay)?.dueDate || null;
+      dueDateByCycle = this.buildBankCycleRecommendation(baseDate, billDay, repaymentDay)?.dueDate || null;
     }
-    if (!(dueDate instanceof Date) || Number.isNaN(dueDate.getTime())) {
-      dueDate = this.getMonthlyDateByDay(baseDate, repaymentDay, 0);
-      if (dueDate && dueDate.getTime() < baseDate.getTime()) {
-        dueDate = this.getMonthlyDateByDay(baseDate, repaymentDay, 1);
+    if (!(dueDateByCycle instanceof Date) || Number.isNaN(dueDateByCycle.getTime())) {
+      dueDateByCycle = this.getMonthlyDateByDay(baseDate, repaymentDay, 0);
+      if (dueDateByCycle && dueDateByCycle.getTime() < baseDate.getTime()) {
+        dueDateByCycle = this.getMonthlyDateByDay(baseDate, repaymentDay, 1);
       }
     }
-    if (!(dueDate instanceof Date) || Number.isNaN(dueDate.getTime())) {
+
+    const reminderDate = this.parseShanghaiDate(row?.reminder_date || null);
+    const reminderDaysBefore = Math.max(0, Number(row?.reminder_days_before || 0));
+    let dueDateByReminder = null;
+    if (reminderDate instanceof Date && !Number.isNaN(reminderDate.getTime())) {
+      const candidate = new Date(
+        reminderDate.getFullYear(),
+        reminderDate.getMonth(),
+        reminderDate.getDate(),
+        23,
+        59,
+        59,
+        999
+      );
+      candidate.setDate(candidate.getDate() + reminderDaysBefore);
+      if (repaymentDay) {
+        const lastDay = new Date(candidate.getFullYear(), candidate.getMonth() + 1, 0).getDate();
+        candidate.setDate(Math.min(repaymentDay, lastDay));
+      }
+      if (!Number.isNaN(candidate.getTime())) {
+        dueDateByReminder = candidate;
+      }
+    }
+
+    const candidates = [dueDateByCycle, dueDateByReminder]
+      .filter(date => date instanceof Date && !Number.isNaN(date.getTime()));
+    if (!candidates.length) {
       return Number.POSITIVE_INFINITY;
     }
-    return dueDate.getTime();
+    if (candidates.length === 1) {
+      return candidates[0].getTime();
+    }
+
+    const toScore = (date) => {
+      const diffDays = (date.getTime() - baseDate.getTime()) / 86400000;
+      let score = Math.abs(diffDays);
+      if (diffDays < -2) score += 500;
+      if (diffDays > 65) score += 120;
+      return score;
+    };
+    return candidates.sort((left, right) => toScore(left) - toScore(right))[0].getTime();
   },
 
   sortRowsForDisplay(rows = []) {

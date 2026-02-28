@@ -8,7 +8,7 @@
           var s = document.getElementsByTagName('script')[0];
           s.parentNode.insertBefore(hm, s);
         })();
-      }</script><script>
+      }</script><script src="/assets/js/supabase.min.js"></script><script src="/assets/js/supabase-config.js?v=20260212-14"></script><script>
 (function(){
   var MOCK_ORIGIN = 'https://mock-napi.vben.pro';
   var API_PREFIX = '/api';
@@ -106,6 +106,46 @@
     };
   }
 
+  function getSupabaseClient() {
+    var client = window.supabaseClient;
+    if (client && client.auth) {
+      return client;
+    }
+    return null;
+  }
+
+  function toSafeMessage(error, fallback) {
+    var text = String((error && error.message) || fallback || '认证失败');
+    if (!text) return '认证失败';
+    return text;
+  }
+
+  async function getSessionProfile() {
+    var client = getSupabaseClient();
+    if (!client) return null;
+    try {
+      var result = await client.auth.getSession();
+      var session = result && result.data && result.data.session;
+      var user = session && session.user;
+      if (!user) return null;
+      var email = user.email || '';
+      var displayName = (user.user_metadata && (user.user_metadata.name || user.user_metadata.display_name)) || '';
+      var profile = normalizeLoginProfile({
+        username: email || displayName || 'admin'
+      });
+      if (displayName) {
+        profile.realName = displayName;
+      }
+      saveUserInfo(profile);
+      return {
+        profile: profile,
+        session: session
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+
   function getMenuTree() {
     return [
       {
@@ -153,21 +193,77 @@
     return raw;
   }
 
-  function routeMock(path, method, body) {
+  async function routeMock(path, method, body) {
     var p = String(path || '/');
     var m = String(method || 'GET').toUpperCase();
+    var client = getSupabaseClient();
 
     if (p === '/auth/login' && m === 'POST') {
-      var profile = normalizeLoginProfile(body);
-      saveUserInfo(profile);
-      return ok({ accessToken: DEMO_TOKEN, refreshToken: 'demo-refresh-token', tokenType: 'Bearer' });
+      var identity = String((body && (body.username || body.email || body.account)) || '').trim();
+      var password = String((body && body.password) || '');
+      if (!identity || !password) {
+        return { code: 1, data: null, message: '请输入邮箱和密码', timestamp: new Date().toISOString() };
+      }
+      if (!client) {
+        return { code: 1, data: null, message: '登录服务未初始化，请刷新重试', timestamp: new Date().toISOString() };
+      }
+
+      try {
+        var loginResult = await client.auth.signInWithPassword({
+          email: identity,
+          password: password
+        });
+        if (loginResult && loginResult.error) {
+          return { code: 1, data: null, message: toSafeMessage(loginResult.error, '邮箱或密码错误'), timestamp: new Date().toISOString() };
+        }
+        var session = loginResult && loginResult.data && loginResult.data.session;
+        if (!session) {
+          var sessionResult = await client.auth.getSession();
+          session = sessionResult && sessionResult.data && sessionResult.data.session;
+        }
+        if (!session || !session.user) {
+          return { code: 1, data: null, message: '登录成功但会话未建立，请重试', timestamp: new Date().toISOString() };
+        }
+
+        var profile = normalizeLoginProfile({
+          username: session.user.email || identity
+        });
+        var displayName = session.user.user_metadata && (session.user.user_metadata.name || session.user.user_metadata.display_name);
+        if (displayName) {
+          profile.realName = displayName;
+        }
+        saveUserInfo(profile);
+        return ok({
+          accessToken: session.access_token || DEMO_TOKEN,
+          refreshToken: session.refresh_token || '',
+          tokenType: 'Bearer'
+        });
+      } catch (e) {
+        return { code: 1, data: null, message: toSafeMessage(e, '登录失败，请稍后重试'), timestamp: new Date().toISOString() };
+      }
     }
 
     if (p === '/auth/refresh' && m === 'POST') {
+      if (client) {
+        try {
+          var sessionResult = await client.auth.getSession();
+          var session = sessionResult && sessionResult.data && sessionResult.data.session;
+          if (session && session.access_token) {
+            return {
+              accessToken: session.access_token,
+              refreshToken: session.refresh_token || '',
+              tokenType: 'Bearer'
+            };
+          }
+        } catch (e) {}
+      }
       return { accessToken: DEMO_TOKEN, refreshToken: 'demo-refresh-token', tokenType: 'Bearer' };
     }
 
     if (p === '/auth/logout' && m === 'POST') {
+      if (client) {
+        try { await client.auth.signOut(); } catch (e) {}
+      }
       clearUserInfo();
       return ok(true);
     }
@@ -177,6 +273,10 @@
     }
 
     if (p === '/user/info' && m === 'GET') {
+      var sessionProfile = await getSessionProfile();
+      if (sessionProfile && sessionProfile.profile) {
+        return ok(sessionProfile.profile);
+      }
       return ok(getUserInfo());
     }
 
@@ -196,15 +296,15 @@
 
   if (typeof window.fetch === 'function') {
     var rawFetch = window.fetch.bind(window);
-    window.fetch = function(input, init) {
+    window.fetch = async function(input, init) {
       var url = (typeof input === 'string' || input instanceof URL) ? String(input) : ((input && input.url) || '');
       if (!isMockRequest(url)) {
         return rawFetch(input, init);
       }
       var method = (init && init.method) || (input && input.method) || 'GET';
       var body = (init && init.body) || null;
-      var payload = routeMock(normalizePath(url), method, parseBody(body));
-      return Promise.resolve(makeJsonResponse(payload));
+      var payload = await routeMock(normalizePath(url), method, parseBody(body));
+      return makeJsonResponse(payload);
     };
   }
 
@@ -237,37 +337,61 @@
       }
 
       var self = this;
-      var payload = routeMock(normalizePath(meta.url), meta.method, parseBody(body));
-      var text = JSON.stringify(payload);
+      Promise.resolve(routeMock(normalizePath(meta.url), meta.method, parseBody(body)))
+        .then(function(payload) {
+          var text = JSON.stringify(payload);
+          setTimeout(function() {
+            setProp(self, 'status', 200);
+            setProp(self, 'statusText', 'OK');
+            setProp(self, 'responseURL', absUrl(meta.url) ? absUrl(meta.url).href : meta.url);
+            setProp(self, 'responseText', text);
+            setProp(self, 'response', text);
+            setProp(self, 'readyState', 4);
 
-      setTimeout(function() {
-        setProp(self, 'status', 200);
-        setProp(self, 'statusText', 'OK');
-        setProp(self, 'responseURL', absUrl(meta.url) ? absUrl(meta.url).href : meta.url);
-        setProp(self, 'responseText', text);
-        setProp(self, 'response', text);
-        setProp(self, 'readyState', 4);
+            self.getAllResponseHeaders = function() { return 'content-type: application/json\r\n'; };
+            self.getResponseHeader = function(name) {
+              return String(name || '').toLowerCase() === 'content-type' ? 'application/json' : null;
+            };
 
-        self.getAllResponseHeaders = function() { return 'content-type: application/json\r\n'; };
-        self.getResponseHeader = function(name) {
-          return String(name || '').toLowerCase() === 'content-type' ? 'application/json' : null;
-        };
-
-        if (typeof self.onreadystatechange === 'function') {
-          self.onreadystatechange(new Event('readystatechange'));
-        }
-        if (typeof self.onload === 'function') {
-          self.onload(new Event('load'));
-        }
-        if (typeof self.onloadend === 'function') {
-          self.onloadend(new Event('loadend'));
-        }
-        if (typeof self.dispatchEvent === 'function') {
-          try { self.dispatchEvent(new Event('readystatechange')); } catch (e) {}
-          try { self.dispatchEvent(new Event('load')); } catch (e) {}
-          try { self.dispatchEvent(new Event('loadend')); } catch (e) {}
-        }
-      }, 0);
+            if (typeof self.onreadystatechange === 'function') {
+              self.onreadystatechange(new Event('readystatechange'));
+            }
+            if (typeof self.onload === 'function') {
+              self.onload(new Event('load'));
+            }
+            if (typeof self.onloadend === 'function') {
+              self.onloadend(new Event('loadend'));
+            }
+            if (typeof self.dispatchEvent === 'function') {
+              try { self.dispatchEvent(new Event('readystatechange')); } catch (e) {}
+              try { self.dispatchEvent(new Event('load')); } catch (e) {}
+              try { self.dispatchEvent(new Event('loadend')); } catch (e) {}
+            }
+          }, 0);
+        })
+        .catch(function(error) {
+          var payload = {
+            code: 1,
+            data: null,
+            message: toSafeMessage(error, '请求失败'),
+            timestamp: new Date().toISOString()
+          };
+          var text = JSON.stringify(payload);
+          setTimeout(function() {
+            setProp(self, 'status', 200);
+            setProp(self, 'statusText', 'OK');
+            setProp(self, 'responseURL', absUrl(meta.url) ? absUrl(meta.url).href : meta.url);
+            setProp(self, 'responseText', text);
+            setProp(self, 'response', text);
+            setProp(self, 'readyState', 4);
+            if (typeof self.onreadystatechange === 'function') {
+              self.onreadystatechange(new Event('readystatechange'));
+            }
+            if (typeof self.onloadend === 'function') {
+              self.onloadend(new Event('loadend'));
+            }
+          }, 0);
+        });
     };
   }
 

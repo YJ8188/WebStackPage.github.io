@@ -4,7 +4,7 @@
 
 window.BankingModule = {
   name: 'banking',
-  currentFlow: '',
+  currentFlow: 'repayment',
   keyword: '',
   currentPage: 1,
   pageSize: 20,
@@ -26,7 +26,7 @@ window.BankingModule = {
   ],
 
   async init(params = {}) {
-    this.currentFlow = String(params?.type || this.currentFlow || '').trim().toLowerCase();
+    this.currentFlow = this.normalizeFlow(params?.type || this.currentFlow || 'repayment');
     this.keyword = String(params?.keyword || this.keyword || '').trim();
     this.currentPage = 1;
     this.rawRows = [];
@@ -56,7 +56,7 @@ window.BankingModule = {
       tab.addEventListener('click', async () => {
         document.querySelectorAll('#bankingTabs .tab-item').forEach(item => item.classList.remove('active'));
         tab.classList.add('active');
-        this.currentFlow = String(tab.dataset.type || '').trim().toLowerCase();
+        this.currentFlow = this.normalizeFlow(tab.dataset.type);
         this.currentPage = 1;
         this.rawRows = [];
         this.rows = [];
@@ -155,15 +155,21 @@ window.BankingModule = {
       .subscribe();
   },
 
+  normalizeFlow(value) {
+    const flow = String(value || '').trim().toLowerCase();
+    return flow === 'swipe' ? 'swipe' : 'repayment';
+  },
+
   applyFlowTab() {
+    this.currentFlow = this.normalizeFlow(this.currentFlow);
     document.querySelectorAll('#bankingTabs .tab-item').forEach(tab => {
       const key = String(tab.dataset.type || '').trim().toLowerCase();
       tab.classList.toggle('active', key === this.currentFlow);
     });
     if (!document.querySelector('#bankingTabs .tab-item.active')) {
-      const allTab = document.querySelector('#bankingTabs .tab-item[data-type=""]');
-      if (allTab) allTab.classList.add('active');
-      this.currentFlow = '';
+      const repaymentTab = document.querySelector('#bankingTabs .tab-item[data-type="repayment"]');
+      if (repaymentTab) repaymentTab.classList.add('active');
+      this.currentFlow = 'repayment';
     }
   },
 
@@ -181,7 +187,8 @@ window.BankingModule = {
         this.hasMore = false;
       }
       this.rawRows = this.currentPage === 1 ? data : [...this.rawRows, ...data];
-      this.rows = this.filterRowsByFlow(this.rawRows);
+      const preparedRows = this.prepareRowsForDisplay(this.rawRows);
+      this.rows = this.filterRowsByFlow(preparedRows);
       this.render();
       window.Loading.hide();
     } catch (error) {
@@ -404,7 +411,7 @@ window.BankingModule = {
 
   async refreshAfterCreate(nextFlow = '') {
     if (nextFlow) {
-      this.currentFlow = String(nextFlow || '').trim().toLowerCase();
+      this.currentFlow = this.normalizeFlow(nextFlow);
       this.applyFlowTab();
     }
     this.currentPage = 1;
@@ -860,24 +867,155 @@ window.BankingModule = {
     return this.isRepaymentPaymentRow(row) || this.isRepaymentPlanRow(row);
   },
 
+  isFeeOnlyRow(row = {}) {
+    const businessType = String(row?.business_type || '').trim().toLowerCase();
+    const category = String(row?.category || '').trim();
+    return businessType === 'credit_card_fee'
+      || category.includes('银行手续费');
+  },
+
   isSwipeRow(row = {}) {
     const businessType = String(row?.business_type || '').trim().toLowerCase();
     const category = String(row?.category || '').trim();
     const description = String(row?.description || '').trim();
-    return businessType === 'credit_card_swipe'
+    return this.isFeeOnlyRow(row)
+      || businessType === 'credit_card_swipe'
       || category.includes('信用卡刷卡')
       || /刷卡|到账/.test(description);
   },
 
+  getCycleMonthKey(row = {}) {
+    const partMap = window.Utils?.getDateParts?.(
+      row?.transaction_date || row?.created_at || null
+    );
+    if (!partMap?.year || !partMap?.month) return '';
+    return `${partMap.year}-${partMap.month}`;
+  },
+
+  buildDisplayDedupKey(row = {}) {
+    if (!this.isRepaymentPlanRow(row)) return '';
+    const bank = String(this.getBankName(row) || '').trim().toLowerCase();
+    const tail = this.parseTail4(this.getRepaymentCardTail(row) || '') || 'no_tail';
+    const billDay = Number(this.getRepaymentBillDay(row) || 0);
+    const repaymentDay = Number(this.getRepaymentDay(row) || 0);
+    const cycleMonth = this.getCycleMonthKey(row) || 'unknown_month';
+    return `repayment|${bank || 'unknown_bank'}|${tail}|${billDay}|${repaymentDay}|${cycleMonth}`;
+  },
+
+  getFieldTimestamp(row = {}, fieldName = '') {
+    const parsed = this.parseShanghaiDate(row?.[fieldName] ?? null);
+    return parsed instanceof Date && !Number.isNaN(parsed.getTime()) ? parsed.getTime() : 0;
+  },
+
+  getTransactionTimestamp(row = {}) {
+    const parsed = this.parseShanghaiDate(row?.transaction_date || row?.created_at || null);
+    return parsed instanceof Date && !Number.isNaN(parsed.getTime()) ? parsed.getTime() : 0;
+  },
+
+  shouldReplaceDisplayRow(candidate = {}, current = {}) {
+    const candidateUpdated = this.getFieldTimestamp(candidate, 'updated_at');
+    const currentUpdated = this.getFieldTimestamp(current, 'updated_at');
+    if (candidateUpdated !== currentUpdated) return candidateUpdated > currentUpdated;
+
+    const candidateTx = this.getTransactionTimestamp(candidate);
+    const currentTx = this.getTransactionTimestamp(current);
+    if (candidateTx !== currentTx) return candidateTx > currentTx;
+
+    const candidateCreated = this.getFieldTimestamp(candidate, 'created_at');
+    const currentCreated = this.getFieldTimestamp(current, 'created_at');
+    if (candidateCreated !== currentCreated) return candidateCreated > currentCreated;
+
+    return String(candidate?.id || '') > String(current?.id || '');
+  },
+
+  dedupeRowsForDisplay(rows = []) {
+    const list = Array.isArray(rows) ? rows : [];
+    if (!list.length) return [];
+
+    const keepMap = new Map();
+    const passthrough = [];
+    list.forEach((row) => {
+      const key = this.buildDisplayDedupKey(row);
+      if (!key) {
+        passthrough.push(row);
+        return;
+      }
+      const current = keepMap.get(key);
+      if (!current || this.shouldReplaceDisplayRow(row, current)) {
+        keepMap.set(key, row);
+      }
+    });
+    return [...passthrough, ...Array.from(keepMap.values())];
+  },
+
+  getRepaymentDueDateForSort(row = {}) {
+    if (!this.isRepaymentPlanRow(row)) return Number.POSITIVE_INFINITY;
+    const baseDate = this.parseShanghaiDate(row?.transaction_date || row?.created_at || null) || new Date();
+    const billDay = this.getRepaymentBillDay(row);
+    const repaymentDay = this.getRepaymentDay(row);
+    if (!repaymentDay) return Number.POSITIVE_INFINITY;
+
+    let dueDate = null;
+    if (billDay) {
+      dueDate = this.buildBankCycleRecommendation(baseDate, billDay, repaymentDay)?.dueDate || null;
+    }
+    if (!(dueDate instanceof Date) || Number.isNaN(dueDate.getTime())) {
+      dueDate = this.getMonthlyDateByDay(baseDate, repaymentDay, 0);
+      if (dueDate && dueDate.getTime() < baseDate.getTime()) {
+        dueDate = this.getMonthlyDateByDay(baseDate, repaymentDay, 1);
+      }
+    }
+    if (!(dueDate instanceof Date) || Number.isNaN(dueDate.getTime())) {
+      return Number.POSITIVE_INFINITY;
+    }
+    return dueDate.getTime();
+  },
+
+  sortRowsForDisplay(rows = []) {
+    const list = Array.isArray(rows) ? rows : [];
+    const repaymentRows = list
+      .filter(row => this.isRepaymentPlanRow(row))
+      .sort((left, right) => {
+        const leftDue = this.getRepaymentDueDateForSort(left);
+        const rightDue = this.getRepaymentDueDateForSort(right);
+        if (leftDue !== rightDue) return leftDue - rightDue;
+
+        const leftBank = String(this.getBankName(left) || '').trim();
+        const rightBank = String(this.getBankName(right) || '').trim();
+        const bankCompare = leftBank.localeCompare(rightBank, 'zh-CN');
+        if (bankCompare !== 0) return bankCompare;
+
+        const leftTs = this.getTransactionTimestamp(left);
+        const rightTs = this.getTransactionTimestamp(right);
+        if (leftTs !== rightTs) return rightTs - leftTs;
+        return String(right?.id || '').localeCompare(String(left?.id || ''), 'zh-CN');
+      });
+
+    const swipeRows = list
+      .filter(row => this.isSwipeRow(row))
+      .sort((left, right) => {
+        const leftTs = this.getTransactionTimestamp(left);
+        const rightTs = this.getTransactionTimestamp(right);
+        if (leftTs !== rightTs) return rightTs - leftTs;
+        return String(right?.id || '').localeCompare(String(left?.id || ''), 'zh-CN');
+      });
+
+    return [...repaymentRows, ...swipeRows];
+  },
+
+  prepareRowsForDisplay(rows = []) {
+    const source = Array.isArray(rows) ? rows : [];
+    const filtered = source.filter(row => !this.isRepaymentPaymentRow(row));
+    const deduped = this.dedupeRowsForDisplay(filtered);
+    return this.sortRowsForDisplay(deduped);
+  },
+
   filterRowsByFlow(rows = []) {
     const list = Array.isArray(rows) ? rows : [];
-    if (this.currentFlow === 'repayment') {
-      return list.filter(row => this.isRepaymentRow(row));
-    }
     if (this.currentFlow === 'swipe') {
       return list.filter(row => this.isSwipeRow(row));
     }
-    return list;
+    return list.filter(row => this.isRepaymentPlanRow(row));
   },
 
   getRepaymentDueAmount(row = {}) {
@@ -903,6 +1041,7 @@ window.BankingModule = {
   },
 
   getSwipeGrossAmount(row = {}) {
+    if (this.isFeeOnlyRow(row)) return 0;
     const direct = this.toAbsAmount(row?.card_swipe_amount, NaN);
     if (Number.isFinite(direct) && direct > 0) return direct;
     const parsed = this.parseAmountFromDescription(row?.description, [
@@ -914,6 +1053,7 @@ window.BankingModule = {
   },
 
   getSwipeActualAmount(row = {}) {
+    if (this.isFeeOnlyRow(row)) return 0;
     const direct = this.toAbsAmount(row?.card_actual_amount, NaN);
     if (Number.isFinite(direct) && direct > 0) return direct;
     const parsed = this.parseAmountFromDescription(row?.description, [
@@ -925,6 +1065,9 @@ window.BankingModule = {
   },
 
   getSwipeFeeAmount(row = {}) {
+    if (this.isFeeOnlyRow(row)) {
+      return this.toAbsAmount(row?.card_fee_amount || row?.amount || 0, 0);
+    }
     const direct = this.toAbsAmount(row?.card_fee_amount, NaN);
     if (Number.isFinite(direct) && direct > 0) return direct;
     const parsed = this.parseAmountFromDescription(row?.description, [
@@ -938,10 +1081,11 @@ window.BankingModule = {
   },
 
   buildSummary(rows = []) {
-    const list = Array.isArray(rows) ? rows : [];
-    const repaymentPlanRows = list.filter(row => this.isRepaymentPlanRow(row));
-    const repaymentPaymentRows = list.filter(row => this.isRepaymentPaymentRow(row));
-    const swipeRows = list.filter(row => this.isSwipeRow(row));
+    const source = Array.isArray(rows) ? rows : [];
+    const displayRows = this.prepareRowsForDisplay(source);
+    const repaymentPlanRows = displayRows.filter(row => this.isRepaymentPlanRow(row));
+    const repaymentPaymentRows = source.filter(row => this.isRepaymentPaymentRow(row));
+    const swipeRows = displayRows.filter(row => this.isSwipeRow(row));
 
     const totalRepaymentDue = repaymentPlanRows.reduce((sum, row) => sum + this.getRepaymentDueAmount(row), 0);
     const totalPaid = repaymentPaymentRows.reduce((sum, row) => sum + this.getPaidAmount(row), 0);
@@ -961,7 +1105,7 @@ window.BankingModule = {
   },
 
   getRecordTitle(row = {}) {
-    if (this.isRepaymentPaymentRow(row)) return '还款记录';
+    if (this.isFeeOnlyRow(row)) return '银行手续费';
     if (this.isRepaymentPlanRow(row)) return '信用卡还款';
     if (this.isSwipeRow(row)) return '信用卡刷卡';
     return String(row?.category || '银行流水').trim() || '银行流水';
@@ -979,6 +1123,31 @@ window.BankingModule = {
     return `${sign}${window.Utils.formatMoney(amount)}`;
   },
 
+  getPrimaryAmountMeta(row = {}) {
+    if (this.isRepaymentPlanRow(row)) {
+      return {
+        text: window.Utils.formatMoney(this.getRepaymentDueAmount(row)),
+        color: '#dc2626'
+      };
+    }
+    if (this.isSwipeRow(row)) {
+      if (this.isFeeOnlyRow(row)) {
+        return {
+          text: window.Utils.formatMoney(this.getSwipeFeeAmount(row)),
+          color: '#dc2626'
+        };
+      }
+      return {
+        text: window.Utils.formatMoney(this.getSwipeGrossAmount(row)),
+        color: '#1d4ed8'
+      };
+    }
+    return {
+      text: this.formatAmountText(row),
+      color: this.getAmountColor(row)
+    };
+  },
+
   getBankName(row) {
     const candidates = [
       row?.card_bank,
@@ -994,6 +1163,68 @@ window.BankingModule = {
     return match?.[1] ? String(match[1]).trim() : '未标注银行';
   },
 
+  extractTailFromText(description, preferredPattern = null) {
+    const text = String(description || '');
+    if (preferredPattern) {
+      const preferredMatch = text.match(preferredPattern);
+      if (preferredMatch?.[1]) return this.parseTail4(preferredMatch[1]);
+    }
+    const commonMatch = text.match(/尾号\s*(\d{4})/);
+    return commonMatch?.[1] ? this.parseTail4(commonMatch[1]) : '';
+  },
+
+  getRepaymentCardTail(row = {}) {
+    const direct = this.parseTail4(row?.card_tail || '');
+    if (direct) return direct;
+    return this.extractTailFromText(row?.description, /银行[:：][^；\n]*尾号\s*(\d{4})/);
+  },
+
+  getSwipeCardTail(row = {}) {
+    const direct = this.parseTail4(row?.card_tail || '');
+    if (direct) return direct;
+    return this.extractTailFromText(row?.description, /刷卡卡[:：][^；\n]*尾号\s*(\d{4})/);
+  },
+
+  getSettlementCardTail(row = {}) {
+    const direct = this.parseTail4(row?.settlement_card_tail || '');
+    if (direct) return direct;
+    return this.extractTailFromText(row?.description, /到账卡[:：][^；\n]*尾号\s*(\d{4})/);
+  },
+
+  formatBankCard(bank = '', tail = '') {
+    const safeBank = String(bank || '').trim() || '未标注银行';
+    const safeTail = this.parseTail4(tail || '');
+    return safeTail ? `${safeBank}（尾号${safeTail}）` : safeBank;
+  },
+
+  getRepaymentBillDay(row = {}) {
+    const direct = Number(row?.card_bill_day || 0);
+    if (Number.isInteger(direct) && direct >= 1 && direct <= 31) return direct;
+    const text = String(row?.description || '');
+    const match = text.match(/账单日[:：]\s*(?:每月)?\s*(\d{1,2})\s*日?/);
+    const parsed = Number(match?.[1] || 0);
+    return Number.isInteger(parsed) && parsed >= 1 && parsed <= 31 ? parsed : 0;
+  },
+
+  getRepaymentDay(row = {}) {
+    const direct = Number(row?.card_repayment_day || 0);
+    if (Number.isInteger(direct) && direct >= 1 && direct <= 31) return direct;
+    const text = String(row?.description || '');
+    const match = text.match(/还款日[:：]\s*(?:每月)?\s*(\d{1,2})\s*日?/);
+    const parsed = Number(match?.[1] || 0);
+    return Number.isInteger(parsed) && parsed >= 1 && parsed <= 31 ? parsed : 0;
+  },
+
+  getReminderStatusText(row = {}) {
+    const enabled = row?.reminder_enabled;
+    if (enabled === false) return '提醒关闭';
+    const reminderDate = String(row?.reminder_date || '').trim();
+    if (reminderDate) {
+      return `提醒日：${window.Utils.formatDate(reminderDate, 'YYYY-MM-DD')}`;
+    }
+    return '提醒待计算';
+  },
+
   escapeHtml(text) {
     return String(text ?? '')
       .replace(/&/g, '&amp;')
@@ -1005,32 +1236,27 @@ window.BankingModule = {
 
   renderSummary() {
     const summary = this.buildSummary(this.rawRows);
+    const isSwipeFlow = this.currentFlow === 'swipe';
+    const summaryCards = isSwipeFlow
+      ? [
+          { label: '总刷卡金额', value: summary.totalSwipe, color: '#1d4ed8', border: '#dbeafe', bg: '#eff6ff' },
+          { label: '总到账金额', value: summary.totalArrival, color: '#b45309', border: '#fde68a', bg: '#fffbeb' },
+          { label: '总手续费', value: summary.totalFee, color: '#0f172a', border: '#e5e7eb', bg: '#f8fafc' }
+        ]
+      : [
+          { label: '总应还金额', value: summary.totalRepaymentDue, color: '#15803d', border: '#d1fae5', bg: '#f0fdf4' },
+          { label: '已还金额', value: summary.totalPaid, color: '#dc2626', border: '#fee2e2', bg: '#fff1f2' },
+          { label: '剩余应还', value: summary.outstanding, color: '#15803d', border: '#dcfce7', bg: '#f0fdf4' }
+        ];
+
     return `
       <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 12px 6px;">
-        <div style="padding:10px;border:1px solid #d1fae5;border-radius:10px;background:#f0fdf4;">
-          <div style="font-size:12px;color:#166534;">总应还金额</div>
-          <div style="font-size:16px;font-weight:700;color:#15803d;">${window.Utils.formatMoney(summary.totalRepaymentDue)}</div>
-        </div>
-        <div style="padding:10px;border:1px solid #fee2e2;border-radius:10px;background:#fff1f2;">
-          <div style="font-size:12px;color:#991b1b;">已还金额</div>
-          <div style="font-size:16px;font-weight:700;color:#dc2626;">${window.Utils.formatMoney(summary.totalPaid)}</div>
-        </div>
-        <div style="padding:10px;border:1px solid #dcfce7;border-radius:10px;background:#f0fdf4;">
-          <div style="font-size:12px;color:#166534;">剩余应还</div>
-          <div style="font-size:16px;font-weight:700;color:#15803d;">${window.Utils.formatMoney(summary.outstanding)}</div>
-        </div>
-        <div style="padding:10px;border:1px solid #dbeafe;border-radius:10px;background:#eff6ff;">
-          <div style="font-size:12px;color:#1e3a8a;">总刷卡金额</div>
-          <div style="font-size:16px;font-weight:700;color:#1d4ed8;">${window.Utils.formatMoney(summary.totalSwipe)}</div>
-        </div>
-        <div style="padding:10px;border:1px solid #fde68a;border-radius:10px;background:#fffbeb;">
-          <div style="font-size:12px;color:#92400e;">总到账金额</div>
-          <div style="font-size:16px;font-weight:700;color:#b45309;">${window.Utils.formatMoney(summary.totalArrival)}</div>
-        </div>
-        <div style="padding:10px;border:1px solid #e5e7eb;border-radius:10px;background:#f8fafc;">
-          <div style="font-size:12px;color:#475569;">总手续费</div>
-          <div style="font-size:16px;font-weight:700;color:#0f172a;">${window.Utils.formatMoney(summary.totalFee)}</div>
-        </div>
+        ${summaryCards.map(card => `
+          <div style="padding:10px;border:1px solid ${card.border};border-radius:10px;background:${card.bg};">
+            <div style="font-size:12px;color:#475569;">${this.escapeHtml(card.label)}</div>
+            <div style="font-size:16px;font-weight:700;color:${card.color};">${window.Utils.formatMoney(card.value)}</div>
+          </div>
+        `).join('')}
       </div>
     `;
   },
@@ -1040,49 +1266,62 @@ window.BankingModule = {
     if (!container) return;
 
     if (!Array.isArray(this.rows) || this.rows.length === 0) {
+      const emptyText = this.currentFlow === 'swipe' ? '暂无刷卡流水' : '暂无信用卡还款流水';
       container.innerHTML = `
         ${this.renderSummary()}
         <div class="empty-state">
           <div class="empty-icon"><i class="fa fa-university"></i></div>
-          <div class="empty-text">暂无银行业务记录</div>
+          <div class="empty-text">${emptyText}</div>
         </div>
       `;
       return;
     }
 
     const cards = this.rows.map(row => {
-      const bankName = this.getBankName(row);
       const dateText = window.Utils.formatDate(row?.transaction_date || row?.created_at, 'YYYY/MM/DD HH:mm:ss');
       const title = this.escapeHtml(this.getRecordTitle(row));
-      const typeText = this.escapeHtml(this.getRecordTypeLabel(row));
-      const bankText = this.escapeHtml(bankName);
-      const descText = this.escapeHtml(String(row?.description || '').trim() || '无描述');
-      const amountText = this.formatAmountText(row);
-      const amountColor = this.getAmountColor(row);
-      let extraLine = '';
+      const amountMeta = this.getPrimaryAmountMeta(row);
+      const detailLines = [];
+
       if (this.isRepaymentPlanRow(row)) {
-        const due = this.getRepaymentDueAmount(row);
-        extraLine = `应还：${window.Utils.formatMoney(due)}`;
-      } else if (this.isRepaymentPaymentRow(row)) {
-        const paid = this.getPaidAmount(row);
-        extraLine = `已还：${window.Utils.formatMoney(paid)}`;
+        const bankName = this.getBankName(row);
+        const cardTail = this.getRepaymentCardTail(row);
+        const billDay = this.getRepaymentBillDay(row);
+        const repayDay = this.getRepaymentDay(row);
+        detailLines.push(`还款入账卡：${this.formatBankCard(bankName, cardTail)}`);
+        if (billDay > 0 || repayDay > 0) {
+          detailLines.push(`账单/还款日：${billDay > 0 ? `${billDay}日` : '-'} / ${repayDay > 0 ? `${repayDay}日` : '-'}`);
+        }
+        detailLines.push(`应还金额：${window.Utils.formatMoney(this.getRepaymentDueAmount(row))}`);
+        detailLines.push(this.getReminderStatusText(row));
       } else if (this.isSwipeRow(row)) {
-        const gross = this.getSwipeGrossAmount(row);
-        const actual = this.getSwipeActualAmount(row);
-        const fee = this.getSwipeFeeAmount(row);
-        extraLine = `刷卡：${window.Utils.formatMoney(gross)} · 到账：${window.Utils.formatMoney(actual)} · 手续费：${window.Utils.formatMoney(fee)}`;
+        if (this.isFeeOnlyRow(row)) {
+          const feeBank = this.getBankName(row);
+          const feeTail = this.getSwipeCardTail(row) || this.getRepaymentCardTail(row);
+          detailLines.push(`银行卡：${this.formatBankCard(feeBank, feeTail)}`);
+          detailLines.push(`手续费：${window.Utils.formatMoney(this.getSwipeFeeAmount(row))}`);
+        } else {
+          const swipeBank = String(row?.swipe_card_bank || row?.card_bank || this.getBankName(row)).trim();
+          const settlementBank = String(row?.settlement_bank || '').trim() || '未标注到账银行';
+          const swipeTail = this.getSwipeCardTail(row);
+          const settlementTail = this.getSettlementCardTail(row);
+          detailLines.push(`刷卡卡：${this.formatBankCard(swipeBank, swipeTail)}`);
+          detailLines.push(`到账卡：${this.formatBankCard(settlementBank, settlementTail)}`);
+          detailLines.push(`刷卡：${window.Utils.formatMoney(this.getSwipeGrossAmount(row))} · 到账：${window.Utils.formatMoney(this.getSwipeActualAmount(row))} · 手续费：${window.Utils.formatMoney(this.getSwipeFeeAmount(row))}`);
+        }
+      } else {
+        detailLines.push(`银行：${this.formatBankCard(this.getBankName(row), '')}`);
       }
+
       return `
         <div class="banking-record-card" data-id="${this.escapeHtml(row?.id)}"
           style="margin:8px 12px;padding:12px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
             <div style="font-size:14px;font-weight:600;color:#0f172a;">${title}</div>
-            <div style="font-size:15px;font-weight:700;color:${amountColor};">${amountText}</div>
+            <div style="font-size:15px;font-weight:700;color:${amountMeta.color};">${amountMeta.text}</div>
           </div>
-          <div style="margin-top:6px;font-size:12px;color:#64748b;">${typeText} · ${bankText}</div>
           <div style="margin-top:4px;font-size:12px;color:#94a3b8;">${this.escapeHtml(dateText)}</div>
-          ${extraLine ? `<div style="margin-top:4px;font-size:12px;color:#0f766e;">${this.escapeHtml(extraLine)}</div>` : ''}
-          <div style="margin-top:4px;font-size:12px;color:#475569;line-height:1.45;">${descText}</div>
+          ${detailLines.map(line => `<div style="margin-top:4px;font-size:12px;color:#475569;line-height:1.45;">${this.escapeHtml(line)}</div>`).join('')}
         </div>
       `;
     }).join('');

@@ -1340,6 +1340,22 @@ window.BankingModule = {
     return '提醒待计算';
   },
 
+  buildDescriptionSummary(row = {}) {
+    const raw = String(row?.description || '').replace(/\r/g, '\n').trim();
+    if (!raw) return '-';
+
+    const parts = raw
+      .split(/[；;\n]+/)
+      .map(item => String(item || '').replace(/\s+/g, ' ').trim())
+      .filter(Boolean)
+      .filter(item => !/^(Statement|Payment|Daily|Personal|Last|New\s+Charge|Cash\s+Advance|Transaction|Posting|Card\s*No\.?|Amount|Original|Total|账户信息|本期账务明细|交易日期|摘要|Description|卡号|货币)/i.test(item));
+
+    const selected = (parts.length ? parts : [raw]).slice(0, 2).join('；');
+    const compact = selected.replace(/\s+/g, ' ').trim();
+    if (compact.length <= 70) return compact;
+    return `${compact.slice(0, 70)}...`;
+  },
+
   escapeHtml(text) {
     return String(text ?? '')
       .replace(/&/g, '&amp;')
@@ -1454,6 +1470,7 @@ window.BankingModule = {
     const gross = this.getSwipeGrossAmount(row);
     const actual = this.getSwipeActualAmount(row);
     const fee = this.getSwipeFeeAmount(row);
+    const summary = this.buildDescriptionSummary(row);
     await window.Modal.show({
       title: '银行业务详情',
       confirmText: '关闭',
@@ -1470,7 +1487,7 @@ window.BankingModule = {
           <div><strong>刷卡金额：</strong>${this.escapeHtml(window.Utils.formatMoney(gross))}</div>
           <div><strong>到账金额：</strong>${this.escapeHtml(window.Utils.formatMoney(actual))}</div>
           <div><strong>手续费：</strong>${this.escapeHtml(window.Utils.formatMoney(fee))}</div>
-          <div><strong>描述：</strong>${this.escapeHtml(String(row?.description || '').trim() || '-')}</div>
+          <div><strong>备注摘要：</strong>${this.escapeHtml(summary)}</div>
         </div>
       `
     });

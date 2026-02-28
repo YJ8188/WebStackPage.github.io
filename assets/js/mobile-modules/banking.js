@@ -9,6 +9,7 @@ window.BankingModule = {
   currentPage: 1,
   pageSize: 20,
   rawRows: [],
+  allFlowRows: [],
   rows: [],
   hasMore: true,
   eventsBound: false,
@@ -30,6 +31,7 @@ window.BankingModule = {
     this.keyword = String(params?.keyword || this.keyword || '').trim();
     this.currentPage = 1;
     this.rawRows = [];
+    this.allFlowRows = [];
     this.rows = [];
     this.hasMore = true;
 
@@ -58,10 +60,12 @@ window.BankingModule = {
         tab.classList.add('active');
         this.currentFlow = this.normalizeFlow(tab.dataset.type);
         this.currentPage = 1;
-        this.rawRows = [];
-        this.rows = [];
-        this.hasMore = true;
-        await this.loadRecords();
+        if (!Array.isArray(this.rawRows) || this.rawRows.length === 0) {
+          await this.loadRecords();
+          return;
+        }
+        this.applyCurrentFlowRows();
+        this.render();
       });
     });
 
@@ -75,6 +79,7 @@ window.BankingModule = {
         this.keyword = String(searchInput.value || '').trim();
         this.currentPage = 1;
         this.rawRows = [];
+        this.allFlowRows = [];
         this.rows = [];
         this.hasMore = true;
         await this.loadRecords();
@@ -127,6 +132,7 @@ window.BankingModule = {
       if (!this.isPageActive()) return;
       this.currentPage = 1;
       this.rawRows = [];
+      this.allFlowRows = [];
       this.rows = [];
       this.hasMore = true;
       await this.loadRecords();
@@ -173,22 +179,64 @@ window.BankingModule = {
     }
   },
 
+  async fetchAllBankBusinessRecords() {
+    const pageLimit = 200;
+    const maxBatches = 60;
+    let offset = 0;
+    const rows = [];
+    const seen = new Set();
+
+    for (let i = 0; i < maxBatches; i += 1) {
+      const chunk = await window.API.getBankBusinessRecords({
+        type: '',
+        keyword: this.keyword,
+        limit: pageLimit,
+        offset
+      });
+      if (!Array.isArray(chunk) || chunk.length === 0) {
+        break;
+      }
+
+      chunk.forEach((row) => {
+        const idKey = String(row?.id || '').trim();
+        const fallbackKey = [
+          row?.transaction_date || '',
+          row?.created_at || '',
+          row?.business_type || '',
+          row?.category || '',
+          row?.amount || '',
+          row?.description || ''
+        ].join('|');
+        const rowKey = idKey || fallbackKey;
+        if (seen.has(rowKey)) return;
+        seen.add(rowKey);
+        rows.push(row);
+      });
+
+      if (chunk.length < pageLimit) {
+        break;
+      }
+      offset += pageLimit;
+    }
+
+    return rows;
+  },
+
+  applyCurrentFlowRows() {
+    const preparedRows = this.prepareRowsForDisplay(this.rawRows);
+    const flowRows = this.filterRowsByFlow(preparedRows);
+    const safePage = Math.max(1, Number(this.currentPage) || 1);
+    const end = safePage * this.pageSize;
+    this.allFlowRows = flowRows;
+    this.rows = flowRows.slice(0, end);
+    this.hasMore = end < flowRows.length;
+  },
+
   async loadRecords() {
     try {
       window.Loading.show('加载银行业务...');
-      const offset = (this.currentPage - 1) * this.pageSize;
-      const data = await window.API.getBankBusinessRecords({
-        type: '',
-        keyword: this.keyword,
-        limit: this.pageSize,
-        offset
-      });
-      if (data.length < this.pageSize) {
-        this.hasMore = false;
-      }
-      this.rawRows = this.currentPage === 1 ? data : [...this.rawRows, ...data];
-      const preparedRows = this.prepareRowsForDisplay(this.rawRows);
-      this.rows = this.filterRowsByFlow(preparedRows);
+      this.rawRows = await this.fetchAllBankBusinessRecords();
+      this.applyCurrentFlowRows();
       this.render();
       window.Loading.hide();
     } catch (error) {
@@ -201,7 +249,8 @@ window.BankingModule = {
   async loadMore() {
     if (!this.hasMore) return;
     this.currentPage += 1;
-    await this.loadRecords();
+    this.applyCurrentFlowRows();
+    this.render();
   },
 
   async showCreateActionSheet() {
@@ -416,6 +465,7 @@ window.BankingModule = {
     }
     this.currentPage = 1;
     this.rawRows = [];
+    this.allFlowRows = [];
     this.rows = [];
     this.hasMore = true;
     await this.loadRecords();
@@ -1159,7 +1209,7 @@ window.BankingModule = {
       if (text) return text;
     }
     const description = String(row?.description || '');
-    const match = description.match(/银行[:：]\s*([^；\n]+)/);
+    const match = description.match(/(?:银行|还款卡|刷卡卡)[:：]\s*([^；\n]+)/);
     return match?.[1] ? String(match[1]).trim() : '未标注银行';
   },
 
@@ -1169,26 +1219,29 @@ window.BankingModule = {
       const preferredMatch = text.match(preferredPattern);
       if (preferredMatch?.[1]) return this.parseTail4(preferredMatch[1]);
     }
-    const commonMatch = text.match(/尾号\s*(\d{4})/);
+    const commonMatch = text.match(/尾号\s*(\d{3,4})/);
     return commonMatch?.[1] ? this.parseTail4(commonMatch[1]) : '';
   },
 
   getRepaymentCardTail(row = {}) {
     const direct = this.parseTail4(row?.card_tail || '');
     if (direct) return direct;
-    return this.extractTailFromText(row?.description, /银行[:：][^；\n]*尾号\s*(\d{4})/);
+    const fromBankLine = this.extractTailFromText(row?.description, /(?:银行|还款卡|刷卡卡)[:：][^；\n]*尾号\s*(\d{3,4})/);
+    if (fromBankLine) return fromBankLine;
+    const cardNoMatch = String(row?.description || '').match(/Card\s*No\.?\s*(\d{4})/i);
+    return cardNoMatch?.[1] ? this.parseTail4(cardNoMatch[1]) : '';
   },
 
   getSwipeCardTail(row = {}) {
     const direct = this.parseTail4(row?.card_tail || '');
     if (direct) return direct;
-    return this.extractTailFromText(row?.description, /刷卡卡[:：][^；\n]*尾号\s*(\d{4})/);
+    return this.extractTailFromText(row?.description, /刷卡卡[:：][^；\n]*尾号\s*(\d{3,4})/);
   },
 
   getSettlementCardTail(row = {}) {
     const direct = this.parseTail4(row?.settlement_card_tail || '');
     if (direct) return direct;
-    return this.extractTailFromText(row?.description, /到账卡[:：][^；\n]*尾号\s*(\d{4})/);
+    return this.extractTailFromText(row?.description, /到账卡[:：][^；\n]*尾号\s*(\d{3,4})/);
   },
 
   formatBankCard(bank = '', tail = '') {

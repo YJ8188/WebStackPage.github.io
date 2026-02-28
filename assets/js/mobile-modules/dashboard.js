@@ -91,6 +91,18 @@ window.DashboardModule = {
             </div>
             <div class="dashboard-shortcut-label">财务管理</div>
           </div>
+          <div class="dashboard-shortcut-item" data-action="banking">
+            <div class="dashboard-shortcut-icon cyan">
+              <i class="fa fa-university"></i>
+            </div>
+            <div class="dashboard-shortcut-label">银行业务</div>
+          </div>
+          <div class="dashboard-shortcut-item" data-action="notes">
+            <div class="dashboard-shortcut-icon blue">
+              <i class="fa fa-sticky-note-o"></i>
+            </div>
+            <div class="dashboard-shortcut-label">日常笔记</div>
+          </div>
         </div>
       </div>
 
@@ -256,7 +268,9 @@ window.DashboardModule = {
       inventory: () => window.Router.push('/inventory'),
       customers: () => window.Router.push('/customers'),
       products: () => window.Router.push('/products'),
-      finance: () => window.Router.push('/finance')
+      finance: () => window.Router.push('/finance'),
+      banking: () => window.Router.push('/banking'),
+      notes: () => window.Router.push('/notes')
     };
 
     const handler = actions[action];

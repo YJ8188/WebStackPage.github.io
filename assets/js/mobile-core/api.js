@@ -15,7 +15,8 @@ class API {
       orders: 'erp_orders',
       orderItems: 'erp_order_items',
       inventoryRecords: 'erp_inventory_logs',
-      financeRecords: 'erp_finances'
+      financeRecords: 'erp_finances',
+      notes: 'erp_notes'
     };
     this.init();
   }
@@ -409,6 +410,7 @@ class API {
   async createOrderWithItems(payload = {}) {
     return this.request(async () => {
       const client = this.ensureSupabaseClient();
+      const currentUser = window.MobileERP?.getCurrentUser?.() || null;
       const orderItems = Array.isArray(payload.items) ? payload.items : [];
       if (orderItems.length === 0) {
         throw new Error('请至少选择一个商品');
@@ -481,7 +483,6 @@ class API {
         orderNumber = orderNumberData;
       }
 
-      const currentUser = window.MobileERP?.getCurrentUser?.() || null;
       const status = String(payload.status || 'pending').trim().toLowerCase() || 'pending';
       const paymentStatus = String(payload.payment_status || 'unpaid').trim().toLowerCase() || 'unpaid';
       const shippingStatus = String(payload.shipping_status || 'not_shipped').trim().toLowerCase() || 'not_shipped';
@@ -884,6 +885,19 @@ class API {
 
   // ==================== 财务管理 ====================
 
+  isBankBusinessFinanceRecord(record = {}) {
+    const businessType = String(record?.business_type || '').trim().toLowerCase();
+    const category = String(record?.category || '').trim();
+    const description = String(record?.description || '').trim();
+    if (['credit_card', 'credit_card_repayment', 'credit_card_swipe', 'credit_card_repayment_payment'].includes(businessType)) {
+      return true;
+    }
+    if (category.includes('信用卡') || category.includes('银行手续费') || category.includes('还款记录')) {
+      return true;
+    }
+    return /银行[:：]/.test(description) || /刷卡|还款/.test(description);
+  }
+
   async getFinanceRecords(options = {}) {
     const {
       type = '',
@@ -945,6 +959,76 @@ class API {
     }, options);
   }
 
+  async getBankBusinessRecords(options = {}) {
+    const {
+      type = '',
+      keyword = '',
+      bank = '',
+      limit = 20,
+      offset = 0
+    } = options;
+
+    return this.request(async () => {
+      const userId = this.getCurrentUserId();
+      const safeOffset = Math.max(0, Number(offset) || 0);
+      const safeLimit = Math.max(1, Number(limit) || 20);
+      const fetchUpper = Math.max(safeOffset + safeLimit * 4 - 1, 79);
+
+      let query = this.supabase
+        .from(this.tableNames.financeRecords)
+        .select('*')
+        .order('transaction_date', { ascending: false })
+        .range(0, fetchUpper);
+
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const typeKey = String(type || '').trim().toLowerCase();
+      const keywordText = String(keyword || '').trim().toLowerCase();
+      const bankText = String(bank || '').trim().toLowerCase();
+
+      const filtered = (Array.isArray(data) ? data : [])
+        .filter(item => this.isBankBusinessFinanceRecord(item))
+        .filter(item => {
+          const rowType = String(item?.type || '').trim().toLowerCase();
+          if (typeKey && rowType !== typeKey) {
+            return false;
+          }
+          if (keywordText) {
+            const combined = [
+              item?.category,
+              item?.description,
+              item?.card_bank,
+              item?.swipe_card_bank,
+              item?.settlement_bank,
+              item?.settlement_card_tail
+            ].map(value => String(value || '').toLowerCase()).join(' ');
+            if (!combined.includes(keywordText)) {
+              return false;
+            }
+          }
+          if (bankText) {
+            const bankCombined = [
+              item?.card_bank,
+              item?.swipe_card_bank,
+              item?.settlement_bank,
+              item?.description
+            ].map(value => String(value || '').toLowerCase()).join(' ');
+            if (!bankCombined.includes(bankText)) {
+              return false;
+            }
+          }
+          return true;
+        });
+
+      return filtered.slice(safeOffset, safeOffset + safeLimit);
+    }, options);
+  }
+
   async createFinanceRecord(financeData = {}) {
     return this.request(async () => {
       const userId = this.getCurrentUserId();
@@ -983,6 +1067,113 @@ class API {
 
       if (error) throw error;
       return data;
+    }, { showLoading: true, showError: true });
+  }
+
+  // ==================== 日常笔记 ====================
+
+  async getNotes(options = {}) {
+    const {
+      keyword = '',
+      pinnedOnly = false,
+      limit = 20,
+      offset = 0
+    } = options;
+
+    return this.request(async () => {
+      const userId = this.getCurrentUserId();
+      let query = this.supabase
+        .from(this.tableNames.notes)
+        .select('id,user_id,title,content_text,content_html,is_pinned,created_at,updated_at')
+        .order('is_pinned', { ascending: false })
+        .order('updated_at', { ascending: false });
+
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+
+      if (pinnedOnly) {
+        query = query.eq('is_pinned', true);
+      }
+
+      const safeKeyword = String(keyword || '').trim();
+      if (safeKeyword) {
+        query = query.or(`title.ilike.%${safeKeyword}%,content_text.ilike.%${safeKeyword}%`);
+      }
+
+      query = query.range(offset, offset + limit - 1);
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    }, options);
+  }
+
+  async createNote(noteData = {}) {
+    return this.request(async () => {
+      const userId = this.getCurrentUserId();
+      const now = new Date().toISOString();
+      const contentText = String(noteData?.content_text || '').trim();
+      const contentHtml = String(noteData?.content_html || '').trim() || (contentText ? `<p>${contentText}</p>` : '');
+      const payload = {
+        user_id: userId || noteData?.user_id || null,
+        title: String(noteData?.title || '').trim(),
+        content_text: contentText,
+        content_html: contentHtml,
+        is_pinned: !!noteData?.is_pinned,
+        created_at: now,
+        updated_at: now
+      };
+
+      const { data, error } = await this.supabase
+        .from(this.tableNames.notes)
+        .insert([payload])
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    }, { showLoading: true, showError: true });
+  }
+
+  async updateNote(noteId, noteData = {}) {
+    return this.request(async () => {
+      const userId = this.getCurrentUserId();
+      const contentText = String(noteData?.content_text || '').trim();
+      const contentHtml = String(noteData?.content_html || '').trim() || (contentText ? `<p>${contentText}</p>` : '');
+      const payload = {
+        title: String(noteData?.title || '').trim(),
+        content_text: contentText,
+        content_html: contentHtml,
+        is_pinned: !!noteData?.is_pinned,
+        updated_at: new Date().toISOString()
+      };
+
+      let query = this.supabase
+        .from(this.tableNames.notes)
+        .update(payload)
+        .eq('id', noteId);
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+
+      const { data, error } = await query.select().single();
+      if (error) throw error;
+      return data;
+    }, { showLoading: true, showError: true });
+  }
+
+  async deleteNote(noteId) {
+    return this.request(async () => {
+      const userId = this.getCurrentUserId();
+      let query = this.supabase
+        .from(this.tableNames.notes)
+        .delete()
+        .eq('id', noteId);
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+      const { error } = await query;
+      if (error) throw error;
+      return true;
     }, { showLoading: true, showError: true });
   }
 

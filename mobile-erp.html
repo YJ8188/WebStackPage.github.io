@@ -256,6 +256,70 @@
                 </div>
             </div>
 
+            <!-- 银行业务页面 -->
+            <div id="bankingPage" class="mobile-page hidden">
+                <div class="navbar">
+                    <div class="navbar-left">
+                        <div class="navbar-icon" id="bankingBackBtn">
+                            <i class="fa fa-arrow-left"></i>
+                        </div>
+                    </div>
+                    <div class="navbar-center">
+                        <div class="navbar-title">银行业务</div>
+                    </div>
+                    <div class="navbar-right"></div>
+                </div>
+                <div class="tabs" id="bankingTabs">
+                    <div class="tab-item active" data-type="">全部</div>
+                    <div class="tab-item" data-type="income">收入</div>
+                    <div class="tab-item" data-type="expense">支出</div>
+                </div>
+                <div class="search-bar">
+                    <div class="search-input-wrapper">
+                        <i class="fa fa-search"></i>
+                        <input type="text" class="search-input" placeholder="搜索银行、分类、描述" id="bankingSearchInput">
+                    </div>
+                </div>
+                <div class="page-content page-content-no-padding" id="bankingContent">
+                    <!-- 内容由 banking.js 渲染 -->
+                </div>
+            </div>
+
+            <!-- 日常笔记页面 -->
+            <div id="notesPage" class="mobile-page hidden">
+                <div class="navbar">
+                    <div class="navbar-left">
+                        <div class="navbar-icon" id="notesBackBtn">
+                            <i class="fa fa-arrow-left"></i>
+                        </div>
+                    </div>
+                    <div class="navbar-center">
+                        <div class="navbar-title">日常笔记</div>
+                    </div>
+                    <div class="navbar-right">
+                        <div class="navbar-icon" id="notesAddBtn">
+                            <i class="fa fa-plus"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="search-bar">
+                    <div class="search-input-wrapper">
+                        <i class="fa fa-search"></i>
+                        <input type="text" class="search-input" placeholder="搜索标题或内容" id="notesSearchInput">
+                    </div>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px 4px;color:#64748b;font-size:12px;">
+                    <span>仅看置顶</span>
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                        <input type="checkbox" id="notesPinnedOnlySwitch">
+                        <span>开启</span>
+                    </label>
+                </div>
+                <div class="page-content page-content-no-padding" id="notesContent">
+                    <!-- 内容由 notes.js 渲染 -->
+                </div>
+            </div>
+
             <!-- 我的页面 -->
             <div id="profilePage" class="mobile-page hidden">
                 <div class="navbar">
@@ -315,7 +379,7 @@
     <!-- 核心模块 -->
     <script src="assets/js/mobile-core/utils.js?v=20260219-14"></script>
     <script src="assets/js/mobile-core/storage.js?v=20260219-14"></script>
-    <script src="assets/js/mobile-core/api.js?v=20260219-20"></script>
+    <script src="assets/js/mobile-core/api.js?v=20260228-01"></script>
     <script src="assets/js/mobile-core/router.js?v=20260219-14"></script>
     <script src="assets/js/mobile-core/app.js?v=20260219-14"></script>
 
@@ -327,12 +391,14 @@
     <script src="assets/js/mobile-components/picker.js?v=20260219-23"></script>
 
     <!-- 业务模块 -->
-    <script src="assets/js/mobile-modules/dashboard.js?v=20260219-14"></script>
+    <script src="assets/js/mobile-modules/dashboard.js?v=20260228-01"></script>
     <script src="assets/js/mobile-modules/order.js?v=20260219-18"></script>
     <script src="assets/js/mobile-modules/customer.js?v=20260219-14"></script>
     <script src="assets/js/mobile-modules/product.js?v=20260219-17"></script>
     <script src="assets/js/mobile-modules/inventory.js?v=20260219-17"></script>
     <script src="assets/js/mobile-modules/finance.js?v=20260219-23"></script>
+    <script src="assets/js/mobile-modules/banking.js?v=20260228-01"></script>
+    <script src="assets/js/mobile-modules/notes.js?v=20260228-01"></script>
     <script src="assets/js/mobile-modules/profile.js?v=20260219-16"></script>
 
     <!-- 主入口 -->
@@ -415,6 +481,16 @@
                     document.getElementById('financePage').classList.remove('hidden');
                     await window.FinanceModule.init();
                     updateTabbar('finance');
+                },
+                '/banking': async (params) => {
+                    setTabbarVisible(true);
+                    document.getElementById('bankingPage').classList.remove('hidden');
+                    await window.BankingModule.init(params || {});
+                },
+                '/notes': async (params) => {
+                    setTabbarVisible(true);
+                    document.getElementById('notesPage').classList.remove('hidden');
+                    await window.NotesModule.init(params || {});
                 },
                 '/profile': async () => {
                     setTabbarVisible(true);

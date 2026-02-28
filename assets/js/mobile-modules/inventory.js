@@ -15,6 +15,7 @@ window.InventoryModule = {
   syncEventsBound: false,
   realtimeChannel: null,
   realtimeRefreshTimer: null,
+  realtimeUserId: '',
   hiddenSystemTypes: new Set(['order_lock', 'order_release', 'sale_reversal', 'order_unlock', 'sale', 'consumption']),
   snapshotProducts: [],
 
@@ -99,6 +100,10 @@ window.InventoryModule = {
       window.EventBus.on('network:online', () => {
         this.scheduleRealtimeRefresh('network-online');
       });
+      window.EventBus.on('auth:changed', () => {
+        this.startRealtimeSync();
+        this.scheduleRealtimeRefresh('auth-changed');
+      });
     }
   },
 
@@ -123,17 +128,41 @@ window.InventoryModule = {
     }, 260);
   },
 
-  startRealtimeSync() {
+  stopRealtimeSync() {
+    if (this.realtimeRefreshTimer) {
+      clearTimeout(this.realtimeRefreshTimer);
+      this.realtimeRefreshTimer = null;
+    }
+
+    const client = window.supabaseClient || window.supabase;
     if (this.realtimeChannel) {
+      try {
+        if (client && typeof client.removeChannel === 'function') {
+          client.removeChannel(this.realtimeChannel);
+        } else if (typeof this.realtimeChannel.unsubscribe === 'function') {
+          this.realtimeChannel.unsubscribe();
+        }
+      } catch (error) {
+        console.warn('停止库存 realtime 订阅失败:', error);
+      }
+    }
+
+    this.realtimeChannel = null;
+    this.realtimeUserId = '';
+  },
+
+  startRealtimeSync() {
+    const userId = String(window.MobileERP?.getCurrentUser?.()?.id || '').trim();
+    if (this.realtimeChannel && this.realtimeUserId === userId) {
       return;
     }
+    this.stopRealtimeSync();
 
     const client = window.supabaseClient || window.supabase;
     if (!client || typeof client.channel !== 'function') {
       return;
     }
 
-    const userId = window.MobileERP?.getCurrentUser?.()?.id || '';
     const channelName = `mobile-erp-inventory-${userId || 'guest'}`;
 
     const canHandlePayload = payload => {
@@ -153,6 +182,7 @@ window.InventoryModule = {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'erp_inventory_logs' }, refreshIfNeeded)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'erp_products' }, refreshIfNeeded)
       .subscribe();
+    this.realtimeUserId = userId;
   },
 
   async loadRecords(forceRefresh = false) {
@@ -276,10 +306,12 @@ window.InventoryModule = {
     const quantityChange = this.resolveQuantityChange(record);
     const typeText = type === 'in' ? '入库' : '出库';
     const typeIcon = type === 'in' ? 'fa-arrow-down' : 'fa-arrow-up';
-    const productName = record.product?.name || '未知产品';
-    const productSku = record.product?.sku || '';
+    const productName = this.escapeHtml(record.product?.name || '未知产品');
+    const productSku = this.escapeHtml(record.product?.sku || '');
     const quantity = Math.abs(quantityChange);
-    const time = window.Utils.formatRelativeTime(record.created_at);
+    const time = this.escapeHtml(window.Utils.formatRelativeTime(record.created_at));
+    const notesText = this.escapeHtml(record?.notes || '');
+    const imageUrl = this.sanitizeImageUrl(record.product?.image_url);
 
     return `
       <div class="inventory-card">
@@ -295,8 +327,8 @@ window.InventoryModule = {
         <div class="inventory-card-body">
           <div class="inventory-product">
             <div class="inventory-product-image">
-              ${record.product?.image_url
-                ? `<img src="${record.product.image_url}" alt="${productName}">`
+              ${imageUrl
+                ? `<img src="${imageUrl}" alt="${productName}">`
                 : `<div class="inventory-product-placeholder"><i class="fa fa-image"></i></div>`
               }
             </div>
@@ -309,7 +341,7 @@ window.InventoryModule = {
             <div class="inventory-quantity-label">${typeText}数量</div>
             <div class="inventory-quantity-value ${type}">${type === 'in' ? '+' : '-'}${quantity}</div>
           </div>
-          ${record.notes ? `<div class="inventory-notes">${record.notes}</div>` : ''}
+          ${notesText ? `<div class="inventory-notes">${notesText}</div>` : ''}
         </div>
       </div>
     `;
@@ -336,11 +368,13 @@ window.InventoryModule = {
           const stock = Number(product?.stock_quantity || 0);
           const minStock = Number(product?.min_stock || 0);
           const isWarning = window.Utils.checkStockWarning(product);
-          const productName = product?.name || '未命名产品';
-          const sku = product?.sku || '-';
+          const productName = this.escapeHtml(product?.name || '未命名产品');
+          const sku = this.escapeHtml(product?.sku || '-');
           const statusText = isWarning ? '预警' : '正常';
+          const imageUrl = this.sanitizeImageUrl(product?.image_url);
+          const productId = this.escapeHtml(product?.id || '');
           return `
-            <div class="inventory-card is-clickable inventory-product-card" data-product-id="${product?.id}">
+            <div class="inventory-card is-clickable inventory-product-card" data-product-id="${productId}">
               <div class="inventory-card-header">
                 <div class="inventory-type">
                   <div class="inventory-type-icon ${isWarning ? 'out' : 'in'}">
@@ -353,8 +387,8 @@ window.InventoryModule = {
               <div class="inventory-card-body">
                 <div class="inventory-product">
                   <div class="inventory-product-image">
-                    ${product?.image_url
-                      ? `<img src="${product.image_url}" alt="${productName}">`
+                    ${imageUrl
+                      ? `<img src="${imageUrl}" alt="${productName}">`
                       : `<div class="inventory-product-placeholder"><i class="fa fa-image"></i></div>`
                     }
                   </div>
@@ -496,6 +530,9 @@ window.InventoryModule = {
   renderWarningCard(product) {
     const stock = Number(product.stock_quantity) || 0;
     const minStock = Number(product.min_stock) || 0;
+    const productName = this.escapeHtml(product?.name || '未命名');
+    const sku = this.escapeHtml(product?.sku || '-');
+    const productId = this.escapeHtml(product?.id || '');
 
     return `
       <div class="inventory-warning-card">
@@ -503,17 +540,17 @@ window.InventoryModule = {
           <div class="inventory-warning-icon">
             <i class="fa fa-exclamation-triangle"></i>
           </div>
-          <div class="inventory-warning-title">${product.name || '未命名'}</div>
+          <div class="inventory-warning-title">${productName}</div>
         </div>
         <div class="inventory-warning-product">
-          <div class="inventory-warning-product-name">SKU: ${product.sku || '-'}</div>
+          <div class="inventory-warning-product-name">SKU: ${sku}</div>
           <div class="inventory-warning-stock">
             <span class="inventory-warning-stock-current">${stock}</span>
             <span class="inventory-warning-stock-min">/ ${minStock}</span>
           </div>
         </div>
         <div class="inventory-warning-action">
-          <button class="btn btn-primary btn-sm btn-block btn-restock" data-product-id="${product.id}">
+          <button class="btn btn-primary btn-sm btn-block btn-restock" data-product-id="${productId}">
             <i class="fa fa-plus"></i> 立即补货
           </button>
         </div>
@@ -572,6 +609,21 @@ window.InventoryModule = {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
+  },
+
+  sanitizeImageUrl(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    if (/^(javascript|data|vbscript):/i.test(raw)) return '';
+    try {
+      const parsed = new URL(raw, window.location.origin);
+      const protocol = parsed.protocol.toLowerCase();
+      if (protocol === 'http:' || protocol === 'https:') {
+        return parsed.href;
+      }
+    } catch (error) {
+    }
+    return '';
   },
 
   async showProductActions(product) {

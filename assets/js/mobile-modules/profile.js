@@ -25,20 +25,44 @@ window.ProfileModule = {
     return Number.isFinite(parsed) ? parsed : 0;
   },
 
+  escapeHtml(text) {
+    return String(text ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  },
+
   parseDate(value) {
     if (!value) return null;
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? null : date;
+    const parsed = window.Utils?.parseDate?.(value);
+    if (parsed instanceof Date && !Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+    return null;
+  },
+
+  getShanghaiDaySerial(value) {
+    const parts = window.Utils?.getDateParts?.(value);
+    if (!parts?.year || !parts?.month || !parts?.day) {
+      return null;
+    }
+    return Math.floor(Date.UTC(
+      Number(parts.year),
+      Number(parts.month) - 1,
+      Number(parts.day)
+    ) / 86400000);
   },
 
   isWithinDays(value, days = 1) {
-    const date = this.parseDate(value);
-    if (!date) return false;
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-    const from = new Date(start);
-    from.setDate(start.getDate() - Math.max(0, Number(days || 0) - 1));
-    return date.getTime() >= from.getTime() && date.getTime() <= now.getTime();
+    const targetSerial = this.getShanghaiDaySerial(value);
+    const todaySerial = this.getShanghaiDaySerial(new Date());
+    if (targetSerial === null || todaySerial === null) {
+      return false;
+    }
+    const rangeDays = Math.max(0, Number(days || 0) - 1);
+    return targetSerial <= todaySerial && targetSerial >= (todaySerial - rangeDays);
   },
 
   isBankBusinessFinanceRecord(row = {}) {
@@ -249,8 +273,9 @@ window.ProfileModule = {
     const container = document.getElementById('profileContent');
     if (!container) return;
 
-    const email = this.user?.email || '未登录';
-    const initial = email.charAt(0).toUpperCase();
+    const emailText = String(this.user?.email || '未登录');
+    const email = this.escapeHtml(emailText);
+    const initial = this.escapeHtml((emailText.charAt(0) || '?').toUpperCase());
 
     container.innerHTML = `
       <!-- 用户信息 -->

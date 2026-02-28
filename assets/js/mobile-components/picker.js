@@ -9,6 +9,15 @@ class Picker {
     this.isShowing = false;
   }
 
+  escapeHtml(text) {
+    return String(text ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   // 显示日期选择器
   showDatePicker(options = {}) {
     const {
@@ -164,11 +173,12 @@ class Picker {
   createOverlay(title) {
     const overlay = document.createElement('div');
     overlay.className = 'picker-overlay';
+    const safeTitle = this.escapeHtml(title);
     overlay.innerHTML = `
       <div class="picker-container">
         <div class="picker-header">
           <button class="picker-cancel">取消</button>
-          <div class="picker-title">${title}</div>
+          <div class="picker-title">${safeTitle}</div>
           <button class="picker-confirm">确定</button>
         </div>
         <div class="picker-body"></div>

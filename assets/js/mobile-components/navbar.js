@@ -7,6 +7,10 @@ class Navbar {
     this.currentTitle = '';
   }
 
+  normalizeIcon(icon) {
+    return String(icon || '').trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
+  }
+
   // 设置标题
   setTitle(title) {
     this.currentTitle = title;
@@ -28,10 +32,11 @@ class Navbar {
   showRightButton(icon, onClick) {
     const rightContainer = document.querySelector('.navbar-right');
     if (!rightContainer) return;
+    const safeIcon = this.normalizeIcon(icon);
 
     rightContainer.innerHTML = `
       <div class="navbar-icon" id="navbarRightBtn">
-        <i class="fa fa-${icon}"></i>
+        <i class="fa fa-${safeIcon}"></i>
       </div>
     `;
 

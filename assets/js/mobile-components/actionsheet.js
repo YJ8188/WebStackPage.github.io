@@ -9,6 +9,19 @@ class ActionSheet {
     this.isShowing = false;
   }
 
+  escapeHtml(text) {
+    return String(text ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  normalizeIcon(icon) {
+    return String(icon || '').trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
+  }
+
   show(options = {}) {
     const {
       title = '',
@@ -23,21 +36,23 @@ class ActionSheet {
     return new Promise((resolve) => {
       const overlay = document.createElement('div');
       overlay.className = 'actionsheet-overlay';
+      const safeTitle = this.escapeHtml(title);
+      const safeCancelText = this.escapeHtml(cancelText);
 
       const actionsHtml = actions.map((action, index) => `
         <div class="actionsheet-item ${action.danger ? 'danger' : ''}" data-index="${index}">
-          ${action.icon ? `<i class="fa fa-${action.icon}"></i>` : ''}
-          <span>${action.text}</span>
+          ${action.icon ? `<i class="fa fa-${this.normalizeIcon(action.icon)}"></i>` : ''}
+          <span>${this.escapeHtml(action.text)}</span>
         </div>
       `).join('');
 
       overlay.innerHTML = `
         <div class="actionsheet-container">
-          ${title ? `<div class="actionsheet-title">${title}</div>` : ''}
+          ${title ? `<div class="actionsheet-title">${safeTitle}</div>` : ''}
           <div class="actionsheet-actions">
             ${actionsHtml}
           </div>
-          <div class="actionsheet-cancel">${cancelText}</div>
+          <div class="actionsheet-cancel">${safeCancelText}</div>
         </div>
       `;
 

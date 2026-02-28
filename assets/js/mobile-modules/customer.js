@@ -121,22 +121,28 @@ window.CustomerModule = {
   },
 
   renderCustomerItem(customer) {
-    const initial = customer.name ? customer.name.charAt(0) : '?';
+    const rawName = String(customer?.name || '').trim();
+    const initial = this.escapeHtml((rawName ? rawName.charAt(0) : '?'));
     const isVip = customer.level === 'VIP' || customer.level === 'vip';
+    const safeId = this.escapeHtml(customer?.id || '');
+    const safeName = this.escapeHtml(rawName || '未命名');
+    const safeContactPerson = this.escapeHtml(customer?.contact_person || '');
+    const safePhone = this.escapeHtml(customer?.phone || '-');
+    const orderCount = Math.max(Number(customer?.order_count || 0), 0);
 
     return `
-      <div class="customer-item" data-customer-id="${customer.id}">
+      <div class="customer-item" data-customer-id="${safeId}">
         <div class="customer-avatar ${isVip ? 'vip' : ''}">${initial}</div>
         <div class="customer-info">
           <div class="customer-name">
-            ${customer.name || '未命名'}
+            ${safeName}
             ${isVip ? '<span class="customer-vip-badge">VIP</span>' : ''}
           </div>
-          ${customer.contact_person ? `<div class="customer-contact">${customer.contact_person}</div>` : ''}
-          <div class="customer-phone">${customer.phone || '-'}</div>
+          ${safeContactPerson ? `<div class="customer-contact">${safeContactPerson}</div>` : ''}
+          <div class="customer-phone">${safePhone}</div>
         </div>
         <div class="customer-meta">
-          <div class="customer-orders">${customer.order_count || 0}笔订单</div>
+          <div class="customer-orders">${orderCount}笔订单</div>
           ${customer.total_amount ? `<div class="customer-amount">${window.Utils.formatMoney(customer.total_amount)}</div>` : ''}
         </div>
       </div>
@@ -395,4 +401,3 @@ window.CustomerModule = {
     }
   }
 };
-

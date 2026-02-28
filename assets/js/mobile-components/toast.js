@@ -37,10 +37,14 @@ class Toast {
     toast.className = `toast toast-${type}`;
 
     const icon = this.getIcon(type);
-    toast.innerHTML = `
-      ${icon ? `<i class="fa fa-${icon}"></i>` : ''}
-      <span>${message}</span>
-    `;
+    if (icon) {
+      const iconEl = document.createElement('i');
+      iconEl.className = `fa fa-${icon}`;
+      toast.appendChild(iconEl);
+    }
+    const textEl = document.createElement('span');
+    textEl.textContent = String(message ?? '');
+    toast.appendChild(textEl);
 
     this.container.appendChild(toast);
 

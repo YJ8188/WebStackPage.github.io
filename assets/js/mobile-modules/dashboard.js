@@ -7,6 +7,15 @@ window.DashboardModule = {
   eventsBound: false,
   latestStats: null,
 
+  escapeHtml(text) {
+    return String(text ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  },
+
   async init() {
     await this.render();
     await this.loadData();
@@ -218,16 +227,16 @@ window.DashboardModule = {
       return;
     }
 
-    container.innerHTML = todos.map(todo => `
-      <div class="dashboard-todo-item" data-todo-id="${todo.title}">
+    container.innerHTML = todos.map((todo, index) => `
+      <div class="dashboard-todo-item" data-todo-id="${index}">
         <div class="dashboard-todo-icon ${todo.type}">
           <i class="fa ${todo.icon}"></i>
         </div>
         <div class="dashboard-todo-content">
-          <div class="dashboard-todo-title">${todo.title}</div>
-          <div class="dashboard-todo-desc">${todo.desc}</div>
+          <div class="dashboard-todo-title">${this.escapeHtml(todo.title)}</div>
+          <div class="dashboard-todo-desc">${this.escapeHtml(todo.desc)}</div>
         </div>
-        ${todo.badge ? `<div class="dashboard-todo-badge tag tag-${todo.type}">${todo.badge}</div>` : ''}
+        ${todo.badge ? `<div class="dashboard-todo-badge tag tag-${todo.type}">${this.escapeHtml(todo.badge)}</div>` : ''}
       </div>
     `).join('');
 

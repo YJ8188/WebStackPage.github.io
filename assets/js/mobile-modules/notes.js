@@ -14,6 +14,7 @@ window.NotesModule = {
   syncEventsBound: false,
   realtimeChannel: null,
   realtimeRefreshTimer: null,
+  realtimeUserId: '',
 
   async init(params = {}) {
     this.keyword = String(params?.keyword || this.keyword || '').trim();
@@ -114,6 +115,10 @@ window.NotesModule = {
     });
     if (window.EventBus?.on) {
       window.EventBus.on('network:online', () => this.scheduleRealtimeRefresh('network-online'));
+      window.EventBus.on('auth:changed', () => {
+        this.startRealtimeSync();
+        this.scheduleRealtimeRefresh('auth-changed');
+      });
     }
   },
 
@@ -136,12 +141,37 @@ window.NotesModule = {
     }, 260);
   },
 
+  stopRealtimeSync() {
+    if (this.realtimeRefreshTimer) {
+      clearTimeout(this.realtimeRefreshTimer);
+      this.realtimeRefreshTimer = null;
+    }
+
+    const client = window.supabaseClient || window.supabase;
+    if (this.realtimeChannel) {
+      try {
+        if (client && typeof client.removeChannel === 'function') {
+          client.removeChannel(this.realtimeChannel);
+        } else if (typeof this.realtimeChannel.unsubscribe === 'function') {
+          this.realtimeChannel.unsubscribe();
+        }
+      } catch (error) {
+        console.warn('停止笔记 realtime 订阅失败:', error);
+      }
+    }
+
+    this.realtimeChannel = null;
+    this.realtimeUserId = '';
+  },
+
   startRealtimeSync() {
-    if (this.realtimeChannel) return;
+    const userId = String(window.MobileERP?.getCurrentUser?.()?.id || '').trim();
+    if (this.realtimeChannel && this.realtimeUserId === userId) return;
+    this.stopRealtimeSync();
+
     const client = window.supabaseClient || window.supabase;
     if (!client || typeof client.channel !== 'function') return;
 
-    const userId = window.MobileERP?.getCurrentUser?.()?.id || '';
     const channelName = `mobile-erp-notes-${userId || 'guest'}`;
     const refreshIfNeeded = payload => {
       const row = payload?.new || payload?.old || {};
@@ -156,6 +186,7 @@ window.NotesModule = {
       .channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'erp_notes' }, refreshIfNeeded)
       .subscribe();
+    this.realtimeUserId = userId;
   },
 
   applyPinnedSwitch() {

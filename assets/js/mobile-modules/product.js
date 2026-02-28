@@ -115,20 +115,23 @@ window.ProductModule = {
 
   renderProductItem(product) {
     const stock = Number(product.stock_quantity) || 0;
-    const minStock = Number(product.min_stock) || 0;
     const isLowStock = window.Utils.checkStockWarning(product);
+    const productId = this.escapeHtml(product?.id || '');
+    const productName = this.escapeHtml(product?.name || '未命名');
+    const productSku = this.escapeHtml(product?.sku || '');
+    const imageUrl = this.sanitizeImageUrl(product?.image_url);
 
     return `
-      <div class="product-item" data-product-id="${product.id}">
+      <div class="product-item" data-product-id="${productId}">
         <div class="product-image">
-          ${product.image_url
-            ? `<img src="${product.image_url}" alt="${product.name}">`
+          ${imageUrl
+            ? `<img src="${imageUrl}" alt="${productName}">`
             : `<div class="product-image-placeholder"><i class="fa fa-image"></i></div>`
           }
         </div>
         <div class="product-info">
-          <div class="product-name">${product.name || '未命名'}</div>
-          ${product.sku ? `<div class="product-sku">SKU: ${product.sku}</div>` : ''}
+          <div class="product-name">${productName}</div>
+          ${productSku ? `<div class="product-sku">SKU: ${productSku}</div>` : ''}
           <div class="product-price">${window.Utils.formatMoney(product.price)}</div>
           <div class="product-stock">
             <span class="product-stock-label">库存:</span>
@@ -147,6 +150,21 @@ window.ProductModule = {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
+  },
+
+  sanitizeImageUrl(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    if (/^(javascript|data|vbscript):/i.test(raw)) return '';
+    try {
+      const parsed = new URL(raw, window.location.origin);
+      const protocol = parsed.protocol.toLowerCase();
+      if (protocol === 'http:' || protocol === 'https:') {
+        return parsed.href;
+      }
+    } catch (error) {
+    }
+    return '';
   },
 
   async showProductDetail(product) {

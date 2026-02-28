@@ -103,6 +103,27 @@ window.OrderModule = {
     this.emptyHintShown = false;
   },
 
+  async fetchOrdersForSearch(baseOptions = {}) {
+    const pageLimit = 200;
+    const maxBatches = 80;
+    let offset = 0;
+    const rows = [];
+
+    for (let i = 0; i < maxBatches; i += 1) {
+      const batch = await window.API.getOrders({
+        ...baseOptions,
+        limit: pageLimit,
+        offset
+      });
+      if (!Array.isArray(batch) || batch.length === 0) break;
+      rows.push(...batch);
+      if (batch.length < pageLimit) break;
+      offset += pageLimit;
+    }
+
+    return rows;
+  },
+
   async loadOrders() {
     try {
       window.Loading.show('加载订单...');
@@ -135,22 +156,19 @@ window.OrderModule = {
         }
       }
 
-      if (keyword) {
-        requestOptions.limit = 300;
-        requestOptions.offset = 0;
-      }
-
-      const newOrders = await window.API.getOrders(requestOptions);
-      const orderRows = Array.isArray(newOrders) ? newOrders : [];
+      const orderRows = keyword
+        ? await this.fetchOrdersForSearch({ ...requestOptions, limit: undefined, offset: undefined })
+        : (await window.API.getOrders(requestOptions));
+      const safeOrderRows = Array.isArray(orderRows) ? orderRows : [];
 
       if (keyword) {
         this.hasMore = false;
-        this.orders = this.filterOrdersByKeyword(orderRows, keyword);
+        this.orders = this.filterOrdersByKeyword(safeOrderRows, keyword);
       } else {
-        if (orderRows.length < this.pageSize) {
+        if (safeOrderRows.length < this.pageSize) {
           this.hasMore = false;
         }
-        this.orders = this.currentPage === 1 ? orderRows : [...this.orders, ...orderRows];
+        this.orders = this.currentPage === 1 ? safeOrderRows : [...this.orders, ...safeOrderRows];
       }
       this.renderOrders();
 
@@ -236,17 +254,21 @@ window.OrderModule = {
   },
 
   renderOrderCard(order) {
-    const statusColor = window.Utils.getOrderStatusColor(order.status);
-    const statusText = window.Utils.getOrderStatusText(order.status);
-    const customerName = order.customer?.name || '未知客户';
-    const customerInitial = customerName.charAt(0);
+    const statusColor = this.normalizeCssToken(window.Utils.getOrderStatusColor(order.status), 'default');
+    const statusText = this.escapeHtml(window.Utils.getOrderStatusText(order.status));
+    const customerNameRaw = order.customer?.name || '未知客户';
+    const customerName = this.escapeHtml(customerNameRaw);
+    const customerInitial = this.escapeHtml(customerNameRaw.charAt(0) || '?');
+    const customerPhone = this.escapeHtml(order.customer?.phone || '-');
     const totalAmount = window.Utils.formatMoney(order.total_amount);
-    const createTime = window.Utils.formatRelativeTime(order.created_at);
+    const createTime = this.escapeHtml(window.Utils.formatRelativeTime(order.created_at));
+    const safeOrderId = this.escapeHtml(order?.id || '');
+    const orderNumber = this.escapeHtml(order?.order_number || '-');
 
     return `
-      <div class="order-card" data-order-id="${order.id}">
+      <div class="order-card" data-order-id="${safeOrderId}">
         <div class="order-card-header">
-          <div class="order-number">${order.order_number}</div>
+          <div class="order-number">${orderNumber}</div>
           <div class="tag tag-${statusColor}">${statusText}</div>
         </div>
         <div class="order-card-body">
@@ -254,15 +276,15 @@ window.OrderModule = {
             <div class="order-customer-avatar">${customerInitial}</div>
             <div class="order-customer-info">
               <div class="order-customer-name">${customerName}</div>
-              <div class="order-customer-phone">${order.customer?.phone || '-'}</div>
+              <div class="order-customer-phone">${customerPhone}</div>
             </div>
           </div>
           ${order.items && order.items.length > 0 ? `
             <div class="order-items">
               ${order.items.slice(0, 3).map(item => `
                 <div class="order-item">
-                  <div class="order-item-name">${item.product_name || '-'}</div>
-                  <div class="order-item-quantity">x${item.quantity}</div>
+                  <div class="order-item-name">${this.escapeHtml(item.product_name || '-')}</div>
+                  <div class="order-item-quantity">x${Math.max(Number(item.quantity || 0), 0)}</div>
                   <div class="order-item-price">${window.Utils.formatMoney(item.price ?? item.unit_price)}</div>
                 </div>
               `).join('')}
@@ -367,6 +389,15 @@ window.OrderModule = {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
+  },
+
+  normalizeCssToken(value, fallback = 'default') {
+    const token = String(value || '').trim().toLowerCase();
+    return /^[a-z0-9_-]+$/.test(token) ? token : fallback;
+  },
+
+  normalizeActionId(value) {
+    return String(value || '').trim().replace(/[^a-zA-Z0-9_-]/g, '');
   },
 
   normalizeOrderStatusValue(status) {
@@ -783,9 +814,17 @@ window.OrderModule = {
     const container = document.getElementById('orderDetailContent');
     if (!container) return;
 
-    const statusColor = window.Utils.getOrderStatusColor(order.status);
-    const statusText = window.Utils.getOrderStatusText(order.status);
+    const statusColor = this.normalizeCssToken(window.Utils.getOrderStatusColor(order.status), 'default');
+    const statusText = this.escapeHtml(window.Utils.getOrderStatusText(order.status));
     const totalAmount = window.Utils.formatMoney(order.total_amount);
+    const customerName = this.escapeHtml(order.customer?.name || '-');
+    const customerPhone = this.escapeHtml(order.customer?.phone || '-');
+    const customerContact = this.escapeHtml(order.customer?.contact_person || '-');
+    const orderNumber = this.escapeHtml(order.order_number || '-');
+    const createdAtText = this.escapeHtml(window.Utils.formatDate(order.created_at, 'YYYY-MM-DD HH:mm'));
+    const shippingCompany = this.escapeHtml(order.shipping_company || '-');
+    const trackingNumber = this.escapeHtml(order.tracking_number || '-');
+    const safeOrderId = this.normalizeActionId(order?.id);
 
     container.innerHTML = `
       <!-- 订单状态 -->
@@ -805,15 +844,15 @@ window.OrderModule = {
         </div>
         <div class="order-detail-row">
           <div class="order-detail-label">客户名称</div>
-          <div class="order-detail-value">${order.customer?.name || '-'}</div>
+          <div class="order-detail-value">${customerName}</div>
         </div>
         <div class="order-detail-row">
           <div class="order-detail-label">联系电话</div>
-          <div class="order-detail-value">${order.customer?.phone || '-'}</div>
+          <div class="order-detail-value">${customerPhone}</div>
         </div>
         <div class="order-detail-row">
           <div class="order-detail-label">联系人</div>
-          <div class="order-detail-value">${order.customer?.contact_person || '-'}</div>
+          <div class="order-detail-value">${customerContact}</div>
         </div>
       </div>
 
@@ -825,16 +864,16 @@ window.OrderModule = {
         </div>
         <div class="order-detail-row">
           <div class="order-detail-label">订单号</div>
-          <div class="order-detail-value">${order.order_number}</div>
+          <div class="order-detail-value">${orderNumber}</div>
         </div>
         <div class="order-detail-row">
           <div class="order-detail-label">创建时间</div>
-          <div class="order-detail-value">${window.Utils.formatDate(order.created_at, 'YYYY-MM-DD HH:mm')}</div>
+          <div class="order-detail-value">${createdAtText}</div>
         </div>
         ${order.notes ? `
           <div class="order-detail-row">
             <div class="order-detail-label">备注</div>
-            <div class="order-detail-value">${order.notes}</div>
+            <div class="order-detail-value">${this.escapeHtml(order.notes)}</div>
           </div>
         ` : ''}
       </div>
@@ -847,8 +886,8 @@ window.OrderModule = {
         </div>
         ${order.items && order.items.length > 0 ? order.items.map(item => `
                 <div class="order-item">
-                  <div class="order-item-name">${item.product_name || '-'}</div>
-                  <div class="order-item-quantity">x${item.quantity}</div>
+                  <div class="order-item-name">${this.escapeHtml(item.product_name || '-')}</div>
+                  <div class="order-item-quantity">x${Math.max(Number(item.quantity || 0), 0)}</div>
                   <div class="order-item-price">${window.Utils.formatMoney(item.price ?? item.unit_price)}</div>
                 </div>
           `).join('') : '<div class="text-tertiary text-sm">暂无产品</div>'}
@@ -871,16 +910,16 @@ window.OrderModule = {
               <i class="fa fa-truck"></i>
             </div>
             <div class="order-logistics-detail">
-              <div class="order-logistics-company">${order.shipping_company || '-'}</div>
-              <div class="order-logistics-number">${order.tracking_number || '-'}</div>
+              <div class="order-logistics-company">${shippingCompany}</div>
+              <div class="order-logistics-number">${trackingNumber}</div>
             </div>
           </div>
           ${order.tracking_number ? `
             <div style="display:flex;gap:8px;">
-              <button class="btn btn-default flex-1" onclick="OrderModule.showOrderLogisticsDetails('${order.id}')">
+              <button class="btn btn-default flex-1" data-order-action="logistics-detail" data-order-id="${safeOrderId}">
                 <i class="fa fa-list-ul"></i> 查看物流详情
               </button>
-              <button class="btn btn-default flex-1" onclick="OrderModule.syncOrderLogistics('${order.id}')">
+              <button class="btn btn-default flex-1" data-order-action="sync-logistics" data-order-id="${safeOrderId}">
                 <i class="fa fa-refresh"></i> 同步状态
               </button>
             </div>
@@ -891,20 +930,62 @@ window.OrderModule = {
       <!-- 操作按钮 -->
       <div class="order-action-bar">
         ${order.status === 'pending' ? `
-          <button class="btn btn-default flex-1" onclick="OrderModule.rejectOrder('${order.id}')">拒绝</button>
-          <button class="btn btn-primary flex-1" onclick="OrderModule.approveOrder('${order.id}')">确认订单</button>
+          <button class="btn btn-default flex-1" data-order-action="reject" data-order-id="${safeOrderId}">拒绝</button>
+          <button class="btn btn-primary flex-1" data-order-action="approve" data-order-id="${safeOrderId}">确认订单</button>
         ` : ''}
         ${['confirmed', 'approved'].includes(String(order.status || '').toLowerCase()) ? `
-          <button class="btn btn-primary btn-block" onclick="OrderModule.shipOrder('${order.id}')">标记发货</button>
+          <button class="btn btn-primary btn-block" data-order-action="ship" data-order-id="${safeOrderId}">标记发货</button>
         ` : ''}
         ${order.status === 'shipped' ? `
-          <button class="btn btn-success btn-block" onclick="OrderModule.signOrder('${order.id}')">确认签收</button>
+          <button class="btn btn-success btn-block" data-order-action="sign" data-order-id="${safeOrderId}">确认签收</button>
         ` : ''}
         ${['signed', 'delivered'].includes(String(order.status || '').toLowerCase()) ? `
-          <button class="btn btn-success btn-block" onclick="OrderModule.completeOrder('${order.id}')">完成订单</button>
+          <button class="btn btn-success btn-block" data-order-action="complete" data-order-id="${safeOrderId}">完成订单</button>
         ` : ''}
       </div>
     `;
+
+    this.bindOrderDetailActions(order);
+  },
+
+  bindOrderDetailActions(order) {
+    const container = document.getElementById('orderDetailContent');
+    if (!container) return;
+
+    const orderId = String(order?.id || '').trim();
+    if (!orderId) return;
+
+    container.querySelectorAll('[data-order-action]').forEach((btn) => {
+      btn.addEventListener('click', async (event) => {
+        event.stopPropagation();
+        const action = String(btn.dataset.orderAction || '').trim();
+        switch (action) {
+          case 'logistics-detail':
+            await this.showOrderLogisticsDetails(orderId);
+            break;
+          case 'sync-logistics':
+            await this.syncOrderLogistics(orderId);
+            break;
+          case 'reject':
+            await this.rejectOrder(orderId);
+            break;
+          case 'approve':
+            await this.approveOrder(orderId);
+            break;
+          case 'ship':
+            await this.shipOrder(orderId);
+            break;
+          case 'sign':
+            await this.signOrder(orderId);
+            break;
+          case 'complete':
+            await this.completeOrder(orderId);
+            break;
+          default:
+            break;
+        }
+      });
+    });
   },
 
   async copyText(text) {
@@ -1029,8 +1110,9 @@ window.OrderModule = {
     }
 
     const orderNumber = String(order?.order_number || '').trim();
+    const safeOrderNumber = this.escapeHtml(orderNumber);
     const confirmed = await window.Modal.confirm(
-      `确认删除订单${orderNumber ? `「${orderNumber}」` : ''}？<br><span style="color:#dc2626;">删除后将回补库存并清理关联财务记录。</span>`,
+      `确认删除订单${safeOrderNumber ? `「${safeOrderNumber}」` : ''}？<br><span style="color:#dc2626;">删除后将回补库存并清理关联财务记录。</span>`,
       '删除订单'
     );
     if (!confirmed) return;

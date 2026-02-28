@@ -74,6 +74,7 @@ class MobileERPApp {
 
     this.detectDevice();
     await this.checkAuth();
+    this.initAuthListener();
     this.initNetworkListener();
     this.initViewport();
 
@@ -152,6 +153,22 @@ class MobileERPApp {
       this.state.isOnline = false;
       this.eventBus.emit('network:offline');
       this.log('网络已断开');
+    });
+  }
+
+  initAuthListener() {
+    const authClient = this.getAuthClient();
+    if (!authClient || !authClient.auth || typeof authClient.auth.onAuthStateChange !== 'function') {
+      return;
+    }
+
+    authClient.auth.onAuthStateChange((_event, session) => {
+      this.state.isAuthenticated = !!session;
+      this.state.currentUser = session?.user || null;
+      this.eventBus.emit('auth:changed', {
+        isAuthenticated: this.state.isAuthenticated,
+        currentUser: this.state.currentUser
+      });
     });
   }
 

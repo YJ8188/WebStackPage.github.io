@@ -16,6 +16,7 @@ window.BankingModule = {
   syncEventsBound: false,
   realtimeChannel: null,
   realtimeRefreshTimer: null,
+  realtimeUserId: '',
   creditCardBanks: [
     '中国工商银行', '中国农业银行', '中国银行', '中国建设银行', '交通银行', '中国邮政储蓄银行',
     '招商银行', '浦发银行', '中信银行', '中国民生银行', '兴业银行', '平安银行', '华夏银行',
@@ -115,6 +116,10 @@ window.BankingModule = {
     });
     if (window.EventBus?.on) {
       window.EventBus.on('network:online', () => this.scheduleRealtimeRefresh('network-online'));
+      window.EventBus.on('auth:changed', () => {
+        this.startRealtimeSync();
+        this.scheduleRealtimeRefresh('auth-changed');
+      });
     }
   },
 
@@ -139,12 +144,37 @@ window.BankingModule = {
     }, 260);
   },
 
+  stopRealtimeSync() {
+    if (this.realtimeRefreshTimer) {
+      clearTimeout(this.realtimeRefreshTimer);
+      this.realtimeRefreshTimer = null;
+    }
+
+    const client = window.supabaseClient || window.supabase;
+    if (this.realtimeChannel) {
+      try {
+        if (client && typeof client.removeChannel === 'function') {
+          client.removeChannel(this.realtimeChannel);
+        } else if (typeof this.realtimeChannel.unsubscribe === 'function') {
+          this.realtimeChannel.unsubscribe();
+        }
+      } catch (error) {
+        console.warn('停止银行业务 realtime 订阅失败:', error);
+      }
+    }
+
+    this.realtimeChannel = null;
+    this.realtimeUserId = '';
+  },
+
   startRealtimeSync() {
-    if (this.realtimeChannel) return;
+    const userId = String(window.MobileERP?.getCurrentUser?.()?.id || '').trim();
+    if (this.realtimeChannel && this.realtimeUserId === userId) return;
+    this.stopRealtimeSync();
+
     const client = window.supabaseClient || window.supabase;
     if (!client || typeof client.channel !== 'function') return;
 
-    const userId = window.MobileERP?.getCurrentUser?.()?.id || '';
     const channelName = `mobile-erp-banking-${userId || 'guest'}`;
     const refreshIfNeeded = payload => {
       const row = payload?.new || payload?.old || {};
@@ -159,6 +189,7 @@ window.BankingModule = {
       .channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'erp_finances' }, refreshIfNeeded)
       .subscribe();
+    this.realtimeUserId = userId;
   },
 
   normalizeFlow(value) {

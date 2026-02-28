@@ -8,6 +8,15 @@ class Modal {
     this.modals = [];
   }
 
+  escapeHtml(text) {
+    return String(text ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   show(options = {}) {
     const {
       title = '',
@@ -32,14 +41,17 @@ class Modal {
       const safeFooterClass = String(footerClass || '').trim();
       const safeMaxWidth = String(maxWidth || '').trim();
       const containerStyle = safeMaxWidth ? ` style="max-width:${safeMaxWidth};"` : '';
+      const safeTitle = this.escapeHtml(title);
+      const safeCancelText = this.escapeHtml(cancelText);
+      const safeConfirmText = this.escapeHtml(confirmText);
 
       modal.innerHTML = `
         <div class="modal-container ${safeContainerClass}"${containerStyle}>
-          ${title ? `<div class="modal-header">${title}${showClose ? '<button class="modal-close-btn" type="button" aria-label="关闭"><i class="fa fa-times"></i></button>' : ''}</div>` : ''}
+          ${title ? `<div class="modal-header">${safeTitle}${showClose ? '<button class="modal-close-btn" type="button" aria-label="关闭"><i class="fa fa-times"></i></button>' : ''}</div>` : ''}
           <div class="modal-body ${safeBodyClass}">${content}</div>
           <div class="modal-footer ${safeFooterClass}">
-            ${showCancel ? `<button class="modal-btn modal-btn-cancel">${cancelText}</button>` : ''}
-            <button class="modal-btn modal-btn-confirm">${confirmText}</button>
+            ${showCancel ? `<button class="modal-btn modal-btn-cancel">${safeCancelText}</button>` : ''}
+            <button class="modal-btn modal-btn-confirm">${safeConfirmText}</button>
           </div>
         </div>
       `;

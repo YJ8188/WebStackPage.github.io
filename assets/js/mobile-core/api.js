@@ -51,6 +51,15 @@ class API {
     return window.MobileERP?.getCurrentUser?.()?.id || null;
   }
 
+  normalizeSearchKeyword(value) {
+    return String(value ?? '')
+      .trim()
+      .replace(/[(),]/g, ' ')
+      .replace(/["']/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   escapeNoteHtmlText(value) {
     return String(value ?? '')
       .replace(/&/g, '&amp;')
@@ -130,8 +139,9 @@ class API {
         query = query.eq('user_id', userId);
       }
 
-      if (keyword) {
-        query = query.or(`name.ilike.%${keyword}%,contact_person.ilike.%${keyword}%,phone.ilike.%${keyword}%`);
+      const safeKeyword = this.normalizeSearchKeyword(keyword);
+      if (safeKeyword) {
+        query = query.or(`name.ilike.%${safeKeyword}%,contact_person.ilike.%${safeKeyword}%,phone.ilike.%${safeKeyword}%`);
       }
 
       query = query.range(offset, offset + limit - 1);
@@ -234,8 +244,9 @@ class API {
         query = query.eq('user_id', userId);
       }
 
-      if (keyword) {
-        query = query.or(`name.ilike.%${keyword}%,sku.ilike.%${keyword}%`);
+      const safeKeyword = this.normalizeSearchKeyword(keyword);
+      if (safeKeyword) {
+        query = query.or(`name.ilike.%${safeKeyword}%,sku.ilike.%${safeKeyword}%`);
       }
 
       if (category) {
@@ -358,8 +369,9 @@ class API {
         }
       }
 
-      if (keyword) {
-        query = query.or(`order_number.ilike.%${keyword}%`);
+      const safeKeyword = this.normalizeSearchKeyword(keyword);
+      if (safeKeyword) {
+        query = query.or(`order_number.ilike.%${safeKeyword}%`);
       }
 
       if (customerId !== '' && customerId !== null && customerId !== undefined) {
@@ -575,6 +587,40 @@ class API {
 
       const inventoryResults = await Promise.allSettled(inventoryTasks);
       const inventoryFailed = inventoryResults.some(result => result.status === 'rejected');
+      if (inventoryFailed) {
+        for (const item of normalizedItems) {
+          let rollbackProductQuery = client
+            .from(this.tableNames.products)
+            .update({ stock_quantity: Number(item.current_stock || 0) })
+            .eq('id', item.product_id);
+          if (currentUser?.id) {
+            rollbackProductQuery = rollbackProductQuery.eq('user_id', currentUser.id);
+          }
+          await rollbackProductQuery;
+        }
+
+        await client
+          .from(this.tableNames.inventoryRecords)
+          .delete()
+          .eq('reference_id', orderRow.id)
+          .eq('type', 'order_lock');
+
+        await client
+          .from(this.tableNames.orderItems)
+          .delete()
+          .eq('order_id', orderRow.id);
+
+        let rollbackOrderQuery = client
+          .from(this.tableNames.orders)
+          .delete()
+          .eq('id', orderRow.id);
+        if (currentUser?.id) {
+          rollbackOrderQuery = rollbackOrderQuery.eq('user_id', currentUser.id);
+        }
+        await rollbackOrderQuery;
+
+        throw new Error('订单库存同步失败，订单已自动回滚，请重试');
+      }
 
       let fullOrderQuery = client
         .from(this.tableNames.orders)
@@ -948,7 +994,7 @@ class API {
       }
 
       if (keyword) {
-        const safeKeyword = String(keyword || '').trim();
+        const safeKeyword = this.normalizeSearchKeyword(keyword);
         if (safeKeyword) {
           query = query.or(`category.ilike.%${safeKeyword}%,description.ilike.%${safeKeyword}%`);
         }
@@ -1144,7 +1190,7 @@ class API {
         query = query.eq('is_pinned', true);
       }
 
-      const safeKeyword = String(keyword || '').trim();
+      const safeKeyword = this.normalizeSearchKeyword(keyword);
       if (safeKeyword) {
         query = query.or(`title.ilike.%${safeKeyword}%,content_text.ilike.%${safeKeyword}%`);
       }
@@ -1278,12 +1324,12 @@ class API {
 
       const isSameDay = (value) => {
         if (!value) return false;
-        const date = new Date(value);
-        if (Number.isNaN(date.getTime())) return false;
-        const now = new Date();
-        return date.getFullYear() === now.getFullYear()
-          && date.getMonth() === now.getMonth()
-          && date.getDate() === now.getDate();
+        const dateParts = window.Utils?.getDateParts?.(value);
+        const nowParts = window.Utils?.getDateParts?.(new Date());
+        if (!dateParts || !nowParts) return false;
+        return dateParts.year === nowParts.year
+          && dateParts.month === nowParts.month
+          && dateParts.day === nowParts.day;
       };
 
       // 计算统计数据

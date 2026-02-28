@@ -21,6 +21,7 @@ window.FinanceModule = {
   syncEventsBound: false,
   realtimeChannel: null,
   realtimeRefreshTimer: null,
+  realtimeUserId: '',
 
   async init() {
     if (!this.eventsBound) {
@@ -88,6 +89,10 @@ window.FinanceModule = {
       window.EventBus.on('network:online', () => {
         this.scheduleRealtimeRefresh('network-online');
       });
+      window.EventBus.on('auth:changed', () => {
+        this.startRealtimeSync();
+        this.scheduleRealtimeRefresh('auth-changed');
+      });
     }
   },
 
@@ -113,17 +118,41 @@ window.FinanceModule = {
     }, 260);
   },
 
-  startRealtimeSync() {
+  stopRealtimeSync() {
+    if (this.realtimeRefreshTimer) {
+      clearTimeout(this.realtimeRefreshTimer);
+      this.realtimeRefreshTimer = null;
+    }
+
+    const client = window.supabaseClient || window.supabase;
     if (this.realtimeChannel) {
+      try {
+        if (client && typeof client.removeChannel === 'function') {
+          client.removeChannel(this.realtimeChannel);
+        } else if (typeof this.realtimeChannel.unsubscribe === 'function') {
+          this.realtimeChannel.unsubscribe();
+        }
+      } catch (error) {
+        console.warn('停止财务 realtime 订阅失败:', error);
+      }
+    }
+
+    this.realtimeChannel = null;
+    this.realtimeUserId = '';
+  },
+
+  startRealtimeSync() {
+    const userId = String(window.MobileERP?.getCurrentUser?.()?.id || '').trim();
+    if (this.realtimeChannel && this.realtimeUserId === userId) {
       return;
     }
+    this.stopRealtimeSync();
 
     const client = window.supabaseClient || window.supabase;
     if (!client || typeof client.channel !== 'function') {
       return;
     }
 
-    const userId = window.MobileERP?.getCurrentUser?.()?.id || '';
     const channelName = `mobile-erp-finance-${userId || 'guest'}`;
 
     const refreshIfNeeded = payload => {
@@ -139,6 +168,7 @@ window.FinanceModule = {
       .channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'erp_finances' }, refreshIfNeeded)
       .subscribe();
+    this.realtimeUserId = userId;
   },
 
   setActiveTypeTab(type = '') {
@@ -724,21 +754,27 @@ window.FinanceModule = {
         ${this.records.map(item => {
           const lowerType = String(item?.type || '').toLowerCase();
           const typeText = this.getTypeText(item?.type);
-          const typeTag = this.getTypeTag(item?.type);
+          const typeTag = /^[a-z0-9_-]+$/i.test(String(this.getTypeTag(item?.type) || '').trim())
+            ? String(this.getTypeTag(item?.type) || '').trim()
+            : 'default';
           const amount = Number(item?.amount || 0);
           const amountText = window.Utils.formatMoney(Math.abs(amount));
           const dateText = window.Utils.formatDate(item?.transaction_date || item?.created_at || new Date(), 'YYYY-MM-DD HH:mm:ss');
           const amountClass = lowerType === 'income' ? 'is-income' : (lowerType === 'expense' ? 'is-expense' : '');
           const amountPrefix = lowerType === 'expense' ? '-' : (lowerType === 'income' ? '+' : '');
+          const categoryText = this.escapeHtml(item?.category || '未分类');
+          const descriptionText = this.escapeHtml(item?.description || '—');
+          const safeTypeText = this.escapeHtml(typeText);
+          const safeDateText = this.escapeHtml(dateText);
           return `
             <div class="finance-item">
               <div class="finance-item-header">
-                <div class="finance-item-title">${item?.category || '未分类'}</div>
-                <div class="tag tag-${typeTag}">${typeText}</div>
+                <div class="finance-item-title">${categoryText}</div>
+                <div class="tag tag-${typeTag}">${safeTypeText}</div>
               </div>
-              <div class="finance-item-desc">${item?.description || '—'}</div>
+              <div class="finance-item-desc">${descriptionText}</div>
               <div class="finance-item-footer">
-                <div class="finance-item-time">${dateText}</div>
+                <div class="finance-item-time">${safeDateText}</div>
                 <div class="finance-item-amount ${amountClass}">
                   ${amountPrefix}${amountText}
                 </div>

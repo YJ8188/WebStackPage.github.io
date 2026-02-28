@@ -942,6 +942,23 @@ window.BankingModule = {
     return `${partMap.year}-${partMap.month}`;
   },
 
+  normalizeKeyText(value) {
+    return String(value || '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '')
+      .replace(/[（(]/g, '')
+      .replace(/[）)]/g, '');
+  },
+
+  getTransactionMinuteKey(row = {}) {
+    const partMap = window.Utils?.getDateParts?.(
+      row?.transaction_date || row?.created_at || null
+    );
+    if (!partMap?.year || !partMap?.month || !partMap?.day) return '';
+    return `${partMap.year}-${partMap.month}-${partMap.day} ${partMap.hour || '00'}:${partMap.minute || '00'}`;
+  },
+
   buildDisplayDedupKey(row = {}) {
     if (!this.isRepaymentPlanRow(row)) return '';
     const bank = String(this.getBankName(row) || '').trim().toLowerCase();
@@ -976,6 +993,50 @@ window.BankingModule = {
     if (candidateCreated !== currentCreated) return candidateCreated > currentCreated;
 
     return String(candidate?.id || '') > String(current?.id || '');
+  },
+
+  buildFlowFingerprint(row = {}) {
+    const txMinute = this.getTransactionMinuteKey(row) || 'unknown_minute';
+    if (this.isRepaymentPlanRow(row)) {
+      const bank = this.normalizeKeyText(this.getBankName(row) || '') || 'unknown_bank';
+      const tail = this.parseTail4(this.getRepaymentCardTail(row) || '') || 'no_tail';
+      const billDay = Number(this.getRepaymentBillDay(row) || 0) || 0;
+      const repaymentDay = Number(this.getRepaymentDay(row) || 0) || 0;
+      const dueAmount = Number(this.getRepaymentDueAmount(row) || 0).toFixed(2);
+      return `repayment|${bank}|${tail}|${billDay}|${repaymentDay}|${dueAmount}|${txMinute}`;
+    }
+    if (this.isSwipeRow(row)) {
+      const swipeBank = this.normalizeKeyText(row?.swipe_card_bank || row?.card_bank || this.getBankName(row) || '') || 'unknown_bank';
+      const swipeTail = this.parseTail4(this.getSwipeCardTail(row) || this.getRepaymentCardTail(row) || '') || 'no_tail';
+      const settlementBank = this.normalizeKeyText(row?.settlement_bank || '') || 'unknown_settlement';
+      const settlementTail = this.parseTail4(this.getSettlementCardTail(row) || '') || 'no_tail';
+      const gross = Number(this.getSwipeGrossAmount(row) || 0).toFixed(2);
+      const actual = Number(this.getSwipeActualAmount(row) || 0).toFixed(2);
+      const fee = Number(this.getSwipeFeeAmount(row) || 0).toFixed(2);
+      const feeOnly = this.isFeeOnlyRow(row) ? '1' : '0';
+      return `swipe|${feeOnly}|${swipeBank}|${swipeTail}|${settlementBank}|${settlementTail}|${gross}|${actual}|${fee}|${txMinute}`;
+    }
+    return '';
+  },
+
+  dedupeRowsByFingerprint(rows = []) {
+    const list = Array.isArray(rows) ? rows : [];
+    if (!list.length) return [];
+
+    const keepMap = new Map();
+    const passthrough = [];
+    list.forEach((row) => {
+      const key = this.buildFlowFingerprint(row);
+      if (!key) {
+        passthrough.push(row);
+        return;
+      }
+      const current = keepMap.get(key);
+      if (!current || this.shouldReplaceDisplayRow(row, current)) {
+        keepMap.set(key, row);
+      }
+    });
+    return [...passthrough, ...Array.from(keepMap.values())];
   },
 
   dedupeRowsForDisplay(rows = []) {
@@ -1056,8 +1117,9 @@ window.BankingModule = {
   prepareRowsForDisplay(rows = []) {
     const source = Array.isArray(rows) ? rows : [];
     const filtered = source.filter(row => !this.isRepaymentPaymentRow(row));
-    const deduped = this.dedupeRowsForDisplay(filtered);
-    return this.sortRowsForDisplay(deduped);
+    const dedupedByCycle = this.dedupeRowsForDisplay(filtered);
+    const dedupedByFingerprint = this.dedupeRowsByFingerprint(dedupedByCycle);
+    return this.sortRowsForDisplay(dedupedByFingerprint);
   },
 
   filterRowsByFlow(rows = []) {

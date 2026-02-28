@@ -1286,6 +1286,23 @@ window.BankingModule = {
     return Math.max(0, gross - actual);
   },
 
+  getSwipeFeeRate(row = {}) {
+    const directRate = Number(row?.card_fee_rate);
+    if (Number.isFinite(directRate) && directRate > 0) {
+      return directRate;
+    }
+    const parsedRate = this.parseAmountFromDescription(row?.description, [
+      /费率[:：]\s*([0-9]+(?:\.[0-9]+)?)\s*%/
+    ]);
+    if (parsedRate > 0) {
+      return parsedRate;
+    }
+    const gross = this.getSwipeGrossAmount(row);
+    if (gross <= 0) return 0;
+    const fee = this.getSwipeFeeAmount(row);
+    return Math.max(0, (fee / gross) * 100);
+  },
+
   buildSummary(rows = []) {
     const source = Array.isArray(rows) ? rows : [];
     const displayRows = this.prepareRowsForDisplay(source);
@@ -1523,16 +1540,18 @@ window.BankingModule = {
         if (this.isFeeOnlyRow(row)) {
           const feeBank = this.getBankName(row);
           const feeTail = this.getSwipeCardTail(row) || this.getRepaymentCardTail(row);
+          const feeRate = this.getSwipeFeeRate(row);
           detailLines.push(`银行卡：${this.formatBankCard(feeBank, feeTail)}`);
-          detailLines.push(`手续费：${window.Utils.formatMoney(this.getSwipeFeeAmount(row))}`);
+          detailLines.push(`手续费：${window.Utils.formatMoney(this.getSwipeFeeAmount(row))}（费率：${feeRate.toFixed(2)}%）`);
         } else {
           const swipeBank = String(row?.swipe_card_bank || row?.card_bank || this.getBankName(row)).trim();
           const settlementBank = String(row?.settlement_bank || '').trim() || '未标注到账银行';
           const swipeTail = this.getSwipeCardTail(row);
           const settlementTail = this.getSettlementCardTail(row);
+          const feeRate = this.getSwipeFeeRate(row);
           detailLines.push(`刷卡卡：${this.formatBankCard(swipeBank, swipeTail)}`);
           detailLines.push(`到账卡：${this.formatBankCard(settlementBank, settlementTail)}`);
-          detailLines.push(`刷卡：${window.Utils.formatMoney(this.getSwipeGrossAmount(row))} · 到账：${window.Utils.formatMoney(this.getSwipeActualAmount(row))} · 手续费：${window.Utils.formatMoney(this.getSwipeFeeAmount(row))}`);
+          detailLines.push(`刷卡：${window.Utils.formatMoney(this.getSwipeGrossAmount(row))} · 到账：${window.Utils.formatMoney(this.getSwipeActualAmount(row))} · 手续费：${window.Utils.formatMoney(this.getSwipeFeeAmount(row))}（费率：${feeRate.toFixed(2)}%）`);
         }
       } else {
         detailLines.push(`银行：${this.formatBankCard(this.getBankName(row), '')}`);
@@ -1564,6 +1583,7 @@ window.BankingModule = {
     const gross = this.getSwipeGrossAmount(row);
     const actual = this.getSwipeActualAmount(row);
     const fee = this.getSwipeFeeAmount(row);
+    const feeRate = this.getSwipeFeeRate(row);
     const summary = this.buildDescriptionSummary(row);
     await window.Modal.show({
       title: '银行业务详情',
@@ -1581,6 +1601,7 @@ window.BankingModule = {
           <div><strong>刷卡金额：</strong>${this.escapeHtml(window.Utils.formatMoney(gross))}</div>
           <div><strong>到账金额：</strong>${this.escapeHtml(window.Utils.formatMoney(actual))}</div>
           <div><strong>手续费：</strong>${this.escapeHtml(window.Utils.formatMoney(fee))}</div>
+          <div><strong>费率：</strong>${this.escapeHtml(feeRate.toFixed(2))}%</div>
           <div><strong>备注摘要：</strong>${this.escapeHtml(summary)}</div>
         </div>
       `

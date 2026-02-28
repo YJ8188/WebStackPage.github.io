@@ -47,13 +47,13 @@
 
   function getUserInfo() {
     return {
-      userId: '1',
+      id: 1,
       username: 'admin',
       realName: 'Admin',
       avatar: '/admin-vben/favicon.ico',
       desc: 'Static demo user',
-      homePath: '/dashboard/analytics',
-      roles: ['super']
+      homePath: '/workspace',
+      roles: ['admin']
     };
   }
 
@@ -62,27 +62,22 @@
       {
         name: 'Dashboard',
         path: '/dashboard',
-        meta: { title: 'Dashboard', icon: 'lucide:layout-dashboard' },
+        redirect: '/analytics',
+        meta: { order: -1, title: 'page.dashboard.title' },
         children: [
           {
             name: 'Analytics',
-            path: '/dashboard/analytics',
+            path: '/analytics',
             component: '/dashboard/analytics/index',
-            meta: { title: 'Analytics', icon: 'lucide:line-chart' }
+            meta: { affixTab: true, title: 'page.dashboard.analytics' }
           },
           {
             name: 'Workspace',
-            path: '/dashboard/workspace',
+            path: '/workspace',
             component: '/dashboard/workspace/index',
-            meta: { title: 'Workspace', icon: 'lucide:briefcase' }
+            meta: { title: 'page.dashboard.workspace' }
           }
         ]
-      },
-      {
-        name: 'Profile',
-        path: '/_core/profile',
-        component: '/_core/profile/index',
-        meta: { title: 'Profile', icon: 'lucide:user-round' }
       }
     ];
   }
@@ -112,7 +107,7 @@
     }
 
     if (p === '/auth/codes' && m === 'GET') {
-      return ok(['dashboard:analytics', 'dashboard:workspace', 'profile:view']);
+      return ok(['AC_100010', 'AC_100020', 'AC_100030']);
     }
 
     if (p === '/user/info' && m === 'GET') {

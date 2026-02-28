@@ -14,6 +14,12 @@
   var API_PREFIX = '/api';
   var DEMO_TOKEN = 'demo-access-token';
   var USER_PROFILE_KEY = 'vben-local-user-profile';
+  var ERP_MIGRATION_TABLES = {
+    notes: 'erp_notes',
+    finances: 'erp_finances',
+    bankConnections: 'erp_bank_connections',
+    bankStatements: 'erp_bank_statement_entries'
+  };
 
   function absUrl(input) {
     try { return new URL(String(input), window.location.origin); } catch (e) { return null; }
@@ -146,6 +152,63 @@
     }
   }
 
+  async function fetchUserOwnedCount(client, tableName, userId) {
+    if (!client || !tableName || !userId) {
+      return 0;
+    }
+    try {
+      var query = client
+        .from(tableName)
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId);
+      var result = await query;
+      if (result && result.error) {
+        return 0;
+      }
+      var count = Number(result && result.count);
+      return Number.isFinite(count) ? count : 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  async function buildERPMigrationSummary() {
+    try {
+      var client = getSupabaseClient();
+      if (!client) {
+        return { available: false, message: 'Supabase 客户端未初始化' };
+      }
+
+      var sessionResult = await client.auth.getSession();
+      var session = sessionResult && sessionResult.data && sessionResult.data.session;
+      var user = session && session.user;
+      if (!user || !user.id) {
+        return { available: false, message: '当前未登录' };
+      }
+
+      var userId = String(user.id);
+      var counts = await Promise.all([
+        fetchUserOwnedCount(client, ERP_MIGRATION_TABLES.notes, userId),
+        fetchUserOwnedCount(client, ERP_MIGRATION_TABLES.finances, userId),
+        fetchUserOwnedCount(client, ERP_MIGRATION_TABLES.bankConnections, userId),
+        fetchUserOwnedCount(client, ERP_MIGRATION_TABLES.bankStatements, userId)
+      ]);
+
+      return {
+        available: true,
+        userId: userId,
+        email: String(user.email || ''),
+        notesCount: counts[0],
+        financesCount: counts[1],
+        bankConnectionsCount: counts[2],
+        bankStatementsCount: counts[3],
+        refreshedAt: new Date().toISOString()
+      };
+    } catch (e) {
+      return { available: false, message: toSafeMessage(e, '迁移数据读取失败') };
+    }
+  }
+
   function getMenuTree() {
     return [
       {
@@ -174,6 +237,12 @@
         redirect: '/erp-new/desktop',
         meta: { icon: 'mdi:monitor-dashboard', title: '新ERP（试点）' },
         children: [
+          {
+            name: 'ERPNewWorkbench',
+            path: '/erp-new/workbench',
+            component: 'IFrameView',
+            meta: { title: 'ERP迁移工作台', iframeSrc: '/admin-vben/erp-migration-workbench.html' }
+          },
           {
             name: 'ERPNewDesktop',
             path: '/erp-new/desktop',
@@ -282,6 +351,14 @@
 
     if (p === '/menu/all' && m === 'GET') {
       return ok(getMenuTree());
+    }
+
+    if (p === '/erp-migration/summary' && m === 'GET') {
+      var summary = await buildERPMigrationSummary();
+      if (!summary.available) {
+        return { code: 1, data: null, message: summary.message || '暂时无法获取迁移数据', timestamp: new Date().toISOString() };
+      }
+      return ok(summary);
     }
 
     return ok({ mocked: true, path: p, method: m, body: body || {} });

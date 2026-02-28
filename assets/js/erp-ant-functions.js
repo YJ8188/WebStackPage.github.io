@@ -6,6 +6,9 @@
 // ==================== 登录状态检查 ====================
 let erpRealtimeSyncTimer = null;
 let erpRealtimeSyncInProgress = false;
+let erpNotesRealtimeChannel = null;
+let erpNotesRealtimeChannelUserId = '';
+let erpNotesRealtimeRefreshTimer = null;
 const ERP_VERBOSE_LOG = typeof window !== 'undefined' && window.__DEBUG_MODE__ === true;
 let erpPageViewState = 'loading';
 const erpStatsRenderState = {
@@ -2136,11 +2139,15 @@ async function syncERPRealtimeData() {
         await Promise.all([
             ERP.loadProducts({ lite: true, forceRefresh: true }),
             ERP.loadOrders(true),
-            ERP.loadFinances(true)
+            ERP.loadFinances(true),
+            typeof ERP.loadNotes === 'function' ? ERP.loadNotes(true) : Promise.resolve([])
         ]);
 
         updateStatistics();
         await refreshLowStockFromLatestData('realtime-sync');
+        if (typeof renderDailyNotesModule === 'function') {
+            renderDailyNotesModule();
+        }
         if (typeof renderHeaderNotices === 'function') {
             renderHeaderNotices();
         }
@@ -2151,7 +2158,94 @@ async function syncERPRealtimeData() {
     }
 }
 
+function scheduleERPNotesRealtimeRefresh() {
+    if (erpNotesRealtimeRefreshTimer) {
+        clearTimeout(erpNotesRealtimeRefreshTimer);
+        erpNotesRealtimeRefreshTimer = null;
+    }
+
+    erpNotesRealtimeRefreshTimer = setTimeout(async () => {
+        if (typeof ERP === 'undefined' || typeof ERP.loadNotes !== 'function') {
+            return;
+        }
+
+        try {
+            if (ERP.state?.loaded && Object.prototype.hasOwnProperty.call(ERP.state.loaded, 'notes')) {
+                ERP.state.loaded.notes = false;
+            }
+            await ERP.loadNotes(true);
+            if (typeof renderDailyNotesModule === 'function') {
+                renderDailyNotesModule();
+            }
+        } catch (error) {
+            console.error('[ERP Ant] 实时刷新笔记失败:', error?.message || error);
+        }
+    }, 260);
+}
+
+function startERPNotesRealtimeSync() {
+    const currentUserId = String(userData?.user?.id || '').trim();
+    if (!currentUserId) {
+        return;
+    }
+    if (typeof supabaseClient === 'undefined' || !supabaseClient || typeof supabaseClient.channel !== 'function') {
+        return;
+    }
+
+    if (erpNotesRealtimeChannel && erpNotesRealtimeChannelUserId === currentUserId) {
+        return;
+    }
+    if (erpNotesRealtimeChannel && erpNotesRealtimeChannelUserId !== currentUserId) {
+        stopERPNotesRealtimeSync();
+    }
+
+    const refreshIfNeeded = payload => {
+        const row = payload?.new || payload?.old || {};
+        const rowUserId = String(row?.user_id || '').trim();
+        if (rowUserId && rowUserId !== currentUserId) {
+            return;
+        }
+        scheduleERPNotesRealtimeRefresh();
+    };
+
+    erpNotesRealtimeChannel = supabaseClient
+        .channel(`erp-ant-notes-${currentUserId}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'erp_notes' }, refreshIfNeeded)
+        .subscribe((status) => {
+            if (status === 'CHANNEL_ERROR') {
+                console.warn('[ERP Ant] 笔记实时通道异常，已使用轮询同步兜底');
+            }
+        });
+    erpNotesRealtimeChannelUserId = currentUserId;
+}
+
+function stopERPNotesRealtimeSync() {
+    if (erpNotesRealtimeRefreshTimer) {
+        clearTimeout(erpNotesRealtimeRefreshTimer);
+        erpNotesRealtimeRefreshTimer = null;
+    }
+
+    if (!erpNotesRealtimeChannel) {
+        erpNotesRealtimeChannelUserId = '';
+        return;
+    }
+
+    try {
+        if (typeof supabaseClient !== 'undefined' && supabaseClient && typeof supabaseClient.removeChannel === 'function') {
+            supabaseClient.removeChannel(erpNotesRealtimeChannel);
+        } else if (typeof erpNotesRealtimeChannel.unsubscribe === 'function') {
+            erpNotesRealtimeChannel.unsubscribe();
+        }
+    } catch (error) {
+        console.warn('[ERP Ant] 关闭笔记实时通道失败:', error?.message || error);
+    }
+
+    erpNotesRealtimeChannel = null;
+    erpNotesRealtimeChannelUserId = '';
+}
+
 function startERPRealtimeSync() {
+    startERPNotesRealtimeSync();
     if (erpRealtimeSyncTimer) {
         return;
     }
@@ -2161,6 +2255,7 @@ function startERPRealtimeSync() {
 }
 
 function stopERPRealtimeSync() {
+    stopERPNotesRealtimeSync();
     if (!erpRealtimeSyncTimer) {
         return;
     }
@@ -17050,8 +17145,10 @@ if (typeof window !== 'undefined') {
         if (typeof ERP === 'undefined' || typeof ERP.loadNotes !== 'function') {
             return;
         }
-        if (!ERP.state?.loaded?.notes) {
+        try {
             await ERP.loadNotes(true);
+        } catch (error) {
+            console.error('[ERP Ant] 刷新笔记数据失败:', error);
         }
         if (typeof renderDailyNotesModule === 'function') {
             renderDailyNotesModule();

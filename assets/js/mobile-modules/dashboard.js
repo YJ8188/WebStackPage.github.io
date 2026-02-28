@@ -99,7 +99,7 @@ window.DashboardModule = {
           </div>
           <div class="dashboard-shortcut-item" data-action="notes">
             <div class="dashboard-shortcut-icon blue">
-              <i class="fa fa-sticky-note-o"></i>
+              <i class="fa fa-pencil-square-o"></i>
             </div>
             <div class="dashboard-shortcut-label">日常笔记</div>
           </div>

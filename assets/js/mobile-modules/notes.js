@@ -218,7 +218,7 @@ window.NotesModule = {
     if (!Array.isArray(this.notes) || this.notes.length === 0) {
       container.innerHTML = `
         <div class="empty-state">
-          <div class="empty-icon"><i class="fa fa-sticky-note-o"></i></div>
+          <div class="empty-icon"><i class="fa fa-pencil-square-o"></i></div>
           <div class="empty-text">暂无日常笔记</div>
         </div>
       `;
@@ -356,4 +356,3 @@ window.NotesModule = {
     }
   }
 };
-

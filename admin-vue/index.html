@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ERP Vue 试点后台</title>
+  <link rel="icon" type="image/png" href="../assets/images/favicon.png">
+  <style>
+    :root {
+      --bg: #f3f6fb;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --brand: #2563eb;
+      --brand-weak: #dbeafe;
+      --success: #16a34a;
+      --danger: #dc2626;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: linear-gradient(180deg, #eef4ff 0%, var(--bg) 220px);
+      color: var(--text);
+    }
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px 16px 40px;
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .title-group h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.2;
+    }
+    .title-group p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .btn {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: #1e293b;
+      border-radius: 10px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .btn:hover { border-color: #93c5fd; }
+    .btn-primary {
+      border-color: var(--brand);
+      background: var(--brand);
+      color: #fff;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+    }
+    .kpi-label {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .kpi-value {
+      margin: 8px 0 0;
+      font-size: 24px;
+      font-weight: 700;
+      color: #1d4ed8;
+    }
+    .panel {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr;
+      gap: 12px;
+    }
+    .table-wrap {
+      overflow: auto;
+      max-height: 450px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 8px;
+      text-align: left;
+      white-space: nowrap;
+    }
+    th { color: var(--muted); font-weight: 600; font-size: 12px; }
+    .row-income { color: var(--success); }
+    .row-expense { color: var(--danger); }
+    .side h3, .main h3 {
+      margin: 0 0 10px;
+      font-size: 15px;
+    }
+    .muted { color: var(--muted); font-size: 12px; }
+    .todo-item {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 8px;
+      background: #fff;
+    }
+    .todo-item:last-child { margin-bottom: 0; }
+    .todo-title {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .todo-meta {
+      margin: 6px 0 0;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    input, select {
+      width: 100%;
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0 10px;
+      font-size: 13px;
+    }
+    .foot {
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px dashed var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    @media (max-width: 900px) {
+      .panel { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app" class="wrap">
+    <div class="topbar">
+      <div class="title-group">
+        <h1>ERP Vue 试点后台</h1>
+        <p>纯静态部署版本（GitHub Pages 可直接运行），用于验证 Vue 方案可行性。</p>
+      </div>
+      <div>
+        <button class="btn" @click="goVben" style="margin-right:8px;">打开Vben版</button>
+        <button class="btn" @click="goBack">返回PC ERP</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <p class="kpi-label">本月交易数</p>
+        <p class="kpi-value">{{ monthCount }}</p>
+      </div>
+      <div class="card">
+        <p class="kpi-label">本月收入</p>
+        <p class="kpi-value">{{ formatMoney(monthIncome) }}</p>
+      </div>
+      <div class="card">
+        <p class="kpi-label">本月支出</p>
+        <p class="kpi-value">{{ formatMoney(monthExpense) }}</p>
+      </div>
+      <div class="card">
+        <p class="kpi-label">本月净额</p>
+        <p class="kpi-value">{{ formatMoney(monthIncome - monthExpense) }}</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="card main">
+        <h3>财务流水（Vue 响应式列表）</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>类型</th>
+                <th>分类</th>
+                <th>备注</th>
+                <th>金额</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in records" :key="item.id">
+                <td>{{ item.date }}</td>
+                <td>{{ item.type === 'income' ? '收入' : '支出' }}</td>
+                <td>{{ item.category }}</td>
+                <td>{{ item.note }}</td>
+                <td :class="item.type === 'income' ? 'row-income' : 'row-expense'">
+                  {{ item.type === 'income' ? '+' : '-' }}{{ formatMoney(item.amount) }}
+                </td>
+              </tr>
+              <tr v-if="records.length === 0">
+                <td colspan="5" class="muted">暂无数据</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card side">
+        <h3>快速新增（本地试点）</h3>
+        <p class="muted">当前数据保存在浏览器本地，验证 Vue UI 与交互能力。</p>
+        <div class="form-row">
+          <select v-model="form.type">
+            <option value="income">收入</option>
+            <option value="expense">支出</option>
+          </select>
+          <input v-model="form.date" type="date">
+        </div>
+        <div class="form-row">
+          <input v-model.trim="form.category" placeholder="分类（如：销售/采购）">
+          <input v-model.number="form.amount" type="number" min="0" step="0.01" placeholder="金额">
+        </div>
+        <div style="margin-top:8px;">
+          <input v-model.trim="form.note" placeholder="备注">
+        </div>
+        <div style="margin-top:10px; display:flex; gap:8px;">
+          <button class="btn btn-primary" @click="addRecord">添加</button>
+          <button class="btn" @click="resetSeed">恢复示例数据</button>
+        </div>
+
+        <div class="foot">
+          <div class="muted">最后更新：{{ lastSavedAt || '未保存' }}</div>
+          <div class="muted">版本：Vue 3 静态试点</div>
+        </div>
+
+        <div style="margin-top:12px;">
+          <h3>迁移建议</h3>
+          <div class="todo-item" v-for="todo in todos" :key="todo.id">
+            <p class="todo-title">{{ todo.title }}</p>
+            <p class="todo-meta">{{ todo.desc }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/vue@3.5.22/dist/vue.global.prod.js"></script>
+  <script>
+    (function () {
+      const STORAGE_KEY = "erp_vue_pilot_records_v1";
+      const DEFAULT_ROWS = [
+        { id: "r1", date: "2026-02-24", type: "income", category: "销售", note: "办公椅订单", amount: 5200 },
+        { id: "r2", date: "2026-02-25", type: "expense", category: "采购", note: "木板原料", amount: 1880 },
+        { id: "r3", date: "2026-02-26", type: "expense", category: "物流", note: "专线运费", amount: 460 },
+        { id: "r4", date: "2026-02-27", type: "income", category: "销售", note: "样品回款", amount: 2300 }
+      ];
+
+      function loadRows() {
+        try {
+          const text = localStorage.getItem(STORAGE_KEY);
+          if (!text) return DEFAULT_ROWS.slice();
+          const rows = JSON.parse(text);
+          return Array.isArray(rows) ? rows : DEFAULT_ROWS.slice();
+        } catch (error) {
+          return DEFAULT_ROWS.slice();
+        }
+      }
+
+      const { createApp, computed, reactive, ref, watch } = Vue;
+
+      createApp({
+        setup() {
+          const records = ref(loadRows());
+          const lastSavedAt = ref("");
+          const form = reactive({
+            type: "income",
+            date: new Date().toISOString().slice(0, 10),
+            category: "",
+            note: "",
+            amount: 0
+          });
+
+          const todos = ref([
+            { id: "t1", title: "第1步：并行保留旧系统", desc: "先让 Vue 后台独立运行，不影响现有 ERP 生产数据。" },
+            { id: "t2", title: "第2步：先迁移只读看板", desc: "把首页看板迁移到 Vue，避免先动写入流程。" },
+            { id: "t3", title: "第3步：再迁移订单模块", desc: "订单完成后，再迁移银行与财务模块。" }
+          ]);
+
+          watch(records, (rows) => {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
+            lastSavedAt.value = new Date().toLocaleString("zh-CN", { hour12: false });
+          }, { deep: true });
+
+          const thisMonth = computed(() => {
+            const today = new Date().toISOString().slice(0, 7);
+            return records.value.filter((item) => String(item.date || "").slice(0, 7) === today);
+          });
+
+          const monthCount = computed(() => thisMonth.value.length);
+          const monthIncome = computed(() => thisMonth.value
+            .filter((item) => item.type === "income")
+            .reduce((sum, item) => sum + Number(item.amount || 0), 0));
+          const monthExpense = computed(() => thisMonth.value
+            .filter((item) => item.type === "expense")
+            .reduce((sum, item) => sum + Number(item.amount || 0), 0));
+
+          function formatMoney(amount) {
+            const value = Number(amount || 0);
+            return "¥" + value.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+          }
+
+          function addRecord() {
+            const category = String(form.category || "").trim();
+            const note = String(form.note || "").trim();
+            const amount = Number(form.amount || 0);
+            const date = String(form.date || "").trim();
+            if (!date) return alert("请选择日期");
+            if (!category) return alert("请输入分类");
+            if (!(amount > 0)) return alert("金额必须大于0");
+            records.value.unshift({
+              id: "r" + Date.now(),
+              date,
+              type: form.type === "expense" ? "expense" : "income",
+              category,
+              note,
+              amount: Number(amount.toFixed(2))
+            });
+            form.category = "";
+            form.note = "";
+            form.amount = 0;
+          }
+
+          function resetSeed() {
+            if (!window.confirm("确认恢复示例数据？")) return;
+            records.value = DEFAULT_ROWS.slice();
+          }
+
+          function goBack() {
+            const target = new URL("../erp-ant.html", window.location.href);
+            target.searchParams.set("forceDesktop", "1");
+            window.location.href = target.toString();
+          }
+
+          function goVben() {
+            const target = new URL("../admin-vben/index.html", window.location.href);
+            window.open(target.toString(), "_blank");
+          }
+
+          return {
+            records,
+            form,
+            todos,
+            lastSavedAt,
+            monthCount,
+            monthIncome,
+            monthExpense,
+            formatMoney,
+            addRecord,
+            resetSeed,
+            goVben,
+            goBack
+          };
+        }
+      }).mount("#app");
+    })();
+  </script>
+</body>
+</html>

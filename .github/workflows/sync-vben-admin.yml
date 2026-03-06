@@ -1,0 +1,85 @@
+name: sync-vben-admin
+
+on:
+  workflow_dispatch:
+    inputs:
+      upstream_ref:
+        description: "vue-vben-admin 分支/标签/提交（默认 main）"
+        required: false
+        default: "main"
+      force_commit:
+        description: "即使无变化也强制写入一次标记并提交（true/false）"
+        required: false
+        default: "false"
+  schedule:
+    - cron: "20 4 * * 1"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      UPSTREAM_REF: ${{ github.event.inputs.upstream_ref || 'main' }}
+      FORCE_COMMIT: ${{ github.event.inputs.force_commit || 'false' }}
+    steps:
+      - name: Checkout current repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Clone vue-vben-admin
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/vue-vben-admin
+          git clone --depth 1 --branch "${UPSTREAM_REF}" https://github.com/vbenjs/vue-vben-admin.git /tmp/vue-vben-admin
+          test -f /tmp/vue-vben-admin/apps/web-antd/.env.production
+
+      - name: Build web-antd for subpath /admin-vben/
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/vue-vben-admin
+          sed -i 's|^VITE_BASE=/.*$|VITE_BASE=/admin-vben/|' apps/web-antd/.env.production
+          corepack pnpm install --frozen-lockfile
+          corepack pnpm run build:antd
+          test -f apps/web-antd/dist/index.html
+
+      - name: Sync dist to admin-vben
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf admin-vben
+          mkdir -p admin-vben
+          cp -a /tmp/vue-vben-admin/apps/web-antd/dist/. admin-vben/
+          printf "upstream_ref=%s\nbuilt_at_utc=%s\n" "${UPSTREAM_REF}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > admin-vben/.upstream-build.txt
+
+      - name: Commit and push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add admin-vben
+          if git diff --cached --quiet; then
+            if [ "${FORCE_COMMIT}" = "true" ]; then
+              echo "force_commit=true, refreshing marker only."
+              printf "forced_at_utc=%s\n" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > admin-vben/.force-sync.txt
+              git add admin-vben/.force-sync.txt
+            else
+              echo "No changes detected. Skip commit."
+              exit 0
+            fi
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(vben): sync vue-vben-admin (${UPSTREAM_REF})"
+          git push origin HEAD:master

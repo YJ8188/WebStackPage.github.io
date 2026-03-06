@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - 何哥的网站导航系统</title>
+
+    <link rel="icon" type="image/png" href="assets/images/favicon.png">
+    <link rel="shortcut icon" href="assets/images/favicon.png">
+    <link rel="apple-touch-icon" href="assets/images/favicon.png">
+    <link rel="manifest" href="manifest.webmanifest?v=20260218-3">
+    <meta name="theme-color" content="#2563eb">
+
+    <!-- 使用系统字体回退，避免第三方CDN在隐私模式下触发存储拦截告警 -->
+    <link rel="stylesheet" href="assets/css/bootstrap.css">
+    <link rel="stylesheet" href="assets/css/fonts/fontawesome/css/font-awesome.min.css">
+
+    <style>
+        :root {
+            --bg: #f5f7fb;
+            --card: #ffffff;
+            --text: #111827;
+            --subtext: #6b7280;
+            --line: #e5e7eb;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --danger: #ef4444;
+            --danger-bg: #fef2f2;
+            --success: #16a34a;
+            --success-bg: #f0fdf4;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "HarmonyOS Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(1200px 500px at 0% -10%, #dbeafe 0%, rgba(219, 234, 254, 0) 60%),
+                radial-gradient(900px 420px at 100% 110%, #dcfce7 0%, rgba(220, 252, 231, 0) 55%),
+                var(--bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .auth-shell {
+            width: 100%;
+            max-width: 940px;
+            display: grid;
+            grid-template-columns: 1.1fr 1fr;
+            border-radius: 18px;
+            overflow: hidden;
+            box-shadow: 0 16px 48px rgba(15, 23, 42, 0.12);
+            background: var(--card);
+        }
+
+        .auth-left {
+            padding: 42px 36px;
+            background: linear-gradient(145deg, #eff6ff 0%, #ffffff 58%, #f0fdf4 100%);
+            border-right: 1px solid var(--line);
+        }
+
+        .auth-brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 17px;
+            font-weight: 700;
+            color: #1e3a8a;
+            margin-bottom: 18px;
+        }
+
+        .auth-brand i {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            background: #dbeafe;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary);
+        }
+
+        .auth-title {
+            margin: 0;
+            font-size: 30px;
+            line-height: 1.25;
+            letter-spacing: .2px;
+        }
+
+        .auth-desc {
+            margin: 12px 0 26px;
+            color: var(--subtext);
+            line-height: 1.75;
+            font-size: 14px;
+        }
+
+        .auth-points {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .auth-points li {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #374151;
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+
+        .auth-points i {
+            color: var(--primary);
+            width: 16px;
+        }
+
+        .back-home {
+            margin-top: 26px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: #475569;
+            text-decoration: none;
+        }
+
+        .back-home:hover { color: var(--primary); }
+
+        .auth-right {
+            padding: 42px 36px;
+            background: #fff;
+        }
+
+        .form-title {
+            margin: 0 0 8px;
+            font-size: 26px;
+            font-weight: 700;
+        }
+
+        .form-subtitle {
+            margin: 0 0 22px;
+            color: var(--subtext);
+            font-size: 14px;
+        }
+
+        .alert {
+            display: none;
+            border: 1px solid transparent;
+            border-radius: 10px;
+            padding: 10px 12px;
+            margin-bottom: 18px;
+            font-size: 13px;
+        }
+
+        .alert.show { display: block; }
+        .alert-success {
+            color: var(--success);
+            border-color: #bbf7d0;
+            background: var(--success-bg);
+        }
+        .alert-error {
+            color: var(--danger);
+            border-color: #fecaca;
+            background: var(--danger-bg);
+        }
+
+        .form-group { margin-bottom: 16px; }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 7px;
+            color: #334155;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .form-control {
+            width: 100%;
+            height: 44px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 14px;
+            box-shadow: none;
+        }
+
+        .form-control:focus {
+            border-color: #93c5fd;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+        }
+
+        .remember {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin: 16px 0 20px;
+            font-size: 13px;
+            color: #4b5563;
+        }
+
+        .remember input { margin-top: 2px; }
+        .remember small {
+            display: block;
+            margin-top: 4px;
+            color: #94a3b8;
+            line-height: 1.5;
+        }
+
+        .btn-login {
+            width: 100%;
+            height: 44px;
+            border: none;
+            border-radius: 10px;
+            color: #fff;
+            background: var(--primary);
+            font-size: 15px;
+            font-weight: 600;
+            transition: background .2s ease;
+        }
+
+        .btn-login:hover { background: var(--primary-hover); }
+        .btn-login:disabled { opacity: .65; cursor: not-allowed; }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.45);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            vertical-align: text-bottom;
+            margin-right: 6px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .auth-footer {
+            margin-top: 18px;
+            text-align: center;
+            color: #64748b;
+            font-size: 13px;
+        }
+
+        .auth-footer a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .auth-footer a:hover { text-decoration: underline; }
+
+        .self-check-toggle {
+            position: fixed;
+            right: 16px;
+            bottom: 16px;
+            z-index: 3000;
+            border: none;
+            border-radius: 999px;
+            background: #0f172a;
+            color: #fff;
+            padding: 10px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.25);
+        }
+
+        .self-check-panel {
+            position: fixed;
+            right: 16px;
+            bottom: 64px;
+            z-index: 3000;
+            width: min(420px, calc(100vw - 24px));
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+            display: none;
+            overflow: hidden;
+        }
+
+        .self-check-panel.active { display: block; }
+
+        .self-check-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 14px;
+            border-bottom: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+
+        .self-check-title {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .self-check-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .self-check-btn {
+            border: 1px solid #dbe1ea;
+            background: #fff;
+            color: #334155;
+            border-radius: 8px;
+            padding: 5px 8px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .self-check-body {
+            max-height: 52vh;
+            overflow: auto;
+            padding: 12px 14px;
+        }
+
+        .self-check-list {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .self-check-item {
+            display: flex;
+            gap: 10px;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px dashed #e2e8f0;
+            font-size: 12px;
+        }
+
+        .self-check-item:last-child { border-bottom: none; }
+
+        .self-check-key {
+            color: #64748b;
+            min-width: 118px;
+        }
+
+        .self-check-value {
+            color: #0f172a;
+            text-align: right;
+            word-break: break-all;
+        }
+
+        .self-check-status-ok { color: #16a34a; font-weight: 600; }
+        .self-check-status-warn { color: #d97706; font-weight: 600; }
+        .self-check-status-bad { color: #dc2626; font-weight: 600; }
+
+        @media (max-width: 900px) {
+            .auth-shell { grid-template-columns: 1fr; }
+            .auth-left {
+                border-right: none;
+                border-bottom: 1px solid var(--line);
+                padding: 28px 22px;
+            }
+            .auth-right { padding: 28px 22px; }
+            .auth-title { font-size: 24px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-shell">
+        <aside class="auth-left">
+            <div class="auth-brand">
+                <i class="fa fa-compass"></i>
+                <span>何哥导航 · 账户中心</span>
+            </div>
+            <h1 class="auth-title">欢迎回来，继续你的工作流</h1>
+            <p class="auth-desc">登录后可同步收藏、卡片排序、通知提醒和 ERP 数据。界面和交互保持简洁，优先快速完成任务。</p>
+            <ul class="auth-points">
+                <li><i class="fa fa-check-circle"></i> 收藏与设置自动同步</li>
+                <li><i class="fa fa-check-circle"></i> ERP 数据按账号隔离</li>
+                <li><i class="fa fa-check-circle"></i> 30 天免重复登录</li>
+            </ul>
+            <a href="index.html" class="back-home"><i class="fa fa-arrow-left"></i> 返回首页</a>
+        </aside>
+
+        <main class="auth-right">
+            <h2 class="form-title" id="formTitle">登录</h2>
+            <p class="form-subtitle" id="formSubtitle">使用邮箱和密码登录你的账号</p>
+
+            <div id="alertBox" class="alert"></div>
+
+            <form id="authForm">
+                <div class="form-group">
+                    <label for="email">邮箱</label>
+                    <input type="email" id="email" class="form-control" placeholder="you@example.com" required autocomplete="email">
+                </div>
+
+                <div class="form-group">
+                    <label for="password">密码</label>
+                    <input type="password" id="password" class="form-control" placeholder="请输入密码" required autocomplete="current-password">
+                </div>
+
+                <label class="remember" for="rememberMe">
+                    <input type="checkbox" id="rememberMe">
+                    <span>
+                        30 天内自动登录
+                        <small>仅在个人设备勾选，公共电脑不建议启用。</small>
+                    </span>
+                </label>
+
+                <button type="submit" class="btn-login" id="submitBtn">登录</button>
+            </form>
+
+            <div class="auth-footer">
+                <span id="toggleText">还没有账号？</span>
+                <a href="#" id="toggleLink">立即注册</a>
+            </div>
+        </main>
+    </div>
+
+    <script src="assets/js/supabase.min.js"></script>
+    <script src="assets/js/supabase-config.js?v=20260212-14"></script>
+    <script src="assets/js/auth.js?v=20260219-1"></script>
+    <script src="assets/js/pwa-register.js?v=20260223-5" defer></script>
+
+    <button type="button" id="selfCheckToggle" class="self-check-toggle">登录自检</button>
+    <section id="selfCheckPanel" class="self-check-panel" aria-live="polite">
+        <div class="self-check-head">
+            <h3 class="self-check-title">登录自检面板</h3>
+            <div class="self-check-actions">
+                <button type="button" class="self-check-btn" id="selfCheckRefresh">刷新</button>
+                <button type="button" class="self-check-btn" id="selfCheckCopy">复制</button>
+                <button type="button" class="self-check-btn" id="selfCheckClose">关闭</button>
+            </div>
+        </div>
+        <div class="self-check-body">
+            <ul id="selfCheckList" class="self-check-list"></ul>
+        </div>
+    </section>
+
+    <script>
+        (function initLoginSelfCheck() {
+            const toggleButton = document.getElementById('selfCheckToggle');
+            const panel = document.getElementById('selfCheckPanel');
+            const closeButton = document.getElementById('selfCheckClose');
+            const refreshButton = document.getElementById('selfCheckRefresh');
+            const copyButton = document.getElementById('selfCheckCopy');
+            const list = document.getElementById('selfCheckList');
+
+            if (!toggleButton || !panel || !list) {
+                return;
+            }
+
+            function parseReturnTarget() {
+                const params = new URLSearchParams(window.location.search);
+                const returnTo = params.get('returnTo') || '';
+                return returnTo;
+            }
+
+            function sanitizeReturnTarget(raw) {
+                const fallback = 'index.html';
+                if (!raw) return fallback;
+                try {
+                    const value = decodeURIComponent(raw).trim();
+                    if (!value || /^(https?:|\/\/|javascript:)/i.test(value) || value.includes('..')) {
+                        return fallback;
+                    }
+                    return value;
+                } catch (error) {
+                    return fallback;
+                }
+            }
+
+            function makeStatus(value, okText = '正常', badText = '异常') {
+                return value
+                    ? `正常（${okText}）`
+                    : `异常（${badText}）`;
+            }
+
+            function toShanghaiDateTimeText(value) {
+                const date = value instanceof Date ? value : new Date(value);
+                if (Number.isNaN(date.getTime())) {
+                    return '-';
+                }
+                return date.toLocaleString('zh-CN', {
+                    timeZone: 'Asia/Shanghai',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false
+                });
+            }
+
+            async function collectSelfCheckRows() {
+                const rawReturnTo = parseReturnTarget();
+                const safeReturnTo = sanitizeReturnTarget(rawReturnTo);
+                const hasSupabaseLib = typeof window.supabase !== 'undefined';
+                const hasSupabaseClient = !!(window.supabaseClient && window.supabaseClient.auth);
+                const rememberMe = localStorage.getItem('rememberMePreference');
+                const rememberMeExpiresAtRaw = localStorage.getItem('rememberMeExpiresAt');
+                const rememberMeExpiresAt = Number(rememberMeExpiresAtRaw);
+                const rememberMeHasExpiry = Number.isFinite(rememberMeExpiresAt) && rememberMeExpiresAt > 0;
+                const rememberMeExpired = rememberMe === 'true'
+                    ? (!rememberMeHasExpiry || Date.now() >= rememberMeExpiresAt)
+                    : false;
+                const rememberMeExpireText = rememberMeHasExpiry
+                    ? toShanghaiDateTimeText(rememberMeExpiresAt)
+                    : '未设置（视为过期）';
+                const protocol = window.location.protocol;
+                const isFileProtocol = protocol === 'file:';
+
+                let sessionOk = false;
+                let sessionUser = '-';
+                let sessionError = '-';
+
+                try {
+                    if (hasSupabaseClient) {
+                        const { data: { session }, error } = await window.supabaseClient.auth.getSession();
+                        sessionOk = !!session;
+                        sessionUser = session?.user?.email || '-';
+                        sessionError = error ? (error.message || 'unknown') : '-';
+                    } else {
+                        sessionError = 'supabaseClient 未初始化';
+                    }
+                } catch (error) {
+                    sessionError = error?.message || '获取 session 失败';
+                }
+
+                return [
+                    ['当前时间', toShanghaiDateTimeText(new Date())],
+                    ['当前地址', window.location.href],
+                    ['页面协议', isFileProtocol ? 'file://（建议改本地服务器）' : `${protocol}//`],
+                    ['当前域名', window.location.origin || 'file:// 本地文件'],
+                    ['回跳参数(returnTo)', rawReturnTo || '-'],
+                    ['回跳目标(安全)', safeReturnTo],
+                    ['Supabase 库', makeStatus(hasSupabaseLib)],
+                    ['Supabase 客户端', makeStatus(hasSupabaseClient)],
+                    ['Session 状态', sessionOk ? '已登录' : '未登录/未建立'],
+                    ['Session 用户', sessionUser],
+                    ['Session 错误', sessionError],
+                    ['记住我偏好', rememberMe ?? 'null'],
+                    ['记住我到期时间', rememberMeExpireText],
+                    ['记住我是否过期', rememberMeExpired ? '已过期' : '未过期'],
+                    ['网络状态', navigator.onLine ? 'online' : 'offline']
+                ];
+            }
+
+            async function renderSelfCheck() {
+                list.innerHTML = '';
+                const loadingItem = document.createElement('li');
+                loadingItem.className = 'self-check-item';
+                const loadingKey = document.createElement('span');
+                loadingKey.className = 'self-check-key';
+                loadingKey.textContent = '状态';
+                const loadingValue = document.createElement('span');
+                loadingValue.className = 'self-check-value';
+                loadingValue.textContent = '检测中...';
+                loadingItem.appendChild(loadingKey);
+                loadingItem.appendChild(loadingValue);
+                list.appendChild(loadingItem);
+                const rows = await collectSelfCheckRows();
+                list.innerHTML = '';
+                rows.forEach(([key, value]) => {
+                    const item = document.createElement('li');
+                    item.className = 'self-check-item';
+                    const keyEl = document.createElement('span');
+                    keyEl.className = 'self-check-key';
+                    keyEl.textContent = String(key || '');
+                    const valueEl = document.createElement('span');
+                    valueEl.className = 'self-check-value';
+                    valueEl.textContent = String(value ?? '');
+                    item.appendChild(keyEl);
+                    item.appendChild(valueEl);
+                    list.appendChild(item);
+                });
+            }
+
+            async function copySelfCheckReport() {
+                const rows = await collectSelfCheckRows();
+                const text = rows.map(([key, value]) => `${key}: ${String(value).replace(/<[^>]+>/g, '')}`).join('\n');
+                try {
+                    await navigator.clipboard.writeText(text);
+                    alert('自检报告已复制，可直接发给我排查。');
+                } catch (error) {
+                    alert('复制失败，请手动截图。');
+                }
+            }
+
+            toggleButton.addEventListener('click', async function () {
+                panel.classList.toggle('active');
+                if (panel.classList.contains('active')) {
+                    await renderSelfCheck();
+                }
+            });
+
+            closeButton?.addEventListener('click', function () {
+                panel.classList.remove('active');
+            });
+
+            refreshButton?.addEventListener('click', renderSelfCheck);
+            copyButton?.addEventListener('click', copySelfCheckReport);
+        })();
+    </script>
+</body>
+</html>

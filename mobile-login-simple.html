@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>登录 - 何哥ERP移动版</title>
+
+    <link rel="icon" type="image/png" href="assets/images/favicon.png">
+    <link rel="stylesheet" href="assets/css/fonts/fontawesome/css/font-awesome.min.css">
+
+    <style>
+        :root {
+            --brand: #1677ff;
+            --brand-dark: #0f5fd1;
+            --text-main: #1f2937;
+            --text-secondary: #6b7280;
+            --line: #dfe4ea;
+            --bg: #f3f5f8;
+            --white: #fff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: radial-gradient(circle at 0 0, #eaf1ff 0, var(--bg) 42%);
+            min-height: 100vh;
+            padding: 22px 14px;
+            color: var(--text-main);
+        }
+
+        .page-shell {
+            width: 100%;
+            max-width: 420px;
+            margin: 0 auto;
+        }
+
+        .brand-bar {
+            margin-bottom: 14px;
+            background: linear-gradient(135deg, #0f5fd1, var(--brand));
+            border-radius: 14px;
+            padding: 14px 16px;
+            color: #e9f2ff;
+            box-shadow: 0 8px 22px rgba(22, 119, 255, 0.25);
+        }
+
+        .brand-title {
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: .3px;
+        }
+
+        .brand-subtitle {
+            margin-top: 4px;
+            font-size: 12px;
+            opacity: .9;
+        }
+
+        .login-container {
+            width: 100%;
+            background: var(--white);
+            border: 1px solid #e8edf3;
+            border-radius: 16px;
+            padding: 20px 16px 18px;
+            box-shadow: 0 10px 32px rgba(15, 23, 42, 0.08);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding-bottom: 14px;
+            border-bottom: 1px dashed var(--line);
+        }
+
+        .logo-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 11px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #eef4ff;
+            color: var(--brand);
+            font-size: 20px;
+        }
+
+        .logo-text {
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .logo-subtitle {
+            margin-top: 4px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .form-group {
+            margin-bottom: 14px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 13px;
+            color: #4b5563;
+            font-weight: 600;
+        }
+
+        .input-wrap {
+            position: relative;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9aa4b2;
+            font-size: 14px;
+            pointer-events: none;
+        }
+
+        .form-input {
+            width: 100%;
+            height: 44px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 0 12px 0 34px;
+            font-size: 15px;
+            background: #fff;
+            color: var(--text-main);
+            transition: border-color .15s, box-shadow .15s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--brand);
+            box-shadow: 0 0 0 3px rgba(22, 119, 255, .14);
+        }
+
+        .btn-login {
+            margin-top: 6px;
+            width: 100%;
+            height: 44px;
+            border: none;
+            border-radius: 10px;
+            background: var(--brand);
+            color: #fff;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background .2s, transform .08s;
+        }
+
+        .btn-login:active {
+            transform: translateY(1px);
+        }
+
+        .btn-login:hover {
+            background: var(--brand-dark);
+        }
+
+        .btn-login:disabled {
+            opacity: .7;
+            cursor: not-allowed;
+        }
+
+        .divider {
+            margin: 16px 0 14px;
+            display: flex;
+            align-items: center;
+            color: #9ca3af;
+            font-size: 12px;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: #e5e7eb;
+        }
+
+        .divider-text {
+            margin: 0 10px;
+        }
+
+        .btn-register {
+            width: 100%;
+            height: 42px;
+            border-radius: 10px;
+            border: 1px solid #bfd5ff;
+            background: #f5f9ff;
+            color: var(--brand);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn-register:active {
+            transform: translateY(1px);
+        }
+
+        .alert {
+            padding: 10px 12px;
+            border-radius: 10px;
+            margin-bottom: 12px;
+            font-size: 13px;
+            line-height: 1.5;
+            display: none;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert-error {
+            background: #fff1f0;
+            color: #cf1322;
+            border: 1px solid #ffc9c4;
+        }
+
+        .alert-success {
+            background: #f6ffed;
+            color: #389e0d;
+            border: 1px solid #c2ef9f;
+        }
+
+        .back-link {
+            margin-top: 14px;
+            text-align: center;
+        }
+
+        .back-link a {
+            color: #6b7280;
+            font-size: 13px;
+            text-decoration: none;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, .35);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin .6s linear infinite;
+            margin-right: 7px;
+            vertical-align: -2px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page-shell">
+        <div class="brand-bar">
+            <div class="brand-title">何哥 ERP · 移动端</div>
+            <div class="brand-subtitle">订单、库存、客户、财务一体协同</div>
+        </div>
+
+        <div class="login-container">
+            <div class="logo">
+                <div class="logo-icon">
+                    <i class="fa fa-cube"></i>
+                </div>
+                <div>
+                    <div class="logo-text">账号登录</div>
+                    <div class="logo-subtitle">请输入账号信息以进入系统</div>
+                </div>
+            </div>
+
+            <div id="alertBox" class="alert"></div>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label class="form-label">邮箱</label>
+                    <div class="input-wrap">
+                        <i class="fa fa-envelope input-icon"></i>
+                        <input type="email" class="form-input" id="email" placeholder="请输入邮箱地址" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">密码</label>
+                    <div class="input-wrap">
+                        <i class="fa fa-lock input-icon"></i>
+                        <input type="password" class="form-input" id="password" placeholder="请输入密码" required>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-login" id="loginBtn">
+                    登录
+                </button>
+            </form>
+
+            <div class="divider">
+                <span class="divider-text">或</span>
+            </div>
+
+            <button class="btn-register" id="registerBtn">
+                注册新账号
+            </button>
+
+            <div class="back-link">
+                <a href="index.html">
+                    <i class="fa fa-arrow-left"></i> 返回首页
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script src="assets/js/supabase.min.js?v=20260219-2"></script>
+    <script src="assets/js/supabase-config.js?v=20260219-2"></script>
+    <script>
+        const loginForm = document.getElementById('loginForm');
+        const loginBtn = document.getElementById('loginBtn');
+        const registerBtn = document.getElementById('registerBtn');
+        const alertBox = document.getElementById('alertBox');
+
+        let isLogin = true;
+
+        function getAuthClient() {
+            const client = window.supabaseClient || window.supabase;
+            if (client && client.auth) return client;
+            return null;
+        }
+
+        function showAlert(message, type = 'error') {
+            alertBox.textContent = message;
+            alertBox.className = `alert alert-${type} show`;
+            setTimeout(() => {
+                alertBox.classList.remove('show');
+            }, 5000);
+        }
+
+        function setLoading(loading) {
+            if (loading) {
+                loginBtn.disabled = true;
+                loginBtn.innerHTML = '<span class="loading"></span>登录中...';
+            } else {
+                loginBtn.disabled = false;
+                loginBtn.innerHTML = isLogin ? '登录' : '注册';
+            }
+        }
+
+        registerBtn.addEventListener('click', () => {
+            isLogin = !isLogin;
+            if (isLogin) {
+                loginBtn.textContent = '登录';
+                registerBtn.textContent = '注册新账号';
+                document.querySelector('.logo-text').textContent = '账号登录';
+                document.querySelector('.logo-subtitle').textContent = '请输入账号信息以进入系统';
+            } else {
+                loginBtn.textContent = '注册';
+                registerBtn.textContent = '已有账号？登录';
+                document.querySelector('.logo-text').textContent = '账号注册';
+                document.querySelector('.logo-subtitle').textContent = '创建新账号后即可同步你的业务数据';
+            }
+        });
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            if (!email || !password) {
+                showAlert('请填写邮箱和密码');
+                return;
+            }
+
+            setLoading(true);
+
+            try {
+                const authClient = getAuthClient();
+                if (!authClient) {
+                    throw new Error('登录服务未初始化，请刷新后重试');
+                }
+
+                let result;
+                if (isLogin) {
+                    result = await authClient.auth.signInWithPassword({
+                        email,
+                        password
+                    });
+                } else {
+                    result = await authClient.auth.signUp({
+                        email,
+                        password
+                    });
+                }
+
+                if (result.error) {
+                    throw result.error;
+                }
+
+                if (isLogin) {
+                    showAlert('登录成功！', 'success');
+                    setTimeout(() => {
+                        window.location.href = 'mobile-erp.html';
+                    }, 1000);
+                } else {
+                    showAlert('注册成功！请查收邮件验证', 'success');
+                    setTimeout(() => {
+                        isLogin = true;
+                        loginBtn.textContent = '登录';
+                        registerBtn.textContent = '注册新账号';
+                    }, 2000);
+                }
+            } catch (error) {
+                console.error('认证错误:', error);
+                showAlert(error.message || '操作失败，请重试');
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        // 检查是否已登录
+        const authClient = getAuthClient();
+        if (authClient) {
+            authClient.auth.getSession().then(({ data: { session } }) => {
+                if (session) {
+                    window.location.href = 'mobile-erp.html';
+                }
+            }).catch(() => {
+            });
+        }
+    </script>
+</body>
+</html>

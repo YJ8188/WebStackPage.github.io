@@ -1,0 +1,14 @@
+{
+  "name": "qq-mail-sync",
+  "private": true,
+  "type": "module",
+  "description": "自动同步 QQ 邮箱信用卡账单到 ERP 财务",
+  "scripts": {
+    "sync": "node qq_mail_sync.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.4",
+    "imapflow": "^1.0.199",
+    "mailparser": "^3.9.0"
+  }
+}

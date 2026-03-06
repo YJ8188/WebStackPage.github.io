@@ -1,0 +1,97 @@
+name: qq-mail-sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      lookback_days:
+        description: "回溯天数（仅在非当月模式生效）"
+        required: false
+        default: "31"
+      max_messages:
+        description: "最大扫描邮件数（默认2000）"
+        required: false
+        default: "2000"
+      dry_run:
+        description: "是否仅预览不入库（true/false）"
+        required: false
+        default: "false"
+      target_user_id:
+        description: "可选：仅同步指定用户UUID（留空=自动同步全部已授权用户）"
+        required: false
+        default: ""
+  schedule:
+    - cron: "15 */3 * * *"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      ERP_USER_ID: ${{ github.event.inputs.target_user_id || secrets.ERP_USER_ID }}
+      QQ_MAIL_SYNC_TOKEN: ${{ secrets.QQ_MAIL_SYNC_TOKEN }}
+      QQ_IMAP_HOST: imap.qq.com
+      QQ_IMAP_PORT: "993"
+      QQ_MAILBOX: "INBOX"
+      QQ_MAILBOX_AUTO_DISCOVER: "false"
+      QQ_IMAP_VERBOSE_LOG: "false"
+      QQ_SYNC_DATE_SCOPE: "current_month"
+      QQ_SYNC_REMINDER_DAYS_BEFORE: "3"
+      QQ_SYNC_INCLUDE_KEYWORDS: "信用卡,账单,还款,到期,本期应还,本期应还款总额,本期应还款金额,总账信息,最低还款,最低还款额,电子账单,电子对账单,对账单,应还款额,应还款总额,还款额,账单通知,人民币账户账单,statement,payment due,minimum payment,credit card,total statement balance"
+      QQ_SYNC_EXCLUDE_KEYWORDS: "验证码,动态码,OTP,one-time password"
+      QQ_SYNC_LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '31' }}
+      QQ_SYNC_MAX_MESSAGES: ${{ github.event.inputs.max_messages || '2000' }}
+      QQ_SYNC_DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install --prefix .github/qq-mail-sync
+
+      - name: 预检必填配置
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=()
+          for key in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY QQ_MAIL_SYNC_TOKEN; do
+            if [ -z "${!key:-}" ]; then
+              missing+=("$key")
+            fi
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::缺少 GitHub Secrets：${missing[*]}"
+            exit 1
+          fi
+          if [ -n "${ERP_USER_ID:-}" ]; then
+            if ! [[ "${ERP_USER_ID}" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$ ]]; then
+              echo "::error::ERP_USER_ID 格式错误（必须是用户 UUID）"
+              exit 1
+            fi
+          fi
+          echo "预检通过：关键配置已就绪（ERP_USER_ID 可为空以启用多用户自动同步）"
+
+      - name: Run QQ mail sync
+        shell: bash
+        run: |
+          set +e
+          node .github/qq-mail-sync/qq_mail_sync.mjs 2>&1 | tee qq-mail-sync.log
+          exit_code=${PIPESTATUS[0]}
+          if [ "$exit_code" -ne 0 ]; then
+            reason=$(grep -E "\\[QQ同步\\]\\[[^]]+\\] 失败：|未找到已启用的QQ邮箱授权账号|同步令牌|授权|IMAP|全部账号同步失败" qq-mail-sync.log | tail -n 1 || true)
+            if [ -z "$reason" ]; then
+              reason=$(grep -E "\\[QQ同步\\].*失败" qq-mail-sync.log | tail -n 1 || true)
+            fi
+            if [ -z "$reason" ]; then
+              reason=$(tail -n 20 qq-mail-sync.log | tr '\n' ' ' | sed 's/  */ /g')
+            fi
+            echo "::error::${reason}"
+            exit "$exit_code"
+          fi

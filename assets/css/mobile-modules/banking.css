@@ -1,0 +1,130 @@
+/**
+ * 移动端ERP - 银行业务模块样式
+ */
+
+.mobile-banking-modal {
+  width: min(92vw, 560px);
+}
+
+.mobile-banking-modal .modal-header {
+  text-align: left;
+  padding: 14px 16px;
+  font-size: 22px;
+  line-height: 1.25;
+}
+
+.mobile-banking-modal-body {
+  text-align: left;
+  padding: 14px 16px;
+}
+
+.mobile-banking-form {
+  font-size: 13px;
+  color: #334155;
+}
+
+.mobile-banking-panel {
+  border: 1px solid #dbe2ea;
+  border-radius: 10px;
+  padding: 12px;
+  background: #f8fafc;
+}
+
+.mobile-banking-panel-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 12px;
+}
+
+.mobile-banking-row {
+  margin-bottom: 10px;
+}
+
+.mobile-banking-row:last-child {
+  margin-bottom: 0;
+}
+
+.mobile-banking-row.two-col {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mobile-banking-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.mobile-banking-label .required {
+  color: #dc2626;
+}
+
+.mobile-banking-input,
+.mobile-banking-select,
+.mobile-banking-textarea,
+.mobile-banking-readonly,
+.mobile-banking-date-btn {
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid #d9d9d9;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+  font-size: 13px;
+  line-height: 1.4;
+  box-sizing: border-box;
+}
+
+.mobile-banking-input,
+.mobile-banking-select,
+.mobile-banking-readonly {
+  padding: 0 10px;
+}
+
+.mobile-banking-select {
+  appearance: auto;
+}
+
+.mobile-banking-readonly {
+  background: #f8fafc;
+  color: #64748b;
+}
+
+.mobile-banking-textarea {
+  min-height: 64px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.mobile-banking-date-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  padding: 0 10px;
+}
+
+.mobile-banking-hint {
+  margin-top: 2px;
+  padding: 8px 10px;
+  border: 1px solid #dbe2ea;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.mobile-banking-hint strong {
+  color: #1e3a8a;
+}
+
+@media (max-width: 380px) {
+  .mobile-banking-row.two-col {
+    grid-template-columns: 1fr;
+  }
+}

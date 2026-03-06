@@ -1,0 +1,10 @@
+tools/card-manager/build/
+tools/card-manager/dist/
+tools/card-manager/dist-installer/
+tools/card-manager/*.spec
+tools/card-manager/__pycache__/
+tools/card-manager/workspace_bundle/
+*.pyc
+*.bak
+.github/qq-mail-sync/node_modules/
+supabase/.temp/

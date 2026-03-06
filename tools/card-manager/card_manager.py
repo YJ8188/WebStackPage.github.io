@@ -22,6 +22,13 @@ from urllib.parse import quote
 DEFAULT_REMOTE_URL = "https://github.com/YJ8188/WebStackPage.github.io.git"
 DEFAULT_DEPLOY_DOMAIN = "hq168.dpdns.org"
 MANAGER_CONFIG_FILE = "manager-config.json"
+RETRYABLE_GIT_NETWORK_ERRORS = (
+    "Failed to connect to github.com port 443",
+    "Could not connect to server",
+    "Empty reply from server",
+    "Recv failure",
+    "Connection was reset",
+)
 
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog, ttk
@@ -421,6 +428,13 @@ def run_command(command: List[str], cwd: Path) -> Tuple[bool, str]:
         return False, f"命令执行异常: {exc}"
 
 
+def is_retryable_git_network_error(text: str) -> bool:
+    if not text:
+        return False
+    lowered = text.lower()
+    return any(pattern.lower() in lowered for pattern in RETRYABLE_GIT_NETWORK_ERRORS)
+
+
 def find_git_root(start_path: Path) -> Optional[Path]:
     current = start_path.resolve()
     if current.is_file():
@@ -544,7 +558,18 @@ def parse_github_username(remote_url: str) -> str:
 
 
 def has_common_history_with_origin_master(repo_root: Path) -> Tuple[bool, str]:
-    ok_fetch, out_fetch = run_command(["git", "fetch", "origin", "master"], repo_root)
+    fetch_commands = [
+        ["git", "fetch", "origin", "master"],
+        ["git", "--ipv4", "fetch", "origin", "master"],
+    ]
+    ok_fetch = False
+    out_fetch = ""
+    for fetch_command in fetch_commands:
+        ok_fetch, out_fetch = run_command(fetch_command, repo_root)
+        if ok_fetch:
+            break
+        if not is_retryable_git_network_error(out_fetch):
+            return False, out_fetch
     if not ok_fetch:
         return False, out_fetch
     ok_base, out_base = run_command(["git", "merge-base", "master", "origin/master"], repo_root)
@@ -1060,6 +1085,55 @@ class CardManagerApp:
 
         self.log(f"已自动配置 Git 提交身份：{final_name} <{final_email}>")
         return True
+
+    def run_git_with_ipv4_fallback(self, git_root: Path, command: List[str]) -> Tuple[bool, str]:
+        commands = [command]
+        if command and command[0] == "git" and "--ipv4" not in command and len(command) >= 2:
+            commands.append([command[0], command[1], "--ipv4", *command[2:]])
+
+        last_output = ""
+        for index, cmd in enumerate(commands):
+            ok, output = run_command(cmd, git_root)
+            self.log("$ " + " ".join(cmd))
+            if output:
+                self.log(output)
+            if ok:
+                if index > 0:
+                    self.log("已自动切换 IPv4 通道执行成功。")
+                return True, output
+            last_output = output
+            if not is_retryable_git_network_error(output):
+                return False, output
+            if index == 0 and len(commands) > 1:
+                self.log("检测到网络波动，自动尝试 IPv4 通道...")
+        return False, last_output
+
+    def run_stable_push_to_remote(self, git_root: Path, remote: str, branch: str) -> Tuple[bool, str]:
+        safe_push_script = git_root / "tools" / "git-safe-push.ps1"
+        if safe_push_script.exists():
+            command = [
+                "powershell",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(safe_push_script),
+                "-RepoPath",
+                str(git_root),
+                "-Remote",
+                remote,
+                "-Branch",
+                branch,
+                "-MaxAttempts",
+                "8",
+            ]
+            ok, output = run_command(command, git_root)
+            self.log("$ " + " ".join(command))
+            if output:
+                self.log(output)
+            return ok, output
+        self.log("未找到 tools/git-safe-push.ps1，降级使用内置 IPv4 推送。")
+        return self.run_git_with_ipv4_fallback(git_root, ["git", "push", remote, branch])
 
     def load_origin_url(self) -> None:
         git_root = find_git_root(self.index_path.parent if self.index_path else self.repo_root) or self.repo_root
@@ -1650,12 +1724,11 @@ class CardManagerApp:
 
         commit_msg = f"chore(index): update via manager {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
         self.log(f"开始推送到 GitHub master：{target_origin}")
-        commands = [
+        pre_push_commands = [
             ["git", "add", "-A"],
             ["git", "commit", "-m", commit_msg],
-            ["git", "push", "origin", "master"],
         ]
-        for command in commands:
+        for command in pre_push_commands:
             ok, output = run_command(command, git_root)
             self.log("$ " + " ".join(command))
             if output:
@@ -1664,28 +1737,42 @@ class CardManagerApp:
                 if command[1] == "commit" and "nothing to commit" in output.lower():
                     self.log("没有新改动，继续执行 push。")
                     continue
-                if command[1] == "push" and ("fetch first" in output.lower() or "non-fast-forward" in output.lower()):
-                    self.log("检测到远程领先，尝试自动 rebase 后再次推送...")
-                    ok_rebase, out_rebase = run_command(["git", "pull", "--rebase", "origin", "master"], git_root)
-                    if out_rebase:
-                        self.log(out_rebase)
-                    if ok_rebase:
-                        ok_retry, out_retry = run_command(["git", "push", "origin", "master"], git_root)
-                        self.log("$ git push origin master")
-                        if out_retry:
-                            self.log(out_retry)
-                        if ok_retry:
-                            break
-                    messagebox.showerror(
-                        "推送失败",
-                        "远程分支领先，本地自动同步后仍推送失败。\n"
-                        "请先绑定真实仓库目录，或手动执行 git pull --rebase 后再推送。",
-                    )
-                    return
                 detail = output if output else "（命令未返回输出）"
                 messagebox.showerror(
                     "Git 操作失败",
                     f"命令失败：{' '.join(command)}\n\n详细信息：\n{detail}",
+                )
+                return
+
+        ok_push, out_push = self.run_stable_push_to_remote(git_root, "origin", "master")
+        if not ok_push:
+            lowered_push = out_push.lower()
+            if "fetch first" in lowered_push or "non-fast-forward" in lowered_push:
+                self.log("检测到远程领先，尝试自动 rebase 后再次推送...")
+                ok_rebase, out_rebase = self.run_git_with_ipv4_fallback(
+                    git_root,
+                    ["git", "pull", "--rebase", "origin", "master"],
+                )
+                if ok_rebase:
+                    ok_retry, out_retry = self.run_stable_push_to_remote(git_root, "origin", "master")
+                    if ok_retry:
+                        ok_push = True
+                    else:
+                        out_push = out_retry
+                else:
+                    out_push = out_rebase
+            if not ok_push:
+                if is_retryable_git_network_error(out_push):
+                    messagebox.showerror(
+                        "推送失败",
+                        "网络连接不稳定，工具已自动重试并切换 IPv4 通道但仍失败。\n"
+                        "请稍后重试，或检查本机网络/代理后再推送。",
+                    )
+                    return
+                messagebox.showerror(
+                    "推送失败",
+                    "远程分支领先或存在冲突，自动同步后仍失败。\n"
+                    "请先手动执行 git pull --rebase 解决冲突后再推送。",
                 )
                 return
         ts = int(datetime.now().timestamp())

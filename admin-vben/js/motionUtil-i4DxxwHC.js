@@ -1,0 +1,1 @@
+function e(e){let{prefixCls:t,animation:n,transitionName:r}=e;return n?{name:`${t}-${n}`}:r?{name:r}:{}}export{e as t};

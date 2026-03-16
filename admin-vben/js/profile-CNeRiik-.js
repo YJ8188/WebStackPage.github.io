@@ -1,0 +1,1 @@
+var e=`Update Password`,t=`Update Basic Profile`,n={updatePassword:e,updateBasicProfile:t};export{n as default,t as updateBasicProfile,e as updatePassword};

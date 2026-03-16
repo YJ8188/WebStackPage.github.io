@@ -1,0 +1,1 @@
+var e=`/auth/login`,t=[{label:`简体中文`,value:`zh-CN`},{label:`English`,value:`en-US`}];export{t as n,e as t};

@@ -1,0 +1,1 @@
+var e=`更新密码`,t=`更新基本信息`,n={updatePassword:e,updateBasicProfile:t};export{n as default,t as updateBasicProfile,e as updatePassword};

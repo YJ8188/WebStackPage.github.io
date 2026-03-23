@@ -1,0 +1,1 @@
+var e=`--vben-content-height`,t=`--vben-content-width`,n=`--vben-header-height`,r=`--vben-footer-height`,i=`__vben_main_content`,a=`vben`;export{a,n as i,t as n,i as o,r,e as t};

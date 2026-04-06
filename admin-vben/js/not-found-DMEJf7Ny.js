@@ -1,0 +1,1 @@
+import{Dt as e,E as t,G as n,v as r}from"./vue.runtime.esm-bundler-D1euNOj5.js";import{t as i}from"./objectSpread2-CwpxwSvQ.js";import{t as a}from"./fallback-eZAV_VQa.js";var o=t(i(i({},{name:`Fallback404Demo`}),{},{__name:`not-found`,setup(t){return(t,i)=>(n(),r(e(a),{status:`404`}))}}));export{o as default};

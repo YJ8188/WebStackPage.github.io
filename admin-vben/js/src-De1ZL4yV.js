@@ -1,0 +1,1 @@
+import{G as e,b as t}from"./vue.runtime.esm-bundler-w7BQ1r-D.js";import{t as n}from"./_plugin-vue_export-helper-Bkonhh8L.js";var r={};function i(n,r){return e(),t(`div`)}var a=n(r,[[`render`,i]]);export{a as t};

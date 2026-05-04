@@ -1,1 +1,0 @@
-import{B as e,vt as t}from"./vue.runtime.esm-bundler-w7BQ1r-D.js";var n=()=>{let n=t(new Map);return e(()=>{n.value=new Map}),[e=>t=>{n.value.set(e,t)},n]};export{n as t};

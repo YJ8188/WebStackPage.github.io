@@ -1,1 +1,0 @@
-import{K as e,at as t,gt as n,j as r}from"./vue.runtime.esm-bundler-w7BQ1r-D.js";import{r as i}from"./en_US-tzhqnC3v.js";function a(a){let o=Symbol(`contextKey`);return{useProvide:(r,a)=>{let s=n({});return e(o,s),t(()=>{i(s,r,a||{})}),s},useInject:()=>r(o,a)||{}}}export{a as t};

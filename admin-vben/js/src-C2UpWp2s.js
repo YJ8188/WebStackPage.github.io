@@ -1,1 +1,0 @@
-import{r as e}from"./chunk-CrjmscNJ.js";import{Hn as t,_n as n}from"../jse/index-index-qKfufIAd.js";import{t as r}from"./_plugin-vue_export-helper-BmQ3P5f4.js";var i={};function a(e,r){return t(),n(`div`)}var o=r(i,[[`render`,a]]),s=e({IFrameView:()=>o});export{s as t};

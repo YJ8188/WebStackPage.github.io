@@ -1,0 +1,1 @@
+import{t as e}from"./objectSpread2-BHJFn0bq.js";import{Cn as t,Cr as n,Hn as r,hn as i}from"../jse/index-index-DSNk9evI.js";import{t as a}from"./fallback-C2FlyArR.js";var o=t(e(e({},{name:`FallbackOfflineDemo`}),{},{__name:`offline`,setup(e){return(e,t)=>(r(),i(n(a),{status:`offline`}))}}));export{o as default};
